@@ -91,8 +91,9 @@ exports.get = function(name: string): ReactNativeBaseComponentViewConfig<> {
     if (typeof callback !== 'function') {
       invariant(
         false,
-        'View config not found for name %s.%s',
+        'View config registration not found for name %s (received %s).%s',
         name,
+        typeof callback,
         typeof name[0] === 'string' && /[a-z]/.test(name[0])
           ? ' Make sure to start component names with a capital letter.'
           : '',
