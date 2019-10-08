@@ -25,7 +25,6 @@ export const enableSchedulerTracing = __PROFILE__;
 export const enableSuspenseServerRenderer = false;
 export const enableStableConcurrentModeAPIs = false;
 export const enableSchedulerDebugging = false;
-export const warnAboutDeprecatedSetNativeProps = false;
 export const disableJavaScriptURLs = false;
 export const enableFlareAPI = true;
 export const enableFundamentalAPI = false;

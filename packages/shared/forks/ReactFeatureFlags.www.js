@@ -18,7 +18,6 @@ export const {
   warnAboutDeprecatedLifecycles,
   disableInputAttributeSyncing,
   warnAboutShorthandPropertyCollision,
-  warnAboutDeprecatedSetNativeProps,
   revertPassiveEffectsChange,
   enableUserBlockingEvents,
   disableLegacyContext,
