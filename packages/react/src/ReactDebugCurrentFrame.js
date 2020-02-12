@@ -25,6 +25,9 @@ export function setCurrentlyValidatingElement(element: null | ReactElement) {
 if (__DEV__) {
   // Stack implementation injected by the current renderer.
   ReactDebugCurrentFrame.getCurrentStack = (null: null | (() => string));
+  
+  // Overridden by the dev tools, when present.
+  ReactDebugCurrentFrame.describeComponentFrame = describeComponentFrame;
 
   ReactDebugCurrentFrame.getStackAddendum = function(): string {
     let stack = '';
@@ -33,7 +36,7 @@ if (__DEV__) {
     if (currentlyValidatingElement) {
       const name = getComponentName(currentlyValidatingElement.type);
       const owner = currentlyValidatingElement._owner;
-      stack += describeComponentFrame(
+      stack += ReactDebugCurrentFrame.describeComponentFrame(
         name,
         currentlyValidatingElement._source,
         owner && getComponentName(owner.type),
