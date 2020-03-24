@@ -15,6 +15,7 @@ import type {
   TextInstance,
   Container,
   PublicInstance,
+  RendererInspectionConfig,
 } from './ReactFiberHostConfig';
 import {FundamentalComponent} from 'shared/ReactWorkTags';
 import type {ReactNodeList} from 'shared/ReactTypes';
@@ -102,13 +103,10 @@ type DevToolsConfig = {|
   bundleType: BundleType,
   version: string,
   rendererPackageName: string,
+  rendererConfig?: RendererInspectionConfig,
   // Note: this actually *does* depend on Fiber internal fields.
   // Used by "inspect clicked DOM element" in React DevTools.
   findFiberByHostInstance?: (instance: Instance | TextInstance) => Fiber,
-  // Used by RN in-app inspector.
-  // This API is unfortunately RN-specific.
-  // TODO: Change it to accept Fiber instead and type it properly.
-  getInspectorDataForViewTag?: (tag: number) => Object,
 |};
 
 let didWarnAboutNestedUpdates;
@@ -514,7 +512,7 @@ export function injectIntoDevTools(devToolsConfig: DevToolsConfig): boolean {
     bundleType: devToolsConfig.bundleType,
     version: devToolsConfig.version,
     rendererPackageName: devToolsConfig.rendererPackageName,
-    getInspectorDataForViewTag: devToolsConfig.getInspectorDataForViewTag,
+    rendererConfig: devToolsConfig.rendererConfig,
     overrideHookState,
     overrideProps,
     setSuspenseHandler,
