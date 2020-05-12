@@ -9,6 +9,7 @@
  */
 
 import type {ElementRef, AbstractComponent} from 'react';
+import type {Fiber} from 'react-reconciler/src/ReactInternalTypes';
 
 export type MeasureOnSuccessCallback = (
   x: number,
@@ -128,17 +129,31 @@ export type InspectorData = $ReadOnly<{|
   source: ?InspectorDataSource,
 |}>;
 
-export type TouchedViewDataAtPoint = $ReadOnly<{|
-  pointerY: number,
-  touchedViewTag?: number,
-  frame: $ReadOnly<{|
-    top: number,
-    left: number,
-    width: number,
-    height: number,
-  |}>,
-  ...InspectorData,
-|}>;
+export type TouchedViewDataAtPoint =
+  // Fabric data.
+  | $ReadOnly<{|
+      pointerY: number,
+      instance?: Fiber, // Should this be a host instance (ShadowNode)?
+      frame: $ReadOnly<{|
+        top: number,
+        left: number,
+        width: number,
+        height: number,
+      |}>,
+      ...InspectorData,
+    |}>
+  // Paper data.
+  | $ReadOnly<{|
+      pointerY: number,
+      touchedViewTag?: number, // Deprecated, paper only.
+      frame: $ReadOnly<{|
+        top: number,
+        left: number,
+        width: number,
+        height: number,
+      |}>,
+      ...InspectorData,
+    |}>;
 
 /**
  * Flat ReactNative renderer bundles are too big for Flow to parse efficiently.

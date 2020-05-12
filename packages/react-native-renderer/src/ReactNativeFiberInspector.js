@@ -128,6 +128,7 @@ if (__DEV__) {
     const selectedIndex = fiberHierarchy.indexOf(instance);
 
     return {
+      instance: closestInstance,
       hierarchy,
       props,
       selectedIndex,
