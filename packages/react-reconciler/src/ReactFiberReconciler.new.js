@@ -89,6 +89,7 @@ import {
   setRefreshHandler,
   findHostInstancesForRefresh,
 } from './ReactFiberHotReloading.new';
+import {enableSetUpdateLanePriority} from 'shared/ReactFeatureFlags';
 
 export {registerMutableSourceForHydration} from './ReactMutableSource.new';
 export {createPortal} from './ReactPortal';

@@ -18,6 +18,7 @@ export const disableInputAttributeSyncing = __VARIANT__;
 export const enableFilterEmptyStringAttributesDOM = __VARIANT__;
 export const enableLegacyFBSupport = __VARIANT__;
 export const decoupleUpdatePriorityFromScheduler = __VARIANT__;
+export const enableSetUpdateLanePriority = __VARIANT__;
 
 // TODO: These features do not currently exist in the new reconciler fork.
 export const enableDebugTracing = !__VARIANT__;

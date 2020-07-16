@@ -522,7 +522,7 @@ describe('ReactIncrementalUpdates', () => {
         if (log === 'B') {
           // Right after B commits, schedule additional updates.
           // TODO: Double wrapping is temporary while we remove Scheduler runWithPriority.
-          ReactNoop.unstable_runWithPriority(InputContinuousLanePriority, () =>
+          ReactNoop.unstable_runWithPriority(undefined, () =>
             Scheduler.unstable_runWithPriority(
               Scheduler.unstable_UserBlockingPriority,
               () => {
@@ -548,7 +548,7 @@ describe('ReactIncrementalUpdates', () => {
       pushToLog('A');
 
       // TODO: Double wrapping is temporary while we remove Scheduler runWithPriority.
-      ReactNoop.unstable_runWithPriority(InputContinuousLanePriority, () =>
+      ReactNoop.unstable_runWithPriority(undefined, () =>
         Scheduler.unstable_runWithPriority(
           Scheduler.unstable_UserBlockingPriority,
           () => {

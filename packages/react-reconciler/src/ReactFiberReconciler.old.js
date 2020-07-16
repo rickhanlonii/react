@@ -91,6 +91,7 @@ import {
   findHostInstancesForRefresh,
 } from './ReactFiberHotReloading.old';
 import {markRenderScheduled} from './SchedulingProfiler';
+import {enableSetUpdateLanePriority} from 'shared/ReactFeatureFlags';
 
 export {registerMutableSourceForHydration} from './ReactMutableSource.new';
 export {createPortal} from './ReactPortal';

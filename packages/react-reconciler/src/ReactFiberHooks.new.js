@@ -24,7 +24,10 @@ import type {FiberRoot} from './ReactInternalTypes';
 import type {OpaqueIDType} from './ReactFiberHostConfig';
 
 import ReactSharedInternals from 'shared/ReactSharedInternals';
-import {enableNewReconciler} from 'shared/ReactFeatureFlags';
+import {
+  enableNewReconciler,
+  enableSetUpdateLanePriority,
+} from 'shared/ReactFeatureFlags';
 
 import {NoMode, BlockingMode} from './ReactTypeOfMode';
 import {
@@ -1503,10 +1506,13 @@ function rerenderDeferredValue<T>(
 
 function startTransition(setPending, config, callback) {
   const priorityLevel = getCurrentPriorityLevel();
-  const previousLanePriority = getCurrentUpdateLanePriority();
-  setCurrentUpdateLanePriority(
-    higherLanePriority(previousLanePriority, InputContinuousLanePriority),
-  );
+  let previousLanePriority;
+  if (enableSetUpdateLanePriority) {
+    previousLanePriority = getCurrentUpdateLanePriority();
+    setCurrentUpdateLanePriority(
+      higherLanePriority(previousLanePriority, InputContinuousLanePriority),
+    );
+  }
   runWithPriority(
     priorityLevel < UserBlockingPriority ? UserBlockingPriority : priorityLevel,
     () => {
@@ -1514,8 +1520,10 @@ function startTransition(setPending, config, callback) {
     },
   );
 
-  // If there's no SuspenseConfig set, we'll use the DefaultLanePriority for this transition.
-  setCurrentUpdateLanePriority(DefaultLanePriority);
+  if (enableSetUpdateLanePriority) {
+    // If there's no SuspenseConfig set, we'll use the DefaultLanePriority for this transition.
+    setCurrentUpdateLanePriority(DefaultLanePriority);
+  }
 
   runWithPriority(
     priorityLevel > NormalPriority ? NormalPriority : priorityLevel,
@@ -1526,7 +1534,9 @@ function startTransition(setPending, config, callback) {
         setPending(false);
         callback();
       } finally {
-        setCurrentUpdateLanePriority(previousLanePriority);
+        if (enableSetUpdateLanePriority && previousLanePriority != null) {
+          setCurrentUpdateLanePriority(previousLanePriority);
+        }
         ReactCurrentBatchConfig.suspense = previousConfig;
       }
     },
