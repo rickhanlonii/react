@@ -173,7 +173,14 @@ const bundles = [
   /******* React DOM - www - Uses forked reconciler *******/
   {
     moduleType: RENDERER,
-    bundleTypes: [FB_WWW_DEV, FB_WWW_PROD, FB_WWW_PROFILING],
+    bundleTypes: [
+      FB_WWW_DEV,
+      FB_WWW_PROD,
+      FB_WWW_PROFILING,
+      UMD_DEV,
+      UMD_PROD,
+      UMD_PROFILING,
+    ],
     entry: 'react-dom',
     global: 'ReactDOMForked',
     enableNewReconciler: true,

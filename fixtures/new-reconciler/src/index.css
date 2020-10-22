@@ -1,0 +1,97 @@
+html,
+body {
+  padding: 0px;
+  margin: 0px;
+  user-select: none;
+  font-family: Karla, Helvetica Neue, Helvetica, sans-serif;
+  background: rgb(34, 34, 34);
+  color: white;
+  overflow: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+#root {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.renderers {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+}
+
+.controller {
+  flex: 0.2;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  padding: 10px 20px;
+  margin: 20px;
+  /*margin-top: 10px;*/
+}
+
+.renderer {
+  flex: 1;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  padding: 10px 20px;
+  margin: 20px;
+}
+
+.heading {
+  text-align: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #ccc;
+}
+
+.heading button {
+  margin: 0 10px;
+  width: 75px;
+}
+
+.component {
+  padding: 1px;
+  border: 1px solid #ccc;
+  text-align: center;
+  border-radius: 3px;
+}
+
+.tree {
+  margin-bottom: 10px;
+}
+
+.component.hidden {
+  border: 1px dashed #ccc;
+  border-radius: 3px;
+}
+
+.leaf {
+  height: 10px;
+}
+
+.app-container {
+  padding: 10px;
+}
+
+.input {
+  width: 50px;
+}
+
+.label {
+  margin-right: 10px;
+}
+
+.container {
+  margin: auto;
+  padding: 10px;
+}
+
+.rendering {
+  margin-top: 20px;
+  margin-bottom: 20px;
+  zoom: 1.8;
+}
