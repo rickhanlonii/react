@@ -124,11 +124,13 @@ function Renderer({children, title}) {
     <>
       <div className="heading">
         <h1>{title}</h1>
-        <button onClick={handleReset}>Reset</button>
-        <button onClick={handleMountUnmount}>
+        <button className="reset" onClick={handleReset}>
+          Reset
+        </button>
+        <button className="mount" onClick={handleMountUnmount}>
           {mount ? 'Unmount' : 'Mount'}
         </button>
-        <button disabled={!mount} onClick={handleUpdate}>
+        <button className="update" disabled={!mount} onClick={handleUpdate}>
           Update
         </button>
       </div>

@@ -66,52 +66,57 @@ function Controller() {
 
   return (
     <div className="controller-row">
-      <div>
-        <label className="label">Depth</label>
-        <input
-          type="number"
-          className="input"
-          onChange={handleDepthChange}
-          value={depth}
-        />
+      <div className="controller-row-left">
+        <div className="controller-row-item">
+          <label className="label">Depth</label>
+          <input
+            type="number"
+            className="input"
+            onChange={handleDepthChange}
+            value={depth}
+          />
+        </div>
+        <div className="controller-row-item">
+          <label className="label">Hidden trees</label>
+          <input
+            type="number"
+            className="input"
+            onChange={handleHiddenTreesChange}
+            value={hiddenTrees}
+          />
+        </div>
+        <div className="controller-row-item">
+          <label className="label">Trees to mount</label>
+          <input
+            type="number"
+            className="input"
+            onChange={handleMountedTreesChange}
+            value={mountedTrees}
+          />
+        </div>
       </div>
-      <div>
-        <label className="label">Hidden trees</label>
-        <input
-          type="number"
-          className="input"
-          onChange={handleHiddenTreesChange}
-          value={hiddenTrees}
-        />
-      </div>
-      <div>
-        <label className="label">Trees to mount</label>
-        <input
-          type="number"
-          className="input"
-          onChange={handleMountedTreesChange}
-          value={mountedTrees}
-        />
-      </div>
-      <div>
-        <label className="label">Create duration</label>
-        <input
-          type="number"
-          className="input"
-          onChange={handleCreateDurationChange}
-          step={0.1}
-          value={createDuration}
-        />
-      </div>
-      <div>
-        <label className="label">Destroy duration</label>
-        <input
-          type="number"
-          className="input"
-          onChange={handleDestroyDurationChange}
-          step={0.1}
-          value={destroyDuration}
-        />
+
+      <div className="controller-row-right">
+        <div className="controller-row-item">
+          <label className="label">Create duration</label>
+          <input
+            type="number"
+            className="input"
+            onChange={handleCreateDurationChange}
+            step={0.1}
+            value={createDuration}
+          />
+        </div>
+        <div className="controller-row-item">
+          <label className="label">Destroy duration</label>
+          <input
+            type="number"
+            className="input"
+            onChange={handleDestroyDurationChange}
+            step={0.1}
+            value={destroyDuration}
+          />
+        </div>
       </div>
     </div>
   );
