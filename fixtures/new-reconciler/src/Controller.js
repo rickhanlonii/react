@@ -35,13 +35,18 @@ function Controller() {
     }
   }
 
-  const [createDuration, setCreateDuration] = React.useState(0);
-  const [destroyDuration, setDestroyDuration] = React.useState(0);
+  const [createDuration, setCreateDuration] = React.useState(
+    getParam('createDuration', 'int')
+  );
+  const [destroyDuration, setDestroyDuration] = React.useState(
+    getParam('destroyDuration', 'int')
+  );
 
   function handleCreateDurationChange(e) {
     const newValue = parseFloat(e.target.value);
     if (newValue >= 0) {
       setCreateDuration(newValue);
+      setParam('createDuration', newValue);
 
       // Shady :)
       window.createDuration = newValue;
@@ -52,6 +57,7 @@ function Controller() {
     const newValue = parseFloat(e.target.value);
     if (newValue >= 0) {
       setDestroyDuration(newValue);
+      setParam('destroyDuration', newValue);
 
       // Shady :)
       window.destroyDuration = newValue;
