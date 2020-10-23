@@ -65,8 +65,8 @@ ReactDOM.unstable_createRoot(document.getElementById('controller')).render(
   <Controller />
 );
 ReactDOM.unstable_createRoot(document.getElementById('old')).render(
-  <Renderer title="New Renderer">{props => <App {...props} />}</Renderer>
+  <Renderer title="Old Renderer">{props => <App {...props} />}</Renderer>
 );
 ReactDOMForked.unstable_createRoot(document.getElementById('new')).render(
-  <Renderer title="Old Renderer">{props => <App {...props} />}</Renderer>
+  <Renderer title="New Renderer">{props => <App {...props} />}</Renderer>
 );
