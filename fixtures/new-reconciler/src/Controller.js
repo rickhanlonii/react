@@ -36,7 +36,7 @@ function Controller() {
   }
 
   return (
-    <div>
+    <div className="controller-row">
       <div>
         <label className="label">Depth</label>
         <input

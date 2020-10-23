@@ -2,10 +2,7 @@ import * as React from 'react';
 
 function Node({level, depth, children}) {
   React.useLayoutEffect(() => {
-    console.log('layout node');
-    return () => {
-      console.log('layout node cleanup');
-    };
+    return () => {};
   });
   if (level < depth) {
     return (
@@ -19,10 +16,7 @@ function Node({level, depth, children}) {
 
 function Leaf() {
   React.useLayoutEffect(() => {
-    console.log('layout leaf');
-    return () => {
-      console.log('layout leaf cleanup');
-    };
+    return () => {};
   });
 
   return <div className="leaf" />;

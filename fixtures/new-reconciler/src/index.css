@@ -13,44 +13,68 @@ body {
   box-sizing: border-box;
 }
 
-#root {
+h1 {
+  font-size: 1.5rem;
+  margin: 1rem 0;
+}
+
+.root {
   height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: auto;
 }
 
 .renderers {
-  flex: 1;
+  overflow: auto;
+  flex: 1 1;
   display: flex;
   flex-direction: row;
 }
 
 .controller {
-  flex: 0.2;
+  flex: 0 0 auto;
   border: 1px solid #ccc;
   border-radius: 5px;
-  padding: 10px 20px;
-  margin: 20px;
-  /*margin-top: 10px;*/
+  padding: 10px 1rem;
+  margin: 1rem 1rem 0;
 }
 
 .renderer {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
   flex: 1;
   border: 1px solid #ccc;
   border-radius: 5px;
-  padding: 10px 20px;
-  margin: 20px;
+  padding: 10px 1rem;
+  margin: 1rem 1rem 1rem 0;
+}
+.renderer:first-of-type {
+  margin-left: 1rem;
 }
 
 .heading {
-  text-align: center;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #ccc;
+  display: flex;
+  flex-direction: row;
+}
+
+.heading h1 {
+  flex: 1;
 }
 
 .heading button {
   margin: 0 10px;
   width: 75px;
+}
+
+.durations {
+  display: flex;
+  justify-content: space-between;
+  padding: 1rem 0;
+  margin: 1rem 0;
+  border-top: 1px solid #ccc;
+  border-bottom: 1px solid #ccc;
 }
 
 .component {
@@ -74,7 +98,8 @@ body {
 }
 
 .app-container {
-  padding: 10px;
+  flex: 1 1 auto;
+  overflow: auto;
 }
 
 .input {
@@ -91,7 +116,13 @@ body {
 }
 
 .rendering {
-  margin-top: 20px;
-  margin-bottom: 20px;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
   zoom: 1.8;
+}
+
+.controller-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
 }

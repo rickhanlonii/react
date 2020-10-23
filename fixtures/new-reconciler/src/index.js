@@ -7,6 +7,10 @@ import './index.css';
 
 import {getParam} from './state';
 
+function format(totalDuration, totalCount) {
+  return totalCount === 0 ? '0.0' : (totalDuration / totalCount).toFixed(1);
+}
+
 function Renderer({children, title}) {
   const [mount, setMount] = React.useState(false);
   const [depth, setDepth] = React.useState(getParam('depth'));
@@ -32,32 +36,123 @@ function Renderer({children, title}) {
     };
   }, []);
 
+  const [durations, setDurations] = React.useState({
+    mount: {
+      totalDuration: 0,
+      totalCount: 0,
+    },
+    unmount: {
+      totalDuration: 0,
+      totalCount: 0,
+    },
+    update: {
+      totalDuration: 0,
+      totalCount: 0,
+    },
+  });
+
+  const dataRef = React.useRef({
+    markName: null,
+    startTime: null,
+  });
+
+  function start(markName) {
+    const data = dataRef.current;
+    data.markName = markName;
+    data.startTime = performance.now();
+
+    performance.mark(markName);
+  }
+
+  function handleMountUnmount() {
+    start(mount ? 'unmount' : 'mount');
+    setMount(!mount);
+  }
+
+  function handleUpdate() {
+    start('update');
+    forceUpdate(value => !value);
+  }
+
+  function onRender() {
+    const {markName, startTime} = dataRef.current;
+    if (markName !== null) {
+      dataRef.current.markName = null;
+
+      performance.measure(markName);
+
+      const data = durations[markName];
+      if (data != null) {
+        const duration = performance.now() - startTime;
+
+        const totalDuration = data.totalDuration + duration;
+        const totalCount = data.totalCount + 1;
+
+        setDurations(prevState => {
+          return {
+            ...prevState,
+            [markName]: {
+              totalDuration,
+              totalCount,
+            },
+          };
+        });
+      }
+    }
+  }
+
+  const mountAverage = format(
+    durations.mount.totalDuration,
+    durations.mount.totalCount
+  );
+  const unmountAverage = format(
+    durations.unmount.totalDuration,
+    durations.unmount.totalCount
+  );
+  const updateAverage = format(
+    durations.update.totalDuration,
+    durations.update.totalCount
+  );
+
   return (
-    <div>
+    <>
       <div className="heading">
         <h1>{title}</h1>
-        <button onClick={() => setMount(mount => !mount)}>
+        <button onClick={handleMountUnmount}>
           {mount ? 'Unmount' : 'Mount'}
         </button>
-        <button onClick={() => forceUpdate(update => !update)}>Update</button>
+        <button disabled={!mount} onClick={handleUpdate}>
+          Update
+        </button>
       </div>
-      <div className="app-container">
-        {mount ? (
-          [...new Array(mountedTrees)].map((_, i) => (
-            <div key={i}>{children({depth})}</div>
-          ))
-        ) : (
-          <div>
-            Will mount {mountedTrees} trees with depth {depth}
-          </div>
-        )}
+      <div className="durations">
+        <div>
+          mount: {mountAverage}ms ({durations.mount.totalCount})
+        </div>
+        <div>
+          unmount: {unmountAverage}ms ({durations.unmount.totalCount})
+        </div>
+        <div>
+          update: {updateAverage}ms ({durations.update.totalCount})
+        </div>
       </div>
-      <div className="app-container">
-        {[...new Array(hiddenTrees)].map((_, i) => (
-          <div key={i}>{children({depth, hidden: hiddenTrees > 0})}</div>
-        ))}
-      </div>
-    </div>
+      <React.Profiler id="app" onRender={onRender}>
+        <div className="app-container">
+          {mount ? (
+            [...new Array(mountedTrees)].map((_, i) => (
+              <div key={i}>{children({depth})}</div>
+            ))
+          ) : (
+            <div>
+              Will mount {mountedTrees} trees with depth {depth}
+            </div>
+          )}
+          {[...new Array(hiddenTrees)].map((_, i) => (
+            <div key={i}>{children({depth, hidden: hiddenTrees > 0})}</div>
+          ))}
+        </div>
+      </React.Profiler>
+    </>
   );
 }
 
