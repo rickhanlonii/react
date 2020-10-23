@@ -11,6 +11,21 @@ function format(totalDuration, totalCount) {
   return totalCount === 0 ? '0.0' : (totalDuration / totalCount).toFixed(1);
 }
 
+const INITIAL_DURATION_STATE = {
+  mount: {
+    totalDuration: 0,
+    totalCount: 0,
+  },
+  unmount: {
+    totalDuration: 0,
+    totalCount: 0,
+  },
+  update: {
+    totalDuration: 0,
+    totalCount: 0,
+  },
+};
+
 function Renderer({children, title}) {
   const [mount, setMount] = React.useState(false);
   const [depth, setDepth] = React.useState(getParam('depth'));
@@ -36,20 +51,7 @@ function Renderer({children, title}) {
     };
   }, []);
 
-  const [durations, setDurations] = React.useState({
-    mount: {
-      totalDuration: 0,
-      totalCount: 0,
-    },
-    unmount: {
-      totalDuration: 0,
-      totalCount: 0,
-    },
-    update: {
-      totalDuration: 0,
-      totalCount: 0,
-    },
-  });
+  const [durations, setDurations] = React.useState(INITIAL_DURATION_STATE);
 
   const dataRef = React.useRef({
     markName: null,
@@ -64,6 +66,10 @@ function Renderer({children, title}) {
     performance.mark(markName);
   }
 
+  function handleReset() {
+    setDurations(INITIAL_DURATION_STATE);
+  }
+
   function handleMountUnmount() {
     start(mount ? 'unmount' : 'mount');
     setMount(!mount);
@@ -74,7 +80,7 @@ function Renderer({children, title}) {
     forceUpdate(value => !value);
   }
 
-  function onRender() {
+  function onCommit() {
     const {markName, startTime} = dataRef.current;
     if (markName !== null) {
       dataRef.current.markName = null;
@@ -118,6 +124,7 @@ function Renderer({children, title}) {
     <>
       <div className="heading">
         <h1>{title}</h1>
+        <button onClick={handleReset}>Reset</button>
         <button onClick={handleMountUnmount}>
           {mount ? 'Unmount' : 'Mount'}
         </button>
@@ -136,7 +143,7 @@ function Renderer({children, title}) {
           update: {updateAverage}ms ({durations.update.totalCount})
         </div>
       </div>
-      <React.Profiler id="app" onRender={onRender}>
+      <React.Profiler id="app" onCommit={onCommit}>
         <div className="app-container">
           {mount ? (
             [...new Array(mountedTrees)].map((_, i) => (

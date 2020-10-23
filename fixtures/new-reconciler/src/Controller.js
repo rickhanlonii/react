@@ -35,6 +35,29 @@ function Controller() {
     }
   }
 
+  const [createDuration, setCreateDuration] = React.useState(0);
+  const [destroyDuration, setDestroyDuration] = React.useState(0);
+
+  function handleCreateDurationChange(e) {
+    const newValue = parseFloat(e.target.value);
+    if (newValue >= 0) {
+      setCreateDuration(newValue);
+
+      // Shady :)
+      window.createDuration = newValue;
+    }
+  }
+
+  function handleDestroyDurationChange(e) {
+    const newValue = parseFloat(e.target.value);
+    if (newValue >= 0) {
+      setDestroyDuration(newValue);
+
+      // Shady :)
+      window.destroyDuration = newValue;
+    }
+  }
+
   return (
     <div className="controller-row">
       <div>
@@ -62,6 +85,26 @@ function Controller() {
           className="input"
           onChange={handleMountedTreesChange}
           value={mountedTrees}
+        />
+      </div>
+      <div>
+        <label className="label">Create duration</label>
+        <input
+          type="number"
+          className="input"
+          onChange={handleCreateDurationChange}
+          step={0.1}
+          value={createDuration}
+        />
+      </div>
+      <div>
+        <label className="label">Destroy duration</label>
+        <input
+          type="number"
+          className="input"
+          onChange={handleDestroyDurationChange}
+          step={0.1}
+          value={destroyDuration}
         />
       </div>
     </div>

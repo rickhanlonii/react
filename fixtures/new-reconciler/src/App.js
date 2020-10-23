@@ -1,8 +1,20 @@
 import * as React from 'react';
 
+function sleep(ms) {
+  const startTime = performance.now();
+  while (performance.now() - startTime < ms) {
+    // ...
+  }
+}
+
 function Node({level, depth, children}) {
   React.useLayoutEffect(() => {
-    return () => {};
+    const createDuration = window.createDuration || 0;
+    sleep(createDuration);
+    return () => {
+      const destroyDuration = window.destroyDuration || 0;
+      sleep(destroyDuration);
+    };
   });
   if (level < depth) {
     return (
@@ -16,7 +28,12 @@ function Node({level, depth, children}) {
 
 function Leaf() {
   React.useLayoutEffect(() => {
-    return () => {};
+    const createDuration = window.createDuration || 0;
+    sleep(createDuration);
+    return () => {
+      const destroyDuration = window.destroyDuration || 0;
+      sleep(destroyDuration);
+    };
   });
 
   return <div className="leaf" />;
