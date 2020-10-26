@@ -9,9 +9,12 @@ function sleep(ms) {
 
 function Node({level, depth, children}) {
   React.useLayoutEffect(() => {
+    performance.mark('useLayoutEffect');
     const createDuration = window.createDuration || 0;
     sleep(createDuration);
+    Promise.resolve();
     return () => {
+      performance.measure('useLayoutEffect');
       const destroyDuration = window.destroyDuration || 0;
       sleep(destroyDuration);
     };
@@ -28,9 +31,12 @@ function Node({level, depth, children}) {
 
 function Leaf() {
   React.useLayoutEffect(() => {
+    performance.mark('useLayoutEffect');
     const createDuration = window.createDuration || 0;
     sleep(createDuration);
+    Promise.resolve();
     return () => {
+      performance.measure('useLayoutEffect');
       const destroyDuration = window.destroyDuration || 0;
       sleep(destroyDuration);
     };

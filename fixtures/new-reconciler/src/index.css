@@ -33,6 +33,14 @@ button.mount,
 button.update {
   background-color: lightgreen;
 }
+button.automate {
+  background-color: crimson;
+  color: white;
+  font-weight: bold;
+}
+button.automate:disabled {
+  color: rgba(255,255,255,.2);
+}
 
 .root {
   height: 100vh;
@@ -82,7 +90,7 @@ button.update {
 
 .heading button {
   margin-left: 1rem;
-  width: 75px;
+  width: 65px;
 }
 
 .durations {

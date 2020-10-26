@@ -4,6 +4,7 @@ import * as ReactDOMForked from './vendor/ReactDOMForked-profiling';
 import App from './App';
 import Controller from './Controller';
 import './index.css';
+import runTest from './TestRunner';
 
 import {getParam} from './state';
 
@@ -27,6 +28,7 @@ const INITIAL_DURATION_STATE = {
 };
 
 function Renderer({children, title}) {
+  const [auto, setAuto] = React.useState(false);
   const [mount, setMount] = React.useState(false);
   const [depth, setDepth] = React.useState(getParam('depth'));
   const [mountedTrees, setMountedTrees] = React.useState(
@@ -58,6 +60,8 @@ function Renderer({children, title}) {
     startTime: null,
   });
 
+  const autoRef = React.useRef(null);
+
   function start(markName) {
     const data = dataRef.current;
     data.markName = markName;
@@ -78,6 +82,45 @@ function Renderer({children, title}) {
   function handleUpdate() {
     start('update');
     forceUpdate(value => !value);
+  }
+
+  function handleAuto() {
+    setAuto(true);
+
+    runTest(callback => {
+      autoRef.current = {
+        callback,
+        mountDuration: null,
+        updateDuration: null,
+        unmountDuration: null,
+      };
+      handleMountUnmount();
+    }).then(([mountDurations, updateDurations, unmountDurations]) => {
+      setDurations({
+        mount: {
+          totalDuration: mountDurations.reduce((total, current) => {
+            total += current;
+            return total;
+          }, 0),
+          totalCount: mountDurations.length,
+        },
+        unmount: {
+          totalDuration: unmountDurations.reduce((total, current) => {
+            total += current;
+            return total;
+          }, 0),
+          totalCount: unmountDurations.length,
+        },
+        update: {
+          totalDuration: updateDurations.reduce((total, current) => {
+            total += current;
+            return total;
+          }, 0),
+          totalCount: updateDurations.length,
+        },
+      });
+      setAuto(false);
+    });
   }
 
   function onCommit() {
@@ -103,9 +146,43 @@ function Renderer({children, title}) {
             },
           };
         });
+
+        if (autoRef.current !== null) {
+          autoRef.current.mostRecentDuration = duration;
+          switch (markName) {
+            case 'mount':
+              autoRef.current.mountDuration = duration;
+              break;
+            case 'update':
+              autoRef.current.updateDuration = duration;
+              break;
+            case 'unmount':
+              autoRef.current.unmountDuration = duration;
+              break;
+          }
+        }
       }
     }
   }
+
+  React.useEffect(() => {
+    if (autoRef.current !== null) {
+      const {
+        callback,
+        mountDuration,
+        updateDuration,
+        unmountDuration,
+      } = autoRef.current;
+      if (updateDuration === null) {
+        handleUpdate();
+      } else if (unmountDuration === null) {
+        handleMountUnmount();
+      } else {
+        autoRef.current = null;
+        callback(mountDuration, updateDuration, unmountDuration);
+      }
+    }
+  }, [durations]);
 
   const mountAverage = format(
     durations.mount.totalDuration,
@@ -124,13 +201,22 @@ function Renderer({children, title}) {
     <>
       <div className="heading">
         <h1>{title}</h1>
-        <button className="reset" onClick={handleReset}>
+        <button disabled={auto} className="reset" onClick={handleReset}>
           Reset
         </button>
-        <button className="mount" onClick={handleMountUnmount}>
+        <button
+          disabled={auto || mount}
+          className="automate"
+          onClick={handleAuto}>
+          Auto
+        </button>
+        <button disabled={auto} className="mount" onClick={handleMountUnmount}>
           {mount ? 'Unmount' : 'Mount'}
         </button>
-        <button className="update" disabled={!mount} onClick={handleUpdate}>
+        <button
+          className="update"
+          disabled={auto || !mount}
+          onClick={handleUpdate}>
           Update
         </button>
       </div>
@@ -139,10 +225,10 @@ function Renderer({children, title}) {
           mount: {mountAverage}ms ({durations.mount.totalCount})
         </div>
         <div>
-          unmount: {unmountAverage}ms ({durations.unmount.totalCount})
+          update: {updateAverage}ms ({durations.update.totalCount})
         </div>
         <div>
-          update: {updateAverage}ms ({durations.update.totalCount})
+          unmount: {unmountAverage}ms ({durations.unmount.totalCount})
         </div>
       </div>
       <React.Profiler id="app" onCommit={onCommit}>
