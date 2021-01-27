@@ -711,27 +711,60 @@ function ensureRootIsScheduled(root: FiberRoot, currentTime: number) {
   );
   // This returns the priority level computed during the `getNextLanes` call.
   const newCallbackPriority = returnNextLanesPriority();
-
+  console.log('start', nextLanes, existingCallbackNode);
   if (nextLanes === NoLanes) {
     // Special case: There's nothing to work on.
     if (existingCallbackNode !== null) {
+      console.log('xxx cancelling');
       cancelCallback(existingCallbackNode);
       root.callbackNode = null;
-      root.callbackPriority = NoLanePriority;
     }
+    root.callbackPriority = NoLanePriority;
     return;
   }
 
-  // Check if there's an existing task. We may be able to reuse it.
-  if (existingCallbackNode !== null) {
-    const existingCallbackPriority = root.callbackPriority;
-    if (existingCallbackPriority === newCallbackPriority) {
+  const existingCallbackPriority = root.callbackPriority;
+  console.log(
+    '###',
+    existingCallbackPriority,
+    newCallbackPriority,
+    existingCallbackPriority === newCallbackPriority,
+  );
+  if (false) {
+    // Check if there's an existing task. We may be able to reuse it.
+
+    if (
+      existingCallbackPriority !== NoLanePriority &&
+      existingCallbackPriority === newCallbackPriority
+    ) {
+      console.log('###', 'returning', existingCallbackNode === null);
       // The priority hasn't changed. We can reuse the existing task. Exit.
       return;
+    } else {
+      console.log('###', 'not returning');
     }
-    // The priority changed. Cancel the existing callback. We'll schedule a new
-    // one below.
-    cancelCallback(existingCallbackNode);
+
+    if (existingCallbackNode !== null) {
+      console.log('###', 'cancelling');
+      // The priority changed. Cancel the existing callback. We'll schedule a new
+      // one below.
+      cancelCallback(existingCallbackNode);
+    }
+  } else {
+    if (existingCallbackNode !== null) {
+      console.log('###', 'checking');
+      if (existingCallbackPriority === newCallbackPriority) {
+        console.log('###', 'returning');
+        // The priority hasn't changed. We can reuse the existing task. Exit.
+        return;
+      }
+      console.log('###', 'cancelling');
+      // The priority changed. Cancel the existing callback. We'll schedule a new
+      // one below.
+      cancelCallback(existingCallbackNode);
+    } else {
+      console.log('###', 'no callback');
+    }
   }
 
   // Schedule a new callback.
@@ -763,6 +796,7 @@ function ensureRootIsScheduled(root: FiberRoot, currentTime: number) {
     );
   }
 
+  console.log('### next', newCallbackPriority, newCallbackNode);
   root.callbackPriority = newCallbackPriority;
   root.callbackNode = newCallbackNode;
 }

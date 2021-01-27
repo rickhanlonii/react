@@ -472,7 +472,7 @@ describe('ReactHooksWithNoopRenderer', () => {
       expect(ReactNoop.getChildren()).toEqual([span('Scrolling down: false')]);
     });
 
-    it('warns about render phase update on a different component', async () => {
+    it.only('warns about render phase update on a different component', async () => {
       let setStep;
       function Foo() {
         const [step, _setStep] = useState(0);
