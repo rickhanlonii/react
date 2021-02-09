@@ -15,6 +15,7 @@ let ReactNoop;
 let Scheduler;
 let Suspense;
 let useState;
+let useLayoutEffect;
 let useTransition;
 let startTransition;
 let act;
@@ -30,6 +31,7 @@ describe('ReactTransition', () => {
     ReactNoop = require('react-noop-renderer');
     Scheduler = require('scheduler');
     useState = React.useState;
+    useLayoutEffect = React.useLayoutEffect;
     useTransition = React.unstable_useTransition;
     Suspense = React.Suspense;
     startTransition = React.unstable_startTransition;
@@ -39,6 +41,24 @@ describe('ReactTransition', () => {
     caches = [];
     seededCache = null;
   });
+
+  function createAsyncText(text) {
+    let resolved = false;
+    const Component = function() {
+      if (!resolved) {
+        Scheduler.unstable_yieldValue('Suspend! [' + text + ']');
+        throw promise;
+      }
+      return <Text text={text} />;
+    };
+    const promise = new Promise(resolve => {
+      Component.resolve = function() {
+        resolved = true;
+        return resolve();
+      };
+    });
+    return Component;
+  }
 
   function createTextCache() {
     if (seededCache !== null) {
@@ -773,4 +793,203 @@ describe('ReactTransition', () => {
       });
     },
   );
+
+  // @gate experimental
+  it('FIXME: does not interrupt transitions with normal pri updates before suspending', async () => {
+    const Async = createAsyncText('Async');
+    let updateTransitionPri;
+    let updateNormalPri;
+    function App() {
+      const [transitionPri, setTransitionPri] = useState(false);
+      const [normalPri, setNormalPri] = useState(0);
+      const [startTransition, isPending] = useTransition();
+
+      updateTransitionPri = () => startTransition(() => setTransitionPri(true));
+      updateNormalPri = () => setNormalPri(n => n + 1);
+
+      useLayoutEffect(() => {
+        Scheduler.unstable_yieldValue('Commit');
+      });
+
+      return (
+        <Suspense fallback={<Text text="Loading..." />}>
+          {isPending ? <Text text="Pending..." /> : null}
+          {transitionPri ? <Async /> : <Text text="(empty)" />}
+          {', '}
+          <Text text={'Normal pri: ' + normalPri} />
+        </Suspense>
+      );
+    }
+
+    const root = ReactNoop.createRoot();
+    await act(async () => {
+      root.render(<App />);
+    });
+
+    expect(Scheduler).toHaveYielded(['(empty)', 'Normal pri: 0', 'Commit']);
+    expect(root).toMatchRenderedOutput('(empty), Normal pri: 0');
+
+    await act(async () => {
+      updateTransitionPri();
+      updateNormalPri();
+
+      await Async.resolve();
+    });
+
+    expect(Scheduler).toHaveYielded([
+      // isPending update
+      'Pending...',
+      '(empty)',
+      'Normal pri: 0',
+      'Commit',
+
+      // Normal pri update
+      // FIXME: This should not render before the transition.
+      'Pending...',
+      '(empty)',
+      'Normal pri: 1',
+      'Commit',
+
+      // Promise resolved, retry flushed
+      'Async',
+      'Normal pri: 1',
+      'Commit',
+    ]);
+    expect(root).toMatchRenderedOutput('Async, Normal pri: 1');
+  });
+
+  // @gate experimental
+  it('should not interrupt transitions with normal pri updates after suspending', async () => {
+    const Async = createAsyncText('Async');
+    let updateTransitionPri;
+    let updateNormalPri;
+    function App() {
+      const [transitionPri, setTransitionPri] = useState(false);
+      const [normalPri, setNormalPri] = useState(0);
+      const [startTransition, isPending] = useTransition();
+
+      updateTransitionPri = () => startTransition(() => setTransitionPri(true));
+      updateNormalPri = () => setNormalPri(n => n + 1);
+
+      useLayoutEffect(() => {
+        Scheduler.unstable_yieldValue('Commit');
+      });
+
+      return (
+        <Suspense fallback={<Text text="Loading..." />}>
+          {isPending ? <Text text="Pending..." /> : null}
+          {transitionPri ? <Async /> : <Text text="(empty)" />}
+          {', '}
+          <Text text={'Normal pri: ' + normalPri} />
+        </Suspense>
+      );
+    }
+
+    const root = ReactNoop.createRoot();
+    await act(async () => {
+      root.render(<App />);
+    });
+
+    // Initial render
+    expect(Scheduler).toHaveYielded(['(empty)', 'Normal pri: 0', 'Commit']);
+    expect(root).toMatchRenderedOutput('(empty), Normal pri: 0');
+
+    await act(async () => {
+      updateTransitionPri();
+    });
+
+    await act(async () => {
+      updateNormalPri();
+      await Async.resolve();
+    });
+
+    expect(Scheduler).toHaveYielded([
+      // isPending update.
+      'Pending...',
+      '(empty)',
+      'Normal pri: 0',
+      'Commit',
+
+      // Suspend
+      'Suspend! [Async]',
+      'Normal pri: 0',
+      'Loading...',
+
+      // Normal pri update
+      // FIXME: This should not render before the transition.
+      'Pending...',
+      '(empty)',
+      'Normal pri: 1',
+      'Commit',
+
+      // Promise resolved, retry flushed
+      'Async',
+      'Normal pri: 1',
+      'Commit',
+    ]);
+    expect(root).toMatchRenderedOutput('Async, Normal pri: 1');
+  });
+
+  it('should not interrupt transitions with normal pri updates', async () => {
+    let updateNormalPri;
+    let updateTransitionPri;
+    function App() {
+      const [transitionPri, setTransitionPri] = useState(0);
+      const [normalPri, setNormalPri] = useState(0);
+      const [startTransition, isPending] = useTransition();
+      updateTransitionPri = () =>
+        startTransition(() => setTransitionPri(n => n + 1));
+      updateNormalPri = () => setNormalPri(n => n + 1);
+
+      useLayoutEffect(() => {
+        Scheduler.unstable_yieldValue('Commit');
+      });
+      return (
+        <>
+          {isPending ? <Text text="Pending..." /> : null}
+          <Text text={'Transition pri: ' + transitionPri} />
+          {', '}
+          <Text text={'Normal pri: ' + normalPri} />
+        </>
+      );
+    }
+
+    const root = ReactNoop.createRoot();
+    await ReactNoop.act(async () => {
+      root.render(<App />);
+    });
+    expect(Scheduler).toHaveYielded([
+      'Transition pri: 0',
+      'Normal pri: 0',
+      'Commit',
+    ]);
+    expect(root).toMatchRenderedOutput('Transition pri: 0, Normal pri: 0');
+
+    await ReactNoop.act(async () => {
+      updateTransitionPri();
+      // Start isPending update
+      expect(Scheduler).toFlushAndYieldThrough(['Pending...']);
+      updateNormalPri();
+    });
+
+    expect(Scheduler).toHaveYielded([
+      // Finishes isPending update
+      'Transition pri: 0',
+      'Normal pri: 0',
+      'Commit',
+
+      // Normal pri update.
+      // TODO: This should not come before the transtion.
+      'Pending...',
+      'Transition pri: 0',
+      'Normal pri: 1',
+      'Commit',
+
+      // Transition update
+      'Transition pri: 1',
+      'Normal pri: 1',
+      'Commit',
+    ]);
+    expect(root).toMatchRenderedOutput('Transition pri: 1, Normal pri: 1');
+  });
 });
