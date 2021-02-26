@@ -15,6 +15,7 @@ module.exports = [
       'react-dom/unstable-fizz.node',
       'react-server-dom-webpack/writer.node.server',
       'react-server-dom-webpack',
+      'react-devtools-scheduling-profiler/src/import-worker/preprocessData.js',
     ],
     paths: [
       'react-dom',
