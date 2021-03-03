@@ -40,7 +40,6 @@ import {getClosestInstanceFromNode} from '../client/ReactDOMComponentTree';
 
 import {
   enableLegacyFBSupport,
-  decoupleUpdatePriorityFromScheduler,
   enableNewReconciler,
 } from 'shared/ReactFeatureFlags';
 import {dispatchEventForPluginEventSystem} from './DOMPluginEventSystem';
@@ -177,35 +176,12 @@ function dispatchContinuousEvent(
   container,
   nativeEvent,
 ) {
-  if (decoupleUpdatePriorityFromScheduler) {
-    const previousPriority = getCurrentUpdateLanePriority();
-    try {
-      // TODO: Double wrapping is necessary while we decouple Scheduler priority.
-      setCurrentUpdateLanePriority(InputContinuousLanePriority);
-      runWithPriority(
-        UserBlockingPriority,
-        dispatchEvent.bind(
-          null,
-          domEventName,
-          eventSystemFlags,
-          container,
-          nativeEvent,
-        ),
-      );
-    } finally {
-      setCurrentUpdateLanePriority(previousPriority);
-    }
-  } else {
-    runWithPriority(
-      UserBlockingPriority,
-      dispatchEvent.bind(
-        null,
-        domEventName,
-        eventSystemFlags,
-        container,
-        nativeEvent,
-      ),
-    );
+  const previousPriority = getCurrentUpdateLanePriority();
+  try {
+    setCurrentUpdateLanePriority(InputContinuousLanePriority);
+    dispatchEvent(domEventName, eventSystemFlags, container, nativeEvent);
+  } finally {
+    setCurrentUpdateLanePriority(previousPriority);
   }
 }
 
