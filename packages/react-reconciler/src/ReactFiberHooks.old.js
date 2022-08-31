@@ -423,7 +423,7 @@ export function renderWithHooks<Props, SecondArg>(
     }
   } else {
     ReactCurrentDispatcher.current =
-      current === null || current.memoizedState === null
+      current === null
         ? HooksDispatcherOnMount
         : HooksDispatcherOnUpdate;
   }

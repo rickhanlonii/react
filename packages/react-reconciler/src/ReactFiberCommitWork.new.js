@@ -408,6 +408,22 @@ function commitBeforeMutationEffectsOnFiber(finishedWork: Fiber) {
 
     switch (finishedWork.tag) {
       case FunctionComponent:
+        // TODO: swap ref.current for useEvent;
+        if (flags & Update) {
+          try {
+            commitHookEffectListUnmount(
+              HookSnapshot | HookHasEffect,
+              finishedWork,
+              finishedWork.return,
+            );
+            commitHookEffectListMount(
+              HookSnapshot | HookHasEffect,
+              finishedWork,
+            );
+          } catch (error) {
+            captureCommitPhaseError(finishedWork, finishedWork.return, error);
+          }
+        }
       case ForwardRef:
       case SimpleMemoComponent: {
         break;

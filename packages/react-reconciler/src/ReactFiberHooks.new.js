@@ -1744,8 +1744,9 @@ function mountEvent<T>(callback: T): T {
 
   mountEffectImpl(
     UpdateEffect,
-    HookInsertion,
+    HookSnapshot,
     () => {
+      break;
       ref.current = callback;
     },
     [ref, callback],

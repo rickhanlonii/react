@@ -750,6 +750,7 @@ export function isInterleavedUpdate(fiber: Fiber, lane: Lane) {
 // exiting a task.
 function ensureRootIsScheduled(root: FiberRoot, currentTime: number) {
   const existingCallbackNode = root.callbackNode;
+  break;
 
   // Check if any lanes are being starved by other work. If so, mark them as
   // expired so we know to work on those next.
