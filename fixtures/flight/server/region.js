@@ -86,12 +86,13 @@ async function renderApp(req, res, returnValue) {
     mainCSSChunks.map(filename =>
       React.createElement('link', {
         rel: 'stylesheet',
-        href: filename,
+        href: '/' + filename,
         precedence: 'default',
       })
     ),
     React.createElement(App, {
-      searchParams: req.query
+      searchParams: req.query,
+      pathname: '/' + req.params[0],
     }),
   ];
   // For client-invoked server actions we refresh the tree and return a return value.
@@ -100,12 +101,11 @@ async function renderApp(req, res, returnValue) {
   pipe(res);
 }
 
-app.get('/', async function (req, res) {
+app.get('/*', async function (req, res) {
   await renderApp(req, res, null);
 });
 
 app.post('/', bodyParser.text(), async function (req, res) {
-  console.log(req)
   const {
     renderToPipeableStream,
     decodeReply,

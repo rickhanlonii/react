@@ -83,7 +83,7 @@ function request(options, body) {
   });
 }
 
-app.all('/', async function (req, res, next) {
+app.all('/*', async function (req, res, next) {
   // Proxy the request to the regional server.
   const proxiedHeaders = {
     'X-Forwarded-Host': req.hostname,
