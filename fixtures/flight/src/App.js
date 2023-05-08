@@ -1,47 +1,29 @@
-import * as React from 'react';
+import * as React from 'react'
+import { readdir } from 'fs/promises';
+import PostPreview from './PostPreview.js'
 
-import Container from './Container.js';
-
-import {Counter} from './Counter.js';
-import {Counter as Counter2} from './Counter2.js';
-
-import ShowMore from './ShowMore.js';
-import Button from './Button.js';
-import Form from './Form.js';
-
-import {like, greet} from './actions.js';
-
-import {getServerState} from './ServerState.js';
-
-export default async function App() {
-  const res = await fetch('http://localhost:3001/todos');
-  const todos = await res.json();
+export default async function Page({ searchParams }) {
+  searchParams = {query: ''}
+  let files = await readdir('./posts/');
+  if (searchParams.query != null) {
+    files = files.filter(f => f.startsWith(searchParams.query))
+  }
   return (
-    <html lang="en">
-      <head>
-        <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Flight</title>
-      </head>
+    <html>
       <body>
-        <Container>
-          <h1>{getServerState()}</h1>
-          <Counter />
-          <Counter2 />
-          <ul>
-            {todos.map(todo => (
-              <li key={todo.id}>{todo.text}</li>
-            ))}
-          </ul>
-          <ShowMore>
-            <p>Lorem ipsum</p>
-          </ShowMore>
-          <Form action={greet} />
-          <div>
-            <Button action={like}>Like</Button>
+        <h1>my blog</h1>
+        <h2>{searchParams.query}</h2>
+        <hr />
+        <form>
+          <input name="query" defaultValue={searchParams.query} />
+        </form>
+        <hr />
+        {files.map(file =>
+          <div key={file}>
+            <PostPreview file={file} />
           </div>
-        </Container>
+        )}
       </body>
     </html>
-  );
+  )
 }
