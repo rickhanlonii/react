@@ -181,7 +181,7 @@ if (process.env.NODE_ENV === 'development') {
   app.use(express.static('build'));
 }
 
-app.listen(3000, () => {
+app.listen(3000, '0.0.0.0',  () => {
   console.log('Global Fizz/Webpack Server listening on port 3000...');
 });
 
