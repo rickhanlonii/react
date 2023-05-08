@@ -104,7 +104,7 @@ app.all('/', async function (req, res, next) {
       host: '127.0.0.1',
       port: 3001,
       method: req.method,
-      path: '/',
+      path: req.url,
       headers: proxiedHeaders,
     },
     req
@@ -146,7 +146,7 @@ app.all('/', async function (req, res, next) {
       // Render it into HTML by resolving the client components
       res.set('Content-type', 'text/html');
       const {pipe} = renderToPipeableStream(root, {
-        bootstrapScripts: mainJSChunks,
+        bootstrapScripts: [] //mainJSChunks,
       });
       pipe(res);
     } catch (e) {

@@ -3,7 +3,6 @@ import { readdir } from 'fs/promises';
 import PostPreview from './PostPreview.js'
 
 export default async function Page({ searchParams }) {
-  searchParams = {query: ''}
   let files = await readdir('./posts/');
   if (searchParams.query != null) {
     files = files.filter(f => f.startsWith(searchParams.query))

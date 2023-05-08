@@ -46,7 +46,7 @@ const {readFile} = require('fs').promises;
 
 const React = require('react');
 
-async function renderApp(res, returnValue) {
+async function renderApp(req, res, returnValue) {
   const {renderToPipeableStream} = await import(
     'react-server-dom-webpack/server'
   );
@@ -90,7 +90,9 @@ async function renderApp(res, returnValue) {
         precedence: 'default',
       })
     ),
-    React.createElement(App),
+    React.createElement(App, {
+      searchParams: req.query
+    }),
   ];
   // For client-invoked server actions we refresh the tree and return a return value.
   const payload = returnValue ? {returnValue, root} : root;
@@ -99,10 +101,11 @@ async function renderApp(res, returnValue) {
 }
 
 app.get('/', async function (req, res) {
-  await renderApp(res, null);
+  await renderApp(req, res, null);
 });
 
 app.post('/', bodyParser.text(), async function (req, res) {
+  console.log(req)
   const {
     renderToPipeableStream,
     decodeReply,
@@ -139,7 +142,7 @@ app.post('/', bodyParser.text(), async function (req, res) {
       // We handle the error on the client
     }
     // Refresh the client and return the value
-    renderApp(res, result);
+    renderApp(req, res, result);
   } else {
     // This is the progressive enhancement case
     const UndiciRequest = require('undici').Request;
@@ -158,7 +161,7 @@ app.post('/', bodyParser.text(), async function (req, res) {
       const {setServerState} = await import('../src/ServerState.js');
       setServerState('Error: ' + x.message);
     }
-    renderApp(res, null);
+    renderApp(req, res, null);
   }
 });
 
