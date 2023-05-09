@@ -9,9 +9,13 @@ export default async function PostPage({ slug }) {
       <h1>
         {slug}
       </h1>
-      <Markdown>
-        {text.slice(0, 10)}
+      <Markdown components={{img: Image}}>
+        {text}
       </Markdown>
     </div>
   );
+}
+
+function Image({ src, alt }) {
+  return <img style={{ border: '1px solid red'}} src={src} alt={alt} />
 }

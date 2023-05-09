@@ -86,10 +86,11 @@ async function renderApp(req, res, returnValue) {
       )
     ).main.css;
   }
+  delete req.query.rnd;
   const App = m.default.default || m.default;
   const root = React.createElement(App, {
     searchParams: req.query,
-    pathname: '/' + req.params[0],
+    pathname: req.path,
   });
   // For client-invoked server actions we refresh the tree and return a return value.
   const payload = returnValue ? {returnValue, root} : root;

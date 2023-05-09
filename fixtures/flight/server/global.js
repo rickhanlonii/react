@@ -83,6 +83,13 @@ function request(options, body) {
   });
 }
 
+if (process.env.NODE_ENV === 'development') {
+  app.use(express.static('public'));
+} else {
+  // In production we host the static build output.
+  app.use(express.static('build'));
+}
+
 app.all('/*', async function (req, res, next) {
   // Proxy the request to the regional server.
   const proxiedHeaders = {
@@ -146,7 +153,7 @@ app.all('/*', async function (req, res, next) {
       // Render it into HTML by resolving the client components
       res.set('Content-type', 'text/html');
       const {pipe} = renderToPipeableStream(root, {
-        bootstrapScripts: [] //mainJSChunks,
+        bootstrapScripts: ['/magic.js'] //mainJSChunks,
       });
       pipe(res);
     } catch (e) {
@@ -174,12 +181,6 @@ app.all('/*', async function (req, res, next) {
   }
 });
 
-if (process.env.NODE_ENV === 'development') {
-  app.use(express.static('public'));
-} else {
-  // In production we host the static build output.
-  app.use(express.static('build'));
-}
 
 app.listen(3000, '0.0.0.0',  () => {
   console.log('Global Fizz/Webpack Server listening on port 3000...');
