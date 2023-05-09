@@ -1,3 +1,4 @@
+
 if (!Array.prototype.flat) {
   Array.prototype.flat = function(depth) {
 
@@ -187,7 +188,9 @@ function updateTree(node, reactNode) {
               }
             }
           } else {
-            node[key] = value;
+            if (key in node) {
+              node[key] = value;
+            }
           }
         }
       }
@@ -271,7 +274,6 @@ function softNavigate(url) {
         return val;
       }
     }
-
   });
 }
 
