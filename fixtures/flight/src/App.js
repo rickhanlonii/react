@@ -107,7 +107,7 @@ function updateTree(node, reactNode) {
           }
         } else {
           newChild = createTree(children[i]);
-          node.appendChild(newNode);
+          node.appendChild(newChild);
         }
       }
       while (node.childNodes.length > children.length) {
@@ -161,7 +161,7 @@ document.body.onclick = function() {
 };
 
 function fetchIE6(url, callback) {
-  fetch('http://localhost:3001/?query=hel').then(x => x.text()).then(callback);
+  fetch(url).then(x => x.text()).then(callback);
   return;
 
 
