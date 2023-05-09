@@ -4,13 +4,13 @@ import { readFile } from 'fs/promises';
 export default async function PostPreview({ file }) {
   const content = await readFile('./posts/' + file, 'utf8');
   return (
-    <>
+    <div>
       <a href={'/post/' + file.split('.')[0]}>
         {file}
       </a>
       <pre>
         {content.slice(0, 10)}
       </pre>
-    </>
+    </div>
   );
 }

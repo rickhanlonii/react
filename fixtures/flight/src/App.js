@@ -151,14 +151,14 @@ function createTree(reactNode) {
     updateTree(node, reactNode);
     return node;
   } else {
-    throw Error("Don't know what to do");
+    throw Error('idk')
   }
 }
 
 function canReuseNode(node, reactNode) {
-  if (node.childNodes && typeof reactNode === 'object' && reactNode != null) {
+  if (node.nodeType === 1 && typeof reactNode === 'object' && reactNode != null) {
     return node.tagName.toLowerCase() === reactNode.type;
-  } else if ('textContent' in node && typeof reactNode === 'string') {
+  } else if (node.nodeType === 3 && typeof reactNode === 'string') {
     return true;
   } else {
     return false;
@@ -166,6 +166,14 @@ function canReuseNode(node, reactNode) {
 }
 
 function updateTree(node, reactNode) {
+  if (typeof reactNode === 'string') {
+    if (node.nodeType !== 3) {
+      throw Error('Cannot do that');
+    }
+    node.nodeValue = reactNode;
+    return;
+  }
+
   var props = reactNode.props;
   if (props) {
     for (var key in props) {
@@ -180,83 +188,131 @@ function updateTree(node, reactNode) {
   }
 
   var children = (props && props.children) ? props.children : [];
-  if (typeof children === 'object' && !Array.isArray(children)) {
+  if (!Array.isArray(children)) {
     children = [children];
   }
 
-  var newChild;
-  if (typeof children === 'string') {
-    node.textContent = children;
-  } else if (Array.isArray(children)) {
-    children = children.flat();
-    if (node.childNodes) {
-      var savedChildNodes = [];
-      for (var j = 0; j < node.childNodes.length; j++) {
-        savedChildNodes.push(node.childNodes[j]);
-      }
+  children = children.flat();
 
-      for (var i = 0; i < children.length; i++) {
-        if (savedChildNodes[i]) {
-          if (canReuseNode(savedChildNodes[i], children[i])) {
-            updateTree(savedChildNodes[i], children[i]);
-          } else {
-            newChild = createTree(children[i]);
-            node.insertBefore(newChild, savedChildNodes[i]);
-            node.removeChild(savedChildNodes[i]);
-          }
+  if (node.childNodes) {
+    var savedChildNodes = [];
+    for (var j = 0; j < node.childNodes.length; j++) {
+      savedChildNodes.push(node.childNodes[j]);
+    }
+
+    for (var i = 0; i < children.length; i++) {
+      if (savedChildNodes[i]) {
+        if (canReuseNode(savedChildNodes[i], children[i])) {
+          updateTree(savedChildNodes[i], children[i]);
         } else {
           newChild = createTree(children[i]);
-          node.appendChild(newChild);
+          node.insertBefore(newChild, savedChildNodes[i]);
+          node.removeChild(savedChildNodes[i]);
         }
+      } else {
+        newChild = createTree(children[i]);
+        node.appendChild(newChild);
       }
-      while (node.childNodes.length > children.length) {
-        node.removeChild(node.lastChild);
+    }
+    while (node.childNodes.length > children.length) {
+      node.removeChild(node.lastChild);
+    }
+    while (children.length > node.childNodes.length) {
+      node.appendChild(createTree(children[i]));
+    }    
+  } else {
+    throw Error('Cannot have children');
+  }
+}
+
+function softNavigate(url) {
+  var baseUrl = document.location.href.split('?')[0];
+  if (url.indexOf('/') === 0) {
+    url = baseUrl + url.slice(1);
+  }
+  url = url.replace('3000', '3001');
+  fetchIE6(url, function(response) {
+    var json = eval('({' + response.split('\\n').filter(Boolean).join(',') + '})');
+    var reactTree = reviveValue(json[0]);
+    updateTree(document.body, reactTree.props.children);
+
+    function reviveValue(val) {
+      if (Array.isArray(val)) {
+        if (val[0] === '$') {
+          return reviveValue({type: val[1], key: val[2], props: val[3]});
+        } else {
+          return val.map(reviveValue);
+        }
+      } else if (typeof val === 'object' && val != null) {
+        var obj = {};
+        for (var key in val) {
+          if (val.hasOwnProperty(key)) {
+            obj[key] = reviveValue(val[key]);
+          }
+        }
+        return obj;
+      } else if (typeof val === 'string' && val.indexOf('$L') === 0) {
+        var slotIndex = parseInt(val.slice(2), 10);
+        return reviveValue(json[slotIndex]);
+      } else {
+        return val;
       }
-      while (children.length > node.childNodes.length) {
-        node.appendChild(createTree(children[i]));
-      }    
-    } else {
-      throw Error('Cannot have children');
+    }
+
+  });
+}
+
+document.body.onclick = function() {
+  if (event.srcElement.tagName === 'A') {
+    softNavigate(event.srcElement.href);
+    return false;
+  }
+};
+
+function serializeForm(form) {
+  var queryString = [];
+  for (var i = 0; i < form.elements.length; i++) {
+    var element = form.elements[i];
+    if (element.type !== 'submit' && element.name) {
+      queryString.push(encodeURIComponent(element.name) + '=' + encodeURIComponent(element.value));
+    }
+  }
+  return queryString.join('&');
+}
+
+
+function onFormSubmit(event) {
+  var form = event.target || event.srcElement;
+  if (form && form.method.toUpperCase() === 'GET') {
+    if (event.preventDefault) {
+      event.preventDefault();
+    }
+    var baseUrl = document.location.href.split('?')[0];
+    var url = (form.action || baseUrl) + '?' + serializeForm(form);
+    softNavigate(url);
+    return false;
+  }
+x}
+
+function attachSubmitHandlerToForms() {
+  var forms = document.getElementsByTagName('form');
+  for (var i = 0; i < forms.length; i++) {
+    if (!forms[i].submitHandlerAttached) {
+      if (forms[i].attachEvent) {
+        forms[i].attachEvent('onsubmit', onFormSubmit);
+      } else {
+        forms[i].addEventListener('submit', onFormSubmit, false);
+      }
+      forms[i].submitHandlerAttached = true;
     }
   }
 }
 
+// Initial attachment of event listeners
+attachSubmitHandlerToForms();
 
-document.body.onclick = function() {
-  if (event.srcElement.tagName === 'A') {
-    var url = event.srcElement.href.replace('3000', '3001');
-    fetchIE6(url, function(response) {
-      var json = eval('({' + response.split('\\n').filter(Boolean).join(',') + '})');
-      var reactTree = reviveValue(json[0]);
-      updateTree(document.body, reactTree.props.children);
-
-      function reviveValue(val) {
-        if (Array.isArray(val)) {
-          if (val[0] === '$') {
-            return reviveValue({type: val[1], key: val[2], props: val[3]});
-          } else {
-            return val.map(reviveValue);
-          }
-        } else if (typeof val === 'object' && val != null) {
-          var obj = {};
-          for (var key in val) {
-            if (val.hasOwnProperty(key)) {
-              obj[key] = reviveValue(val[key]);
-            }
-          }
-          return obj;
-        } else if (typeof val === 'string' && val.indexOf('$L') === 0) {
-          var slotIndex = parseInt(val.slice(2), 10);
-          return reviveValue(json[slotIndex]);
-        } else {
-          return val;
-        }
-      }
-
-    });
-    return false;
-  }
-};
+// Periodically check for new forms and attach the event listener
+setInterval(attachSubmitHandlerToForms, 1000);
 
 function fetchIE6(url, callback) {
   if (window.fetch) {

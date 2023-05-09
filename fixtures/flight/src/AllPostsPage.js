@@ -4,13 +4,20 @@ import PostPreview from './PostPreview.js'
 
 export default async function AllPostsPage({ searchParams }) {
   let files = await readdir('./posts/');
-  if (searchParams.query != null) {
+  if (searchParams.query) {
     files = files.filter(f => f.startsWith(searchParams.query))
   }
   return (
-    <main>
-      <h1>my blog</h1>
-      <h2>{searchParams.query}</h2>
+    <div>
+      <h1>
+        my blog
+      </h1>
+      <h2>
+        {searchParams.query ?
+          ('results for ' + searchParams.query) :
+          'all posts'
+        }
+      </h2>
       <hr />
       <form>
         <input name="query" defaultValue={searchParams.query} />
@@ -21,6 +28,6 @@ export default async function AllPostsPage({ searchParams }) {
           <PostPreview file={file} />
         </div>
       )}
-    </main>
+    </div>
   );
 }
