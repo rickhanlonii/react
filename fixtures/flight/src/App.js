@@ -48,15 +48,109 @@ if (!Array.prototype.flat) {
   };
 }
 
+if (!Array.prototype.filter) {
+  Array.prototype.filter = function(func, thisArg) {
+    'use strict';
+    if (!((typeof func === 'Function' || typeof func === 'function') && this))
+      throw new TypeError();
+    
+    var len = this.length >>> 0,
+        res = new Array(len), // preallocate array
+        t = this, c = 0, i = -1;
+    if (thisArg === undefined) {
+      while (++i !== len)
+        // checks to see if the key was set
+        if (i in this) {
+          if (func(t[i], i, t))
+            res[c++] = t[i];
+        }
+    } else {
+      while (++i !== len)
+        // checks to see if the key was set
+        if (i in this) {
+          if (func.call(thisArg, t[i], i, t))
+            res[c++] = t[i];
+        }
+    }
+    
+    res.length = c; // shrink down array to proper size
+    return res;
+  };
+}
+
+if (!Array.isArray) {
+  Array.isArray = function(arg) {
+    return Object.prototype.toString.call(arg) === '[object Array]';
+  };
+}
+
+if (!Array.prototype.map) {
+  Array.prototype.map = function(callback, thisArg) {
+    if (this == null) {
+      throw new TypeError('Array.prototype.map called on null or undefined');
+    }
+    if (typeof callback !== 'function') {
+      throw new TypeError(callback + ' is not a function');
+    }
+    var sourceArray = Object(this);
+    var len = sourceArray.length >>> 0;
+    var resultArray = new Array(len);
+    var k = 0;
+    while (k < len) {
+      if (k in sourceArray) {
+        var kValue = sourceArray[k];
+        resultArray[k] = callback.call(thisArg, kValue, k, sourceArray);
+      }
+      k++;
+    }
+    return resultArray;
+  };
+}
+
+if (!Array.prototype.reduce) {
+  Array.prototype.reduce = function(callback, initialValue) {
+    if (this === null) {
+      throw new TypeError('Array.prototype.reduce called on null or undefined');
+    }
+    if (typeof callback !== 'function') {
+      throw new TypeError(callback + ' is not a function');
+    }
+
+    var sourceArray = Object(this);
+    var len = sourceArray.length >>> 0;
+    var k = 0;
+    var accumulator;
+
+    if (initialValue !== undefined) {
+      accumulator = initialValue;
+    } else {
+      while (k < len && !(k in sourceArray)) {
+        k++;
+      }
+      if (k >= len) {
+        throw new TypeError('Reduce of empty array with no initial value');
+      }
+      accumulator = sourceArray[k++];
+    }
+
+    while (k < len) {
+      if (k in sourceArray) {
+        accumulator = callback(accumulator, sourceArray[k], k, sourceArray);
+      }
+      k++;
+    }
+    return accumulator;
+  };
+}
+
 function createTree(reactNode) {
   if (typeof reactNode === 'string') {
     return document.createTextNode(reactNode);
   } else if (typeof reactNode === 'object') {
-    const node = document.createElement(reactNode.type);
+    var node = document.createElement(reactNode.type);
     updateTree(node, reactNode);
     return node;
   } else {
-    console.log(reactNode);
     throw Error("Don't know what to do");
   }
 }
@@ -76,6 +170,7 @@ function updateTree(node, reactNode) {
   if (props) {
     for (var key in props) {
       if (props.hasOwnProperty(key)) {
+        if (key === 'children') continue;
         var value = reactNode.props[key];
         if (node[key] !== value) {
           node[key] = value;
@@ -95,7 +190,11 @@ function updateTree(node, reactNode) {
   } else if (Array.isArray(children)) {
     children = children.flat();
     if (node.childNodes) {
-      var savedChildNodes = Array.prototype.slice.call(node.childNodes);
+      var savedChildNodes = [];
+      for (var j = 0; j < node.childNodes.length; j++) {
+        savedChildNodes.push(node.childNodes[j]);
+      }
+
       for (var i = 0; i < children.length; i++) {
         if (savedChildNodes[i]) {
           if (canReuseNode(savedChildNodes[i], children[i])) {
@@ -127,28 +226,27 @@ document.body.onclick = function() {
   if (event.srcElement.tagName === 'A') {
     var url = event.srcElement.href.replace('3000', '3001');
     fetchIE6(url, function(response) {
-      var json = eval('({' + response.split('\\n').join(',') + '})');
+      var json = eval('({' + response.split('\\n').filter(Boolean).join(',') + '})');
       var reactTree = reviveValue(json[0]);
       updateTree(document.body, reactTree.props.children);
 
       function reviveValue(val) {
         if (Array.isArray(val)) {
           if (val[0] === '$') {
-            const [type, key, props] = val.slice(1);
-            return reviveValue({type, key, props});
+            return reviveValue({type: val[1], key: val[2], props: val[3]});
           } else {
-            return val.map(v => reviveValue(v));
+            return val.map(reviveValue);
           }
         } else if (typeof val === 'object' && val != null) {
-          let obj = {};
-          for (let key in val) {
+          var obj = {};
+          for (var key in val) {
             if (val.hasOwnProperty(key)) {
               obj[key] = reviveValue(val[key]);
             }
           }
           return obj;
-        } else if (typeof val === 'string' && val.startsWith('$L')) {
-          const slotIndex = parseInt(val.slice(2), 10);
+        } else if (typeof val === 'string' && val.indexOf('$L') === 0) {
+          var slotIndex = parseInt(val.slice(2), 10);
           return reviveValue(json[slotIndex]);
         } else {
           return val;
@@ -161,10 +259,10 @@ document.body.onclick = function() {
 };
 
 function fetchIE6(url, callback) {
-  fetch(url).then(x => x.text()).then(callback);
-  return;
-
-
+  if (window.fetch) {
+    fetch(url).then(function(x) {return x.text() }).then(callback);
+    return;
+  }
   var xhr = new ActiveXObject('Microsoft.XMLHTTP');  
   xhr.onreadystatechange = function() {
     if (xhr.readyState === 4 && xhr.status === 200) {
