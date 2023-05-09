@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { readFile } from 'fs/promises';
+import Markdown from 'react-markdown'
 
 export default async function PostPage({ slug }) {
   const text = await readFile('./posts/' + slug + '.md', 'utf8');
@@ -8,9 +9,9 @@ export default async function PostPage({ slug }) {
       <h1>
         {slug}
       </h1>
-      <pre>
+      <Markdown>
         {text.slice(0, 10)}
-      </pre>
+      </Markdown>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { readFile } from 'fs/promises';
+import Markdown from 'react-markdown'
 
 export default async function PostPreview({ file }) {
   const content = await readFile('./posts/' + file, 'utf8');
@@ -8,9 +9,9 @@ export default async function PostPreview({ file }) {
       <a href={'/post/' + file.split('.')[0]}>
         {file}
       </a>
-      <pre>
+      <Markdown>
         {content.slice(0, 10)}
-      </pre>
+      </Markdown>
     </div>
   );
 }
