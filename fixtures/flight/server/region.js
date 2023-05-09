@@ -40,6 +40,12 @@ const {Readable} = require('node:stream');
 
 app.use(compress());
 
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  next();
+});
+
 // Application
 
 const {readFile} = require('fs').promises;
@@ -81,20 +87,10 @@ async function renderApp(req, res, returnValue) {
     ).main.css;
   }
   const App = m.default.default || m.default;
-  const root = [
-    // Prepend the App's tree with stylesheets required for this entrypoint.
-    mainCSSChunks.map(filename =>
-      React.createElement('link', {
-        rel: 'stylesheet',
-        href: '/' + filename,
-        precedence: 'default',
-      })
-    ),
-    React.createElement(App, {
-      searchParams: req.query,
-      pathname: '/' + req.params[0],
-    }),
-  ];
+  const root = React.createElement(App, {
+    searchParams: req.query,
+    pathname: '/' + req.params[0],
+  });
   // For client-invoked server actions we refresh the tree and return a return value.
   const payload = returnValue ? {returnValue, root} : root;
   const {pipe} = renderToPipeableStream(payload, moduleMap);
