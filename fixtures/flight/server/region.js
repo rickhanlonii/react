@@ -57,7 +57,7 @@ async function renderApp(req, res, returnValue) {
     'react-server-dom-webpack/server'
   );
   // const m = require('../src/App.js');
-  const m = await import('../src/App.js');
+  const m = await import('../src/Router.js');
 
   let moduleMap;
   let mainCSSChunks;

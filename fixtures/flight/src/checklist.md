@@ -2,3 +2,25 @@ checklist
 
 - multiple vm
 - js off at first
+- faux at first
+- do the image thing
+- check all paths work
+- notepad++ and rsync
+- go through features while showing concrete places in code
+  - use folding liberally
+  - components: App
+  - layouts
+  - suspense (briefly, add and remove)
+  - server: "use server" explanation as an endpoint
+  - client transitions
+  - switch to real react
+  - client: "use client" explanation as <script> tag
+    - clickable thing
+    - maybe some form PE?
+    - the whole thing
+      - client provider
+      - everything together
+        - pass color down from image to client image
+        - pass action down for storing current color
+        - refresh background with a transition animation
+- the actual ending lol

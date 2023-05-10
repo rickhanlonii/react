@@ -153,7 +153,8 @@ app.all('/*', async function (req, res, next) {
       // Render it into HTML by resolving the client components
       res.set('Content-type', 'text/html');
       const {pipe} = renderToPipeableStream(root, {
-        bootstrapScripts: ['/magic.js'] //mainJSChunks,
+        bootstrapScripts: mainJSChunks
+          // ['/faux-react.js'],
       });
       pipe(res);
     } catch (e) {

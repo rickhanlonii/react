@@ -620,10 +620,10 @@ module.exports = function (webpackEnv) {
                   // safe to include as async script tags.
                   filename.endsWith('.js') &&
                   !filename.endsWith('.hot-update.js')
-              ),
+              ).map(path => '/' + path),
               css: entrypoints[key].filter(filename =>
                 filename.endsWith('.css')
-              ),
+              ).map(path => '/' + path),
             };
           }
 

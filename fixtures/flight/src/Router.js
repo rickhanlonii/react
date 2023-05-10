@@ -1,8 +1,9 @@
 import * as React from 'react'
 import PostIndexPage from './PostIndexPage.js';
 import PostPage from './PostPage.js';
+import Layout from './Layout.js';
 
-export default function App({ searchParams, pathname }) {
+export default function Router({ searchParams, pathname }) {
   let page;
   if (pathname === '/') {
     page = <PostIndexPage searchParams={searchParams} />
@@ -11,17 +12,8 @@ export default function App({ searchParams, pathname }) {
     page = <PostPage slug={slug} />
   }
   return (
-    <html>
-      <body>
-        <link rel="stylesheet" href="/main.css" />
-        <div className="container">
-          <div className="background" />
-          {page}
-        </div>
-      </body>
-    </html>
+    <Layout>
+      {page}
+    </Layout>
   )
 }
-
-
-
