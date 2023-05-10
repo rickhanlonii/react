@@ -267,8 +267,7 @@ function onFormSubmit(event) {
   var form = event.target || event.srcElement;
   if (form) {
     if (form.method.toUpperCase() === 'GET') {
-      var baseUrl = document.location.href.split('?')[0];
-      var url = (form.action || baseUrl) + '?' + serializeForm(form);
+      var url = (form.action || currentUrl).split('?')[0] + '?' + serializeForm(form);
       softNavigate(url);
       if (event.preventDefault) {
         event.preventDefault();
@@ -276,7 +275,7 @@ function onFormSubmit(event) {
       return false;
     } else if (form.method.toUpperCase() === 'POST') {
       var formData = serializeForm(form);
-      var actionUrl = form.action || document.location.href;
+      var actionUrl = form.action || currentUrl;
       form.reset();
       sendPostRequest(actionUrl, formData, handleResponseOutput);
       if (event.preventDefault) {
@@ -293,7 +292,14 @@ if (window.history.pushState) {
   })
 }
 
+var currentUrl = location.href;
+
 function softNavigate(url) {
+  var baseUrl = currentUrl.split('?')[0];
+  if (url.indexOf('/') === 0) {
+    url = baseUrl + url.slice(1);
+  }
+  currentUrl = url;
   sendGetRequest(url, handleResponseOutput);
   if (window.history.pushState) {
     window.history.pushState(null, null, url)
@@ -301,10 +307,6 @@ function softNavigate(url) {
 }
 
 function sendGetRequest(url, callback) {
-  var baseUrl = document.location.href.split('?')[0];
-  if (url.indexOf('/') === 0) {
-    url = baseUrl + url.slice(1);
-  }
   url = url.replace('3000', '3001');
   if (window.fetch) {
     fetch(url).then(function(response) { return response.text(); }).then(callback);
@@ -326,7 +328,7 @@ function sendGetRequest(url, callback) {
 }
 
 function sendPostRequest(url, data, callback) {
-  var baseUrl = document.location.href.split('?')[0];
+  var baseUrl = currentUrl.split('?')[0];
   if (url.indexOf('/') === 0) {
     url = baseUrl + url.slice(1);
   }
@@ -347,7 +349,7 @@ function sendPostRequest(url, data, callback) {
       }
     };
     if (url.indexOf('/') === 0) {
-      var baseUrl = document.location.href.split('?')[0];
+      var baseUrl = currentUrl.split('?')[0];
       url = baseUrl + url.slice(1);
     }
     url = url.replace('3000', '3001');
@@ -423,3 +425,4 @@ attachSubmitHandlerToForms();
 
 // Periodically check for new forms and attach the event listener
 setInterval(attachSubmitHandlerToForms, 1000);
+
