@@ -1,4 +1,3 @@
-
 if (!Array.prototype.flat) {
   Array.prototype.flat = function(depth) {
 
@@ -256,7 +255,7 @@ function updateTree(node, reactNode) {
 
 document.body.onclick = function() {
   if (event.srcElement.tagName === 'A') {
-    softNavigate(event.srcElement.href);
+    softNavigate(event.srcElement.href, true);
     return false;
   }
 };
@@ -303,13 +302,19 @@ if (window.history.pushState) {
 
 var currentUrl = location.href;
 
-function softNavigate(url) {
+function softNavigate(url, scrollToTop) {
   var baseUrl = 'http://' + location.host;
   if (url.indexOf('/') === 0) {
     url = baseUrl + url;
   }
   currentUrl = url;
-  sendGetRequest(url, handleResponseOutput);
+  sendGetRequest(url, function(data) {
+    handleResponseOutput(data);
+    if (scrollToTop) {
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
+  });
   if (window.history.pushState) {
     window.history.pushState(null, null, url)
   }

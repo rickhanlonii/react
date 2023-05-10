@@ -1,0 +1,79 @@
+body {
+  font-size: 24px;
+  color: white;
+  font-family: 'Courier New', Courier, monospace;
+  background-color: rgb(41, 44, 52);
+  position: relative;
+}
+
+.container {
+  margin: 0 auto;
+  padding: 20px;
+  width: 660px;
+  padding: 20px;
+  background-color: rgba(0,0,0,0.5);
+  filter: progid:DXImageTransform.Microsoft.AlphaImageLoader(src='/50.png', sizingMethod='scale');
+}
+
+h1, h2, h3, marquee p {
+  font-family: Comic Sans MS;
+  text-align: center;
+}
+
+h1 {
+  font-size: 48px;
+  color: rgb(144, 238, 144);
+}
+
+marquee p {
+  font-size: 48px;
+}
+
+h2 {
+  font-size: 36px;
+  color: rgb(255, 182, 193);
+}
+
+h3 {
+  font-size: 30px;
+  color: rgb(222, 157, 179);
+}
+
+a {
+  color: yellow;
+  text-decoration: none;
+  border-bottom: 2px dotted yellow;
+}
+
+a:hover {
+  color: orange;
+  border-bottom: 2px solid orange;
+}
+
+input {
+  background: yellow;
+  font-size: 24px;
+  margin-left: 40px;
+  border: 2px solid white;
+}
+
+label {
+  font-weight: bold;
+  display: block;
+  text-align: center;
+  margin-top: 20px;
+}
+
+hr {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+a {
+  font-weight: bold;
+}
+
+a, input {
+  position: relative;
+}
+

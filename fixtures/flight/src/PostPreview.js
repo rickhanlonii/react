@@ -6,12 +6,12 @@ export default async function PostPreview({ file }) {
   const content = await readFile('./posts/' + file, 'utf8');
   return (
     <div>
-      <a href={'/post/' + file.split('.')[0]}>
-        {file}
-      </a>
       <Markdown>
-        {content}
+        {content.toLowerCase().split('\n').slice(0, 12).join('\n') + '\n...'}
       </Markdown>
+      <a href={'/post/' + file.split('.')[0]}>
+        read more...
+      </a>
     </div>
   );
 }
