@@ -1,4 +1,3 @@
-import * as React from 'react'
 import { db } from './database.js';
 
 export default async function Layout({ children }) {

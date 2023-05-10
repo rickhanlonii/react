@@ -1,4 +1,3 @@
-import * as React from 'react';
 import {use, Suspense, useState, useLayoutEffect, startTransition} from 'react';
 import ReactDOM from 'react-dom/client';
 import {createFromFetch, encodeReply} from 'react-server-dom-webpack/client';
@@ -60,6 +59,9 @@ document.addEventListener('submit', function onFormSubmit(event) {
   var form = event.target;
   if (form) {
     if (form.method.toUpperCase() === 'GET') {
+      if (form.action && form.action.indexOf('javascript:') !== -1) {
+        return;
+      }
       var url = (form.action || currentUrl).split('?')[0] + '?' + serializeForm(form);
       softNavigate(url);
       if (event.preventDefault) {

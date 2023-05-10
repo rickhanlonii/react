@@ -1,4 +1,3 @@
-import * as React from 'react'
 import { readdir } from 'fs/promises';
 import Post from './Post.js'
 import { filterFiles } from './utils.js';

@@ -1,6 +1,5 @@
 'use client';
 
-import * as React from 'react';
 import { useTransition } from 'react';
 
 export default function ImageButton({ src, alt, gradient, updateTheme }) {

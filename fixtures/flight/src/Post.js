@@ -1,4 +1,3 @@
-import * as React from 'react'
 import { readFile } from 'fs/promises';
 import Markdown from 'react-markdown';
 
@@ -10,11 +9,22 @@ export default async function Post({ slug, isExcerpt, children }) {
     );
   }
   return (
-    <Markdown components={{img: Image}}>
+    <Markdown>
       {markdown.toLowerCase()}
     </Markdown>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
 
 
 

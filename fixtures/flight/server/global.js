@@ -25,7 +25,9 @@ babelRegister({
       return false;
     },
   ],
-  presets: ['react-app'],
+  presets: [['react-app', {
+    runtime: 'automatic',
+  }]],
   plugins: ['@babel/transform-modules-commonjs'],
 });
 
