@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import { readFile } from 'fs/promises';
 import Post from './Post.js';
 import { addComment } from './actions.js';
-import { db } from './database.js'
+import { db } from './database.js';
 
 export default async function PostPage({ slug }) {
   return (
@@ -31,10 +31,21 @@ async function PostComments({ slug }) {
   return (
     <section>
       <h3>{header}</h3>
-      {comments.map(({ text, color }) => 
-        <marquee style={{ color }}>
-          <p>{text}</p>
-        </marquee>
+      {comments.map(({ text, color }) =>
+        <div>
+          <hr />
+          <marquee
+            direction="down"
+            border="solid"
+            height="100"
+            behavior="alternate"
+            style={{color}}
+          >
+            <marquee behavior="alternate">
+              <span style={{ color }}>{text}</span>
+            </marquee>
+          </marquee>
+        </div>
       )}
     </section>
   );
