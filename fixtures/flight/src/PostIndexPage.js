@@ -1,9 +1,9 @@
 import * as React from 'react'
 import { readdir } from 'fs/promises';
-import PostPreview from './PostPreview.js'
+import Post from './Post.js'
 import { filterFiles } from './utils.js';
 
-export default async function AllPostsPage({ searchParams }) {
+export default async function PostIndexPage({ searchParams }) {
   let files = await readdir('./posts/');
   if (searchParams.query) {
     files = filterFiles(files, searchParams.query);
@@ -19,11 +19,22 @@ export default async function AllPostsPage({ searchParams }) {
       </form>
       <hr />
       {files.map(file =>
-        <div key={file}>
-          <PostPreview slug={file.split('.')[0]} />
-          <hr />
-        </div>
+        <PostPreview
+          key={file}
+          slug={file.split('.')[0]} />
       )}
+    </div>
+  );
+}
+
+function PostPreview({ slug }) {
+  return (
+    <div>
+      <Post isExcerpt={true} slug={slug} />
+      <a href={'/post/' + slug}>
+        read more...
+      </a>
+      <hr />
     </div>
   );
 }

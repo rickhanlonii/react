@@ -39,6 +39,10 @@ h3 {
   color: rgb(222, 157, 179);
 }
 
+section h3 {
+  color: rgb(144, 238, 144);
+}
+
 a {
   color: yellow;
   text-decoration: none;
