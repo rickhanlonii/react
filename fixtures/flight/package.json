@@ -67,8 +67,6 @@
     "webpack-manifest-plugin": "^4.0.2"
   },
   "scripts": {
-    "predev": "cp -r ../../build/oss-experimental/* ./node_modules/",
-    "prebuild": "cp -r ../../build/oss-experimental/* ./node_modules/",
     "dev": "concurrently \"npm run dev:region\" \"npm run dev:global\"",
     "dev:global": "NODE_ENV=development BUILD_PATH=dist node --experimental-loader ./loader/global.js server/global",
     "dev:region": "NODE_ENV=development BUILD_PATH=dist nodemon --watch src --watch dist -- --experimental-loader ./loader/region.js --conditions=react-server server/region",
