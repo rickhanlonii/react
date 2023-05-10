@@ -1,7 +1,6 @@
 import * as React from 'react'
 import { readFile } from 'fs/promises';
 import Markdown from 'react-markdown';
-import {ThemeButton} from './Theme.js';
 
 export default async function Post({ slug, isExcerpt, children }) {
   let markdown = await readFile('./posts/' + slug + '.md', 'utf8');
@@ -11,9 +10,11 @@ export default async function Post({ slug, isExcerpt, children }) {
     );
   }
   return (
-    <Markdown>
-      {markdown.toLowerCase()}
-    </Markdown>
+    <form>
+      <Markdown components={{img: Image}}>
+        {markdown.toLowerCase()}
+      </Markdown>
+    </form>
   );
 }
 
@@ -26,30 +27,25 @@ export default async function Post({ slug, isExcerpt, children }) {
 
 
 
-import imageToGradient from 'image-to-gradient';
+
+
+
+
+
+
+import { extractGradient } from './utils.js';
+import { updateTheme } from './actions.js';
+import ImageButton from './ImageButton.js';
 
 async function Image(props) {
-  const gradient = await getGradient('./public' + props.src);
+  const gradient = await extractGradient('./public' + props.src);
   return (
-    <ThemeButton theme={gradient}>
-      <img {...props} />
-    </ThemeButton>
+    <ImageButton
+      {...props}
+      gradient={gradient}
+      updateTheme={updateTheme}
+    />
   );
-}
-
-async function getGradient(src) {
-  return new Promise((resolve, reject) => {
-    imageToGradient(src, {
-      angle: 10, // gradient angle in degrees
-      steps: 64  // number of steps
-    }, function(err, cssGradient) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(cssGradient);
-      }
-    });
-  })  
 }
 
 

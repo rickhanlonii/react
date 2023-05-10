@@ -1,3 +1,24 @@
+import imageToGradient from 'image-to-gradient';
+
+export async function extractGradient(src) {
+  return new Promise((resolve, reject) => {
+    imageToGradient(src, {
+      angle: 10, // gradient angle in degrees
+      steps: 64  // number of steps
+    }, function(err, cssGradient) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(cssGradient);
+      }
+    });
+  })  
+}
+
+export function filterFiles(files, query) {
+  return files.filter(f => f.split('-').some(word => word.startsWith(query)));
+}
+
 export function getRandomColor() { 
   const h = 360 * Math.random();
   const s = (25 + 70 * Math.random());
@@ -6,7 +27,7 @@ export function getRandomColor() {
   return 'rgb(' + rgb.join(',') + ')';
 }
 
-const HSLToRGB = (h, s, l) => {
+function HSLToRGB (h, s, l) {
   s /= 100;
   l /= 100;
   const k = n => (n + h / 30) % 12;
@@ -16,6 +37,4 @@ const HSLToRGB = (h, s, l) => {
   return [255 * f(0), 255 * f(8), 255 * f(4)];
 };
 
-export function filterFiles(files, query) {
-  return files.filter(f => f.split('-').some(word => word.startsWith(query)));
-}
+

@@ -21,7 +21,7 @@ export default async function PostPage({ slug }) {
 }
 
 async function PostComments({ slug }) {
-  const comments = await db.Comments.getByPost(slug);
+  const comments = await db.findCommentsForPost(slug);
   let header = 'No comments yet';
   if (comments.length === 1) {
     header = '1 comment';

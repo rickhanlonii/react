@@ -1,11 +1,13 @@
 import * as React from 'react'
+import { db } from './database.js';
 
-export default function Layout({ children }) {
+export default async function Layout({ children }) {
+  const backgroundImage = await db.readTheme();
   return (
     <html>
       <body style={{
         backgroundColor: 'rgb(41, 44, 52)',
-        transition: 'background-image 1s ease-in-out',
+        backgroundImage,
       }}>
         <link rel="stylesheet" href="/main.css" />
         <div className="container">
@@ -16,44 +18,3 @@ export default function Layout({ children }) {
     </html>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-/*
-'use client';
-
-import * as React from 'react'
-import { useState } from 'react'
-import { ThemeContext } from './Theme.js';
-
-export default function Layout({ children }) {
-  const [ pageTheme, setPageTheme] = useState(null);
-  return (
-    <html>
-      <body style={{
-        backgroundColor: 'rgb(41, 44, 52)',
-        backgroundImage: pageTheme,
-        transition: 'background-image 1s ease-in-out',
-      }}>
-        <link rel="stylesheet" href="/main.css" />
-        <div className="container">
-          <div className="background" />
-          <ThemeContext.Provider value={setPageTheme}>
-            {children}
-          </ThemeContext.Provider>
-        </div>
-      </body>
-    </html>
-  );
-}
-*/

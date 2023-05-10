@@ -1,27 +1,32 @@
 checklist
 
 - multiple vm
+- verify all can connect to ip
 - js off at first
 - faux at first
-- do the image thing
 - check all paths work
+- autoimport react
 - notepad++ and rsync
+- properly move all unneeded code down
+- undo all codepaths to defaults
+  - demo.json
+  - Post.js markdown thing
 - go through features while showing concrete places in code
-  - use folding liberally
-  - components: App
-  - layouts
-  - suspense (briefly, add and remove)
-  - server: "use server" explanation as an endpoint
-  - client transitions
+  - server react
+    - use folding liberally
+    - components: App
+    - layouts
+    - suspense (briefly, add and remove)
+    - server: "use server" explanation as an endpoint
+  - switch to fake react
+    - client transitions
   - switch to real react
-  - client: "use client" explanation as <script> tag
-    - clickable thing
-    - maybe some form PE?
-    - the whole thing
-      - client provider
-      - everything together
-        - pass color down from image to client image
-        - pass action down for storing current color
-        - theme provider with context
-        - refresh background with a transition animation
+    - client expl
+      - client: "use client" explanation as <script> tag
+      - pass alert down
+      - move img into ImageButton and use that for markdown
+    - hybrid expl
+      - our Layout reads graient but this isn't used yet
+      - pass image's gradient and an action down
+      - hook it up to a transition
 - the actual ending lol
