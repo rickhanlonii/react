@@ -10,6 +10,13 @@ export default async function Layout({ children }) {
         backgroundImage,
       }}>
         <link rel="stylesheet" href="/main.css" />
+        <marquee>
+          <h1>
+            welcome to my personal collection of certified bangers!
+            feel free to leave some comments on this beautiful
+            little corner of the information superhighway....
+          </h1>
+        </marquee>
         <div className="container">
           <div className="background" />
           {children}
