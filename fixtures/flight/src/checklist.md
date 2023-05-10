@@ -11,6 +11,7 @@ checklist
 - undo all codepaths to defaults
   - demo.json
   - Post.js markdown thing
+- restart all servers
 - go through features while showing concrete places in code
   - server react
     - use folding liberally
