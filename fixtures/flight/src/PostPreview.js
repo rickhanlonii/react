@@ -10,7 +10,7 @@ export default async function PostPreview({ file }) {
         {file}
       </a>
       <Markdown>
-        {content.slice(0, 10)}
+        {content}
       </Markdown>
     </div>
   );
