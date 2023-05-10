@@ -2,14 +2,17 @@ import * as React from 'react'
 import { readFile } from 'fs/promises';
 import Markdown from 'react-markdown'
 
-export default async function PostPreview({ file }) {
-  const content = await readFile('./posts/' + file, 'utf8');
+export default async function PostPreview({ slug }) {
+  const markdown = await readFile('./posts/' + slug + '.md', 'utf8');
+  const markdownExcerpt = (
+    markdown.split('\n').slice(0, 12).join('\n') + '\n...'
+  );
   return (
     <div>
       <Markdown>
-        {content.toLowerCase().split('\n').slice(0, 12).join('\n') + '\n...'}
+        {markdownExcerpt.toLowerCase()}
       </Markdown>
-      <a href={'/post/' + file.split('.')[0]}>
+      <a href={'/post/' + slug}>
         read more...
       </a>
     </div>

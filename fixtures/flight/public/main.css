@@ -73,7 +73,7 @@ a {
   font-weight: bold;
 }
 
-a, input {
+a, input, button {
   position: relative;
 }
 

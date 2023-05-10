@@ -1,11 +1,12 @@
 import * as React from 'react'
 import { readdir } from 'fs/promises';
 import PostPreview from './PostPreview.js'
+import { filterFiles } from './utils.js';
 
 export default async function AllPostsPage({ searchParams }) {
   let files = await readdir('./posts/');
   if (searchParams.query) {
-    files = files.filter(f => f.split('-').some(word => word.startsWith(searchParams.query)))
+    files = filterFiles(files, searchParams.query);
   }
   return (
     <div>
@@ -19,7 +20,7 @@ export default async function AllPostsPage({ searchParams }) {
       <hr />
       {files.map(file =>
         <div key={file}>
-          <PostPreview file={file} />
+          <PostPreview slug={file.split('.')[0]} />
           <hr />
         </div>
       )}
