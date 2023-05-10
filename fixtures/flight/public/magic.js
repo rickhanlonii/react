@@ -126,7 +126,9 @@ if (!Array.prototype.reduce) {
 
 function createTree(reactNode) {
   if (typeof reactNode === 'string') {
-    return document.createTextNode(reactNode);
+    var node = document.createTextNode(reactNode);
+    updateTree(node, reactNode);
+    return node;
   } else if (typeof reactNode === 'object') {
     var node = document.createElement(reactNode.type);
     updateTree(node, reactNode);
@@ -170,7 +172,14 @@ function updateTree(node, reactNode) {
     if (node.nodeType !== 3) {
       throw Error('Cannot do that');
     }
-    node.nodeValue = reactNode;
+    if (window.fetch) {
+      node.nodeValue = reactNode;
+    } else {
+      var newValue = reactNode.replace(/\n/g, '\r');
+      if (node.nodeValue !== newValue) {
+        node.nodeValue = newValue;
+      }
+    }
     return;
   }
 
