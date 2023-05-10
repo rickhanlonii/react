@@ -90,7 +90,7 @@ async function renderApp(req, res, returnValue) {
   const App = m.default.default || m.default;
   const root = React.createElement(App, {
     searchParams: req.query,
-    pathname: req.path,
+    path: req.path,
   });
   try {
     // For client-invoked server actions we refresh the tree and return a return value.

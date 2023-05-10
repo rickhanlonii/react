@@ -22,5 +22,6 @@ checklist
       - everything together
         - pass color down from image to client image
         - pass action down for storing current color
+        - theme provider with context
         - refresh background with a transition animation
 - the actual ending lol

@@ -93,11 +93,22 @@ async function softNavigate(url, scrollToTop, isInstant) {
       updateRoot(newData);
     });
   }
-  if (scrollToTop) {
-    await newData;
-    window.scrollTo(0, 0);      
-  }
+  // if (scrollToTop) {
+  //   await newData;
+  //   window.scrollTo(0, 0);      
+  // }
   if (window.history.pushState) {
     window.history.pushState(null, null, url)
   }
+}
+
+function serializeForm(form) {
+  var queryString = [];
+  for (var i = 0; i < form.elements.length; i++) {
+    var element = form.elements[i];
+    if (element.type !== 'submit' && element.name) {
+      queryString.push(encodeURIComponent(element.name) + '=' + encodeURIComponent(element.value));
+    }
+  }
+  return queryString.join('&');
 }

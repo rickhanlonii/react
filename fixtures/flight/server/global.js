@@ -152,9 +152,25 @@ app.all('/*', async function (req, res, next) {
       const root = await createFromNodeStream(rscResponse, moduleMap);
       // Render it into HTML by resolving the client components
       res.set('Content-type', 'text/html');
+
+      const demoConfig = JSON.parse(
+        await fs.readFile(
+          path.resolve(__dirname, `../src/demo.json`),
+          'utf8'
+        )
+      );
+      let bootstrapScripts = [];
+      if (demoConfig.demo === 'server-react') {
+        // ok
+      } else if (demoConfig.demo === 'fake-react') {
+        bootstrapScripts = ['/faux-react.js'];
+      } else if (demoConfig.demo === 'real-react') {
+        bootstrapScripts = mainJSChunks
+      } else {
+        throw Error('wtf');
+      }
       const {pipe} = renderToPipeableStream(root, {
-        bootstrapScripts: mainJSChunks
-          // ['/faux-react.js'],
+        bootstrapScripts
       });
       pipe(res);
     } catch (e) {
