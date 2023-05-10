@@ -295,9 +295,9 @@ if (window.history.pushState) {
 var currentUrl = location.href;
 
 function softNavigate(url) {
-  var baseUrl = currentUrl.split('?')[0];
+  var baseUrl = 'http://' + location.host;
   if (url.indexOf('/') === 0) {
-    url = baseUrl + url.slice(1);
+    url = baseUrl + url;
   }
   currentUrl = url;
   sendGetRequest(url, handleResponseOutput);

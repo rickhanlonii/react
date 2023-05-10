@@ -9,6 +9,7 @@ export default async function PostPage({ slug }) {
   const text = await readFile('./posts/' + slug + '.md', 'utf8');
   return (
     <div>
+      <a href="/">home</a>
       <h1>
         {slug}
       </h1>
