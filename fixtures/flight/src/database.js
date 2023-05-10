@@ -33,7 +33,7 @@ export const db = {
       setTimeout(resolve, 800);
     });
   },
-  async readTheme(options) {
+  async readTheme(options = {}) {
     if (options.slowdown) {
       await new Promise(resolve => setTimeout(resolve, options.slowdown));
     }
