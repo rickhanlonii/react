@@ -1,4 +1,4 @@
-### spice girls – wannabe
+### spice girls - wannabe
 
 ![Spice](/spice.png)
 

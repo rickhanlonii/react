@@ -1,4 +1,4 @@
-### nirvana – smells like teen spirit
+### nirvana - smells like teen spirit
 
 ![Nirvana](/nirvana.jpeg)
 

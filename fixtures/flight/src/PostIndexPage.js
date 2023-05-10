@@ -13,8 +13,13 @@ export default async function PostIndexPage({ searchParams }) {
       <form>
         <label>
           search the treasure box:
-          <input name="query" defaultValue={searchParams.query} />
-          <p>{searchParams.query ? 'found ' + files.length + ' certified bangers' : ''}</p>
+          <input
+            name="query"
+            defaultValue={searchParams.query}
+          />
+          <p>{searchParams.query ?
+            'found ' + files.length + ' certified bangers' : ''}
+          </p>
         </label>
       </form>
       <hr />
@@ -31,9 +36,7 @@ function PostPreview({ slug }) {
   return (
     <div>
       <Post isExcerpt={true} slug={slug} />
-      <a href={'/post/' + slug}>
-        read more...
-      </a>
+      <a href={'/post/' + slug}>read more...</a>
       <hr />
     </div>
   );

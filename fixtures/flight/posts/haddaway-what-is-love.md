@@ -1,4 +1,4 @@
-### haddaway – what is love
+### haddaway - what is love
 
 ![Love](/love.gif)
 

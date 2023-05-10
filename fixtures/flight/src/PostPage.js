@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { Suspense } from 'react';
 import { readFile } from 'fs/promises';
 import Post from './Post.js';
 import { addComment } from './actions.js';

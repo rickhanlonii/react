@@ -1,4 +1,4 @@
-### britney spears – oops i did it again
+### britney spears - oops i did it again
 
 ![oops i did it again](/oops.gif)
 

@@ -10,11 +10,9 @@ export default async function Post({ slug, isExcerpt, children }) {
     );
   }
   return (
-    <form>
-      <Markdown components={{img: Image}}>
-        {markdown.toLowerCase()}
-      </Markdown>
-    </form>
+    <Markdown components={{img: Image}}>
+      {markdown.toLowerCase()}
+    </Markdown>
   );
 }
 

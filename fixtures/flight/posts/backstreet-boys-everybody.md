@@ -1,4 +1,4 @@
-### backstreet boys – everybody
+### backstreet boys - everybody
 
 ![Backstreet](/back.jpg)
 
