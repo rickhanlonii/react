@@ -1,3 +1,4 @@
+/*
 if (!Array.prototype.flat) {
   Array.prototype.flat = function(depth) {
 
@@ -440,3 +441,4 @@ attachSubmitHandlerToForms();
 // Periodically check for new forms and attach the event listener
 setInterval(attachSubmitHandlerToForms, 1000);
 
+*/

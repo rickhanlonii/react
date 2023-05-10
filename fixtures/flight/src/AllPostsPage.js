@@ -13,7 +13,7 @@ export default async function AllPostsPage({ searchParams }) {
         <label>
           search the treasure box:
           <input name="query" defaultValue={searchParams.query} />
-          <p>{searchParams.query ? 'found ' + files.length + ' matches' : ''}</p>
+          <p>{searchParams.query ? 'found ' + files.length + ' bangers' : ''}</p>
         </label>
       </form>
       <hr />
