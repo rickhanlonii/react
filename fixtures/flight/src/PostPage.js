@@ -22,7 +22,7 @@ export default async function PostPage({ slug }) {
       <form action={comment}>
         <input type="hidden" name="slug" value={slug} />
         <input name="text" />
-        <button>Post</button>
+        <input type="submit" value="Post" />
       </form>
     </div>
   );
