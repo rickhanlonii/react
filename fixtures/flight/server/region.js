@@ -92,17 +92,22 @@ async function renderApp(req, res, returnValue) {
     searchParams: req.query,
     pathname: req.path,
   });
-  // For client-invoked server actions we refresh the tree and return a return value.
-  const payload = returnValue ? {returnValue, root} : root;
-  const {pipe} = renderToPipeableStream(payload, moduleMap);
-  pipe(res);
+  try {
+    // For client-invoked server actions we refresh the tree and return a return value.
+    const payload = returnValue ? {returnValue, root} : root;
+    const {pipe} = renderToPipeableStream(payload, moduleMap);
+    pipe(res);
+  } catch (e) {
+    console.log(e.stack);
+    throw e;
+  }
 }
 
 app.get('/*', async function (req, res) {
   await renderApp(req, res, null);
 });
 
-app.post('/', bodyParser.text(), async function (req, res) {
+app.post('/*', bodyParser.text(), async function (req, res) {
   const {
     renderToPipeableStream,
     decodeReply,
@@ -153,10 +158,11 @@ app.post('/', bodyParser.text(), async function (req, res) {
     const action = await decodeAction(formData);
     try {
       // Wait for any mutations
+      console.log('will call', action)
       await action();
     } catch (x) {
+      console.log('Failed action', x);
       const {setServerState} = await import('../src/ServerState.js');
-      setServerState('Error: ' + x.message);
     }
     renderApp(req, res, null);
   }

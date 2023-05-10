@@ -1,7 +1,7 @@
-let serverState = 'Hello World';
+let serverState = {};
 
-export function setServerState(message) {
-  serverState = message;
+export function setServerState(ss) {
+  serverState = ss;
 }
 
 export function getServerState() {

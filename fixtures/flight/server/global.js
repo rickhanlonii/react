@@ -157,6 +157,7 @@ app.all('/*', async function (req, res, next) {
       });
       pipe(res);
     } catch (e) {
+      console.log(e.message)
       console.error(`Failed to SSR: ${e.stack}`);
       res.statusCode = 500;
       res.end();

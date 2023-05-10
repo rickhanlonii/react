@@ -189,7 +189,11 @@ function updateTree(node, reactNode) {
             }
           } else {
             if (key in node) {
-              node[key] = value;
+              if (typeof node[key] === 'string' && value == null) {
+                node[key] = ''
+              } else {
+                node[key] = value;
+              }
             }
           }
         }
@@ -241,42 +245,6 @@ function updateTree(node, reactNode) {
   console.log('end reconciling ' + node.tagName)
 }
 
-function softNavigate(url) {
-  var baseUrl = document.location.href.split('?')[0];
-  if (url.indexOf('/') === 0) {
-    url = baseUrl + url.slice(1);
-  }
-  url = url.replace('3000', '3001');
-  fetchIE6(url, function(response) {
-    var json = eval('({' + response.split('\n').filter(Boolean).join(',') + '})');
-    var reactTree = reviveValue(json[0]);
-    updateTree(document.body, reactTree.props.children);
-
-    function reviveValue(val) {
-      if (Array.isArray(val)) {
-        if (val[0] === '$') {
-          return reviveValue({type: val[1], key: val[2], props: val[3]});
-        } else {
-          return val.map(reviveValue);
-        }
-      } else if (typeof val === 'object' && val != null) {
-        var obj = {};
-        for (var key in val) {
-          if (val.hasOwnProperty(key)) {
-            obj[key] = reviveValue(val[key]);
-          }
-        }
-        return obj;
-      } else if (typeof val === 'string' && val.indexOf('$L') === 0) {
-        var slotIndex = parseInt(val.slice(2), 10);
-        return reviveValue(json[slotIndex]);
-      } else {
-        return val;
-      }
-    }
-  });
-}
-
 document.body.onclick = function() {
   if (event.srcElement.tagName === 'A') {
     softNavigate(event.srcElement.href);
@@ -295,19 +263,146 @@ function serializeForm(form) {
   return queryString.join('&');
 }
 
-
 function onFormSubmit(event) {
   var form = event.target || event.srcElement;
-  if (form && form.method.toUpperCase() === 'GET') {
-    if (event.preventDefault) {
-      event.preventDefault();
+  if (form) {
+    if (form.method.toUpperCase() === 'GET') {
+      var baseUrl = document.location.href.split('?')[0];
+      var url = (form.action || baseUrl) + '?' + serializeForm(form);
+      softNavigate(url);
+      if (event.preventDefault) {
+        event.preventDefault();
+      }
+      return false;
+    } else if (form.method.toUpperCase() === 'POST') {
+      var formData = serializeForm(form);
+      var actionUrl = form.action || document.location.href;
+      form.reset();
+      sendPostRequest(actionUrl, formData, handleResponseOutput);
+      if (event.preventDefault) {
+        event.preventDefault();
+      }
+      return false;
     }
-    var baseUrl = document.location.href.split('?')[0];
-    var url = (form.action || baseUrl) + '?' + serializeForm(form);
-    softNavigate(url);
-    return false;
   }
-x}
+}
+
+if (window.history.pushState) {
+  window.addEventListener('popstate', function() {
+    softNavigate(location.href);
+  })
+}
+
+function softNavigate(url) {
+  sendGetRequest(url, handleResponseOutput);
+  if (window.history.pushState) {
+    window.history.pushState(null, null, url)
+  }
+}
+
+function sendGetRequest(url, callback) {
+  var baseUrl = document.location.href.split('?')[0];
+  if (url.indexOf('/') === 0) {
+    url = baseUrl + url.slice(1);
+  }
+  url = url.replace('3000', '3001');
+  if (window.fetch) {
+    fetch(url).then(function(response) { return response.text(); }).then(callback);
+  } else {
+    var xhr = new ActiveXObject('Microsoft.XMLHTTP');
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === 4 && xhr.status === 200) {
+        callback(xhr.responseText);
+      }
+    };
+    if (url.indexOf('?') !== -1) {
+      url += '&';
+    } else {
+      url += '?'
+    }
+    xhr.open('GET', url + 'rnd=' + Math.random(), true);
+    xhr.send();
+  }
+}
+
+function sendPostRequest(url, data, callback) {
+  var baseUrl = document.location.href.split('?')[0];
+  if (url.indexOf('/') === 0) {
+    url = baseUrl + url.slice(1);
+  }
+  url = url.replace('3000', '3001');
+  if (window.fetch) {
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+      },
+      body: data
+    }).then(function(response) { return response.text(); }).then(callback);
+  } else {
+    var xhr = new ActiveXObject('Microsoft.XMLHTTP');
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === 4 && xhr.status === 200) {
+        callback(xhr.responseText);
+      }
+    };
+    if (url.indexOf('/') === 0) {
+      var baseUrl = document.location.href.split('?')[0];
+      url = baseUrl + url.slice(1);
+    }
+    url = url.replace('3000', '3001');
+    xhr.open('POST', url, true);
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded;charset=UTF-8');
+    xhr.send(data);
+  }
+}
+
+function handleResponseOutput(response) {
+  var json = eval('({' + response.split('\n').filter(Boolean).join(',') + '})');
+  var reactTree = reviveValue(json[0]);
+  updateTree(document.body, reactTree.props.children);
+
+  function reviveValue(val) {
+    if (Array.isArray(val)) {
+      if (val[0] === '$') {
+        var el = reviveValue({type: val[1], key: val[2], props: val[3]});
+        if (el.type === 'form' && val[3] && typeof val[3].action === 'string' && val[3].action.indexOf('$F') === 0) {
+          var slotIndex2 = val[3].action.slice(2);
+          el.props.action = '';
+          el.props.encType = 'multipart/form-data';
+          el.props.method = 'POST';
+          el.props.children.splice(0, 0, {
+            type: 'input',
+            props: {
+              type: 'hidden',
+              name: '$ACTION_ID_' + json[slotIndex2].id
+            }
+          });
+        }
+        return el;
+      } else {
+        return val.map(reviveValue);
+      }
+    } else if (typeof val === 'object' && val != null) {
+      var obj = {};
+      for (var key in val) {
+        if (val.hasOwnProperty(key)) {
+          obj[key] = reviveValue(val[key]);
+        }
+      }
+      return obj;
+    } else if (typeof val === 'string' && val.indexOf('$L') === 0) {
+      var slotIndex = parseInt(val.slice(2), 10);
+      return reviveValue(json[slotIndex]);
+    } else if (typeof val === 'string' && val.indexOf('$F') === 0) {
+      return "";
+    } else if (val === '$undefined') {
+      return undefined;
+    } else {
+      return val;
+    }
+  }
+}
 
 function attachSubmitHandlerToForms() {
   var forms = document.getElementsByTagName('form');
@@ -328,23 +423,3 @@ attachSubmitHandlerToForms();
 
 // Periodically check for new forms and attach the event listener
 setInterval(attachSubmitHandlerToForms, 1000);
-
-function fetchIE6(url, callback) {
-  if (window.fetch) {
-    fetch(url).then(function(x) {return x.text() }).then(callback);
-    return;
-  }
-  var xhr = new ActiveXObject('Microsoft.XMLHTTP');  
-  xhr.onreadystatechange = function() {
-    if (xhr.readyState === 4 && xhr.status === 200) {
-      callback(xhr.responseText);
-    }
-  };
-  if (url.indexOf('?') !== -1) {
-    url += '&';
-  } else {
-    url += '?'
-  }
-  xhr.open('GET', url + 'rnd=' + Math.random(), true);
-  xhr.send();
-}

@@ -1,6 +1,22 @@
 'use server';
 
-import {setServerState} from './ServerState.js';
+import {getServerState, setServerState} from './ServerState.js';
+
+export async function comment(formData) {
+  console.log('here')
+  const ss = getServerState();
+  console.log('here 2')
+  const postId = formData.get('slug');
+  setServerState({
+    ...ss,
+    [postId]: [
+      ...(ss[postId] ? ss[postId] : []),
+      formData.get('text')
+    ]
+  })
+  console.log('here 3')
+  return new Promise((resolve, reject) => resolve('Commented'));
+}
 
 export async function like() {
   setServerState('Liked!');
