@@ -76,7 +76,7 @@ describe('ReactDOMHooks', () => {
     expect(container3.textContent).toBe('6');
   });
 
-  it('should not bail out when an update is scheduled from within an event handler', () => {
+  it('should not bail out when an update is scheduled from within an event handler', async () => {
     const {createRef, useCallback, useState} = React;
 
     const Example = ({inputRef, labelRef}) => {
@@ -102,9 +102,11 @@ describe('ReactDOMHooks', () => {
     );
 
     inputRef.current.value = 'abc';
-    inputRef.current.dispatchEvent(
-      new Event('input', {bubbles: true, cancelable: true}),
-    );
+    await act(() => {
+      inputRef.current.dispatchEvent(
+        new Event('input', {bubbles: true, cancelable: true}),
+      );
+    });
 
     expect(labelRef.current.innerHTML).toBe('abc');
   });
