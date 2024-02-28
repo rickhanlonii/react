@@ -3248,6 +3248,7 @@ function initSuspenseListRenderState(
   lastContentRow: null | Fiber,
   tailMode: SuspenseListTailMode,
 ): void {
+  // TODO: save containment size for tailMode = "virtual"
   const renderState: null | SuspenseListRenderState =
     workInProgress.memoizedState;
   if (renderState === null) {

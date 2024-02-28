@@ -735,6 +735,12 @@ function cutOffTailIfNeeded(
       }
       break;
     }
+    case 'virtualize': {
+      // TODO: check if the remaining items are outside of the containment.
+      // If they are, put them inside <Activity mode="hidden" />, and set
+      // renderState.tail to null. This will commit the tree with the visible
+      // elements inside containment, with the rest of the items in hidden mode.
+    }
   }
 }
 
@@ -1531,6 +1537,11 @@ function completeWork(
           if (!cannotBeSuspended) {
             let row = workInProgress.child;
             while (row !== null) {
+              // TODO: if tailMode = "virtual", also measure each row and find
+              // the first row that is inside of containment. Set all rows before
+              // that to <Activity mode="hidden" />, and the row inside containment
+              // to <Activity mode="visible" />
+
               const suspended = findFirstSuspended(row);
               if (suspended !== null) {
                 didSuspendAlready = true;
@@ -1605,6 +1616,10 @@ function completeWork(
         if (!didSuspendAlready) {
           const suspended = findFirstSuspended(renderedTail);
           if (suspended !== null) {
+            // TODO: if tailMode = "virtual", measure the fallback size and check
+            // if it is inside of containment. If not, set <Activity mode="hidden" />,
+            // if so, set <Activity mode="visible" />
+
             workInProgress.flags |= DidCapture;
             didSuspendAlready = true;
 
@@ -1670,6 +1685,11 @@ function completeWork(
           }
           renderState.last = renderedTail;
         }
+      }
+
+      if (renderState.tailMode === 'virtual') {
+        // TODO: check if the current rows are fill up the containment.
+        // If they do, then call
       }
 
       if (renderState.tail !== null) {

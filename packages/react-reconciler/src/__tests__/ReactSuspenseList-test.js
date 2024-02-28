@@ -931,6 +931,66 @@ describe('ReactSuspenseList', () => {
   });
 
   // @gate enableSuspenseList
+  it('TODO: support virtualized lists', async () => {
+    const A = createAsyncText('A');
+    const B = createAsyncText('B');
+    const C = createAsyncText('C');
+
+    function Foo() {
+      return (
+        <SuspenseList tailMode="virtual" containment={{top: 0, bottom: 400}}>
+          <Suspense fallback={<Text text="Loading A" />}>
+            <A />
+          </Suspense>
+          <Suspense fallback={<Text text="Loading B" />}>
+            <B />
+          </Suspense>
+          <Suspense fallback={<Text text="Loading C" />}>
+            <C />
+          </Suspense>
+        </SuspenseList>
+      );
+    }
+
+    ReactNoop.render(<Foo />);
+
+    // Initially only the first item fits in containment
+    expect(ReactNoop).toMatchRenderedOutput(
+      <>
+        <span>Loading A</span>
+        <span hidden={true}>
+          <span>Loading B</span>
+        </span>
+        <span hidden={true}>
+          <span>Loading C</span>
+        </span>
+      </>,
+    );
+
+    await act(() => A.resolve());
+    assertLog(['A', 'Suspend! [B]']);
+
+    expect(ReactNoop).toMatchRenderedOutput(
+      <>
+        <span>A</span>
+        <span>Loading B</span>
+        <span>Loading C</span>
+      </>,
+    );
+
+    await act(() => B.resolve());
+    assertLog(['B', 'C']);
+
+    expect(ReactNoop).toMatchRenderedOutput(
+      <>
+        <span>A</span>
+        <span>B</span>
+        <span>C</span>
+      </>,
+    );
+  });
+
+  // @gate enableSuspenseList
   it('displays each items in "backwards" order', async () => {
     const A = createAsyncText('A');
     const B = createAsyncText('B');
