@@ -3241,6 +3241,7 @@ function validateSuspenseListChildren(
   }
 }
 
+/// TODO
 function initSuspenseListRenderState(
   workInProgress: Fiber,
   isBackwards: boolean,
@@ -3270,6 +3271,7 @@ function initSuspenseListRenderState(
   }
 }
 
+// TODO
 // This can end up rendering this component multiple passes.
 // The first pass splits the children fibers into two sets. A head and tail.
 // We first render the head. If anything is in fallback state, we do another

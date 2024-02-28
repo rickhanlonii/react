@@ -47,10 +47,7 @@ const {
   unstable_getCurrentEventPriority: fabricGetCurrentEventPriority,
 } = nativeFabricUIManager;
 
-import {
-  useMicrotasksForSchedulingInFabric,
-  passChildrenWhenCloningPersistedNodes,
-} from 'shared/ReactFeatureFlags';
+import {passChildrenWhenCloningPersistedNodes} from 'shared/ReactFeatureFlags';
 
 const {get: getViewConfigForType} = ReactNativeViewConfigRegistry;
 
@@ -507,6 +504,6 @@ export const NotPendingTransition: TransitionStatus = null;
 // -------------------
 //     Microtasks
 // -------------------
-export const supportsMicrotasks = useMicrotasksForSchedulingInFabric;
+export const supportsMicrotasks = true;
 export const scheduleMicrotask: any =
   typeof queueMicrotask === 'function' ? queueMicrotask : scheduleTimeout;

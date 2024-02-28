@@ -23,7 +23,6 @@ export const {
   enableDeferRootSchedulingToMicrotask,
   enableUseRefAccessWarning,
   passChildrenWhenCloningPersistedNodes,
-  useMicrotasksForSchedulingInFabric,
   enableUnifiedSyncLane,
 } = dynamicFlags;
 
