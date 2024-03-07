@@ -32,6 +32,7 @@ let ReactServerDOMServer;
 let ReactServerDOMClient;
 let ReactDOMClient;
 let useFormState;
+let useActionState;
 let act;
 
 describe('ReactFlightDOMForm', () => {
@@ -56,6 +57,7 @@ describe('ReactFlightDOMForm', () => {
     ReactDOMClient = require('react-dom/client');
     act = React.act;
     useFormState = require('react-dom').useFormState;
+    useActionState = require('react').useActionState;
     container = document.createElement('div');
     document.body.appendChild(container);
   });
@@ -342,6 +344,557 @@ describe('ReactFlightDOMForm', () => {
 
     expect(returnValue).toBe('hello');
     expect(foo).toBe('barobject');
+  });
+
+  // @gate enableFormActions
+  // @gate enableAsyncActions
+  it("useActionState's dispatch binds the initial state to the provided action", async () => {
+    const serverAction = serverExports(
+      async function action(prevState, formData) {
+        return {
+          count:
+            prevState.count + parseInt(formData.get('incrementAmount'), 10),
+        };
+      },
+    );
+
+    const initialState = {count: 1};
+    function Client({action}) {
+      const [state, dispatch, isPending] = useActionState(action, initialState);
+      return (
+        <form action={dispatch}>
+          <span>{isPending && 'Pending...'}</span>
+          <span>Count: {state.count}</span>
+          <input type="text" name="incrementAmount" defaultValue="5" />
+        </form>
+      );
+    }
+    const ClientRef = await clientExports(Client);
+
+    const rscStream = ReactServerDOMServer.renderToReadableStream(
+      <ClientRef action={serverAction} />,
+      webpackMap,
+    );
+    const response = ReactServerDOMClient.createFromReadableStream(rscStream, {
+      ssrManifest: {
+        moduleMap: null,
+        moduleLoading: null,
+      },
+    });
+    const ssrStream = await ReactDOMServer.renderToReadableStream(response);
+    await readIntoContainer(ssrStream);
+
+    const form = container.getElementsByTagName('form')[0];
+    const pendingSpan = container.getElementsByTagName('span')[0];
+    const stateSpan = container.getElementsByTagName('span')[1];
+    expect(pendingSpan.textContent).toBe('');
+    expect(stateSpan.textContent).toBe('Count: 1');
+
+    const {returnValue} = await submit(form);
+    expect(await returnValue).toEqual({count: 6});
+  });
+
+  // @gate enableFormActions
+  // @gate enableAsyncActions
+  it('useActionState can reuse state during MPA form submission', async () => {
+    const serverAction = serverExports(
+      async function action(prevState, formData) {
+        return prevState + 1;
+      },
+    );
+
+    function Form({action}) {
+      const [count, dispatch, isPending] = useActionState(action, 1);
+      return (
+        <form action={dispatch}>
+          {isPending ? 'Pending...' : ''}
+          {count}
+        </form>
+      );
+    }
+
+    function Client({action}) {
+      return (
+        <div>
+          <Form action={action} />
+          <Form action={action} />
+          <Form action={action} />
+        </div>
+      );
+    }
+
+    const ClientRef = await clientExports(Client);
+
+    const rscStream = ReactServerDOMServer.renderToReadableStream(
+      <ClientRef action={serverAction} />,
+      webpackMap,
+    );
+    const response = ReactServerDOMClient.createFromReadableStream(rscStream, {
+      ssrManifest: {
+        moduleMap: null,
+        moduleLoading: null,
+      },
+    });
+    const ssrStream = await ReactDOMServer.renderToReadableStream(response);
+    await readIntoContainer(ssrStream);
+
+    expect(container.textContent).toBe('111');
+
+    // There are three identical forms. We're going to submit the second one.
+    const form = container.getElementsByTagName('form')[1];
+    const {formState} = await submit(form);
+
+    // Simulate an MPA form submission by resetting the container and
+    // rendering again.
+    container.innerHTML = '';
+
+    const postbackRscStream = ReactServerDOMServer.renderToReadableStream(
+      <ClientRef action={serverAction} />,
+      webpackMap,
+    );
+    const postbackResponse = ReactServerDOMClient.createFromReadableStream(
+      postbackRscStream,
+      {
+        ssrManifest: {
+          moduleMap: null,
+          moduleLoading: null,
+        },
+      },
+    );
+    const postbackSsrStream = await ReactDOMServer.renderToReadableStream(
+      postbackResponse,
+      {formState: formState},
+    );
+    await readIntoContainer(postbackSsrStream);
+
+    // Only the second form's state should have been updated.
+    expect(container.textContent).toBe('121');
+
+    // Test that it hydrates correctly
+    if (__DEV__) {
+      // TODO: Can't use our internal act() util that works in production
+      // because it works by overriding the timer APIs, which this test module
+      // also does. Remove dev condition once FlightServer.act() is available.
+      await act(() => {
+        ReactDOMClient.hydrateRoot(container, postbackResponse, {
+          formState: formState,
+        });
+      });
+      expect(container.textContent).toBe('121');
+    }
+  });
+
+  // @gate enableFormActions
+  // @gate enableAsyncActions
+  it(
+    'useActionState preserves state if arity is the same, but different ' +
+      'arguments are bound (i.e. inline closure)',
+    async () => {
+      const serverAction = serverExports(
+        async function action(stepSize, prevState, formData) {
+          return prevState + stepSize;
+        },
+      );
+
+      function Form({action}) {
+        const [count, dispatch, isPending] = useActionState(action, 1);
+        return (
+          <form action={dispatch}>
+            {isPending ? 'Pending...' : ''}
+            {count}
+          </form>
+        );
+      }
+
+      function Client({action}) {
+        return (
+          <div>
+            <Form action={action} />
+            <Form action={action} />
+            <Form action={action} />
+          </div>
+        );
+      }
+
+      const ClientRef = await clientExports(Client);
+
+      const rscStream = ReactServerDOMServer.renderToReadableStream(
+        // Note: `.bind` is the same as an inline closure with 'use server'
+        <ClientRef action={serverAction.bind(null, 1)} />,
+        webpackMap,
+      );
+      const response = ReactServerDOMClient.createFromReadableStream(
+        rscStream,
+        {
+          ssrManifest: {
+            moduleMap: null,
+            moduleLoading: null,
+          },
+        },
+      );
+      const ssrStream = await ReactDOMServer.renderToReadableStream(response);
+      await readIntoContainer(ssrStream);
+
+      expect(container.textContent).toBe('111');
+
+      // There are three identical forms. We're going to submit the second one.
+      const form = container.getElementsByTagName('form')[1];
+      const {formState} = await submit(form);
+
+      // Simulate an MPA form submission by resetting the container and
+      // rendering again.
+      container.innerHTML = '';
+
+      // On the next page, the same server action is rendered again, but with
+      // a different bound stepSize argument. We should treat this as the same
+      // action signature.
+      const postbackRscStream = ReactServerDOMServer.renderToReadableStream(
+        // Note: `.bind` is the same as an inline closure with 'use server'
+        <ClientRef action={serverAction.bind(null, 5)} />,
+        webpackMap,
+      );
+      const postbackResponse = ReactServerDOMClient.createFromReadableStream(
+        postbackRscStream,
+        {
+          ssrManifest: {
+            moduleMap: null,
+            moduleLoading: null,
+          },
+        },
+      );
+      const postbackSsrStream = await ReactDOMServer.renderToReadableStream(
+        postbackResponse,
+        {formState: formState},
+      );
+      await readIntoContainer(postbackSsrStream);
+
+      // The state should have been preserved because the action signatures are
+      // the same. (Note that the amount increased by 1, because that was the
+      // value of stepSize at the time the form was submitted)
+      expect(container.textContent).toBe('121');
+
+      // Now submit the form again. This time, the state should increase by 5
+      // because the stepSize argument has changed.
+      const form2 = container.getElementsByTagName('form')[1];
+      const {formState: formState2} = await submit(form2);
+
+      container.innerHTML = '';
+
+      const postbackRscStream2 = ReactServerDOMServer.renderToReadableStream(
+        // Note: `.bind` is the same as an inline closure with 'use server'
+        <ClientRef action={serverAction.bind(null, 5)} />,
+        webpackMap,
+      );
+      const postbackResponse2 = ReactServerDOMClient.createFromReadableStream(
+        postbackRscStream2,
+        {
+          ssrManifest: {
+            moduleMap: null,
+            moduleLoading: null,
+          },
+        },
+      );
+      const postbackSsrStream2 = await ReactDOMServer.renderToReadableStream(
+        postbackResponse2,
+        {formState: formState2},
+      );
+      await readIntoContainer(postbackSsrStream2);
+
+      expect(container.textContent).toBe('171');
+    },
+  );
+
+  // @gate enableFormActions
+  // @gate enableAsyncActions
+  it('useActionState does not reuse state if action signatures are different', async () => {
+    // This is the same as the previous test, except instead of using bind to
+    // configure the server action (i.e. a closure), it swaps the action.
+    const increaseBy1 = serverExports(
+      async function action(prevState, formData) {
+        return prevState + 1;
+      },
+    );
+
+    const increaseBy5 = serverExports(
+      async function action(prevState, formData) {
+        return prevState + 5;
+      },
+    );
+
+    function Form({action}) {
+      const [count, dispatch, isPending] = useActionState(action, 1);
+      return (
+        <form action={dispatch}>
+          {isPending ? 'Pending...' : ''}
+          {count}
+        </form>
+      );
+    }
+
+    function Client({action}) {
+      return (
+        <div>
+          <Form action={action} />
+          <Form action={action} />
+          <Form action={action} />
+        </div>
+      );
+    }
+
+    const ClientRef = await clientExports(Client);
+
+    const rscStream = ReactServerDOMServer.renderToReadableStream(
+      <ClientRef action={increaseBy1} />,
+      webpackMap,
+    );
+    const response = ReactServerDOMClient.createFromReadableStream(rscStream, {
+      ssrManifest: {
+        moduleMap: null,
+        moduleLoading: null,
+      },
+    });
+    const ssrStream = await ReactDOMServer.renderToReadableStream(response);
+    await readIntoContainer(ssrStream);
+
+    expect(container.textContent).toBe('111');
+
+    // There are three identical forms. We're going to submit the second one.
+    const form = container.getElementsByTagName('form')[1];
+    const {formState} = await submit(form);
+
+    // Simulate an MPA form submission by resetting the container and
+    // rendering again.
+    container.innerHTML = '';
+
+    // On the next page, a different server action is rendered. It should not
+    // reuse the state from the previous page.
+    const postbackRscStream = ReactServerDOMServer.renderToReadableStream(
+      <ClientRef action={increaseBy5} />,
+      webpackMap,
+    );
+    const postbackResponse = ReactServerDOMClient.createFromReadableStream(
+      postbackRscStream,
+      {
+        ssrManifest: {
+          moduleMap: null,
+          moduleLoading: null,
+        },
+      },
+    );
+    const postbackSsrStream = await ReactDOMServer.renderToReadableStream(
+      postbackResponse,
+      {formState: formState},
+    );
+    await readIntoContainer(postbackSsrStream);
+
+    // The state should not have been preserved because the action signatures
+    // are not the same.
+    expect(container.textContent).toBe('111');
+  });
+
+  // @gate enableFormActions
+  // @gate enableAsyncActions
+  it('when permalink is provided, useActionState compares that instead of the keypath', async () => {
+    const serverAction = serverExports(
+      async function action(prevState, formData) {
+        return prevState + 1;
+      },
+    );
+
+    function Form({action, permalink}) {
+      const [count, dispatch, isPending] = useActionState(action, 1, permalink);
+      return (
+        <form action={dispatch}>
+          {isPending ? 'Pending...' : ''}
+          {count}
+        </form>
+      );
+    }
+
+    function Page1({action, permalink}) {
+      return <Form action={action} permalink={permalink} />;
+    }
+
+    function Page2({action, permalink}) {
+      return <Form action={action} permalink={permalink} />;
+    }
+
+    const Page1Ref = await clientExports(Page1);
+    const Page2Ref = await clientExports(Page2);
+
+    const rscStream = ReactServerDOMServer.renderToReadableStream(
+      <Page1Ref action={serverAction} permalink="/permalink" />,
+      webpackMap,
+    );
+    const response = ReactServerDOMClient.createFromReadableStream(rscStream, {
+      ssrManifest: {
+        moduleMap: null,
+        moduleLoading: null,
+      },
+    });
+    const ssrStream = await ReactDOMServer.renderToReadableStream(response);
+    await readIntoContainer(ssrStream);
+
+    expect(container.textContent).toBe('1');
+
+    // Submit the form
+    const form = container.getElementsByTagName('form')[0];
+    const {formState} = await submit(form);
+
+    // Simulate an MPA form submission by resetting the container and
+    // rendering again.
+    container.innerHTML = '';
+
+    // On the next page, the same server action is rendered again, but in
+    // a different component tree. However, because a permalink option was
+    // passed, the state should be preserved.
+    const postbackRscStream = ReactServerDOMServer.renderToReadableStream(
+      <Page2Ref action={serverAction} permalink="/permalink" />,
+      webpackMap,
+    );
+    const postbackResponse = ReactServerDOMClient.createFromReadableStream(
+      postbackRscStream,
+      {
+        ssrManifest: {
+          moduleMap: null,
+          moduleLoading: null,
+        },
+      },
+    );
+    const postbackSsrStream = await ReactDOMServer.renderToReadableStream(
+      postbackResponse,
+      {formState: formState},
+    );
+    await readIntoContainer(postbackSsrStream);
+
+    expect(container.textContent).toBe('2');
+
+    // Now submit the form again. This time, the permalink will be different, so
+    // the state is not preserved.
+    const form2 = container.getElementsByTagName('form')[0];
+    const {formState: formState2} = await submit(form2);
+
+    container.innerHTML = '';
+
+    const postbackRscStream2 = ReactServerDOMServer.renderToReadableStream(
+      <Page1Ref action={serverAction} permalink="/some-other-permalink" />,
+      webpackMap,
+    );
+    const postbackResponse2 = ReactServerDOMClient.createFromReadableStream(
+      postbackRscStream2,
+      {
+        ssrManifest: {
+          moduleMap: null,
+          moduleLoading: null,
+        },
+      },
+    );
+    const postbackSsrStream2 = await ReactDOMServer.renderToReadableStream(
+      postbackResponse2,
+      {formState: formState2},
+    );
+    await readIntoContainer(postbackSsrStream2);
+
+    // The state was reset because the permalink didn't match
+    expect(container.textContent).toBe('1');
+  });
+
+  // @gate enableFormActions
+  // @gate enableAsyncActions
+  it('useActionState can change the action URL with the `permalink` argument', async () => {
+    const serverAction = serverExports(function action(prevState) {
+      return {state: prevState.count + 1};
+    });
+
+    const initialState = {count: 1};
+    function Client({action}) {
+      const [state, dispatch, isPending] = useActionState(
+        action,
+        initialState,
+        '/permalink',
+      );
+      return (
+        <form action={dispatch}>
+          <span>{isPending ? 'Pending...' : ''}</span>
+          <span>Count: {state.count}</span>
+        </form>
+      );
+    }
+    const ClientRef = await clientExports(Client);
+
+    const rscStream = ReactServerDOMServer.renderToReadableStream(
+      <ClientRef action={serverAction} />,
+      webpackMap,
+    );
+    const response = ReactServerDOMClient.createFromReadableStream(rscStream, {
+      ssrManifest: {
+        moduleMap: null,
+        moduleLoading: null,
+      },
+    });
+    const ssrStream = await ReactDOMServer.renderToReadableStream(response);
+    await readIntoContainer(ssrStream);
+
+    const form = container.getElementsByTagName('form')[0];
+    const pendingSpan = container.getElementsByTagName('span')[0];
+    const stateSpan = container.getElementsByTagName('span')[1];
+    expect(pendingSpan.textContent).toBe('');
+    expect(stateSpan.textContent).toBe('Count: 1');
+
+    expect(form.action).toBe('http://localhost/permalink');
+  });
+
+  // @gate enableFormActions
+  // @gate enableAsyncActions
+  it('useActionState `permalink` is coerced to string', async () => {
+    const serverAction = serverExports(function action(prevState) {
+      return {state: prevState.count + 1};
+    });
+
+    class Permalink {
+      toString() {
+        return '/permalink';
+      }
+    }
+
+    const permalink = new Permalink();
+
+    const initialState = {count: 1};
+    function Client({action}) {
+      const [state, dispatch, isPending] = useActionState(
+        action,
+        initialState,
+        permalink,
+      );
+      return (
+        <form action={dispatch}>
+          <span>{isPending ? 'Pending...' : ''}</span>
+          <span>Count: {state.count}</span>
+        </form>
+      );
+    }
+    const ClientRef = await clientExports(Client);
+
+    const rscStream = ReactServerDOMServer.renderToReadableStream(
+      <ClientRef action={serverAction} />,
+      webpackMap,
+    );
+    const response = ReactServerDOMClient.createFromReadableStream(rscStream, {
+      ssrManifest: {
+        moduleMap: null,
+        moduleLoading: null,
+      },
+    });
+    const ssrStream = await ReactDOMServer.renderToReadableStream(response);
+    await readIntoContainer(ssrStream);
+
+    const form = container.getElementsByTagName('form')[0];
+    const pendingSpan = container.getElementsByTagName('span')[0];
+    const stateSpan = container.getElementsByTagName('span')[1];
+    expect(pendingSpan.textContent).toBe('');
+    expect(stateSpan.textContent).toBe('Count: 1');
+
+    expect(form.action).toBe('http://localhost/permalink');
   });
 
   // @gate enableFormActions

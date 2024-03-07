@@ -24,6 +24,7 @@ let ReactDOMClient;
 let useFormStatus;
 let useOptimistic;
 let useFormState;
+let useActionState;
 
 describe('ReactDOMFizzForm', () => {
   beforeEach(() => {
@@ -34,6 +35,7 @@ describe('ReactDOMFizzForm', () => {
     useFormStatus = require('react-dom').useFormStatus;
     useFormState = require('react-dom').useFormState;
     useOptimistic = require('react').useOptimistic;
+    useActionState = require('react').useActionState;
     act = require('internal-test-utils').act;
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -481,6 +483,28 @@ describe('ReactDOMFizzForm', () => {
 
     function App() {
       const [state] = useFormState(action, 0);
+      return state;
+    }
+
+    const stream = await ReactDOMServer.renderToReadableStream(<App />);
+    await readIntoContainer(stream);
+    expect(container.textContent).toBe('0');
+
+    await act(async () => {
+      ReactDOMClient.hydrateRoot(container, <App />);
+    });
+    expect(container.textContent).toBe('0');
+  });
+
+  // @gate enableFormActions
+  // @gate enableAsyncActions
+  it('useActionState returns initial state', async () => {
+    async function action(state) {
+      return state;
+    }
+
+    function App() {
+      const [state] = useActionState(action, 0);
       return state;
     }
 
