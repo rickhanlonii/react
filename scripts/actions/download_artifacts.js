@@ -15,8 +15,8 @@ function execHelper(command, options, streamStdout = false) {
   });
 }
 
-async function run(ciBuildId) {
-  let artifactsUrl = `https://circleci.com/api/v1.1/project/github/facebook/react/${ciBuildId}/artifacts`;
+async function run() {
+  let artifactsUrl = `https://circleci.com/api/v1.1/project/github/facebook/react/891966/artifacts`;
   // This is a temporary, dirty hack to avoid needing a GitHub auth token in the circleci
   // workflow to notify this GitHub action. Sorry!
   let iter = 0;

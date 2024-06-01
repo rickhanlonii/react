@@ -24,7 +24,7 @@ jobs:
         with:
           script: |
             const {run} = require('./scripts/actions/download_artifacts');
-            const result = await run(ciBuildId);
+            const result = await run();
             if (result !== true) {
               console.log(result);
               process.exitCode = 1;
