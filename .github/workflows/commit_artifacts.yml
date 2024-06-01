@@ -23,7 +23,7 @@ jobs:
           CIRCLECI_TOKEN: ${{secrets.CIRCLECI_TOKEN_DIFFTRAIN}}
         with:
           script: |
-            const {run} = require('./scripts/download_artifacts');
+            const {run} = require('../scripts/download_artifacts');
             const result = await run();
             if (result !== true) {
               console.log(result);
