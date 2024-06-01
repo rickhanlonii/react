@@ -2,10 +2,30 @@ name: Commit Artifacts for Meta WWW and fbsource
 
 on:
   push:
-    branches: [main, meta-www, meta-fbsource]
+    branches: [main, meta-www, meta-fbsource, rh/test-ci]
 
 jobs:
+  build_artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: yarn install
+        run: |
+          yarn install
+          yarn build
+      - name: Add COMIT_SHA to the build
+        run: |
+          echo "${{ github.sha }}" >> "build/COMMIT_SHA"
+      - name: Archive production artifacts
+        run: tar -zcvf ./build.tgz ./build
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: built_artifacts
+          path: ./build.tgz
   download_artifacts:
+    needs: build_artifacts
     runs-on: ubuntu-latest
     outputs:
       www_branch_count: ${{ steps.check_branches.outputs.www_branch_count }}
@@ -17,101 +37,12 @@ jobs:
         run: |
           echo "www_branch_count=$(git ls-remote --heads origin "refs/heads/meta-www" | wc -l)" >> "$GITHUB_OUTPUT"
           echo "fbsource_branch_count=$(git ls-remote --heads origin "refs/heads/meta-fbsource" | wc -l)" >> "$GITHUB_OUTPUT"
-      - name: Download and unzip artifacts
-        uses: actions/github-script@v6
-        env:
-          CIRCLECI_TOKEN: ${{secrets.CIRCLECI_TOKEN_DIFFTRAIN}}
+      - name: Download a single artifact
+        uses: actions/download-artifact@v4
         with:
-          script: |
-            const cp = require('child_process');
-
-            function sleep(ms) {
-              return new Promise(resolve => setTimeout(resolve, ms));
-            }
-
-            function execHelper(command, options, streamStdout = false) {
-              return new Promise((resolve, reject) => {
-                const proc = cp.exec(
-                  command,
-                  options,
-                  (error, stdout) => (error ? reject(error) : resolve(stdout.trim())),
-                );
-                if (streamStdout) {
-                  proc.stdout.pipe(process.stdout);
-                }
-              });
-            }
-
-            let artifactsUrl = null;
-            // This is a temporary, dirty hack to avoid needing a GitHub auth token in the circleci
-            // workflow to notify this GitHub action. Sorry!
-            let iter = 0;
-            spinloop: while (iter < 15) {
-              const res = await github.rest.repos.listCommitStatusesForRef({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                ref: context.sha
-              });
-              for (const status of res.data) {
-                if (/process_artifacts_combined/.test(status.context)) {
-                  switch (status.state) {
-                    case 'pending': {
-                      console.log(`${status.context} is still pending`);
-                      break;
-                    }
-                    case 'failure':
-                    case 'error': {
-                      throw new Error(`${status.context} has failed or errored`);
-                    }
-                    case 'success': {
-                      // The status does not include a build ID, but we can extract it
-                      // from the URL. I couldn't find a better way to do this.
-                      const ciBuildId = /\/facebook\/react\/([0-9]+)/.exec(
-                        status.target_url,
-                      )[1];
-                      if (Number.parseInt(ciBuildId, 10) + '' === ciBuildId) {
-                        artifactsUrl =
-                          `https://circleci.com/api/v1.1/project/github/facebook/react/${ciBuildId}/artifacts`;
-                        console.log(`Found artifactsUrl: ${artifactsUrl}`);
-                        break spinloop;
-                      } else {
-                        throw new Error(`${ciBuildId} isn't a number`);
-                      }
-                      break;
-                    }
-                    default: {
-                      throw new Error(`Unhandled status state: ${status.state}`);
-                      break;
-                    }
-                  }
-                }
-              }
-              iter++;
-              console.log("Sleeping for 60s...");
-              await sleep(60_000);
-            }
-            if (artifactsUrl != null) {
-              const {CIRCLECI_TOKEN} = process.env;
-              const res = await fetch(artifactsUrl, {
-                headers: {
-                  'Circle-Token': CIRCLECI_TOKEN
-                }
-              });
-              const data = await res.json();
-              if (!Array.isArray(data) && data.message != null) {
-                throw `CircleCI returned: ${data.message}`;
-              }
-              for (const artifact of data) {
-                if (artifact.path === 'build.tgz') {
-                  console.log(`Downloading and unzipping ${artifact.url}`);
-                  await execHelper(
-                    `curl -L ${artifact.url} -H "Circle-Token: ${CIRCLECI_TOKEN}" | tar -xvz`
-                  );
-                }
-              }
-            } else {
-              process.exitCode = 1;
-            }
+          name: built_artifacts
+      - name: Extract the artifact
+        run: tar -xvf build.tgz
       - name: Strip @license from eslint plugin and react-refresh
         run: |
           sed -i -e 's/ @license React*//' \
