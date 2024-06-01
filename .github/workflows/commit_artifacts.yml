@@ -10,14 +10,16 @@ jobs:
     outputs:
       www_branch_count: ${{ steps.check_branches.outputs.www_branch_count }}
       fbsource_branch_count: ${{ steps.check_branches.outputs.fbsource_branch_count }}
-      last_version_classic: ${{ steps.get_version.outputs.last_version_classic }}
-      last_version_modern: ${{ steps.get_version.outputs.last_version_modern }}
+      last_version_classic: ${{ steps.get_last_version.outputs.last_version_classic }}
+      last_version_modern: ${{ steps.get_last_version.outputs.last_version_modern }}
+      current_version_classic: ${{ steps.get_current_version.outputs.current_version_classic }}
+      current_version_modern: ${{ steps.get_current_version.outputs.current_version_modern }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: builds/facebook-www
       - name: "Get last version string"
-        id: get_version
+        id: get_last_version
         run: |
           VERSION_CLASSIC=$(cat VERSION_CLASSIC)
           VERSION_MODERN=$(cat VERSION_MODERN)
@@ -48,6 +50,8 @@ jobs:
           sed -i -e 's/ @license React*//' \
             build/oss-experimental/eslint-plugin-react-hooks/cjs/eslint-plugin-react-hooks.development.js \
             build/oss-experimental/react-refresh/cjs/react-refresh-babel.development.js
+      - name: Create compiled directory
+        run: mkdir ./compiled
       - name: Move relevant files for React in www into compiled
         run: |
           # Move the facebook-www folder into compiled
@@ -97,6 +101,15 @@ jobs:
           echo ${{ github.sha }} >> ./compiled/facebook-www/REVISION
           cp ./compiled/facebook-www/REVISION ./compiled/facebook-www/REVISION_TRANSFORMS
           echo ${{ github.sha }} >> ./compiled-rn/facebook-fbsource/xplat/js/react-native-github/Libraries/Renderer/REVISION
+      - name: "Get current version string"
+        id: get_new_version
+        run: |
+          VERSION_CLASSIC=$(cat ./compiled/facebook-www/VERSION_CLASSIC)
+          VERSION_MODERN=$(cat ./compiled/facebook-www/VERSION_MODERN)
+          echo "Current classic version is $VERSION_CLASSIC"
+          echo "Current modern version is $VERSION_MODERN"
+          echo "current_version_classic=$VERSION_CLASSIC" >> "$GITHUB_OUTPUT"
+          echo "current_version_modern=$VERSION_MODERN" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v3
         with:
           name: compiled
