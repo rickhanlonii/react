@@ -165,6 +165,7 @@ jobs:
         run: |
           echo "Re-applying $LAST_VERSION_CLASSIC to $CURRENT_VERSION_CLASSIC"
           echo "Re-applying $LAST_VERSION_MODERN to $CURRENT_VERSION_MODERN"
+          echo "0"
           grep -rl "$LAST_VERSION_CLASSIC" ./compiled
           echo "1"
           grep -rl "$LAST_VERSION_MODERN" ./compiled
