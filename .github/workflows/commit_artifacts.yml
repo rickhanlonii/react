@@ -10,7 +10,19 @@ jobs:
     outputs:
       www_branch_count: ${{ steps.check_branches.outputs.www_branch_count }}
       fbsource_branch_count: ${{ steps.check_branches.outputs.fbsource_branch_count }}
+      last_version_classic: ${{ steps.get_version.outputs.last_version_classic }}
+      last_version_modern: ${{ steps.get_version.outputs.last_version_modern }}
     steps:
+      - name: "Get last version string"
+        id: get_version
+        uses: actions/checkout@v4
+        with:
+          ref: builds/facebook-www
+        run: |
+          VERSION_CLASSIC=$(cat VERSION_CLASSIC)
+          VERSION_MODERN=$(cat VERSION_MODERN)
+          echo "last_version_classic=$VERSION_CLASSIC" >> "$GITHUB_OUTPUT"
+          echo "last_version_modern=$VERSION_MODERN" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
       - name: "Check branches"
         id: check_branches
