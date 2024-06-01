@@ -1,7 +1,7 @@
-const cp = require("child_process");
+const cp = require('child_process');
 
 function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function execHelper(command, options, streamStdout = false) {
@@ -15,7 +15,7 @@ function execHelper(command, options, streamStdout = false) {
   });
 }
 
-export async function run() {
+async function run() {
   let artifactsUrl = `https://circleci.com/api/v1.1/project/github/facebook/react/${ciBuildId}/artifacts`;
   // This is a temporary, dirty hack to avoid needing a GitHub auth token in the circleci
   // workflow to notify this GitHub action. Sorry!
@@ -29,21 +29,21 @@ export async function run() {
     for (const status of res.data) {
       if (/process_artifacts_combined/.test(status.context)) {
         switch (status.state) {
-          case "pending": {
+          case 'pending': {
             console.log(`${status.context} is still pending`);
             break;
           }
-          case "failure":
-          case "error": {
+          case 'failure':
+          case 'error': {
             throw new Error(`${status.context} has failed or errored`);
           }
-          case "success": {
+          case 'success': {
             // The status does not include a build ID, but we can extract it
             // from the URL. I couldn't find a better way to do this.
             const ciBuildId = /\/facebook\/react\/([0-9]+)/.exec(
               status.target_url
             )[1];
-            if (Number.parseInt(ciBuildId, 10) + "" === ciBuildId) {
+            if (Number.parseInt(ciBuildId, 10) + '' === ciBuildId) {
               artifactsUrl = `https://circleci.com/api/v1.1/project/github/facebook/react/${ciBuildId}/artifacts`;
               console.log(`Found artifactsUrl: ${artifactsUrl}`);
               break spinloop;
@@ -60,14 +60,14 @@ export async function run() {
       }
     }
     iter++;
-    console.log("Sleeping for 60s...");
+    console.log('Sleeping for 60s...');
     await sleep(60_000);
   }
   if (artifactsUrl != null) {
-    const { CIRCLECI_TOKEN } = process.env;
+    const {CIRCLECI_TOKEN} = process.env;
     const res = await fetch(artifactsUrl, {
       headers: {
-        "Circle-Token": CIRCLECI_TOKEN,
+        'Circle-Token': CIRCLECI_TOKEN,
       },
     });
     const data = await res.json();
@@ -75,7 +75,7 @@ export async function run() {
       throw `CircleCI returned: ${data.message}`;
     }
     for (const artifact of data) {
-      if (artifact.path === "build.tgz") {
+      if (artifact.path === 'build.tgz') {
         console.log(`Downloading and unzipping ${artifact.url}`);
         await execHelper(
           `curl -L ${artifact.url} -H "Circle-Token: ${CIRCLECI_TOKEN}" | tar -xvz`
@@ -84,6 +84,8 @@ export async function run() {
     }
     return true;
   } else {
-    return "No artifacts found.";
+    return 'No artifacts found.';
   }
 }
+
+exports.run = run;
