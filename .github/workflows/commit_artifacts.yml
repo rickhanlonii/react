@@ -13,11 +13,11 @@ jobs:
       last_version_classic: ${{ steps.get_version.outputs.last_version_classic }}
       last_version_modern: ${{ steps.get_version.outputs.last_version_modern }}
     steps:
-      - name: "Get last version string"
-        id: get_version
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: builds/facebook-www
+      - name: "Get last version string"
+        id: get_version
         run: |
           VERSION_CLASSIC=$(cat VERSION_CLASSIC)
           VERSION_MODERN=$(cat VERSION_MODERN)
