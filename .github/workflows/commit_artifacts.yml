@@ -101,7 +101,7 @@ jobs:
           cp ./compiled/facebook-www/REVISION ./compiled/facebook-www/REVISION_TRANSFORMS
           echo ${{ github.sha }} >> ./compiled-rn/facebook-fbsource/xplat/js/react-native-github/Libraries/Renderer/REVISION
       - name: "Get current version string"
-        id: get_new_version
+        id: get_current_version
         run: |
           VERSION_CLASSIC=$(cat ./compiled/facebook-www/VERSION_CLASSIC)
           VERSION_MODERN=$(cat ./compiled/facebook-www/VERSION_MODERN)
