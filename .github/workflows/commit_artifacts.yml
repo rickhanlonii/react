@@ -166,9 +166,13 @@ jobs:
           echo "Re-applying $LAST_VERSION_CLASSIC to $CURRENT_VERSION_CLASSIC"
           echo "Re-applying $LAST_VERSION_MODERN to $CURRENT_VERSION_MODERN"
           grep -rl "$LAST_VERSION_CLASSIC" ./compiled
+          echo "1"
           grep -rl "$LAST_VERSION_MODERN" ./compiled
+          echo "2"
           grep -rl "$LAST_VERSION_CLASSIC" ./compiled | xargs -r sed -i -e 's/$LAST_VERSION_CLASSIC/$CURRENT_VERSION_CLASSIC/g'
+          echo "3"
           grep -rl "$LAST_VERSION_MODERN" ./compiled | xargs -r sed -i -e 's/$LAST_VERSION_MODERN/$CURRENT_VERSION_MODERN/g'
+          echo "4"
       - run: git status -u
       - name: Commit changes to branch
         if: steps.check_should_commit.outputs.should_commit == 'true'
