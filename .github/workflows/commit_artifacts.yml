@@ -154,8 +154,10 @@ jobs:
           echo "Status to check"
           git status --porcelain | grep -qv '/REVISION$'
           if git status --porcelain | grep -qv '/REVISION$'; then
+            echo "Changes detected"
             echo "should_commit=true" >> "$GITHUB_OUTPUT"
           else
+            echo "No Changes detected"
             echo "should_commit=false" >> "$GITHUB_OUTPUT"
           fi
       - name: Re-apply version changes
