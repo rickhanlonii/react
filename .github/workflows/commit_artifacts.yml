@@ -55,7 +55,6 @@ jobs:
       - name: Move relevant files for React in www into compiled
         run: |
           # Move the facebook-www folder into compiled
-          mkdir ./compiled
           mv build/facebook-www ./compiled
 
           # Move ReactAllWarnings.js to facebook-www
