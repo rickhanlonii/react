@@ -149,7 +149,7 @@ jobs:
       - name: Check if only the REVISION file has changed
         id: check_should_commit
         run: |
-          git status --porcelain | grep -qv '/REVISION$'
+          git status
           if git status --porcelain | grep -qv '/REVISION$'; then
             echo "should_commit=true" >> "$GITHUB_OUTPUT"
           else
