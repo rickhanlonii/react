@@ -21,6 +21,8 @@ jobs:
         run: |
           VERSION_CLASSIC=$(cat VERSION_CLASSIC)
           VERSION_MODERN=$(cat VERSION_MODERN)
+          echo "Last classic version is $VERSION_CLASSIC"
+          echo "Last modern version is $VERSION_MODERN"
           echo "last_version_classic=$VERSION_CLASSIC" >> "$GITHUB_OUTPUT"
           echo "last_version_modern=$VERSION_MODERN" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
