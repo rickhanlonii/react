@@ -177,6 +177,16 @@ jobs:
           echo "3"
           grep -rl "$LAST_VERSION_MODERN" ./compiled | xargs -r sed -i -e 's/$LAST_VERSION_MODERN/$CURRENT_VERSION_MODERN/g'
           echo "4"
+      - name: Update version files
+        if: steps.check_should_commit.outputs.should_commit == 'true'
+        env:
+          CURRENT_VERSION_CLASSIC: ${{ needs.download_artifacts.outputs.current_version_classic }}
+          CURRENT_VERSION_MODERN: ${{ needs.download_artifacts.outputs.current_version_modern }}
+          LAST_VERSION_CLASSIC: ${{ needs.download_artifacts.outputs.last_version_classic }}
+          LAST_VERSION_MODERN: ${{ needs.download_artifacts.outputs.last_version_modern }}
+        run: |
+          echo "$CURRENT_VERSION_CLASSIC" > VERSION_CLASSIC
+          echo "$CURRENT_VERSION_MODERN" > VERSION_MODERN
       - run: git status -u
       - name: Commit changes to branch
         if: steps.check_should_commit.outputs.should_commit == 'true'
