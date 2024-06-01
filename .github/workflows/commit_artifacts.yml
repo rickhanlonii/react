@@ -5,27 +5,7 @@ on:
     branches: [main, meta-www, meta-fbsource, rh/test-ci]
 
 jobs:
-  build_artifacts:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: yarn install
-        run: |
-          yarn install
-          yarn build
-      - name: Add COMIT_SHA to the build
-        run: |
-          echo "${{ github.sha }}" >> "build/COMMIT_SHA"
-      - name: Archive production artifacts
-        run: tar -zcvf ./build.tgz ./build
-      - name: Archive production artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: built_artifacts
-          path: ./build.tgz
   download_artifacts:
-    needs: build_artifacts
     runs-on: ubuntu-latest
     outputs:
       www_branch_count: ${{ steps.check_branches.outputs.www_branch_count }}
@@ -37,12 +17,18 @@ jobs:
         run: |
           echo "www_branch_count=$(git ls-remote --heads origin "refs/heads/meta-www" | wc -l)" >> "$GITHUB_OUTPUT"
           echo "fbsource_branch_count=$(git ls-remote --heads origin "refs/heads/meta-fbsource" | wc -l)" >> "$GITHUB_OUTPUT"
-      - name: Download a single artifact
-        uses: actions/download-artifact@v4
+      - name: Download and unzip artifacts
+        uses: actions/github-script@v6
+        env:
+          CIRCLECI_TOKEN: ${{secrets.CIRCLECI_TOKEN_DIFFTRAIN}}
         with:
-          name: built_artifacts
-      - name: Extract the artifact
-        run: tar -xvf build.tgz
+          script: |
+            const {run} = require('./scripts/download_artifacts');
+            const result = await run();
+            if (result !== true) {
+              console.log(result);
+              process.exitCode = 1;
+            }
       - name: Strip @license from eslint plugin and react-refresh
         run: |
           sed -i -e 's/ @license React*//' \
