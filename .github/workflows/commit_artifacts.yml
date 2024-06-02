@@ -193,7 +193,11 @@ jobs:
           grep -rl "$LAST_VERSION_MODERN" ./compiled || echo "No files found with $LAST_VERSION_MODERN"
           grep -rl "$LAST_VERSION_CLASSIC" ./compiled | xargs -r sed -i -e 's/$LAST_VERSION_CLASSIC/$CURRENT_VERSION_CLASSIC/g'
           grep -rl "$LAST_VERSION_MODERN" ./compiled | xargs -r sed -i -e 's/$LAST_VERSION_MODERN/$CURRENT_VERSION_MODERN/g'
-      - run: git status -u
+      - name: Will commit these changes
+        if: steps.check_should_commit.outputs.should_commit == 'true'
+        run: |
+          echo ":"
+          git status -u
       - name: Commit changes to branch
         if: false && steps.check_should_commit.outputs.should_commit == 'true'
         uses: stefanzweifel/git-auto-commit-action@v4
@@ -253,7 +257,11 @@ jobs:
           echo "Re-applying $LAST_VERSION to $CURRENT_VERSION"
           grep -rl "$LAST_VERSION" ./compiled-rn || echo "No files found with $LAST_VERSION"
           grep -rl "$LAST_VERSION" ./compiled-rn | xargs -r sed -i -e 's/$LAST_VERSION/$CURRENT_VERSION/g'
-      - run: git status -u
+      - name: Will commit these changes
+        if: steps.check_should_commit.outputs.should_commit == 'true'
+        run: |
+          echo ":"
+          git status -u
       - name: Commit changes to branch
         if: steps.check_should_commit.outputs.should_commit == 'true'
         uses: stefanzweifel/git-auto-commit-action@v4
