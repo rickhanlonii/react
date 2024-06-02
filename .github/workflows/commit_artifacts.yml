@@ -111,7 +111,7 @@ jobs:
         run: |
           VERSION_CLASSIC=$(cat ./compiled/facebook-www/VERSION_CLASSIC)
           VERSION_MODERN=$(cat ./compiled/facebook-www/VERSION_MODERN)
-          VERSION_NATIVE_FB=$(cat ./compiled/facebook-www/VERSION_NATIVE_FB)
+          VERSION_NATIVE_FB=$(cat ./compiled/facebook-react-native/VERSION_NATIVE_FB)
           echo "Current classic version is $VERSION_CLASSIC"
           echo "Current modern version is $VERSION_MODERN"
           echo "Current rn version is $VERSION_MODERN"
@@ -143,6 +143,7 @@ jobs:
           path: compiled/
 
       - name: Revert version changes
+        if: needs.download_artifacts.outputs.last_version_classic != '' && needs.download_artifacts.outputs.last_version_modern != ''
         env:
           CURRENT_VERSION_CLASSIC: ${{ needs.download_artifacts.outputs.current_version_classic }}
           CURRENT_VERSION_MODERN: ${{ needs.download_artifacts.outputs.current_version_modern }}
@@ -170,7 +171,7 @@ jobs:
             echo "should_commit=false" >> "$GITHUB_OUTPUT"
           fi
       - name: Re-apply version changes
-        if: steps.check_should_commit.outputs.should_commit == 'true'
+        if: steps.check_should_commit.outputs.should_commit == 'true' && needs.download_artifacts.outputs.last_version_classic != '' && needs.download_artifacts.outputs.last_version_modern != ''
         env:
           CURRENT_VERSION_CLASSIC: ${{ needs.download_artifacts.outputs.current_version_classic }}
           CURRENT_VERSION_MODERN: ${{ needs.download_artifacts.outputs.current_version_modern }}
@@ -212,13 +213,14 @@ jobs:
           name: compiled-rn
           path: compiled-rn/
       - name: Revert version changes
+        if: needs.download_artifacts.outputs.last_version_rn != ''
         env:
           CURRENT_VERSION: ${{ needs.download_artifacts.outputs.current_version_rn }}
           LAST_VERSION: ${{ needs.download_artifacts.outputs.last_version_rn }}
         run: |
           echo "Reverting $CURRENT_VERSION to $LAST_VERSION"
           grep -rl "$CURRENT_VERSION" ./compiled
-          grep -rl "$CURRENT_VERSION" ./compiled | xargs -r sed -i -e 's/$CURRENT_VERSION/$LAST_VERSION/g'
+          grep -rl "$CURRENT_VERSION" ./compiled | xargs -r sed -i -e 's/$CURRENT_VERSION/$LAST_VERSION/ g'
       - name: Check if only the REVISION file has changed
         id: check_should_commit
         run: |
@@ -234,7 +236,7 @@ jobs:
             echo "should_commit=false" >> "$GITHUB_OUTPUT"
           fi
       - name: Re-apply version changes
-        if: steps.check_should_commit.outputs.should_commit == 'true'
+        if: steps.check_should_commit.outputs.should_commit == 'true' && needs.download_artifacts.outputs.last_version_rn != ''
         env:
           CURRENT_VERSION: ${{ needs.download_artifacts.outputs.current_version_rn }}
           LAST_VERSION: ${{ needs.download_artifacts.outputs.last_version_rn }}
