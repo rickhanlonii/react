@@ -23,9 +23,9 @@ jobs:
       - name: "Get last version string"
         id: get_last_version
         run: |
-          VERSION_CLASSIC=$(cat ./compiled/facebook-www/VERSION_CLASSIC)
-          VERSION_MODERN=$(cat ./compiled/facebook-www/VERSION_MODERN)
-          VERSION_NATIVE_FB=$(cat ./compiled/facebook-react-native/VERSION_NATIVE_FB)
+          VERSION_CLASSIC=$(cat ./compiled/facebook-www/VERSION_CLASSIC || '')
+          VERSION_MODERN=$(cat ./compiled/facebook-www/VERSION_MODERN || '')
+          VERSION_NATIVE_FB=$(cat ./compiled/facebook-react-native/VERSION_NATIVE_FB || '')
           echo "Last classic version is $VERSION_CLASSIC"
           echo "Last modern version is $VERSION_MODERN"
           echo "Last rn version is $VERSION_NATIVE_FB"
