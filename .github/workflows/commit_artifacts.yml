@@ -13,9 +13,9 @@ jobs:
       last_version_classic: ${{ steps.get_last_version_www.outputs.last_version_classic }}
       last_version_modern: ${{ steps.get_last_version_www.outputs.last_version_modern }}
       last_version_rn: ${{ steps.get_last_version_rn.outputs.last_version_rn }}
-      current_version_classic: ${{ steps.get_current_version_www.outputs.current_version_classic }}
-      current_version_modern: ${{ steps.get_current_version_www.outputs.current_version_modern }}
-      current_version_rn: ${{ steps.get_current_version_rn.outputs.current_version_rn }}
+      current_version_classic: ${{ steps.get_current_version.outputs.current_version_classic }}
+      current_version_modern: ${{ steps.get_current_version.outputs.current_version_modern }}
+      current_version_rn: ${{ steps.get_current_version.outputs.current_version_rn }}
     steps:
       - uses: actions/checkout@v4
         with:
