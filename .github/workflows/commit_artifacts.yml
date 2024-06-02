@@ -171,8 +171,7 @@ jobs:
         run: |
           echo "Full git status"
           git status
-          echo "Status to check"
-          git status --porcelain | grep -qv '/REVISION$'
+          echo "===================="
           if git status --porcelain | grep -qv '/REVISION'; then
             echo "Changes detected"
             echo "should_commit=true" >> "$GITHUB_OUTPUT"
@@ -236,8 +235,7 @@ jobs:
         run: |
           echo "Full git status"
           git status
-          echo "Status to check"
-          git status --porcelain | grep -qv '/REVISION'
+          echo "===================="
           echo "Checking for changes"
           if git status --porcelain | grep -qv '/REVISION'; then
             echo "Changes detected"
