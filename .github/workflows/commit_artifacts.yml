@@ -10,18 +10,18 @@ jobs:
     outputs:
       www_branch_count: ${{ steps.check_branches.outputs.www_branch_count }}
       fbsource_branch_count: ${{ steps.check_branches.outputs.fbsource_branch_count }}
-      last_version_classic: ${{ steps.get_last_version.outputs.last_version_classic }}
-      last_version_modern: ${{ steps.get_last_version.outputs.last_version_modern }}
-      last_version_rn: ${{ steps.get_last_version.outputs.last_version_rn }}
-      current_version_classic: ${{ steps.get_current_version.outputs.current_version_classic }}
-      current_version_modern: ${{ steps.get_current_version.outputs.current_version_modern }}
-      current_version_rn: ${{ steps.get_current_version.outputs.current_version_rn }}
+      last_version_classic: ${{ steps.get_last_version_www.outputs.last_version_classic }}
+      last_version_modern: ${{ steps.get_last_version_www.outputs.last_version_modern }}
+      last_version_rn: ${{ steps.get_last_version_rn.outputs.last_version_rn }}
+      current_version_classic: ${{ steps.get_current_version_www.outputs.current_version_classic }}
+      current_version_modern: ${{ steps.get_current_version_www.outputs.current_version_modern }}
+      current_version_rn: ${{ steps.get_current_version_rn.outputs.current_version_rn }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: builds/facebook-www
       - name: "Get last version string for www"
-        id: get_last_version
+        id: get_last_version_www
         run: |
           # Empty checks only needed for backwards compatibility,can remove later.
           VERSION_CLASSIC=$( [ -f ./compiled/facebook-www/VERSION_CLASSIC ] && cat ./compiled/facebook-www/VERSION_CLASSIC || echo '' )
@@ -34,7 +34,7 @@ jobs:
         with:
           ref: builds/facebook-fbsource
       - name: "Get last version string for rn"
-        id: get_last_version
+        id: get_last_version_rn
         run: |
           # Empty checks only needed for backwards compatibility,can remove later.
           VERSION_NATIVE_FB=$( [ -f ./compiled-rn/VERSION_NATIVE_FB ] && cat ./compiled-rn/VERSION_NATIVE_FB || echo '' )
