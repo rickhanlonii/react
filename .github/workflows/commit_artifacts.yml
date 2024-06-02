@@ -203,7 +203,7 @@ jobs:
 
   commit_fbsource_artifacts:
     needs: download_artifacts
-    if: ${{ (github.ref == 'refs/heads/main' && needs.download_artifacts.outputs.fbsource_branch_count == '0') || github.ref == 'refs/heads/meta-fbsource' }}
+    if: ${{ (github.ref == 'refs/heads/rh/test-ci' && needs.download_artifacts.outputs.fbsource_branch_count == '0') || github.ref == 'refs/heads/meta-fbsource' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
