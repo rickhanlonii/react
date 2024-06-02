@@ -161,10 +161,11 @@ jobs:
           LAST_VERSION_MODERN: ${{ needs.download_artifacts.outputs.last_version_modern }}
         run: |
           echo "Reverting $CURRENT_VERSION_CLASSIC to $LAST_VERSION_CLASSIC"
-          echo "Reverting $CURRENT_VERSION_MODERN to $LAST_VERSION_MODERN"
           grep -rl "$CURRENT_VERSION_CLASSIC" ./compiled
-          grep -rl "$CURRENT_VERSION_MODERN" ./compiled
           grep -rl "$CURRENT_VERSION_CLASSIC" ./compiled | xargs -r sed -i -e 's/$CURRENT_VERSION_CLASSIC/$LAST_VERSION_CLASSIC/g'
+          echo "===================="
+          echo "Reverting $CURRENT_VERSION_MODERN to $LAST_VERSION_MODERN"
+          grep -rl "$CURRENT_VERSION_MODERN" ./compiled
           grep -rl "$CURRENT_VERSION_MODERN" ./compiled | xargs -r sed -i -e 's/$CURRENT_VERSION_MODERN/$LAST_VERSION_MODERN/g'
       - name: Check if only the REVISION file has changed
         id: check_should_commit
@@ -188,10 +189,11 @@ jobs:
           LAST_VERSION_MODERN: ${{ needs.download_artifacts.outputs.last_version_modern }}
         run: |
           echo "Re-applying $LAST_VERSION_CLASSIC to $CURRENT_VERSION_CLASSIC"
-          echo "Re-applying $LAST_VERSION_MODERN to $CURRENT_VERSION_MODERN"
           grep -rl "$LAST_VERSION_CLASSIC" ./compiled || echo "No files found with $LAST_VERSION_CLASSIC"
-          grep -rl "$LAST_VERSION_MODERN" ./compiled || echo "No files found with $LAST_VERSION_MODERN"
           grep -rl "$LAST_VERSION_CLASSIC" ./compiled | xargs -r sed -i -e 's/$LAST_VERSION_CLASSIC/$CURRENT_VERSION_CLASSIC/g'
+          echo "===================="
+          echo "Re-applying $LAST_VERSION_MODERN to $CURRENT_VERSION_MODERN"
+          grep -rl "$LAST_VERSION_MODERN" ./compiled || echo "No files found with $LAST_VERSION_MODERN"
           grep -rl "$LAST_VERSION_MODERN" ./compiled | xargs -r sed -i -e 's/$LAST_VERSION_MODERN/$CURRENT_VERSION_MODERN/g'
       - name: Will commit these changes
         if: steps.check_should_commit.outputs.should_commit == 'true'
