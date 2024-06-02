@@ -12,8 +12,10 @@ jobs:
       fbsource_branch_count: ${{ steps.check_branches.outputs.fbsource_branch_count }}
       last_version_classic: ${{ steps.get_last_version.outputs.last_version_classic }}
       last_version_modern: ${{ steps.get_last_version.outputs.last_version_modern }}
+      last_version_rn: ${{ steps.get_last_version.outputs.last_version_rn }}
       current_version_classic: ${{ steps.get_current_version.outputs.current_version_classic }}
       current_version_modern: ${{ steps.get_current_version.outputs.current_version_modern }}
+      current_version_rn: ${{ steps.get_current_version.outputs.current_version_rn }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -23,10 +25,13 @@ jobs:
         run: |
           VERSION_CLASSIC=$(cat ./compiled/facebook-www/VERSION_CLASSIC)
           VERSION_MODERN=$(cat ./compiled/facebook-www/VERSION_MODERN)
+          VERSION_NATIVE_FB=$(cat ./compiled/facebook-react-native/VERSION_NATIVE_FB)
           echo "Last classic version is $VERSION_CLASSIC"
           echo "Last modern version is $VERSION_MODERN"
+          echo "Last rn version is $VERSION_NATIVE_FB"
           echo "last_version_classic=$VERSION_CLASSIC" >> "$GITHUB_OUTPUT"
           echo "last_version_modern=$VERSION_MODERN" >> "$GITHUB_OUTPUT"
+          echo "last_version_rn=$VERSION_NATIVE_FB" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
       - name: "Check branches"
         id: check_branches
@@ -105,10 +110,13 @@ jobs:
         run: |
           VERSION_CLASSIC=$(cat ./compiled/facebook-www/VERSION_CLASSIC)
           VERSION_MODERN=$(cat ./compiled/facebook-www/VERSION_MODERN)
+          VERSION_NATIVE_FB=$(cat ./compiled/facebook-www/VERSION_NATIVE_FB)
           echo "Current classic version is $VERSION_CLASSIC"
           echo "Current modern version is $VERSION_MODERN"
+          echo "Current rn version is $VERSION_MODERN"
           echo "current_version_classic=$VERSION_CLASSIC" >> "$GITHUB_OUTPUT"
           echo "current_version_modern=$VERSION_MODERN" >> "$GITHUB_OUTPUT"
+          echo "current_version_rn=$VERSION_NATIVE_FB" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v3
         with:
           name: compiled
@@ -176,7 +184,7 @@ jobs:
           grep -rl "$LAST_VERSION_MODERN" ./compiled | xargs -r sed -i -e 's/$LAST_VERSION_MODERN/$CURRENT_VERSION_MODERN/g'
       - run: git status -u
       - name: Commit changes to branch
-        if: steps.check_should_commit.outputs.should_commit == 'true'
+        if: false && steps.check_should_commit.outputs.should_commit == 'true'
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
           commit_message: |
@@ -202,8 +210,40 @@ jobs:
         with:
           name: compiled-rn
           path: compiled-rn/
+      - name: Revert version changes
+        env:
+          CURRENT_VERSION: ${{ needs.download_artifacts.outputs.current_version_rn }}
+          LAST_VERSION: ${{ needs.download_artifacts.outputs.last_version_rn }}
+        run: |
+          echo "Reverting $CURRENT_VERSION to $LAST_VERSION"
+          grep -rl "$CURRENT_VERSION" ./compiled
+          grep -rl "$CURRENT_VERSION" ./compiled | xargs -r sed -i -e 's/$CURRENT_VERSION/$LAST_VERSION/g'
+      - name: Check if only the REVISION file has changed
+        id: check_should_commit
+        run: |
+          echo "Full git status"
+          git status
+          echo "Status to check"
+          git status --porcelain | grep -qv '/REVISION$'
+          if git status --porcelain | grep -qv '/REVISION'; then
+            echo "Changes detected"
+            echo "should_commit=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No Changes detected"
+            echo "should_commit=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Re-apply version changes
+        if: steps.check_should_commit.outputs.should_commit == 'true'
+        env:
+          CURRENT_VERSION: ${{ needs.download_artifacts.outputs.current_version_rn }}
+          LAST_VERSION: ${{ needs.download_artifacts.outputs.last_version_rn }}
+        run: |
+          echo "Re-applying $LAST_VERSION to $CURRENT_VERSION"
+          grep -rl "$LAST_VERSION" ./compiled || echo "No files found with $LAST_VERSION"
+          grep -rl "$LAST_VERSION" ./compiled | xargs -r sed -i -e 's/$LAST_VERSION/$CURRENT_VERSION/g'
       - run: git status -u
       - name: Commit changes to branch
+        if: false && steps.check_should_commit.outputs.should_commit == 'true'
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
           commit_message: |
