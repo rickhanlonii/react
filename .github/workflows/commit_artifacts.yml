@@ -20,18 +20,25 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: builds/facebook-www
-      - name: "Get last version string"
+      - name: "Get last version string for www"
         id: get_last_version
         run: |
           # Empty checks only needed for backwards compatibility,can remove later.
           VERSION_CLASSIC=$( [ -f ./compiled/facebook-www/VERSION_CLASSIC ] && cat ./compiled/facebook-www/VERSION_CLASSIC || echo '' )
           VERSION_MODERN=$( [ -f ./compiled/facebook-www/VERSION_MODERN ] && cat ./compiled/facebook-www/VERSION_MODERN || echo '' )
-          VERSION_NATIVE_FB=$( [ -f ./compiled-rn/VERSION_NATIVE_FB ] && cat ./compiled-rn/VERSION_NATIVE_FB || echo '' )
           echo "Last classic version is $VERSION_CLASSIC"
           echo "Last modern version is $VERSION_MODERN"
-          echo "Last rn version is $VERSION_NATIVE_FB"
           echo "last_version_classic=$VERSION_CLASSIC" >> "$GITHUB_OUTPUT"
           echo "last_version_modern=$VERSION_MODERN" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          ref: builds/facebook-fbsource
+      - name: "Get last version string for rn"
+        id: get_last_version
+        run: |
+          # Empty checks only needed for backwards compatibility,can remove later.
+          VERSION_NATIVE_FB=$( [ -f ./compiled-rn/VERSION_NATIVE_FB ] && cat ./compiled-rn/VERSION_NATIVE_FB || echo '' )
+          echo "Last rn version is $VERSION_NATIVE_FB"
           echo "last_version_rn=$VERSION_NATIVE_FB" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
       - name: "Check branches"
