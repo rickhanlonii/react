@@ -60,7 +60,7 @@ function _assertThisInitialized(self) {
   return self;
 }
 
-var ReactVersion = '19.0.0-www-classic-ac48640b30-20240601';
+var ReactVersion = '19.0.0-www-classic-20a94d7224-20240603';
 
 var LegacyRoot = 0;
 var ConcurrentRoot = 1;
@@ -81,7 +81,7 @@ function warn(format) {
         args[_key - 1] = arguments[_key];
       }
 
-      printWarning('warn', format, args);
+      printWarning('warn', format, args, new Error('react-stack-top-frame'));
     }
   }
 }
@@ -92,19 +92,19 @@ function error(format) {
         args[_key2 - 1] = arguments[_key2];
       }
 
-      printWarning('error', format, args);
+      printWarning('error', format, args, new Error('react-stack-top-frame'));
     }
   }
 }
 
-function printWarning(level, format, args) {
+function printWarning(level, format, args, currentStack) {
   {
     var React = require('react');
 
     var ReactSharedInternals = React.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE; // Defensive in case this is fired before React is initialized.
 
     if (ReactSharedInternals != null && ReactSharedInternals.getCurrentStack) {
-      var stack = ReactSharedInternals.getCurrentStack();
+      var stack = ReactSharedInternals.getCurrentStack(currentStack);
 
       if (stack !== '') {
         format += '%s';
@@ -1007,18 +1007,28 @@ function describeFunctionComponentFrame(fn) {
 /** @noinline */
 
 function callComponentInDEV(Component, props, secondArg) {
+  var wasRendering = isRendering;
   setIsRendering(true);
-  var result = Component(props, secondArg);
-  setIsRendering(false);
-  return result;
+
+  try {
+    var result = Component(props, secondArg);
+    return result;
+  } finally {
+    setIsRendering(wasRendering);
+  }
 }
 /** @noinline */
 
 function callRenderInDEV(instance) {
+  var wasRendering = isRendering;
   setIsRendering(true);
-  var result = instance.render();
-  setIsRendering(false);
-  return result;
+
+  try {
+    var result = instance.render();
+    return result;
+  } finally {
+    setIsRendering(wasRendering);
+  }
 }
 /** @noinline */
 
@@ -1110,7 +1120,7 @@ function getCurrentFiberOwnerNameInDevOrNull() {
   return null;
 }
 
-function getCurrentFiberStackInDev() {
+function getCurrentFiberStackInDev(stack) {
   {
     if (current === null) {
       return '';
@@ -9272,112 +9282,155 @@ function dispatchActionState(fiber, actionQueue, setPendingState, setState, payl
     throw new Error('Cannot update form state while rendering.');
   }
 
+  var currentAction = actionQueue.action;
+
+  if (currentAction === null) {
+    // An earlier action errored. Subsequent actions should not run.
+    return;
+  }
+
+  var actionNode = {
+    payload: payload,
+    action: currentAction,
+    next: null,
+    // circular
+    isTransition: true,
+    status: 'pending',
+    value: null,
+    reason: null,
+    listeners: [],
+    then: function (listener) {
+      // We know the only thing that subscribes to these promises is `use` so
+      // this implementation is simpler than a generic thenable. E.g. we don't
+      // bother to check if the thenable is still pending because `use` already
+      // does that.
+      actionNode.listeners.push(listener);
+    }
+  }; // Check if we're inside a transition. If so, we'll need to restore the
+  // transition context when the action is run.
+
+  var prevTransition = ReactSharedInternals.T;
+
+  if (prevTransition !== null) {
+    // Optimistically update the pending state, similar to useTransition.
+    // This will be reverted automatically when all actions are finished.
+    setPendingState(true); // `actionNode` is a thenable that resolves to the return value of
+    // the action.
+
+    setState(actionNode);
+  } else {
+    // This is not a transition.
+    actionNode.isTransition = false;
+    setState(actionNode);
+  }
+
   var last = actionQueue.pending;
 
   if (last === null) {
     // There are no pending actions; this is the first one. We can run
     // it immediately.
-    var newLast = {
-      payload: payload,
-      action: actionQueue.action,
-      next: null // circular
-
-    };
-    newLast.next = actionQueue.pending = newLast;
-    runActionStateAction(actionQueue, setPendingState, setState, newLast);
+    actionNode.next = actionQueue.pending = actionNode;
+    runActionStateAction(actionQueue, actionNode);
   } else {
     // There's already an action running. Add to the queue.
     var first = last.next;
-    var _newLast = {
-      payload: payload,
-      action: actionQueue.action,
-      next: first
-    };
-    actionQueue.pending = last.next = _newLast;
+    actionNode.next = first;
+    actionQueue.pending = last.next = actionNode;
   }
 }
 
-function runActionStateAction(actionQueue, setPendingState, setState, node) {
-  // This is a fork of startTransition
-  var prevTransition = ReactSharedInternals.T;
-  var currentTransition = {};
-  ReactSharedInternals.T = currentTransition;
-
-  {
-    ReactSharedInternals.T._updatedFibers = new Set();
-  } // Optimistically update the pending state, similar to useTransition.
-  // This will be reverted automatically when all actions are finished.
-
-
-  setPendingState(true); // `node.action` represents the action function at the time it was dispatched.
+function runActionStateAction(actionQueue, node) {
+  // `node.action` represents the action function at the time it was dispatched.
   // If this action was queued, it might be stale, i.e. it's not necessarily the
   // most current implementation of the action, stored on `actionQueue`. This is
   // intentional. The conceptual model for queued actions is that they are
   // queued in a remote worker; the dispatch happens immediately, only the
   // execution is delayed.
-
   var action = node.action;
   var payload = node.payload;
   var prevState = actionQueue.state;
 
-  try {
-    var returnValue = action(prevState, payload);
-    var onStartTransitionFinish = ReactSharedInternals.S;
-
-    if (onStartTransitionFinish !== null) {
-      onStartTransitionFinish(currentTransition, returnValue);
-    }
-
-    if (returnValue !== null && typeof returnValue === 'object' && // $FlowFixMe[method-unbinding]
-    typeof returnValue.then === 'function') {
-      var thenable = returnValue; // Attach a listener to read the return state of the action. As soon as
-      // this resolves, we can run the next action in the sequence.
-
-      thenable.then(function (nextState) {
-        actionQueue.state = nextState;
-        finishRunningActionStateAction(actionQueue, setPendingState, setState);
-      }, function () {
-        return finishRunningActionStateAction(actionQueue, setPendingState, setState);
-      });
-      setState(thenable);
-    } else {
-      setState(returnValue);
-      var nextState = returnValue;
-      actionQueue.state = nextState;
-      finishRunningActionStateAction(actionQueue, setPendingState, setState);
-    }
-  } catch (error) {
-    // This is a trick to get the `useActionState` hook to rethrow the error.
-    // When it unwraps the thenable with the `use` algorithm, the error
-    // will be thrown.
-    var rejectedThenable = {
-      then: function () {},
-      status: 'rejected',
-      reason: error // $FlowFixMe: Not sure why this doesn't work
-
-    };
-    setState(rejectedThenable);
-    finishRunningActionStateAction(actionQueue, setPendingState, setState);
-  } finally {
-    ReactSharedInternals.T = prevTransition;
+  if (node.isTransition) {
+    // The original dispatch was part of a transition. We restore its
+    // transition context here.
+    // This is a fork of startTransition
+    var prevTransition = ReactSharedInternals.T;
+    var currentTransition = {};
+    ReactSharedInternals.T = currentTransition;
 
     {
-      if (prevTransition === null && currentTransition._updatedFibers) {
-        var updatedFibersCount = currentTransition._updatedFibers.size;
+      ReactSharedInternals.T._updatedFibers = new Set();
+    }
 
-        currentTransition._updatedFibers.clear();
+    try {
+      var returnValue = action(prevState, payload);
+      var onStartTransitionFinish = ReactSharedInternals.S;
 
-        if (updatedFibersCount > 10) {
-          warn('Detected a large number of updates inside startTransition. ' + 'If this is due to a subscription please re-write it to use React provided hooks. ' + 'Otherwise concurrent mode guarantees are off the table.');
+      if (onStartTransitionFinish !== null) {
+        onStartTransitionFinish(currentTransition, returnValue);
+      }
+
+      handleActionReturnValue(actionQueue, node, returnValue);
+    } catch (error) {
+      onActionError(actionQueue, node, error);
+    } finally {
+      ReactSharedInternals.T = prevTransition;
+
+      {
+        if (prevTransition === null && currentTransition._updatedFibers) {
+          var updatedFibersCount = currentTransition._updatedFibers.size;
+
+          currentTransition._updatedFibers.clear();
+
+          if (updatedFibersCount > 10) {
+            warn('Detected a large number of updates inside startTransition. ' + 'If this is due to a subscription please re-write it to use React provided hooks. ' + 'Otherwise concurrent mode guarantees are off the table.');
+          }
         }
       }
+    }
+  } else {
+    // The original dispatch was not part of a transition.
+    try {
+      var _returnValue = action(prevState, payload);
+
+      handleActionReturnValue(actionQueue, node, _returnValue);
+    } catch (error) {
+      onActionError(actionQueue, node, error);
     }
   }
 }
 
-function finishRunningActionStateAction(actionQueue, setPendingState, setState) {
-  // The action finished running. Pop it from the queue and run the next pending
-  // action, if there are any.
+function handleActionReturnValue(actionQueue, node, returnValue) {
+  if (returnValue !== null && typeof returnValue === 'object' && // $FlowFixMe[method-unbinding]
+  typeof returnValue.then === 'function') {
+    var thenable = returnValue; // Attach a listener to read the return state of the action. As soon as
+    // this resolves, we can run the next action in the sequence.
+
+    thenable.then(function (nextState) {
+      onActionSuccess(actionQueue, node, nextState);
+    }, function (error) {
+      return onActionError(actionQueue, node, error);
+    });
+
+    {
+      if (!node.isTransition) {
+        error('An async function was passed to useActionState, but it was ' + 'dispatched outside of an action context. This is likely not ' + 'what you intended. Either pass the dispatch function to an ' + '`action` prop, or dispatch manually inside `startTransition`');
+      }
+    }
+  } else {
+    var nextState = returnValue;
+    onActionSuccess(actionQueue, node, nextState);
+  }
+}
+
+function onActionSuccess(actionQueue, actionNode, nextState) {
+  // The action finished running.
+  actionNode.status = 'fulfilled';
+  actionNode.value = nextState;
+  notifyActionListeners(actionNode);
+  actionQueue.state = nextState; // Pop the action from the queue and run the next pending action, if there
+  // are any.
+
   var last = actionQueue.pending;
 
   if (last !== null) {
@@ -9391,8 +9444,40 @@ function finishRunningActionStateAction(actionQueue, setPendingState, setState) 
       var next = first.next;
       last.next = next; // Run the next action.
 
-      runActionStateAction(actionQueue, setPendingState, setState, next);
+      runActionStateAction(actionQueue, next);
     }
+  }
+}
+
+function onActionError(actionQueue, actionNode, error) {
+  // Mark all the following actions as rejected.
+  var last = actionQueue.pending;
+  actionQueue.pending = null;
+
+  if (last !== null) {
+    var first = last.next;
+
+    do {
+      actionNode.status = 'rejected';
+      actionNode.reason = error;
+      notifyActionListeners(actionNode);
+      actionNode = actionNode.next;
+    } while (actionNode !== first);
+  } // Prevent subsequent actions from being dispatched.
+
+
+  actionQueue.action = null;
+}
+
+function notifyActionListeners(actionNode) {
+  // Notify React that the action has finished.
+  var listeners = actionNode.listeners;
+
+  for (var i = 0; i < listeners.length; i++) {
+    // This is always a React internal listener, so we don't need to worry
+    // about it throwing.
+    var listener = listeners[i];
+    listener();
   }
 }
 
