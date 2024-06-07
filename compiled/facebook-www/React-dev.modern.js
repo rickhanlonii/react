@@ -22,7 +22,7 @@ if (
 ) {
   __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart(new Error());
 }
-var ReactVersion = '19.0.0-www-modern-827cbea417-20240606';
+var ReactVersion = '19.0.0-www-modern-142b2a8230-20240607';
 
 // Re-export dynamic flags from the www version.
 var dynamicFeatureFlags = require('ReactFeatureFlags');
@@ -36,7 +36,7 @@ var enableRefAsProp = true;
 // because JSX is an extremely hot path.
 
 var disableStringRefs = false;
-var disableLegacyMode = true;
+var disableLegacyMode = true ;
 
 // When adding new symbols to this file,
 // Please consider also adding to 'react-devtools-shared/src/backend/ReactSymbols'

@@ -60,7 +60,7 @@ function _assertThisInitialized(self) {
   return self;
 }
 
-var ReactVersion = '19.0.0-www-modern-827cbea417-20240606';
+var ReactVersion = '19.0.0-www-modern-142b2a8230-20240607';
 
 var LegacyRoot = 0;
 var ConcurrentRoot = 1;
@@ -165,7 +165,7 @@ var enableAsyncActions = true;
 
 var enableSchedulingProfiler = dynamicFeatureFlags.enableSchedulingProfiler;
 var enableAsyncIterableChildren = false;
-var disableLegacyMode = true;
+var disableLegacyMode = true ;
 var enableOwnerStacks = false;
 
 var FunctionComponent = 0;
