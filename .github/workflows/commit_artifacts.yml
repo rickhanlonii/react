@@ -334,6 +334,7 @@ jobs:
         run: |
           echo "Full git status"
           git --no-pager diff -U0 -w | grep '^[+-]' | head -n 100
+          git --no-pager diff
           echo "===================="
           # Ignore REVISION or lines removing @generated headers.
           if git diff -- . ':(exclude)*REVISION' | grep -vE "^(@@|diff|index|\-\-\-|\+\+\+|\- \* @generated SignedSource)" | grep "^[+-]" > /dev/null; then
