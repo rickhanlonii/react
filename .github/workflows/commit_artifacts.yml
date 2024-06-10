@@ -336,19 +336,11 @@ jobs:
           git add .
           git --no-pager diff -U0 --cached | grep '^[+-]' | head -n 50
           echo "===================="
-          git diff --cached ':(exclude)*REVISION'
-          echo "===================="
-          git diff --cached ':(exclude)*REVISION' | grep -vE "^(@@|diff|index|\-\-\-|\+\+\+|\- \* @generated SignedSource)"
-          echo "===================="
-          git diff --cached ':(exclude)*REVISION' | grep -vE "^(@@|diff|index|\-\-\-|\+\+\+|\- \* @generated SignedSource)" | grep "^[+-]"
-          echo "===================="
           # Ignore REVISION or lines removing @generated headers.
           if git diff --cached ':(exclude)*REVISION' | grep -vE "^(@@|diff|index|\-\-\-|\+\+\+|\- \* @generated SignedSource)" | grep "^[+-]" > /dev/null; then
             echo "Changes detected"
             echo "===== Changes ====="
             git --no-pager diff --cached ':(exclude)*REVISION' | grep -vE "^(@@|diff|index|\-\-\-|\+\+\+|\- \* @generated SignedSource)" | grep "^[+-]"
-            echo "=== All Changes ==="
-            git --no-pager diff -U0 --cached | grep '^[+-]' | head -n 50
             echo "==================="
             echo "should_commit=true" >> "$GITHUB_OUTPUT"
           else
@@ -439,7 +431,9 @@ jobs:
                   if (file) {
                     console.log('  Signing file:', file);
                     const originalContents = fs.readFileSync(file, 'utf8');
-                    const signedContents = SignedSource.signFile(originalContents);
+                    const signedContents = SignedSource.signFile(originalContents
+                      // Need to add the header in, since it's not inserted at build time.
+                      .replace(' */\n', ` * ${SignedSource.getSigningToken()}\n */\n`);
                     fs.writeFileSync(file, signedContents, 'utf8');
                   }
                 });
