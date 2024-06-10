@@ -451,7 +451,7 @@ jobs:
           git add .
           git status
       - name: Commit changes to branch
-        if: steps.check_should_commit.outputs.should_commit == 'true'
+        if: false && steps.check_should_commit.outputs.should_commit == 'true'
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
           commit_message: |
