@@ -332,7 +332,7 @@ jobs:
       - name: Check for changes
         id: check_should_commit
         run: |
-          echo "Full git status (bump)"
+          echo "Full git status"
           git add .
           git --no-pager diff -U0 --cached | grep '^[+-]' | head -n 50
           echo "===================="
