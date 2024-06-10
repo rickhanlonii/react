@@ -363,10 +363,6 @@ jobs:
             const NEWTOKEN = '<<SignedSource::*O*zOeWoEQle#+L!plEphiEmie@IsG>>';
             const PATTERN = new RegExp(`${GENERATED} (?:SignedSource<<([a-f0-9]{32})>>)`);
 
-            const TokenNotFoundError = new Error(
-              `SignedSource.signFile(...): Cannot sign file without token: ${NEWTOKEN}`
-            );
-
             function hash(data, encoding) {
               const md5sum = crypto.createHash('md5');
               md5sum.update(data, encoding);
@@ -386,7 +382,7 @@ jobs:
                     // Signing a file that was previously signed.
                    data = data.replace(PATTERN, SignedSource.getSigningToken());
                   } else {
-                    throw TokenNotFoundError;
+                    data = data.replace(' */\n', SignedSource.getSigningToken());
                   }
                 }
                 return data.replace(NEWTOKEN, `SignedSource<<${hash(data, 'utf8')}>>`);
