@@ -332,7 +332,7 @@ jobs:
       - name: Check for changes
         id: check_should_commit
         run: |
-          echo "Full git status"
+          echo "Full git status (bump)"
           git add .
           git status
           echo "===================="
