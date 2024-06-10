@@ -333,14 +333,14 @@ jobs:
         id: check_should_commit
         run: |
           echo "Full git status"
-          git --no-pager diff -U0 -w | grep '^[+-]' | head -n 100
-          git --no-pager diff
+          git add .
+          git --no-pager diff -U0 --cached | grep '^[+-]' | head -n 100
           echo "===================="
           # Ignore REVISION or lines removing @generated headers.
-          if git diff -- . ':(exclude)*REVISION' | grep -vE "^(@@|diff|index|\-\-\-|\+\+\+|\- \* @generated SignedSource)" | grep "^[+-]" > /dev/null; then
+          if git diff --cached ':(exclude)*REVISION' | grep -vE "^(@@|diff|index|\-\-\-|\+\+\+|\- \* @generated SignedSource)" | grep "^[+-]" > /dev/null; then
             echo "Changes detected"
             echo "===== Changes ====="
-            git --no-pager diff -- . ':(exclude)*REVISION' | grep -vE "^(@@|diff|index|\-\-\-|\+\+\+|\- \* @generated SignedSource)" | grep "^[+-]" | head -n 50
+            git --no-pager diff --cached ':(exclude)*REVISION' | grep -vE "^(@@|diff|index|\-\-\-|\+\+\+|\- \* @generated SignedSource)" | grep "^[+-]" | head -n 50
             echo "==================="
             echo "should_commit=true" >> "$GITHUB_OUTPUT"
           else
