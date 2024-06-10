@@ -340,7 +340,7 @@ jobs:
           if git diff --cached ':(exclude)*REVISION' | grep -vE "^(@@|diff|index|\-\-\-|\+\+\+|\- \* @generated SignedSource)" | grep "^[+-]" > /dev/null; then
             echo "Changes detected"
             echo "===== Changes ====="
-            git --no-pager diff --cached ':(exclude)*REVISION' | grep -vE "^(@@|diff|index|\-\-\-|\+\+\+|\- \* @generated SignedSource)" | grep "^[+-]"
+            git --no-pager diff --cached ':(exclude)*REVISION' | grep -vE "^(@@|diff|index|\-\-\-|\+\+\+|\- \* @generated SignedSource)" | grep "^[+-]" | head -n 100
             echo "==================="
             echo "should_commit=true" >> "$GITHUB_OUTPUT"
           else
