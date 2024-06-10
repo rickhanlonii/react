@@ -380,8 +380,9 @@ jobs:
                 if (!data.includes(NEWTOKEN)) {
                   if (SignedSource.isSigned(data)) {
                     // Signing a file that was previously signed.
-                   data = data.replace(PATTERN, SignedSource.getSigningToken());
+                    data = data.replace(PATTERN, SignedSource.getSigningToken());
                   } else {
+                    // files in artifacts don't have a header yet.
                     data = data.replace(' */\n', SignedSource.getSigningToken());
                   }
                 }
