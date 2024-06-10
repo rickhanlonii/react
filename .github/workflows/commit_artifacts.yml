@@ -367,7 +367,7 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            // TODO: Move this to a script file.
+            // TODO: Move this to a script file
             // We currently can't call scripts from the repo because
             // at this point in the workflow, we're on the compiled
             // artifact branch (so the scripts don't exist).
