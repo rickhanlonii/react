@@ -337,10 +337,10 @@ jobs:
           git --no-pager diff -U0 -w --cached | grep '^[+-]' | head -n 100
           echo "===================="
           # Ignore REVISION or lines removing @generated headers.
-          if git diff --cached -w ':(exclude)*REVISION' | grep -vE "^(@@|diff|index|\-\-\-|\+\+\+|\- \* @generated SignedSource| -\ \* @flow| +\ \* @flow)" | grep "^[+-]" > /dev/null; then
+          if git diff --cached -w ':(exclude)*REVISION' | grep -vE "^(@@|diff|index|\-\-\-|\+\+\+|\- \* @generated SignedSource|\- \* @flow|\+ \* @flow)" | grep "^[+-]" > /dev/null; then
             echo "Changes detected"
             echo "===== Changes ====="
-            git --no-pager diff --cached -w ':(exclude)*REVISION' | grep -vE "^(@@|diff|index|\-\-\-|\+\+\+|\- \* @generated SignedSource)" | grep "^[+-]" | head -n 50
+            git --no-pager diff --cached -w ':(exclude)*REVISION' | grep -vE "^(@@|diff|index|\-\-\-|\+\+\+|\- \* @generated SignedSource|\- \* @flow|\+ \* @flow)" | grep "^[+-]" | head -n 50
             echo "==================="
             echo "should_commit=true" >> "$GITHUB_OUTPUT"
           else
