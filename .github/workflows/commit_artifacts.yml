@@ -334,7 +334,7 @@ jobs:
         run: |
           echo "Full git status (bump)"
           git add .
-          git status
+          git --no-pager diff -U0 --cached | grep '^[+-]' | head -n 50
           echo "===================="
           # Ignore REVISION or lines removing @generated headers.
           if git diff --cached ' :(exclude)*REVISION' | grep -vE "^(@@|diff|index|\-\-\-|\+\+\+|\- \* @generated SignedSource)" | grep "^[+-]" > /dev/null; then
