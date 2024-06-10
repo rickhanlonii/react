@@ -383,7 +383,7 @@ jobs:
                     data = data.replace(PATTERN, SignedSource.getSigningToken());
                   } else {
                     // files in artifacts don't have a header yet.
-                    data = data.replace(' */\n', SignedSource.getSigningToken());
+                    data = data.replace(' */\n', ` * ${SignedSource.getSigningToken()}\n */\n`);
                   }
                 }
                 return data.replace(NEWTOKEN, `SignedSource<<${hash(data, 'utf8')}>>`);
