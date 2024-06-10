@@ -431,9 +431,12 @@ jobs:
                   if (file) {
                     console.log('  Signing file:', file);
                     const originalContents = fs.readFileSync(file, 'utf8');
-                    const signedContents = SignedSource.signFile(originalContents
-                      // Need to add the header in, since it's not inserted at build time.
-                      .replace(' */\n', ` * ${SignedSource.getSigningToken()}\n */\n`);
+                    const signedContents = SignedSource.signFile(
+                      originalContents
+                        // Need to add the header in, since it's not inserted at build time.
+                        .replace(' */\n', ` * ${SignedSource.getSigningToken()}\n */\n`)
+                    );
+
                     fs.writeFileSync(file, signedContents, 'utf8');
                   }
                 });
