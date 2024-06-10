@@ -336,14 +336,14 @@ jobs:
           git add .
           git --no-pager diff -U0 --cached | grep '^[+-]' | head -n 50
           echo "===================="
-          git diff --cached ' :(exclude)*REVISION'
+          git diff --cached ':(exclude)*REVISION'
           echo "===================="
-          git diff --cached ' :(exclude)*REVISION' | grep -vE "^(@@|diff|index|\-\-\-|\+\+\+|\- \* @generated SignedSource)"
+          git diff --cached ':(exclude)*REVISION' | grep -vE "^(@@|diff|index|\-\-\-|\+\+\+|\- \* @generated SignedSource)"
           echo "===================="
-          git diff --cached ' :(exclude)*REVISION' | grep -vE "^(@@|diff|index|\-\-\-|\+\+\+|\- \* @generated SignedSource)" | grep "^[+-]"
+          git diff --cached ':(exclude)*REVISION' | grep -vE "^(@@|diff|index|\-\-\-|\+\+\+|\- \* @generated SignedSource)" | grep "^[+-]"
           echo "===================="
           # Ignore REVISION or lines removing @generated headers.
-          if git diff --cached ' :(exclude)*REVISION' | grep -vE "^(@@|diff|index|\-\-\-|\+\+\+|\- \* @generated SignedSource)" | grep "^[+-]" > /dev/null; then
+          if git diff --cached ':(exclude)*REVISION' | grep -vE "^(@@|diff|index|\-\-\-|\+\+\+|\- \* @generated SignedSource)" | grep "^[+-]" > /dev/null; then
             echo "Changes detected"
             echo "===== Changes ====="
             git --no-pager diff --cached ':(exclude)*REVISION' | grep -vE "^(@@|diff|index|\-\-\-|\+\+\+|\- \* @generated SignedSource)" | grep "^[+-]"
