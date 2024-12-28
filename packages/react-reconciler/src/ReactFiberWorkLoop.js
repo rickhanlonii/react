@@ -41,6 +41,7 @@ import {
   enableComponentPerformanceTrack,
   enableYieldingBeforePassive,
   enableThrottledScheduling,
+  enableViewTransition,
 } from 'shared/ReactFeatureFlags';
 import ReactSharedInternals from 'shared/ReactSharedInternals';
 import is from 'shared/objectIs';
@@ -138,6 +139,7 @@ import {
   ShouldSuspendCommit,
   MaySuspendCommit,
   ScheduleRetry,
+  PassiveTransitionMask,
 } from './ReactFiberFlags';
 import {
   NoLanes,
@@ -173,6 +175,7 @@ import {
   UpdateLanes,
   claimNextTransitionLane,
   checkIfRootIsPrerendering,
+  includesOnlyViewTransitionEligibleLanes,
 } from './ReactFiberLane';
 import {
   DiscreteEventPriority,
@@ -3248,13 +3251,17 @@ function commitRoot(
   // might get scheduled in the commit phase. (See #16714.)
   // TODO: Delete all other places that schedule the passive effect callback
   // They're redundant.
+  const passiveSubtreeMask =
+    enableViewTransition && includesOnlyViewTransitionEligibleLanes(lanes)
+      ? PassiveTransitionMask
+      : PassiveMask;
   if (
     // If this subtree rendered with profiling this commit, we need to visit it to log it.
     (enableProfilerTimer &&
       enableComponentPerformanceTrack &&
       finishedWork.actualDuration !== 0) ||
-    (finishedWork.subtreeFlags & PassiveMask) !== NoFlags ||
-    (finishedWork.flags & PassiveMask) !== NoFlags
+    (finishedWork.subtreeFlags & passiveSubtreeMask) !== NoFlags ||
+    (finishedWork.flags & passiveSubtreeMask) !== NoFlags
   ) {
     pendingPassiveEffectsRemainingLanes = remainingLanes;
     pendingPassiveEffectsRenderEndTime = completedRenderEndTime;
@@ -3448,12 +3455,16 @@ function flushLayoutEffects(
     );
   }
 
+  const passiveSubtreeMask =
+    enableViewTransition && includesOnlyViewTransitionEligibleLanes(lanes)
+      ? PassiveTransitionMask
+      : PassiveMask;
   const rootDidHavePassiveEffects = // If this subtree rendered with profiling this commit, we need to visit it to log it.
     (enableProfilerTimer &&
       enableComponentPerformanceTrack &&
       finishedWork.actualDuration !== 0) ||
-    (finishedWork.subtreeFlags & PassiveMask) !== NoFlags ||
-    (finishedWork.flags & PassiveMask) !== NoFlags;
+    (finishedWork.subtreeFlags & passiveSubtreeMask) !== NoFlags ||
+    (finishedWork.flags & passiveSubtreeMask) !== NoFlags;
 
   if (rootDidHavePassiveEffects) {
     // This commit has passive effects. Stash a reference to them. But don't
