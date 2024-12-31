@@ -202,6 +202,7 @@ import {
 import {
   commitBeforeMutationEffects,
   shouldFireAfterActiveInstanceBlur,
+  commitAfterMutationEffects,
   commitLayoutEffects,
   commitMutationEffects,
   commitPassiveMountEffects,
@@ -3356,6 +3357,7 @@ function commitRoot(
     startViewTransition(
       root.containerInfo,
       flushMutationEffects.bind(null, root, finishedWork, lanes),
+      flushAfterMutationEffects.bind(null, root, finishedWork, lanes),
       flushLayoutEffects.bind(
         null,
         root,
@@ -3383,6 +3385,14 @@ function commitRoot(
       completedRenderEndTime,
     );
   }
+}
+
+function flushAfterMutationEffects(
+  root: FiberRoot,
+  finishedWork: Fiber,
+  lanes: Lanes,
+): void {
+  commitAfterMutationEffects(root, finishedWork, lanes);
 }
 
 function flushMutationEffects(
