@@ -26,13 +26,29 @@ const b = (
 
 export default function Page() {
   const [show, setShow] = useState(false);
-  useEffect(() => {
-    startTransition(() => {
-      setShow(true);
-    });
-  }, []);
+  const ref = React.useRef(null);
+
   return (
     <div>
+      <button
+        ref={node => {
+          function handleClick() {
+            console.log('clicked');
+          }
+          node.addEventListener('click', handleClick);
+          return () => {
+            node.removeEventListener('click', handleClick);
+          };
+        }}
+        onClick={() => {
+          console.log('click', show);
+          startTransition(() => {
+            console.log('setting show', !show);
+            setShow(!show);
+          });
+        }}>
+        {show ? 'Hide' : 'Show'}
+      </button>
       {show ? (
         <div>
           {a}
