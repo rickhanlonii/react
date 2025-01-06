@@ -11,10 +11,7 @@
  */
 
 "use strict";
-var dynamicFeatureFlags = require("SchedulerFeatureFlags"),
-  userBlockingPriorityTimeout = dynamicFeatureFlags.userBlockingPriorityTimeout,
-  normalPriorityTimeout = dynamicFeatureFlags.normalPriorityTimeout,
-  lowPriorityTimeout = dynamicFeatureFlags.lowPriorityTimeout;
+var enableRequestPaint = require("SchedulerFeatureFlags").enableRequestPaint;
 function push(heap, node) {
   var index = heap.length;
   heap.push(node);
@@ -79,12 +76,12 @@ if ("object" === typeof performance && "function" === typeof performance.now) {
 var taskQueue = [],
   timerQueue = [],
   taskIdCounter = 1,
-  isSchedulerPaused = !1,
   currentTask = null,
   currentPriorityLevel = 3,
   isPerformingWork = !1,
   isHostCallbackScheduled = !1,
   isHostTimeoutScheduled = !1,
+  needsPaint = !1,
   localSetTimeout = "function" === typeof setTimeout ? setTimeout : null,
   localClearTimeout = "function" === typeof clearTimeout ? clearTimeout : null,
   localSetImmediate = "undefined" !== typeof setImmediate ? setImmediate : null;
@@ -104,7 +101,9 @@ function handleTimeout(currentTime) {
   advanceTimers(currentTime);
   if (!isHostCallbackScheduled)
     if (null !== peek(taskQueue))
-      (isHostCallbackScheduled = !0), requestHostCallback();
+      (isHostCallbackScheduled = !0),
+        isMessageLoopRunning ||
+          ((isMessageLoopRunning = !0), schedulePerformWorkUntilDeadline());
     else {
       var firstTimer = peek(timerQueue);
       null !== firstTimer &&
@@ -116,9 +115,14 @@ var isMessageLoopRunning = !1,
   frameInterval = 10,
   startTime = -1;
 function shouldYieldToHost() {
-  return exports.unstable_now() - startTime < frameInterval ? !1 : !0;
+  return enableRequestPaint && needsPaint
+    ? !0
+    : exports.unstable_now() - startTime < frameInterval
+      ? !1
+      : !0;
 }
 function performWorkUntilDeadline() {
+  enableRequestPaint && (needsPaint = !1);
   if (isMessageLoopRunning) {
     var currentTime = exports.unstable_now();
     startTime = currentTime;
@@ -137,11 +141,9 @@ function performWorkUntilDeadline() {
             advanceTimers(currentTime);
             for (
               currentTask = peek(taskQueue);
+              null !== currentTask &&
               !(
-                null === currentTask ||
-                isSchedulerPaused ||
-                (currentTask.expirationTime > currentTime &&
-                  shouldYieldToHost())
+                currentTask.expirationTime > currentTime && shouldYieldToHost()
               );
 
             ) {
@@ -206,10 +208,6 @@ else if ("undefined" !== typeof MessageChannel) {
   schedulePerformWorkUntilDeadline = function () {
     localSetTimeout(performWorkUntilDeadline, 0);
   };
-function requestHostCallback() {
-  isMessageLoopRunning ||
-    ((isMessageLoopRunning = !0), schedulePerformWorkUntilDeadline());
-}
 function requestHostTimeout(callback, ms) {
   taskTimeoutID = localSetTimeout(function () {
     callback(exports.unstable_now());
@@ -224,12 +222,6 @@ exports.unstable_UserBlockingPriority = 2;
 exports.unstable_cancelCallback = function (task) {
   task.callback = null;
 };
-exports.unstable_continueExecution = function () {
-  isSchedulerPaused = !1;
-  isHostCallbackScheduled ||
-    isPerformingWork ||
-    ((isHostCallbackScheduled = !0), requestHostCallback());
-};
 exports.unstable_forceFrameRate = function (fps) {
   0 > fps || 125 < fps
     ? console.error(
@@ -239,9 +231,6 @@ exports.unstable_forceFrameRate = function (fps) {
 };
 exports.unstable_getCurrentPriorityLevel = function () {
   return currentPriorityLevel;
-};
-exports.unstable_getFirstCallbackNode = function () {
-  return peek(taskQueue);
 };
 exports.unstable_next = function (eventHandler) {
   switch (currentPriorityLevel) {
@@ -261,10 +250,9 @@ exports.unstable_next = function (eventHandler) {
     currentPriorityLevel = previousPriorityLevel;
   }
 };
-exports.unstable_pauseExecution = function () {
-  isSchedulerPaused = !0;
+exports.unstable_requestPaint = function () {
+  enableRequestPaint && (needsPaint = !0);
 };
-exports.unstable_requestPaint = function () {};
 exports.unstable_runWithPriority = function (priorityLevel, eventHandler) {
   switch (priorityLevel) {
     case 1:
@@ -302,16 +290,16 @@ exports.unstable_scheduleCallback = function (
       var timeout = -1;
       break;
     case 2:
-      timeout = userBlockingPriorityTimeout;
+      timeout = 250;
       break;
     case 5:
       timeout = 1073741823;
       break;
     case 4:
-      timeout = lowPriorityTimeout;
+      timeout = 1e4;
       break;
     default:
-      timeout = normalPriorityTimeout;
+      timeout = 5e3;
   }
   timeout = options + timeout;
   priorityLevel = {
@@ -335,7 +323,9 @@ exports.unstable_scheduleCallback = function (
       push(taskQueue, priorityLevel),
       isHostCallbackScheduled ||
         isPerformingWork ||
-        ((isHostCallbackScheduled = !0), requestHostCallback()));
+        ((isHostCallbackScheduled = !0),
+        isMessageLoopRunning ||
+          ((isMessageLoopRunning = !0), schedulePerformWorkUntilDeadline())));
   return priorityLevel;
 };
 exports.unstable_shouldYield = shouldYieldToHost;
