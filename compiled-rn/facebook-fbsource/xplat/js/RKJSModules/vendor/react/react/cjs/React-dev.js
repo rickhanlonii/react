@@ -7,7 +7,7 @@
  * @noflow
  * @nolint
  * @preventMunge
- * @generated SignedSource<<537aca0e9f6f4bc27869928bcd75394e>>
+ * @generated SignedSource<<c51b25aab783f09d9023ebf2d1923ea8>>
  */
 
 "use strict";
@@ -41,7 +41,7 @@ __DEV__ &&
         _key++
       )
         args[_key - 1] = arguments[_key];
-      printWarning("warn", format, args, Error("react-stack-top-frame"));
+      printWarning("warn", format, args);
     }
     function error$jscomp$0(format) {
       for (
@@ -52,21 +52,14 @@ __DEV__ &&
         _key2++
       )
         args[_key2 - 1] = arguments[_key2];
-      printWarning("error", format, args, Error("react-stack-top-frame"));
+      printWarning("error", format, args);
     }
-    function printWarning(level, format, args, currentStack) {
-      var isErrorLogger =
-        "%s\n\n%s\n" === format || "%o\n\n%s\n\n%s\n" === format;
-      ReactSharedInternals.getCurrentStack &&
-        ((currentStack = ReactSharedInternals.getCurrentStack(currentStack)),
-        "" !== currentStack &&
-          ((format += "%s"), (args = args.concat([currentStack]))));
-      isErrorLogger
-        ? args.unshift(format)
-        : ((args = args.map(function (item) {
-            return String(item);
-          })),
-          args.unshift("Warning: " + format));
+    function printWarning(level, format, args) {
+      if (ReactSharedInternals.getCurrentStack) {
+        var stack = ReactSharedInternals.getCurrentStack();
+        "" !== stack && ((format += "%s"), (args = args.concat([stack])));
+      }
+      args.unshift(format);
       Function.prototype.apply.call(console[level], console, args);
     }
     function warnNoop(publicInstance, callerName) {
@@ -252,8 +245,14 @@ __DEV__ &&
         } catch (x) {
           var match = x.stack.trim().match(/\n( *(at )?)/);
           prefix = (match && match[1]) || "";
+          suffix =
+            -1 < x.stack.indexOf("\n    at")
+              ? " (<anonymous>)"
+              : -1 < x.stack.indexOf("@")
+                ? "@unknown:0:0"
+                : "";
         }
-      return "\n" + prefix + name;
+      return "\n" + prefix + name + suffix;
     }
     function describeNativeComponentFrame(fn, construct) {
       if (!fn || reentry) return "";
@@ -266,64 +265,64 @@ __DEV__ &&
       previousDispatcher = ReactSharedInternals.H;
       ReactSharedInternals.H = null;
       disableLogs();
-      var RunInRootFrame = {
-        DetermineComponentFrameRoot: function () {
-          try {
-            if (construct) {
-              var Fake = function () {
-                throw Error();
-              };
-              Object.defineProperty(Fake.prototype, "props", {
-                set: function () {
+      try {
+        var RunInRootFrame = {
+          DetermineComponentFrameRoot: function () {
+            try {
+              if (construct) {
+                var Fake = function () {
                   throw Error();
+                };
+                Object.defineProperty(Fake.prototype, "props", {
+                  set: function () {
+                    throw Error();
+                  }
+                });
+                if ("object" === typeof Reflect && Reflect.construct) {
+                  try {
+                    Reflect.construct(Fake, []);
+                  } catch (x) {
+                    var control = x;
+                  }
+                  Reflect.construct(fn, [], Fake);
+                } else {
+                  try {
+                    Fake.call();
+                  } catch (x$0) {
+                    control = x$0;
+                  }
+                  fn.call(Fake.prototype);
                 }
-              });
-              if ("object" === typeof Reflect && Reflect.construct) {
-                try {
-                  Reflect.construct(Fake, []);
-                } catch (x) {
-                  var control = x;
-                }
-                Reflect.construct(fn, [], Fake);
               } else {
                 try {
-                  Fake.call();
-                } catch (x$0) {
-                  control = x$0;
+                  throw Error();
+                } catch (x$1) {
+                  control = x$1;
                 }
-                fn.call(Fake.prototype);
+                (Fake = fn()) &&
+                  "function" === typeof Fake.catch &&
+                  Fake.catch(function () {});
               }
-            } else {
-              try {
-                throw Error();
-              } catch (x$1) {
-                control = x$1;
-              }
-              (Fake = fn()) &&
-                "function" === typeof Fake.catch &&
-                Fake.catch(function () {});
+            } catch (sample) {
+              if (sample && control && "string" === typeof sample.stack)
+                return [sample.stack, control.stack];
             }
-          } catch (sample) {
-            if (sample && control && "string" === typeof sample.stack)
-              return [sample.stack, control.stack];
+            return [null, null];
           }
-          return [null, null];
-        }
-      };
-      RunInRootFrame.DetermineComponentFrameRoot.displayName =
-        "DetermineComponentFrameRoot";
-      var namePropDescriptor = Object.getOwnPropertyDescriptor(
-        RunInRootFrame.DetermineComponentFrameRoot,
-        "name"
-      );
-      namePropDescriptor &&
-        namePropDescriptor.configurable &&
-        Object.defineProperty(
+        };
+        RunInRootFrame.DetermineComponentFrameRoot.displayName =
+          "DetermineComponentFrameRoot";
+        var namePropDescriptor = Object.getOwnPropertyDescriptor(
           RunInRootFrame.DetermineComponentFrameRoot,
-          "name",
-          { value: "DetermineComponentFrameRoot" }
+          "name"
         );
-      try {
+        namePropDescriptor &&
+          namePropDescriptor.configurable &&
+          Object.defineProperty(
+            RunInRootFrame.DetermineComponentFrameRoot,
+            "name",
+            { value: "DetermineComponentFrameRoot" }
+          );
         var _RunInRootFrame$Deter =
             RunInRootFrame.DetermineComponentFrameRoot(),
           sampleStack = _RunInRootFrame$Deter[0],
@@ -332,54 +331,58 @@ __DEV__ &&
           var sampleLines = sampleStack.split("\n"),
             controlLines = controlStack.split("\n");
           for (
-            sampleStack = _RunInRootFrame$Deter = 0;
-            _RunInRootFrame$Deter < sampleLines.length &&
-            !sampleLines[_RunInRootFrame$Deter].includes(
+            _RunInRootFrame$Deter = namePropDescriptor = 0;
+            namePropDescriptor < sampleLines.length &&
+            !sampleLines[namePropDescriptor].includes(
+              "DetermineComponentFrameRoot"
+            );
+
+          )
+            namePropDescriptor++;
+          for (
+            ;
+            _RunInRootFrame$Deter < controlLines.length &&
+            !controlLines[_RunInRootFrame$Deter].includes(
               "DetermineComponentFrameRoot"
             );
 
           )
             _RunInRootFrame$Deter++;
-          for (
-            ;
-            sampleStack < controlLines.length &&
-            !controlLines[sampleStack].includes("DetermineComponentFrameRoot");
-
-          )
-            sampleStack++;
           if (
-            _RunInRootFrame$Deter === sampleLines.length ||
-            sampleStack === controlLines.length
+            namePropDescriptor === sampleLines.length ||
+            _RunInRootFrame$Deter === controlLines.length
           )
             for (
-              _RunInRootFrame$Deter = sampleLines.length - 1,
-                sampleStack = controlLines.length - 1;
-              1 <= _RunInRootFrame$Deter &&
-              0 <= sampleStack &&
-              sampleLines[_RunInRootFrame$Deter] !== controlLines[sampleStack];
+              namePropDescriptor = sampleLines.length - 1,
+                _RunInRootFrame$Deter = controlLines.length - 1;
+              1 <= namePropDescriptor &&
+              0 <= _RunInRootFrame$Deter &&
+              sampleLines[namePropDescriptor] !==
+                controlLines[_RunInRootFrame$Deter];
 
             )
-              sampleStack--;
+              _RunInRootFrame$Deter--;
           for (
             ;
-            1 <= _RunInRootFrame$Deter && 0 <= sampleStack;
-            _RunInRootFrame$Deter--, sampleStack--
+            1 <= namePropDescriptor && 0 <= _RunInRootFrame$Deter;
+            namePropDescriptor--, _RunInRootFrame$Deter--
           )
             if (
-              sampleLines[_RunInRootFrame$Deter] !== controlLines[sampleStack]
+              sampleLines[namePropDescriptor] !==
+              controlLines[_RunInRootFrame$Deter]
             ) {
-              if (1 !== _RunInRootFrame$Deter || 1 !== sampleStack) {
+              if (1 !== namePropDescriptor || 1 !== _RunInRootFrame$Deter) {
                 do
                   if (
-                    (_RunInRootFrame$Deter--,
-                    sampleStack--,
-                    0 > sampleStack ||
-                      sampleLines[_RunInRootFrame$Deter] !==
-                        controlLines[sampleStack])
+                    (namePropDescriptor--,
+                    _RunInRootFrame$Deter--,
+                    0 > _RunInRootFrame$Deter ||
+                      sampleLines[namePropDescriptor] !==
+                        controlLines[_RunInRootFrame$Deter])
                   ) {
                     var _frame =
                       "\n" +
-                      sampleLines[_RunInRootFrame$Deter].replace(
+                      sampleLines[namePropDescriptor].replace(
                         " at new ",
                         " at "
                       );
@@ -390,7 +393,7 @@ __DEV__ &&
                       componentFrameCache.set(fn, _frame);
                     return _frame;
                   }
-                while (1 <= _RunInRootFrame$Deter && 0 <= sampleStack);
+                while (1 <= namePropDescriptor && 0 <= _RunInRootFrame$Deter);
               }
               break;
             }
@@ -426,7 +429,7 @@ __DEV__ &&
       if ("object" === typeof type)
         switch (type.$$typeof) {
           case REACT_FORWARD_REF_TYPE:
-            return (type = describeNativeComponentFrame(type.render, !1)), type;
+            return describeNativeComponentFrame(type.render, !1);
           case REACT_MEMO_TYPE:
             return describeUnknownElementTypeFrameInDEV(type.type);
           case REACT_LAZY_TYPE:
@@ -438,16 +441,24 @@ __DEV__ &&
         }
       return "";
     }
+    function getTaskName(type) {
+      if (type === REACT_FRAGMENT_TYPE) return "<>";
+      if (
+        "object" === typeof type &&
+        null !== type &&
+        type.$$typeof === REACT_LAZY_TYPE
+      )
+        return "<...>";
+      try {
+        var name = getComponentNameFromType(type);
+        return name ? "<" + name + ">" : "<...>";
+      } catch (x) {
+        return "<...>";
+      }
+    }
     function getOwner() {
       var dispatcher = ReactSharedInternals.A;
       return null === dispatcher ? null : dispatcher.getOwner();
-    }
-    function hasValidRef(config) {
-      if (hasOwnProperty.call(config, "ref")) {
-        var getter = Object.getOwnPropertyDescriptor(config, "ref").get;
-        if (getter && getter.isReactWarning) return !1;
-      }
-      return void 0 !== config.ref;
     }
     function hasValidKey(config) {
       if (hasOwnProperty.call(config, "key")) {
@@ -481,8 +492,17 @@ __DEV__ &&
       componentName = this.props.ref;
       return void 0 !== componentName ? componentName : null;
     }
-    function ReactElement(type, key, _ref, self, source, owner, props) {
-      _ref = props.ref;
+    function ReactElement(
+      type,
+      key,
+      self,
+      source,
+      owner,
+      props,
+      debugStack,
+      debugTask
+    ) {
+      self = props.ref;
       type = {
         $$typeof: REACT_ELEMENT_TYPE,
         type: type,
@@ -490,7 +510,7 @@ __DEV__ &&
         props: props,
         _owner: owner
       };
-      null !== (void 0 !== _ref ? _ref : null)
+      null !== (void 0 !== self ? self : null)
         ? Object.defineProperty(type, "ref", {
             enumerable: !1,
             get: elementRefGetterWithDeprecationWarning
@@ -509,6 +529,19 @@ __DEV__ &&
         writable: !0,
         value: null
       });
+      enableOwnerStacks &&
+        (Object.defineProperty(type, "_debugStack", {
+          configurable: !1,
+          enumerable: !1,
+          writable: !0,
+          value: debugStack
+        }),
+        Object.defineProperty(type, "_debugTask", {
+          configurable: !1,
+          enumerable: !1,
+          writable: !0,
+          value: debugTask
+        }));
       Object.freeze && (Object.freeze(type.props), Object.freeze(type));
       return type;
     }
@@ -518,9 +551,11 @@ __DEV__ &&
       maybeKey,
       isStaticChildren,
       source,
-      self
+      self,
+      debugStack,
+      debugTask
     ) {
-      if (isValidElementType(type)) {
+      if (enableOwnerStacks || isValidElementType(type)) {
         var children = config.children;
         if (void 0 !== children)
           if (isStaticChildren)
@@ -550,13 +585,15 @@ __DEV__ &&
         null === type
           ? (isStaticChildren = "null")
           : isArrayImpl(type)
-          ? (isStaticChildren = "array")
-          : void 0 !== type && type.$$typeof === REACT_ELEMENT_TYPE
-          ? ((isStaticChildren =
-              "<" + (getComponentNameFromType(type.type) || "Unknown") + " />"),
-            (children =
-              " Did you accidentally export a JSX literal instead of a component?"))
-          : (isStaticChildren = typeof type);
+            ? (isStaticChildren = "array")
+            : void 0 !== type && type.$$typeof === REACT_ELEMENT_TYPE
+              ? ((isStaticChildren =
+                  "<" +
+                  (getComponentNameFromType(type.type) || "Unknown") +
+                  " />"),
+                (children =
+                  " Did you accidentally export a JSX literal instead of a component?"))
+              : (isStaticChildren = typeof type);
         error$jscomp$0(
           "React.jsx: type is invalid -- expected a string (for built-in components) or a class/function (for composite components) but got: %s.%s",
           isStaticChildren,
@@ -589,53 +626,47 @@ __DEV__ &&
         (checkKeyStringCoercion(maybeKey), (children = "" + maybeKey));
       hasValidKey(config) &&
         (checkKeyStringCoercion(config.key), (children = "" + config.key));
-      hasValidRef(config);
-      if (
-        (!enableFastJSXWithoutStringRefs &&
-          (!enableFastJSXWithStringRefs || "ref" in config)) ||
-        "key" in config
-      ) {
+      if ("key" in config) {
         maybeKey = {};
         for (var propName in config)
           "key" !== propName && (maybeKey[propName] = config[propName]);
       } else maybeKey = config;
-      if (!disableDefaultPropsExceptForClasses && type && type.defaultProps) {
-        config = type.defaultProps;
-        for (var _propName2 in config)
-          void 0 === maybeKey[_propName2] &&
-            (maybeKey[_propName2] = config[_propName2]);
-      }
       children &&
-        ((_propName2 =
+        defineKeyPropWarningGetter(
+          maybeKey,
           "function" === typeof type
             ? type.displayName || type.name || "Unknown"
-            : type),
-        children && defineKeyPropWarningGetter(maybeKey, _propName2));
+            : type
+        );
       return ReactElement(
         type,
         children,
-        null,
         self,
         source,
         getOwner(),
-        maybeKey
+        maybeKey,
+        debugStack,
+        debugTask
       );
     }
     function cloneAndReplaceKey(oldElement, newKey) {
       newKey = ReactElement(
         oldElement.type,
         newKey,
-        null,
         void 0,
         void 0,
         oldElement._owner,
-        oldElement.props
+        oldElement.props,
+        enableOwnerStacks ? oldElement._debugStack : void 0,
+        enableOwnerStacks ? oldElement._debugTask : void 0
       );
       newKey._store.validated = oldElement._store.validated;
       return newKey;
     }
     function validateChildKeys(node, parentType) {
-      if (
+      if (enableOwnerStacks)
+        isValidElement(node) && node._store && (node._store.validated = 1);
+      else if (
         "object" === typeof node &&
         node &&
         node.$$typeof !== REACT_CLIENT_REFERENCE
@@ -666,6 +697,7 @@ __DEV__ &&
     }
     function validateExplicitKey(element, parentType) {
       if (
+        !enableOwnerStacks &&
         element._store &&
         !element._store.validated &&
         null == element.key &&
@@ -941,6 +973,22 @@ __DEV__ &&
     function useMemoCache(size) {
       return resolveDispatcher().useMemoCache(size);
     }
+    function useResourceEffect(
+      create,
+      createDeps,
+      update,
+      updateDeps,
+      destroy
+    ) {
+      if (!enableUseResourceEffectHook) throw Error("Not implemented.");
+      return resolveDispatcher().useResourceEffect(
+        create,
+        createDeps,
+        update,
+        updateDeps,
+        destroy
+      );
+    }
     function noop() {}
     function enqueueTask(task) {
       if (null === enqueueTaskImpl)
@@ -1026,14 +1074,18 @@ __DEV__ &&
         }
       }
     }
+    function captureOwnerStack() {
+      if (!enableOwnerStacks) return null;
+      var getCurrentStack = ReactSharedInternals.getCurrentStack;
+      return null === getCurrentStack ? null : getCurrentStack();
+    }
     "undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ &&
       "function" ===
         typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart &&
       __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart(Error());
     var dynamicFlags = require("ReactNativeInternalFeatureFlags"),
-      disableDefaultPropsExceptForClasses =
-        dynamicFlags.disableDefaultPropsExceptForClasses,
-      enableFastJSX = dynamicFlags.enableFastJSX,
+      enableUseResourceEffectHook = dynamicFlags.enableUseResourceEffectHook,
+      enableOwnerStacks = dynamicFlags.enableOwnerStacks,
       REACT_ELEMENT_TYPE = Symbol.for("react.element"),
       REACT_PORTAL_TYPE = Symbol.for("react.portal"),
       REACT_FRAGMENT_TYPE = Symbol.for("react.fragment"),
@@ -1048,7 +1100,6 @@ __DEV__ &&
       REACT_MEMO_TYPE = Symbol.for("react.memo"),
       REACT_LAZY_TYPE = Symbol.for("react.lazy"),
       REACT_SCOPE_TYPE = Symbol.for("react.scope"),
-      REACT_DEBUG_TRACING_MODE_TYPE = Symbol.for("react.debug_trace_mode"),
       REACT_OFFSCREEN_TYPE = Symbol.for("react.offscreen"),
       REACT_LEGACY_HIDDEN_TYPE = Symbol.for("react.legacy_hidden"),
       REACT_TRACING_MARKER_TYPE = Symbol.for("react.tracing_marker"),
@@ -1132,17 +1183,22 @@ __DEV__ &&
       prevGroupEnd;
     disabledLog.__reactDisabledLog = !0;
     var prefix,
+      suffix,
       reentry = !1;
     var componentFrameCache = new (
       "function" === typeof WeakMap ? WeakMap : Map
     )();
     var REACT_CLIENT_REFERENCE = Symbol.for("react.client.reference"),
+      createTask =
+        enableOwnerStacks && console.createTask
+          ? console.createTask
+          : function () {
+              return null;
+            },
       specialPropKeyWarningShown,
       didWarnAboutOldJSXRuntime;
     var didWarnAboutElementRef = {};
-    var enableFastJSXWithStringRefs = enableFastJSX && !0,
-      enableFastJSXWithoutStringRefs = enableFastJSXWithStringRefs && !0,
-      didWarnAboutKeySpread = {},
+    var didWarnAboutKeySpread = {},
       ownerHasKeyUseWarning = {},
       didWarnAboutMaps = !1,
       userProvidedKeyEscapeRegex = /\/+/g,
@@ -1187,40 +1243,47 @@ __DEV__ &&
                 return queueMicrotask(callback);
               });
             }
-          : enqueueTask;
-    exports.Children = {
-      map: mapChildren,
-      forEach: function (children, forEachFunc, forEachContext) {
-        mapChildren(
-          children,
-          function () {
-            forEachFunc.apply(this, arguments);
-          },
-          forEachContext
-        );
-      },
-      count: function (children) {
-        var n = 0;
-        mapChildren(children, function () {
-          n++;
-        });
-        return n;
-      },
-      toArray: function (children) {
-        return (
-          mapChildren(children, function (child) {
-            return child;
-          }) || []
-        );
-      },
-      only: function (children) {
-        if (!isValidElement(children))
-          throw Error(
-            "React.Children.only expected to receive a single React element child."
+          : enqueueTask,
+      ReactCompilerRuntime = { c: useMemoCache },
+      Children = {
+        map: mapChildren,
+        forEach: function (children, forEachFunc, forEachContext) {
+          mapChildren(
+            children,
+            function () {
+              forEachFunc.apply(this, arguments);
+            },
+            forEachContext
           );
-        return children;
-      }
-    };
+        },
+        count: function (children) {
+          var n = 0;
+          mapChildren(children, function () {
+            n++;
+          });
+          return n;
+        },
+        toArray: function (children) {
+          return (
+            mapChildren(children, function (child) {
+              return child;
+            }) || []
+          );
+        },
+        only: function (children) {
+          if (!isValidElement(children))
+            throw Error(
+              "React.Children.only expected to receive a single React element child."
+            );
+          return children;
+        }
+      },
+      experimental_useResourceEffect = enableUseResourceEffectHook
+        ? useResourceEffect
+        : void 0;
+    exports.captureOwnerStack = void 0;
+    enableOwnerStacks && (exports.captureOwnerStack = captureOwnerStack);
+    exports.Children = Children;
     exports.Component = Component;
     exports.Fragment = REACT_FRAGMENT_TYPE;
     exports.Profiler = REACT_PROFILER_TYPE;
@@ -1229,6 +1292,7 @@ __DEV__ &&
     exports.Suspense = REACT_SUSPENSE_TYPE;
     exports.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE =
       ReactSharedInternals;
+    exports.__COMPILER_RUNTIME = ReactCompilerRuntime;
     exports.act = function (callback) {
       var prevIsBatchingLegacy = ReactSharedInternals.isBatchingLegacy,
         prevActQueue = ReactSharedInternals.actQueue,
@@ -1367,43 +1431,49 @@ __DEV__ &&
         key = element.key,
         owner = element._owner;
       if (null != config) {
-        hasValidRef(config) && (owner = getOwner());
+        var JSCompiler_inline_result;
+        a: {
+          if (
+            hasOwnProperty.call(config, "ref") &&
+            (JSCompiler_inline_result = Object.getOwnPropertyDescriptor(
+              config,
+              "ref"
+            ).get) &&
+            JSCompiler_inline_result.isReactWarning
+          ) {
+            JSCompiler_inline_result = !1;
+            break a;
+          }
+          JSCompiler_inline_result = void 0 !== config.ref;
+        }
+        JSCompiler_inline_result && (owner = getOwner());
         hasValidKey(config) &&
           (checkKeyStringCoercion(config.key), (key = "" + config.key));
-        if (
-          !disableDefaultPropsExceptForClasses &&
-          element.type &&
-          element.type.defaultProps
-        )
-          var defaultProps = element.type.defaultProps;
         for (propName in config)
           !hasOwnProperty.call(config, propName) ||
             "key" === propName ||
             "__self" === propName ||
             "__source" === propName ||
             ("ref" === propName && void 0 === config.ref) ||
-            (props[propName] =
-              disableDefaultPropsExceptForClasses ||
-              void 0 !== config[propName] ||
-              void 0 === defaultProps
-                ? config[propName]
-                : defaultProps[propName]);
+            (props[propName] = config[propName]);
       }
       var propName = arguments.length - 2;
       if (1 === propName) props.children = children;
       else if (1 < propName) {
-        defaultProps = Array(propName);
-        for (var i = 0; i < propName; i++) defaultProps[i] = arguments[i + 2];
-        props.children = defaultProps;
+        JSCompiler_inline_result = Array(propName);
+        for (var i = 0; i < propName; i++)
+          JSCompiler_inline_result[i] = arguments[i + 2];
+        props.children = JSCompiler_inline_result;
       }
       props = ReactElement(
         element.type,
         key,
-        null,
         void 0,
         void 0,
         owner,
-        props
+        props,
+        enableOwnerStacks ? element._debugStack : void 0,
+        enableOwnerStacks ? element._debugTask : void 0
       );
       for (key = 2; key < arguments.length; key++)
         validateChildKeys(arguments[key], props.type);
@@ -1428,7 +1498,7 @@ __DEV__ &&
       return defaultValue;
     };
     exports.createElement = function (type, config, children) {
-      if (isValidElementType(type))
+      if (enableOwnerStacks || isValidElementType(type))
         for (var i = 2; i < arguments.length; i++)
           validateChildKeys(arguments[i], type);
       else {
@@ -1446,19 +1516,20 @@ __DEV__ &&
           isArrayImpl(type)
             ? (typeString = "array")
             : void 0 !== type && type.$$typeof === REACT_ELEMENT_TYPE
-            ? ((typeString =
-                "<" +
-                (getComponentNameFromType(type.type) || "Unknown") +
-                " />"),
-              (i =
-                " Did you accidentally export a JSX literal instead of a component?"))
-            : (typeString = typeof type);
+              ? ((typeString =
+                  "<" +
+                  (getComponentNameFromType(type.type) || "Unknown") +
+                  " />"),
+                (i =
+                  " Did you accidentally export a JSX literal instead of a component?"))
+              : (typeString = typeof type);
         error$jscomp$0(
           "React.createElement: type is invalid -- expected a string (for built-in components) or a class/function (for composite components) but got: %s.%s",
           typeString,
           i
         );
       }
+      var propName;
       i = {};
       typeString = null;
       if (null != config)
@@ -1469,7 +1540,6 @@ __DEV__ &&
           warn(
             "Your app (or one of its dependencies) is using an outdated JSX transform. Update to the modern JSX transform for faster performance: https://react.dev/link/new-jsx-transform"
           )),
-        hasValidRef(config),
         hasValidKey(config) &&
           (checkKeyStringCoercion(config.key), (typeString = "" + config.key)),
         config))
@@ -1493,21 +1563,22 @@ __DEV__ &&
       if (type && type.defaultProps)
         for (propName in ((childrenLength = type.defaultProps), childrenLength))
           void 0 === i[propName] && (i[propName] = childrenLength[propName]);
-      if (typeString) {
-        var propName =
+      typeString &&
+        defineKeyPropWarningGetter(
+          i,
           "function" === typeof type
             ? type.displayName || type.name || "Unknown"
-            : type;
-        typeString && defineKeyPropWarningGetter(i, propName);
-      }
+            : type
+        );
       return ReactElement(
         type,
         typeString,
-        null,
         void 0,
         void 0,
         getOwner(),
-        i
+        i,
+        enableOwnerStacks ? Error("react-stack-top-frame") : void 0,
+        enableOwnerStacks ? createTask(getTaskName(type)) : void 0
       );
     };
     exports.createRef = function () {
@@ -1518,24 +1589,25 @@ __DEV__ &&
     exports.experimental_useEffectEvent = function (callback) {
       return resolveDispatcher().useEffectEvent(callback);
     };
+    exports.experimental_useResourceEffect = experimental_useResourceEffect;
     exports.forwardRef = function (render) {
       null != render && render.$$typeof === REACT_MEMO_TYPE
         ? error$jscomp$0(
             "forwardRef requires a render function but received a `memo` component. Instead of forwardRef(memo(...)), use memo(forwardRef(...))."
           )
         : "function" !== typeof render
-        ? error$jscomp$0(
-            "forwardRef requires a render function but was given %s.",
-            null === render ? "null" : typeof render
-          )
-        : 0 !== render.length &&
-          2 !== render.length &&
-          error$jscomp$0(
-            "forwardRef render functions accept exactly two parameters: props and ref. %s",
-            1 === render.length
-              ? "Did you forget to use the ref parameter?"
-              : "Any additional parameter will be undefined."
-          );
+          ? error$jscomp$0(
+              "forwardRef requires a render function but was given %s.",
+              null === render ? "null" : typeof render
+            )
+          : 0 !== render.length &&
+            2 !== render.length &&
+            error$jscomp$0(
+              "forwardRef render functions accept exactly two parameters: props and ref. %s",
+              1 === render.length
+                ? "Did you forget to use the ref parameter?"
+                : "Any additional parameter will be undefined."
+            );
       null != render &&
         null != render.defaultProps &&
         error$jscomp$0(
@@ -1561,7 +1633,16 @@ __DEV__ &&
     };
     exports.isValidElement = isValidElement;
     exports.jsx = function (type, config, maybeKey, source, self) {
-      return jsxDEVImpl(type, config, maybeKey, !1, source, self);
+      return jsxDEVImpl(
+        type,
+        config,
+        maybeKey,
+        !1,
+        source,
+        self,
+        enableOwnerStacks ? Error("react-stack-top-frame") : void 0,
+        enableOwnerStacks ? createTask(getTaskName(type)) : void 0
+      );
     };
     exports.jsxDEV = function (
       type,
@@ -1571,38 +1652,35 @@ __DEV__ &&
       source,
       self
     ) {
-      return jsxDEVImpl(type, config, maybeKey, isStaticChildren, source, self);
+      return jsxDEVImpl(
+        type,
+        config,
+        maybeKey,
+        isStaticChildren,
+        source,
+        self,
+        enableOwnerStacks ? Error("react-stack-top-frame") : void 0,
+        enableOwnerStacks ? createTask(getTaskName(type)) : void 0
+      );
     };
     exports.jsxs = function (type, config, maybeKey, source, self) {
-      return jsxDEVImpl(type, config, maybeKey, !0, source, self);
+      return jsxDEVImpl(
+        type,
+        config,
+        maybeKey,
+        !0,
+        source,
+        self,
+        enableOwnerStacks ? Error("react-stack-top-frame") : void 0,
+        enableOwnerStacks ? createTask(getTaskName(type)) : void 0
+      );
     };
     exports.lazy = function (ctor) {
-      var lazyType = {
+      return {
         $$typeof: REACT_LAZY_TYPE,
         _payload: { _status: -1, _result: ctor },
         _init: lazyInitializer
       };
-      if (!disableDefaultPropsExceptForClasses) {
-        var defaultProps;
-        Object.defineProperties(lazyType, {
-          defaultProps: {
-            configurable: !0,
-            get: function () {
-              return defaultProps;
-            },
-            set: function (newDefaultProps) {
-              error$jscomp$0(
-                "It is not supported to assign `defaultProps` to a lazy component import. Either specify them where the component is defined, or create a wrapping component around it."
-              );
-              defaultProps = newDefaultProps;
-              Object.defineProperty(lazyType, "defaultProps", {
-                enumerable: !0
-              });
-            }
-          }
-        });
-      }
-      return lazyType;
     };
     exports.memo = function (type, compare) {
       isValidElementType(type) ||
@@ -1634,15 +1712,14 @@ __DEV__ &&
     };
     exports.startTransition = function (scope) {
       var prevTransition = ReactSharedInternals.T,
-        transition = {};
-      ReactSharedInternals.T = transition;
-      var currentTransition = ReactSharedInternals.T;
-      ReactSharedInternals.T._updatedFibers = new Set();
+        currentTransition = {};
+      ReactSharedInternals.T = currentTransition;
+      currentTransition._updatedFibers = new Set();
       try {
         var returnValue = scope(),
           onStartTransitionFinish = ReactSharedInternals.S;
         null !== onStartTransitionFinish &&
-          onStartTransitionFinish(transition, returnValue);
+          onStartTransitionFinish(currentTransition, returnValue);
         "object" === typeof returnValue &&
           null !== returnValue &&
           "function" === typeof returnValue.then &&
@@ -1662,7 +1739,6 @@ __DEV__ &&
       }
     };
     exports.unstable_Activity = REACT_OFFSCREEN_TYPE;
-    exports.unstable_DebugTracingMode = REACT_DEBUG_TRACING_MODE_TYPE;
     exports.unstable_LegacyHidden = REACT_LEGACY_HIDDEN_TYPE;
     exports.unstable_Scope = REACT_SCOPE_TYPE;
     exports.unstable_SuspenseList = REACT_SUSPENSE_LIST_TYPE;
@@ -1748,7 +1824,7 @@ __DEV__ &&
     exports.useTransition = function () {
       return resolveDispatcher().useTransition();
     };
-    exports.version = "19.0.0-native-fb-6b35ff766a-20240610";
+    exports.version = "19.1.0-native-fb-e0c893f5-20250106";
     "undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ &&
       "function" ===
         typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStop &&
