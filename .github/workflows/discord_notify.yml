@@ -1,7 +1,7 @@
 name: Discord Notify
 
 on:
-  pull_request:
+  pull_request_target:
     types: [ labeled ]
     
 jobs:
@@ -19,4 +19,5 @@ jobs:
               embed-title: '#${{ github.event.number }}: ${{ github.event.pull_request.title }}'
               embed-description: ${{ github.event.pull_request.body }}
               embed-url: ${{ github.event.pull_request.html_url }}
+              embed-footer-text: '+${{github.event.pull_request.additions}} -${{github.event.pull_request.deletions}}'
             
