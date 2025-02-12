@@ -280,6 +280,8 @@ type BaseFiberRootProperties = {
   ) => void,
 
   formState: ReactFormState<any, any> | null,
+
+  _debugStackCount: number,
 };
 
 // The following attributes are only used by DevTools and are only present in DEV builds.
@@ -454,4 +456,6 @@ export type AsyncDispatcher = {
   getCacheForType: <T>(resourceType: () => T) => T,
   // DEV-only
   getOwner: () => null | Fiber | ReactComponentInfo | ComponentStackNode,
+  // DEV-only
+  getShouldTrackOwner: () => boolean,
 };

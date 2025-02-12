@@ -1036,6 +1036,7 @@ function callWithDebugContextInDEV<A, T>(
     owner: task.debugOwner,
   };
   if (enableOwnerStacks) {
+    // TODO: react-truncated-stack
     // $FlowFixMe[cannot-write]
     componentDebugInfo.stack =
       task.debugStack === null
@@ -1240,6 +1241,7 @@ function renderFunctionComponent<Props>(
       }: ReactComponentInfo);
       if (enableOwnerStacks) {
         // $FlowFixMe[cannot-write]
+        // todo: react-truncated-stack
         componentDebugInfo.stack =
           task.debugStack === null
             ? null
@@ -1585,6 +1587,8 @@ function renderClientElement(
       outlineComponentInfo(request, task.debugOwner);
     }
   }
+
+  // todo  'react-truncated-stack'
   const element = __DEV__
     ? enableOwnerStacks
       ? [
@@ -1696,6 +1700,7 @@ function renderElement(
     // it as a wrapper.
     if (__DEV__ && enableOwnerStacks && validated === 2) {
       // Create a fake owner node for the error stack.
+      // TODO: 'react-truncated-stack'
       const componentDebugInfo: ReactComponentInfo = {
         name: 'Fragment',
         env: (0, request.environmentName)(),
@@ -1818,7 +1823,7 @@ function createTask(
   implicitSlot: boolean,
   abortSet: Set<Task>,
   debugOwner: null | ReactComponentInfo, // DEV-only
-  debugStack: null | Error, // DEV-only
+  debugStack: null | Error | 'react-truncated-stack', // DEV-only
   debugTask: null | ConsoleTask, // DEV-only
 ): Task {
   request.pendingChunks++;

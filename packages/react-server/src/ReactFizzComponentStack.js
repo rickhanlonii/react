@@ -168,10 +168,15 @@ export function getOwnerStackByComponentStackNodeInDev(
 
     while (owner) {
       let ownerStack: ?string = null;
+      // TODO: react-truncated-stack
       if (owner.debugStack != null) {
         // Server Component
-        // TODO: Should we stash this somewhere for caching purposes?
-        ownerStack = formatOwnerStack(owner.debugStack);
+        if (ownerStack === 'react-truncated-stack') {
+          ownerStack += '\n    in [unknown]';
+        } else {
+          // TODO: Should we stash this somewhere for caching purposes?
+          ownerStack = formatOwnerStack(owner.debugStack);
+        }
         owner = owner.owner;
       } else {
         // Client Component

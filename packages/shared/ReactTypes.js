@@ -195,7 +195,7 @@ export type ReactComponentInfo = {
   +stack?: null | ReactStackTrace,
   +props?: null | {[name: string]: mixed},
   // Stashed Data for the Specific Execution Environment. Not part of the transport protocol
-  +debugStack?: null | Error,
+  +debugStack?: null | Error | 'react-truncated-stack',
   +debugTask?: null | ConsoleTask,
 };
 
@@ -220,7 +220,7 @@ export type ReactErrorInfo = ReactErrorInfoProd | ReactErrorInfoDev;
 export type ReactAsyncInfo = {
   +type: string,
   // Stashed Data for the Specific Execution Environment. Not part of the transport protocol
-  +debugStack?: null | Error,
+  +debugStack?: null | Error | 'react-truncated-stack',
   +debugTask?: null | ConsoleTask,
   +stack?: null | ReactStackTrace,
 };

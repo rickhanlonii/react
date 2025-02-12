@@ -7,13 +7,14 @@
  * @flow
  */
 
-import type {AsyncDispatcher, Fiber} from './ReactInternalTypes';
+import type {AsyncDispatcher, Fiber, FiberRoot} from './ReactInternalTypes';
 import type {Cache} from './ReactFiberCacheComponent';
 
 import {readContext} from './ReactFiberNewContext';
 import {CacheContext} from './ReactFiberCacheComponent';
 
 import {current as currentOwner} from './ReactCurrentFiber';
+import {getWorkInProgressRoot} from './ReactFiberWorkLoop';
 
 function getCacheForType<T>(resourceType: () => T): T {
   const cache: Cache = readContext(CacheContext);
@@ -32,5 +33,19 @@ export const DefaultAsyncDispatcher: AsyncDispatcher = ({
 if (__DEV__) {
   DefaultAsyncDispatcher.getOwner = (): null | Fiber => {
     return currentOwner;
+  };
+}
+
+const MAX_DEBUG_STACK_COUNT = 10000;
+if (__DEV__) {
+  DefaultAsyncDispatcher.getShouldTrackOwner = (): boolean => {
+    const root: FiberRoot | null = getWorkInProgressRoot();
+
+    if (root === null) {
+      // How? Might be a bug.
+      return true;
+    }
+    root._debugStackCount += 1;
+    return root._debugStackCount <= MAX_DEBUG_STACK_COUNT;
   };
 }

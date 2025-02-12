@@ -25,6 +25,9 @@ export function waitForSuspense<T>(fn: () => T): Promise<T> {
     getOwner(): null {
       return null;
     },
+    getShouldTrackOwner(): boolean {
+      return true;
+    },
   };
   // Not using async/await because we don't compile it.
   return new Promise((resolve, reject) => {

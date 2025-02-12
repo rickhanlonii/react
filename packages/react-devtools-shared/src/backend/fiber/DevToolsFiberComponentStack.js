@@ -206,14 +206,21 @@ export function getOwnerStackByFiberInDev(
           if (debugStack !== '') {
             info += '\n' + debugStack;
           }
+
+          // TODO: react-truncated-stack?
         }
       } else if (owner.debugStack != null) {
         // Server Component
-        const ownerStack: Error = owner.debugStack;
+        const ownerStack: Error | 'react-truncated-stack' = owner.debugStack;
         owner = owner.owner;
         if (owner && ownerStack) {
-          info += '\n' + formatOwnerStack(ownerStack);
+          if (ownerStack !== 'react-truncated-stack') {
+            info += '\n' + formatOwnerStack(ownerStack);
+          } else {
+            info += '\n    in [unknown]';
+          }
         }
+        // TODO: react-truncated-stack?
       } else {
         break;
       }

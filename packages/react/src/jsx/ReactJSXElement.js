@@ -65,6 +65,17 @@ function getOwner() {
   return null;
 }
 
+function shouldTrackOwner() {
+  if (__DEV__) {
+    const dispatcher = ReactSharedInternals.A;
+    if (dispatcher === null) {
+      return false;
+    }
+    return dispatcher.getShouldTrackOwner();
+  }
+  return false;
+}
+
 let specialPropKeyWarningShown;
 let didWarnAboutElementRef;
 let didWarnAboutOldJSXRuntime;
@@ -434,7 +445,9 @@ export function jsxDEV(type, config, maybeKey, isStaticChildren, source, self) {
     isStaticChildren,
     source,
     self,
-    __DEV__ && enableOwnerStacks ? Error('react-stack-top-frame') : undefined,
+    __DEV__ && enableOwnerStacks && shouldTrackOwner()
+      ? Error('react-stack-top-frame')
+      : 'react-stack-top-frame',
     __DEV__ && enableOwnerStacks ? createTask(getTaskName(type)) : undefined,
   );
 }

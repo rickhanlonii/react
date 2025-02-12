@@ -785,6 +785,7 @@ function createElement(
         // source mapping information.
         // This can unfortunately happen within a user space callstack which will
         // remain on the stack.
+        // TODO: react-truncated-stack?
         normalizedStackTrace = createFakeJSXCallStackInDEV(
           response,
           stack,
@@ -2519,6 +2520,7 @@ function initializeFakeStack(
   if (debugInfo.stack != null) {
     const stack = debugInfo.stack;
     const env = debugInfo.env == null ? '' : debugInfo.env;
+    // TODO: react-truncated-stack
     // $FlowFixMe[cannot-write]
     debugInfo.debugStack = createFakeJSXCallStackInDEV(response, stack, env);
   }

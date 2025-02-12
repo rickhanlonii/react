@@ -36,13 +36,18 @@ export function getOwnerStackByComponentInfoInDev(
     let owner: void | null | ReactComponentInfo = componentInfo;
 
     while (owner) {
-      const ownerStack: ?Error = owner.debugStack;
+      const ownerStack: ?(Error | 'react-truncated-stack') = owner.debugStack;
+      // TODO: react-truncated-stack?
       if (ownerStack != null) {
         // Server Component
         owner = owner.owner;
         if (owner) {
-          // TODO: Should we stash this somewhere for caching purposes?
-          info += '\n' + formatOwnerStack(ownerStack);
+          if (ownerStack === 'react-truncated-stack') {
+            info += '\n    in [unknown]';
+          } else {
+            // TODO: Should we stash this somewhere for caching purposes?
+            info += '\n' + formatOwnerStack(ownerStack);
+          }
         }
       } else {
         break;

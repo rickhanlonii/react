@@ -3207,6 +3207,7 @@ function commitRoot(
   completedRenderStartTime: number, // Profiling-only
   completedRenderEndTime: number, // Profiling-only
 ): void {
+  root._debugStackCount = 0;
   root.cancelPendingCommit = null;
 
   do {

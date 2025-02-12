@@ -1,5 +1,6 @@
 import {useState} from 'react';
 import './App.css';
+import {flushSync} from 'react-dom';
 
 const text = `
   Lorem ipsum dolor sit amet, consectetur adipiscing elit.
@@ -101,12 +102,22 @@ function TextLine({sentence, highlight, lineNumber}) {
   );
 }
 
+function Console() {
+  console.error('HIT');
+}
+
 function App() {
   const [highlight, setHighlight] = useState(false);
 
   const toggleHighlight = () => {
-    setHighlight(!highlight);
+    console.time('highlight');
+    flushSync(() => {
+      setHighlight(!highlight);
+    });
+    console.timeEnd('highlight');
   };
+
+  console.log(loremIpsum.length);
 
   return (
     <div className="App">
@@ -125,6 +136,7 @@ function App() {
               />
             ))}
         </div>
+        <Console />
         <div className="sidebar">
           <button onClick={toggleHighlight}>
             {highlight ? 'Remove Highlight' : 'Highlight Content'}

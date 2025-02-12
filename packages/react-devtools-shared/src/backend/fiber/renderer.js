@@ -2155,6 +2155,7 @@ export function attach(
       ) {
         // The new Fiber is directly owned by the ownerInstance. Therefore somewhere on
         // the debugStack will be a stack frame inside the ownerInstance's source.
+
         ownerInstance.source = fiber._debugStack;
       }
       const ownerID = ownerInstance === null ? 0 : ownerInstance.id;
@@ -2250,6 +2251,7 @@ export function attach(
     ) {
       // The new Fiber is directly owned by the ownerInstance. Therefore somewhere on
       // the debugStack will be a stack frame inside the ownerInstance's source.
+      // TODO: react-truncated-stack
       ownerInstance.source = componentInfo.debugStack;
     }
     const ownerID = ownerInstance === null ? 0 : ownerInstance.id;
@@ -2600,6 +2602,7 @@ export function attach(
         fiber._debugStack != null &&
         reconcilingParent.source === null
       ) {
+        // TODO: react-truncated-stack
         // The new Fiber is directly owned by the parent. Therefore somewhere on the
         // debugStack will be a stack frame inside parent that we can use as its soruce.
         reconcilingParent.source = fiber._debugStack;

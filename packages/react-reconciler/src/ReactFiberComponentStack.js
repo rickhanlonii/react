@@ -172,6 +172,7 @@ export function getOwnerStackByFiberInDev(workInProgress: Fiber): string {
         // if the element was created in module scope. E.g. hoisted. We could add a a single
         // stack frame for context for example but it doesn't say much if that's a wrapper.
         if (owner && debugStack) {
+          // TODO: react-truncated-stack
           if (typeof debugStack !== 'string') {
             // Stash the formatted stack so that we can avoid redoing the filtering.
             fiber._debugStack = debugStack = formatOwnerStack(debugStack);
@@ -182,11 +183,15 @@ export function getOwnerStackByFiberInDev(workInProgress: Fiber): string {
         }
       } else if (owner.debugStack != null) {
         // Server Component
-        const ownerStack: Error = owner.debugStack;
+        const ownerStack: Error | 'react-truncated-stack' = owner.debugStack;
         owner = owner.owner;
         if (owner && ownerStack) {
-          // TODO: Should we stash this somewhere for caching purposes?
-          info += '\n' + formatOwnerStack(ownerStack);
+          if (ownerStack !== 'react-truncated-stack') {
+            // TODO: Should we stash this somewhere for caching purposes?
+            info += '\n' + formatOwnerStack(ownerStack);
+          } else {
+            info += '\n    in [unknown]';
+          }
         }
       } else {
         break;

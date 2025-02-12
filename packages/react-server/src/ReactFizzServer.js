@@ -941,6 +941,7 @@ function pushComponentStack(task: Task): void {
             task.debugTask = element._debugTask;
           }
         }
+        // TODO: react-truncated-stack
         task.componentStack = createComponentStackFromType(
           task.componentStack,
           type,
@@ -3089,6 +3090,7 @@ function warnForMissingKey(request: Request, task: Task, child: mixed): void {
     }
 
     // We create a fake component stack for the child to log the stack trace from.
+    // TODO: react-truncated-stack
     const previousComponentStack = task.componentStack;
     const stackFrame = createComponentStackFromType(
       task.componentStack,

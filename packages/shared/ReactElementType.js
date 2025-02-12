@@ -21,6 +21,6 @@ export type ReactElement = {
   // __DEV__
   _store: {validated: 0 | 1 | 2, ...}, // 0: not validated, 1: validated, 2: force fail
   _debugInfo: null | ReactDebugInfo,
-  _debugStack: Error,
+  _debugStack: Error | 'react-truncated-stack',
   _debugTask: null | ConsoleTask,
 };

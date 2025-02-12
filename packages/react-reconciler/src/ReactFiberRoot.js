@@ -133,6 +133,8 @@ function FiberRootNode(
           break;
       }
     }
+
+    this._debugStackCount = 0;
   }
 }
 

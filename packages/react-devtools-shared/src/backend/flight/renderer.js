@@ -55,6 +55,7 @@ export function attach(
 
     const enableOwnerStacks = current.debugStack != null;
     let componentStack = '';
+    // TODO: react-truncated-stack
     if (enableOwnerStacks) {
       // Prefix the owner stack with the current stack. I.e. what called
       // console.error. While this will also be part of the native stack,

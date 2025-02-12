@@ -36,6 +36,7 @@ export function getOwnerStackByComponentInfoInDev(
     let owner: void | null | ReactComponentInfo = componentInfo;
 
     while (owner) {
+      // todo:  'react-truncated-stack'
       const ownerStack: ?Error = owner.debugStack;
       if (ownerStack != null) {
         // Server Component
