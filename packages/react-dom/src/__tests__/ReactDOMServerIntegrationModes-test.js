@@ -15,6 +15,7 @@ const ReactDOMServerIntegrationUtils = require('./utils/ReactDOMServerIntegratio
 let React;
 let ReactDOMClient;
 let ReactDOMServer;
+let Wrapper;
 
 function initModules() {
   // Reset warning cache.
@@ -35,6 +36,9 @@ const {resetModules, itRenders} = ReactDOMServerIntegrationUtils(initModules);
 describe('ReactDOMServerIntegration', () => {
   beforeEach(() => {
     resetModules();
+    Wrapper = function Wrapper({children}) {
+      return children;
+    };
   });
 
   // Test pragmas don't support itRenders abstraction
@@ -90,9 +94,11 @@ describe('ReactDOMServerIntegration', () => {
   describe('React.StrictMode', () => {
     itRenders('a strict mode with one child', async render => {
       const e = await render(
-        <React.StrictMode>
-          <div>text1</div>
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <div>text1</div>
+          </React.StrictMode>
+        </Wrapper>,
       );
       const parent = e.parentNode;
       expect(parent.childNodes[0].tagName).toBe('DIV');
@@ -104,19 +110,23 @@ describe('ReactDOMServerIntegration', () => {
       };
       const Footer = props => {
         return (
-          <React.StrictMode>
-            <h2>footer</h2>
-            <h3>about</h3>
-          </React.StrictMode>
+          <Wrapper>
+            <React.StrictMode>
+              <h2>footer</h2>
+              <h3>about</h3>
+            </React.StrictMode>
+          </Wrapper>
         );
       };
       const e = await render(
-        <React.StrictMode>
-          <div>text1</div>
-          <span>text2</span>
-          <Header />
-          <Footer />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <div>text1</div>
+            <span>text2</span>
+            <Header />
+            <Footer />
+          </React.StrictMode>
+        </Wrapper>,
       );
       const parent = e.parentNode;
       expect(parent.childNodes[0].tagName).toBe('DIV');
@@ -128,21 +138,23 @@ describe('ReactDOMServerIntegration', () => {
 
     itRenders('a nested strict mode', async render => {
       const e = await render(
-        <React.StrictMode>
-          <React.StrictMode>
-            <div>text1</div>
-          </React.StrictMode>
-          <span>text2</span>
+        <Wrapper>
           <React.StrictMode>
             <React.StrictMode>
+              <div>text1</div>
+            </React.StrictMode>
+            <span>text2</span>
+            <React.StrictMode>
               <React.StrictMode>
-                {null}
-                <p />
+                <React.StrictMode>
+                  {null}
+                  <p />
+                </React.StrictMode>
+                {false}
               </React.StrictMode>
-              {false}
             </React.StrictMode>
           </React.StrictMode>
-        </React.StrictMode>,
+        </Wrapper>,
       );
       const parent = e.parentNode;
       expect(parent.childNodes[0].tagName).toBe('DIV');

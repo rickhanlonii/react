@@ -46,6 +46,7 @@ let assertLog;
 let waitForPaint;
 let clientAct;
 let streamingContainer;
+let Wrapper;
 
 function normalizeError(msg) {
   // Take the first sentence to make it easier to assert on.
@@ -157,6 +158,9 @@ describe('ReactDOMFizzServer', () => {
       renderOptions.unstable_externalRuntimeSrc =
         'react-dom-bindings/src/server/ReactDOMServerExternalRuntime.js';
     }
+    Wrapper = function Wrapper({children}) {
+      return children;
+    };
   });
 
   function expectErrors(errorsArr, toBeDevArr, toBeProdArr) {
@@ -2603,9 +2607,11 @@ describe('ReactDOMFizzServer', () => {
     }
 
     const element = (
-      <React.StrictMode>
-        <App />
-      </React.StrictMode>
+      <Wrapper>
+        <React.StrictMode>
+          <App />
+        </React.StrictMode>
+      </Wrapper>
     );
 
     await act(async () => {
@@ -2649,9 +2655,11 @@ describe('ReactDOMFizzServer', () => {
     }
 
     const element = (
-      <React.StrictMode>
-        <App />
-      </React.StrictMode>
+      <Wrapper>
+        <React.StrictMode>
+          <App />
+        </React.StrictMode>
+      </Wrapper>
     );
 
     await act(async () => {

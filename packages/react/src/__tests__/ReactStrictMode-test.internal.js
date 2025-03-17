@@ -13,6 +13,7 @@ describe('ReactStrictMode', () => {
   let React;
   let ReactDOMClient;
   let act;
+  let Wrapper;
 
   beforeEach(() => {
     jest.resetModules();
@@ -20,6 +21,10 @@ describe('ReactStrictMode', () => {
     ReactDOMClient = require('react-dom/client');
 
     act = require('internal-test-utils').act;
+
+    Wrapper = function Wrapper({children}) {
+      return children;
+    };
   });
 
   describe('levels', () => {
@@ -86,9 +91,11 @@ describe('ReactStrictMode', () => {
           const container = document.createElement('div');
           const root = ReactDOMClient.createRoot(container);
           root.render(
-            <React.StrictMode>
-              <Component label="A" />
-            </React.StrictMode>,
+            <Wrapper>
+              <React.StrictMode>
+                <Component label="A" />
+              </React.StrictMode>
+            </Wrapper>,
           );
         });
 
@@ -110,9 +117,11 @@ describe('ReactStrictMode', () => {
           const container = document.createElement('div');
           const root = ReactDOMClient.createRoot(container);
           root.render(
-            <React.StrictMode DO_NOT_USE_disableStrictPassiveEffect={true}>
-              <Component label="A" />
-            </React.StrictMode>,
+            <Wrapper>
+              <React.StrictMode DO_NOT_USE_disableStrictPassiveEffect={true}>
+                <Component label="A" />
+              </React.StrictMode>
+            </Wrapper>,
           );
         });
 
@@ -132,11 +141,13 @@ describe('ReactStrictMode', () => {
           const container = document.createElement('div');
           const root = ReactDOMClient.createRoot(container);
           root.render(
-            <React.StrictMode DO_NOT_USE_disableStrictPassiveEffect={true}>
-              <React.Suspense>
-                <Component label="A" />
-              </React.Suspense>
-            </React.StrictMode>,
+            <Wrapper>
+              <React.StrictMode DO_NOT_USE_disableStrictPassiveEffect={true}>
+                <React.Suspense>
+                  <Component label="A" />
+                </React.Suspense>
+              </React.StrictMode>
+            </Wrapper>,
           );
         });
 
@@ -155,13 +166,13 @@ describe('ReactStrictMode', () => {
           const container = document.createElement('div');
           const root = ReactDOMClient.createRoot(container);
           root.render(
-            <>
+            <Wrapper>
               <Component label="A" />
               <React.StrictMode>
                 <Component label="B" />,
               </React.StrictMode>
               ,
-            </>,
+            </Wrapper>,
           );
         });
 

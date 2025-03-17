@@ -21,6 +21,7 @@ let act;
 let assertLog;
 let waitForAll;
 let waitForThrow;
+let Wrapper;
 
 describe('ReactHooks', () => {
   beforeEach(() => {
@@ -37,6 +38,9 @@ describe('ReactHooks', () => {
     assertLog = InternalTestUtils.assertLog;
     waitForAll = InternalTestUtils.waitForAll;
     waitForThrow = InternalTestUtils.waitForThrow;
+    Wrapper = function Wrapper({children}) {
+      return children;
+    };
   });
 
   if (__DEV__) {
@@ -1326,18 +1330,22 @@ describe('ReactHooks', () => {
     renderCount = 0;
     await act(() => {
       renderer.update(
-        <StrictMode>
-          <NoHooks />
-        </StrictMode>,
+        <Wrapper>
+          <StrictMode>
+            <NoHooks />
+          </StrictMode>
+        </Wrapper>,
       );
     });
     expect(renderCount).toBe(__DEV__ ? 2 : 1);
     renderCount = 0;
     await act(() => {
       renderer.update(
-        <StrictMode>
-          <NoHooks />
-        </StrictMode>,
+        <Wrapper>
+          <StrictMode>
+            <NoHooks />
+          </StrictMode>
+        </Wrapper>,
       );
     });
     expect(renderCount).toBe(__DEV__ ? 2 : 1);
@@ -1355,18 +1363,22 @@ describe('ReactHooks', () => {
     renderCount = 0;
     await act(() => {
       renderer.update(
-        <StrictMode>
-          <FwdRef />
-        </StrictMode>,
+        <Wrapper>
+          <StrictMode>
+            <FwdRef />
+          </StrictMode>
+        </Wrapper>,
       );
     });
     expect(renderCount).toBe(__DEV__ ? 2 : 1);
     renderCount = 0;
     await act(() => {
       renderer.update(
-        <StrictMode>
-          <FwdRef />
-        </StrictMode>,
+        <Wrapper>
+          <StrictMode>
+            <FwdRef />
+          </StrictMode>
+        </Wrapper>,
       );
     });
     expect(renderCount).toBe(__DEV__ ? 2 : 1);
@@ -1384,18 +1396,22 @@ describe('ReactHooks', () => {
     renderCount = 0;
     await act(() => {
       renderer.update(
-        <StrictMode>
-          <Memo arg={1} />
-        </StrictMode>,
+        <Wrapper>
+          <StrictMode>
+            <Memo arg={1} />
+          </StrictMode>
+        </Wrapper>,
       );
     });
     expect(renderCount).toBe(__DEV__ ? 2 : 1);
     renderCount = 0;
     await act(() => {
       renderer.update(
-        <StrictMode>
-          <Memo arg={2} />
-        </StrictMode>,
+        <Wrapper>
+          <StrictMode>
+            <Memo arg={2} />
+          </StrictMode>
+        </Wrapper>,
       );
     });
     expect(renderCount).toBe(__DEV__ ? 2 : 1);
@@ -1413,18 +1429,22 @@ describe('ReactHooks', () => {
     renderCount = 0;
     await act(() => {
       renderer.update(
-        <StrictMode>
-          <HasHooks />
-        </StrictMode>,
+        <Wrapper>
+          <StrictMode>
+            <HasHooks />
+          </StrictMode>
+        </Wrapper>,
       );
     });
     expect(renderCount).toBe(__DEV__ ? 2 : 1); // Has Hooks
     renderCount = 0;
     await act(() => {
       renderer.update(
-        <StrictMode>
-          <HasHooks />
-        </StrictMode>,
+        <Wrapper>
+          <StrictMode>
+            <HasHooks />
+          </StrictMode>
+        </Wrapper>,
       );
     });
     expect(renderCount).toBe(__DEV__ ? 2 : 1); // Has Hooks
@@ -1442,18 +1462,22 @@ describe('ReactHooks', () => {
     renderCount = 0;
     await act(() => {
       renderer.update(
-        <StrictMode>
-          <FwdRefHasHooks />
-        </StrictMode>,
+        <Wrapper>
+          <StrictMode>
+            <FwdRefHasHooks />
+          </StrictMode>
+        </Wrapper>,
       );
     });
     expect(renderCount).toBe(__DEV__ ? 2 : 1); // Has Hooks
     renderCount = 0;
     await act(() => {
       renderer.update(
-        <StrictMode>
-          <FwdRefHasHooks />
-        </StrictMode>,
+        <Wrapper>
+          <StrictMode>
+            <FwdRefHasHooks />
+          </StrictMode>
+        </Wrapper>,
       );
     });
     expect(renderCount).toBe(__DEV__ ? 2 : 1); // Has Hooks
@@ -1471,18 +1495,22 @@ describe('ReactHooks', () => {
     renderCount = 0;
     await act(() => {
       renderer.update(
-        <StrictMode>
-          <MemoHasHooks arg={1} />
-        </StrictMode>,
+        <Wrapper>
+          <StrictMode>
+            <MemoHasHooks arg={1} />
+          </StrictMode>
+        </Wrapper>,
       );
     });
     expect(renderCount).toBe(__DEV__ ? 2 : 1); // Has Hooks
     renderCount = 0;
     await act(() => {
       renderer.update(
-        <StrictMode>
-          <MemoHasHooks arg={2} />
-        </StrictMode>,
+        <Wrapper>
+          <StrictMode>
+            <MemoHasHooks arg={2} />
+          </StrictMode>
+        </Wrapper>,
       );
     });
     expect(renderCount).toBe(__DEV__ ? 2 : 1); // Has Hooks
@@ -1503,9 +1531,11 @@ describe('ReactHooks', () => {
     useMemoCount = 0;
     await act(() => {
       ReactTestRenderer.create(
-        <StrictMode>
-          <BadUseMemo />
-        </StrictMode>,
+        <Wrapper>
+          <StrictMode>
+            <BadUseMemo />
+          </StrictMode>
+        </Wrapper>,
         {unstable_isConcurrent: true},
       );
     });

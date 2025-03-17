@@ -1314,13 +1314,18 @@ describe('ReactDOMForm', () => {
       const pending = isPending ? 'Pending ' : '';
       return <Text text={pending + state} />;
     }
+    function Wrapper({children}) {
+      return children;
+    }
 
     const root = ReactDOMClient.createRoot(container);
     await act(() =>
       root.render(
-        <React.StrictMode>
-          <App />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App />
+          </React.StrictMode>
+        </Wrapper>,
       ),
     );
     assertLog(['0']);

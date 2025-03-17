@@ -209,12 +209,16 @@ describe('useId', () => {
 
   test('StrictMode double rendering', async () => {
     const {StrictMode} = React;
-
+    function Wrapper({children}) {
+      return children;
+    }
     function App() {
       return (
-        <StrictMode>
-          <DivWithId />
-        </StrictMode>
+        <Wrapper>
+          <StrictMode>
+            <DivWithId />
+          </StrictMode>
+        </Wrapper>
       );
     }
 

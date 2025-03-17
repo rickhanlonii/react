@@ -13,12 +13,16 @@ const ReactDOMServerIntegrationUtils = require('./utils/ReactDOMServerIntegratio
 
 let React;
 let ReactDOMServer;
+let Wrapper;
 
 function initModules() {
   // Reset warning cache.
   jest.resetModules();
   React = require('react');
   ReactDOMServer = require('react-dom/server');
+  Wrapper = function Wrapper({children}) {
+    return children;
+  };
 
   // Make them available to the helpers.
   return {
@@ -322,9 +326,11 @@ describe('ReactDOMServerLifecycles', () => {
 
       const container = document.createElement('div');
       ReactDOMServer.renderToString(
-        <React.StrictMode>
-          <PolyfilledComponent />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <PolyfilledComponent />
+          </React.StrictMode>
+        </Wrapper>,
         container,
       );
     });
@@ -344,9 +350,11 @@ describe('ReactDOMServerLifecycles', () => {
 
       const container = document.createElement('div');
       ReactDOMServer.renderToString(
-        <React.StrictMode>
-          <PolyfilledComponent />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <PolyfilledComponent />
+          </React.StrictMode>
+        </Wrapper>,
         container,
       );
     });

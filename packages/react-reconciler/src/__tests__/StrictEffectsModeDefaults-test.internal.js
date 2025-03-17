@@ -17,6 +17,7 @@ let assertLog;
 let waitFor;
 let waitForAll;
 let waitForPaint;
+let Wrapper;
 
 describe('StrictEffectsMode defaults', () => {
   beforeEach(() => {
@@ -32,6 +33,9 @@ describe('StrictEffectsMode defaults', () => {
     waitForAll = InternalTestUtils.waitForAll;
     waitForPaint = InternalTestUtils.waitForPaint;
     assertLog = InternalTestUtils.assertLog;
+    Wrapper = function Wrapper({children}) {
+      return children;
+    };
   });
 
   // @gate !disableLegacyMode
@@ -52,9 +56,11 @@ describe('StrictEffectsMode defaults', () => {
 
     await act(() => {
       ReactNoop.renderLegacySyncRoot(
-        <React.StrictMode>
-          <App text={'mount'} />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App text={'mount'} />
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
 
@@ -83,9 +89,11 @@ describe('StrictEffectsMode defaults', () => {
 
     await act(() => {
       ReactNoop.renderLegacySyncRoot(
-        <React.StrictMode>
-          <App text={'mount'} />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App text={'mount'} />
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
 
@@ -105,9 +113,11 @@ describe('StrictEffectsMode defaults', () => {
 
       await act(async () => {
         ReactNoop.render(
-          <React.StrictMode>
-            <ComponentWithEffects label={'one'} />
-          </React.StrictMode>,
+          <Wrapper>
+            <React.StrictMode>
+              <ComponentWithEffects label={'one'} />
+            </React.StrictMode>
+          </Wrapper>,
         );
 
         await waitForPaint([
@@ -119,10 +129,12 @@ describe('StrictEffectsMode defaults', () => {
 
       await act(async () => {
         ReactNoop.render(
-          <React.StrictMode>
-            <ComponentWithEffects label={'one'} />
-            <ComponentWithEffects label={'two'} />
-          </React.StrictMode>,
+          <Wrapper>
+            <React.StrictMode>
+              <ComponentWithEffects label={'one'} />
+              <ComponentWithEffects label={'two'} />
+            </React.StrictMode>
+          </Wrapper>,
         );
 
         assertLog([]);
@@ -158,9 +170,11 @@ describe('StrictEffectsMode defaults', () => {
 
       await act(async () => {
         ReactNoop.render(
-          <React.StrictMode>
-            <ComponentWithEffects label={'one'} />
-          </React.StrictMode>,
+          <Wrapper>
+            <React.StrictMode>
+              <ComponentWithEffects label={'one'} />
+            </React.StrictMode>
+          </Wrapper>,
         );
 
         await waitForAll([
@@ -175,10 +189,12 @@ describe('StrictEffectsMode defaults', () => {
 
       await act(async () => {
         ReactNoop.render(
-          <React.StrictMode>
-            <ComponentWithEffects label={'one'} />
-            <ComponentWithEffects label={'two'} />
-          </React.StrictMode>,
+          <Wrapper>
+            <React.StrictMode>
+              <ComponentWithEffects label={'one'} />
+              <ComponentWithEffects label={'two'} />
+            </React.StrictMode>
+          </Wrapper>,
         );
 
         await waitFor([
@@ -217,9 +233,11 @@ describe('StrictEffectsMode defaults', () => {
       }
       await act(() => {
         ReactNoop.render(
-          <React.StrictMode>
-            <App text={'mount'} />
-          </React.StrictMode>,
+          <Wrapper>
+            <React.StrictMode>
+              <App text={'mount'} />
+            </React.StrictMode>
+          </Wrapper>,
         );
       });
 
@@ -234,9 +252,11 @@ describe('StrictEffectsMode defaults', () => {
 
       await act(() => {
         ReactNoop.render(
-          <React.StrictMode>
-            <App text={'update'} />
-          </React.StrictMode>,
+          <Wrapper>
+            <React.StrictMode>
+              <App text={'update'} />
+            </React.StrictMode>
+          </Wrapper>,
         );
       });
 
@@ -271,9 +291,11 @@ describe('StrictEffectsMode defaults', () => {
 
       await act(() => {
         ReactNoop.render(
-          <React.StrictMode>
-            <App text={'mount'} />
-          </React.StrictMode>,
+          <Wrapper>
+            <React.StrictMode>
+              <App text={'mount'} />
+            </React.StrictMode>
+          </Wrapper>,
         );
       });
 
@@ -288,9 +310,11 @@ describe('StrictEffectsMode defaults', () => {
 
       await act(() => {
         ReactNoop.render(
-          <React.StrictMode>
-            <App text={'update'} />
-          </React.StrictMode>,
+          <Wrapper>
+            <React.StrictMode>
+              <App text={'update'} />
+            </React.StrictMode>
+          </Wrapper>,
         );
       });
 
@@ -325,9 +349,11 @@ describe('StrictEffectsMode defaults', () => {
 
       await act(() => {
         ReactNoop.render(
-          <React.StrictMode>
-            <App text={'mount'} />
-          </React.StrictMode>,
+          <Wrapper>
+            <React.StrictMode>
+              <App text={'mount'} />
+            </React.StrictMode>
+          </Wrapper>,
         );
       });
 
@@ -342,9 +368,11 @@ describe('StrictEffectsMode defaults', () => {
 
       await act(() => {
         ReactNoop.render(
-          <React.StrictMode>
-            <App text={'update'} />
-          </React.StrictMode>,
+          <Wrapper>
+            <React.StrictMode>
+              <App text={'update'} />
+            </React.StrictMode>
+          </Wrapper>,
         );
       });
 
@@ -377,9 +405,11 @@ describe('StrictEffectsMode defaults', () => {
 
       await act(() => {
         ReactNoop.render(
-          <React.StrictMode>
-            <App text={'mount'} />
-          </React.StrictMode>,
+          <Wrapper>
+            <React.StrictMode>
+              <App text={'mount'} />
+            </React.StrictMode>
+          </Wrapper>,
         );
       });
 
@@ -392,9 +422,11 @@ describe('StrictEffectsMode defaults', () => {
 
       await act(() => {
         ReactNoop.render(
-          <React.StrictMode>
-            <App text={'update'} />
-          </React.StrictMode>,
+          <Wrapper>
+            <React.StrictMode>
+              <App text={'update'} />
+            </React.StrictMode>
+          </Wrapper>,
         );
       });
 
@@ -423,9 +455,11 @@ describe('StrictEffectsMode defaults', () => {
 
       await act(() => {
         ReactNoop.render(
-          <React.StrictMode>
-            <App text={'mount'} />
-          </React.StrictMode>,
+          <Wrapper>
+            <React.StrictMode>
+              <App text={'mount'} />
+            </React.StrictMode>
+          </Wrapper>,
         );
       });
 
@@ -461,9 +495,11 @@ describe('StrictEffectsMode defaults', () => {
 
       await act(() => {
         ReactNoop.render(
-          <React.StrictMode>
-            <App />
-          </React.StrictMode>,
+          <Wrapper>
+            <React.StrictMode>
+              <App />
+            </React.StrictMode>
+          </Wrapper>,
         );
       });
 
@@ -495,9 +531,11 @@ describe('StrictEffectsMode defaults', () => {
 
       await act(() => {
         ReactNoop.render(
-          <React.StrictMode>
-            <App text={'mount'} />
-          </React.StrictMode>,
+          <Wrapper>
+            <React.StrictMode>
+              <App text={'mount'} />
+            </React.StrictMode>
+          </Wrapper>,
         );
       });
 
@@ -509,9 +547,11 @@ describe('StrictEffectsMode defaults', () => {
 
       await act(() => {
         ReactNoop.render(
-          <React.StrictMode>
-            <App text={'update'} />
-          </React.StrictMode>,
+          <Wrapper>
+            <React.StrictMode>
+              <App text={'update'} />
+            </React.StrictMode>
+          </Wrapper>,
         );
       });
 
@@ -546,9 +586,11 @@ describe('StrictEffectsMode defaults', () => {
 
       await act(() => {
         ReactNoop.render(
-          <React.StrictMode>
-            <App text={'mount'} />
-          </React.StrictMode>,
+          <Wrapper>
+            <React.StrictMode>
+              <App text={'mount'} />
+            </React.StrictMode>
+          </Wrapper>,
         );
       });
 
@@ -600,9 +642,11 @@ describe('StrictEffectsMode defaults', () => {
 
       await act(() => {
         ReactNoop.render(
-          <React.StrictMode>
-            <App />
-          </React.StrictMode>,
+          <Wrapper>
+            <React.StrictMode>
+              <App />
+            </React.StrictMode>
+          </Wrapper>,
         );
       });
 
@@ -662,18 +706,22 @@ describe('StrictEffectsMode defaults', () => {
 
       function App({text}) {
         return (
-          <React.StrictMode>
-            <ClassChild text={text} />
-            <FunctionChild text={text} />
-          </React.StrictMode>
+          <Wrapper>
+            <React.StrictMode>
+              <ClassChild text={text} />
+              <FunctionChild text={text} />
+            </React.StrictMode>
+          </Wrapper>
         );
       }
 
       await act(() => {
         ReactNoop.render(
-          <React.StrictMode>
-            <App text={'mount'} />
-          </React.StrictMode>,
+          <Wrapper>
+            <React.StrictMode>
+              <App text={'mount'} />
+            </React.StrictMode>
+          </Wrapper>,
         );
       });
 
@@ -691,9 +739,11 @@ describe('StrictEffectsMode defaults', () => {
 
       await act(() => {
         ReactNoop.render(
-          <React.StrictMode>
-            <App text={'mount'} />
-          </React.StrictMode>,
+          <Wrapper>
+            <React.StrictMode>
+              <App text={'mount'} />
+            </React.StrictMode>
+          </Wrapper>,
         );
       });
 

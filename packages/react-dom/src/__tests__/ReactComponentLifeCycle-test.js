@@ -1541,6 +1541,9 @@ Please update the following components: MyComponent`,
     const {polyfill} = require('react-lifecycles-compat');
 
     it('should not warn for components with polyfilled getDerivedStateFromProps', async () => {
+      function Wrapper({children}) {
+        return children;
+      }
       class PolyfilledComponent extends React.Component {
         state = {};
         static getDerivedStateFromProps() {
@@ -1556,14 +1559,19 @@ Please update the following components: MyComponent`,
       const root = ReactDOMClient.createRoot(document.createElement('div'));
       await act(() => {
         root.render(
-          <React.StrictMode>
-            <PolyfilledComponent />
-          </React.StrictMode>,
+          <Wrapper>
+            <React.StrictMode>
+              <PolyfilledComponent />
+            </React.StrictMode>
+          </Wrapper>,
         );
       });
     });
 
     it('should not warn for components with polyfilled getSnapshotBeforeUpdate', async () => {
+      function Wrapper({children}) {
+        return children;
+      }
       class PolyfilledComponent extends React.Component {
         getSnapshotBeforeUpdate() {
           return null;
@@ -1579,9 +1587,11 @@ Please update the following components: MyComponent`,
       const root = ReactDOMClient.createRoot(document.createElement('div'));
       await act(() => {
         root.render(
-          <React.StrictMode>
-            <PolyfilledComponent />
-          </React.StrictMode>,
+          <Wrapper>
+            <React.StrictMode>
+              <PolyfilledComponent />
+            </React.StrictMode>
+          </Wrapper>,
         );
       });
     });

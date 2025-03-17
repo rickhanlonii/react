@@ -3,6 +3,7 @@ let Activity;
 let ReactNoop;
 let act;
 let log;
+let Wrapper;
 
 describe('Activity StrictMode', () => {
   beforeEach(() => {
@@ -13,6 +14,9 @@ describe('Activity StrictMode', () => {
     Activity = React.unstable_Activity;
     ReactNoop = require('react-noop-renderer');
     act = require('internal-test-utils').act;
+    Wrapper = function Wrapper({children}) {
+      return children;
+    };
   });
 
   function Component({label}) {
@@ -35,11 +39,13 @@ describe('Activity StrictMode', () => {
   it('should trigger strict effects when offscreen is visible', async () => {
     await act(() => {
       ReactNoop.render(
-        <React.StrictMode>
-          <Activity mode="visible">
-            <Component label="A" />
-          </Activity>
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <Activity mode="visible">
+              <Component label="A" />
+            </Activity>
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
 
@@ -59,11 +65,13 @@ describe('Activity StrictMode', () => {
   it('does not trigger strict effects when disableStrictPassiveEffect is presented on StrictMode', async () => {
     await act(() => {
       ReactNoop.render(
-        <React.StrictMode DO_NOT_USE_disableStrictPassiveEffect={true}>
-          <Activity>
-            <Component label="A" />
-          </Activity>
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode DO_NOT_USE_disableStrictPassiveEffect={true}>
+            <Activity>
+              <Component label="A" />
+            </Activity>
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
 
@@ -81,11 +89,13 @@ describe('Activity StrictMode', () => {
   it('should not trigger strict effects when offscreen is hidden', async () => {
     await act(() => {
       ReactNoop.render(
-        <React.StrictMode>
-          <Activity mode="hidden">
-            <Component label="A" />
-          </Activity>
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <Activity mode="hidden">
+              <Component label="A" />
+            </Activity>
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
 
@@ -95,12 +105,14 @@ describe('Activity StrictMode', () => {
 
     await act(() => {
       ReactNoop.render(
-        <React.StrictMode>
-          <Activity mode="hidden">
-            <Component label="A" />
-            <Component label="B" />
-          </Activity>
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <Activity mode="hidden">
+              <Component label="A" />
+              <Component label="B" />
+            </Activity>
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
 
@@ -110,11 +122,13 @@ describe('Activity StrictMode', () => {
 
     await act(() => {
       ReactNoop.render(
-        <React.StrictMode>
-          <Activity mode="visible">
-            <Component label="A" />
-          </Activity>
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <Activity mode="visible">
+              <Component label="A" />
+            </Activity>
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
 
@@ -133,11 +147,13 @@ describe('Activity StrictMode', () => {
 
     await act(() => {
       ReactNoop.render(
-        <React.StrictMode>
-          <Activity mode="hidden">
-            <Component label="A" />
-          </Activity>
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <Activity mode="hidden">
+              <Component label="A" />
+            </Activity>
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
 
@@ -167,11 +183,13 @@ describe('Activity StrictMode', () => {
 
     await act(() => {
       ReactNoop.render(
-        <React.StrictMode>
-          <React.Suspense>
-            <App />
-          </React.Suspense>
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <React.Suspense>
+              <App />
+            </React.Suspense>
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
   });
@@ -217,11 +235,13 @@ describe('Activity StrictMode', () => {
 
     await act(() => {
       ReactNoop.render(
-        <React.StrictMode>
-          <Activity mode="visible">
-            <Parent />
-          </Activity>
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <Activity mode="visible">
+              <Parent />
+            </Activity>
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
 

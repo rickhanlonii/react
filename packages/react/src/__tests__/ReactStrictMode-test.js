@@ -18,6 +18,7 @@ let act;
 let useMemo;
 let useState;
 let useReducer;
+let Wrapper;
 
 const ReactFeatureFlags = require('shared/ReactFeatureFlags');
 
@@ -32,6 +33,10 @@ describe('ReactStrictMode', () => {
     useMemo = React.useMemo;
     useState = React.useState;
     useReducer = React.useReducer;
+
+    Wrapper = function Wrapper({children}) {
+      return children;
+    };
   });
 
   it('should appear in the client component stack', async () => {
@@ -44,9 +49,11 @@ describe('ReactStrictMode', () => {
     await expect(async () => {
       await act(() => {
         root.render(
-          <React.StrictMode>
-            <Foo />
-          </React.StrictMode>,
+          <Wrapper>
+            <React.StrictMode>
+              <Foo />
+            </React.StrictMode>
+          </Wrapper>,
         );
       });
     }).toErrorDev(
@@ -64,9 +71,11 @@ describe('ReactStrictMode', () => {
 
     expect(() => {
       ReactDOMServer.renderToString(
-        <React.StrictMode>
-          <Foo />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <Foo />
+          </React.StrictMode>
+        </Wrapper>,
       );
     }).toErrorDev(
       'Invalid ARIA attribute `ariaTypo`. ' +
@@ -112,9 +121,11 @@ describe('ReactStrictMode', () => {
 
     const container = document.createElement('div');
     ReactDOM.render(
-      <React.StrictMode>
-        <ClassComponent />
-      </React.StrictMode>,
+      <Wrapper>
+        <React.StrictMode>
+          <ClassComponent />
+        </React.StrictMode>
+      </Wrapper>,
       container,
     );
 
@@ -132,9 +143,11 @@ describe('ReactStrictMode', () => {
     shouldComponentUpdate = true;
 
     ReactDOM.render(
-      <React.StrictMode>
-        <ClassComponent />
-      </React.StrictMode>,
+      <Wrapper>
+        <React.StrictMode>
+          <ClassComponent />
+        </React.StrictMode>
+      </Wrapper>,
       container,
     );
     expect(log).toEqual([
@@ -151,9 +164,11 @@ describe('ReactStrictMode', () => {
     shouldComponentUpdate = false;
 
     ReactDOM.render(
-      <React.StrictMode>
-        <ClassComponent />
-      </React.StrictMode>,
+      <Wrapper>
+        <React.StrictMode>
+          <ClassComponent />
+        </React.StrictMode>
+      </Wrapper>,
       container,
     );
 
@@ -183,9 +198,11 @@ describe('ReactStrictMode', () => {
     const root = ReactDOMClient.createRoot(container);
     await act(() => {
       root.render(
-        <React.StrictMode>
-          <ClassComponent />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <ClassComponent />
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
     await act(() => {
@@ -228,9 +245,11 @@ describe('ReactStrictMode', () => {
     const root = ReactDOMClient.createRoot(container);
     await act(() => {
       root.render(
-        <React.StrictMode>
-          <App />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App />
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
     expect(container.textContent).toBe('3');
@@ -409,9 +428,11 @@ describe('ReactStrictMode', () => {
     // Mount
     await act(() => {
       root.render(
-        <React.StrictMode>
-          <Uppercased text="hello" />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <Uppercased text="hello" />
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
     expect(container.textContent).toBe('HELLO');
@@ -425,9 +446,11 @@ describe('ReactStrictMode', () => {
     // Update
     await act(() => {
       root.render(
-        <React.StrictMode>
-          <Uppercased text="goodbye" />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <Uppercased text="goodbye" />
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
     expect(container.textContent).toBe('GOODBYE');
@@ -460,9 +483,11 @@ describe('ReactStrictMode', () => {
     // Mount
     await act(() => {
       root.render(
-        <React.StrictMode>
-          <Uppercased text="hello" />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <Uppercased text="hello" />
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
     expect(container.textContent).toBe('HELLO');
@@ -482,9 +507,11 @@ describe('ReactStrictMode', () => {
     // Update
     await act(() => {
       root.render(
-        <React.StrictMode>
-          <Uppercased text="goodbye" />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <Uppercased text="goodbye" />
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
     expect(container.textContent).toBe('GOODBYE');
@@ -516,9 +543,11 @@ describe('ReactStrictMode', () => {
 
     await act(() => {
       root.render(
-        <React.StrictMode>
-          <App />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App />
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
     expect(container.textContent).toBe('0');
@@ -554,9 +583,11 @@ describe('ReactStrictMode', () => {
 
     await act(() => {
       root.render(
-        <React.StrictMode>
-          <App />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App />
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
     expect(container.textContent).toBe('0');
@@ -581,9 +612,11 @@ describe('Concurrent Mode', () => {
   it('should warn about unsafe legacy lifecycle methods anywhere in a StrictMode tree', async () => {
     function StrictRoot() {
       return (
-        <React.StrictMode>
-          <App />
-        </React.StrictMode>
+        <Wrapper>
+          <React.StrictMode>
+            <App />
+          </React.StrictMode>
+        </Wrapper>
       );
     }
     class App extends React.Component {
@@ -654,9 +687,11 @@ Please update the following components: App`,
   it('should coalesce warnings by lifecycle name', async () => {
     function StrictRoot() {
       return (
-        <React.StrictMode>
-          <App />
-        </React.StrictMode>
+        <Wrapper>
+          <React.StrictMode>
+            <App />
+          </React.StrictMode>
+        </Wrapper>
       );
     }
     class App extends React.Component {
@@ -742,7 +777,11 @@ Please update the following components: Parent`,
 
   it('should warn about components not present during the initial render', async () => {
     function StrictRoot({foo}) {
-      return <React.StrictMode>{foo ? <Foo /> : <Bar />}</React.StrictMode>;
+      return (
+        <Wrapper>
+          <React.StrictMode>{foo ? <Foo /> : <Bar />}</React.StrictMode>
+        </Wrapper>
+      );
     }
     class Foo extends React.Component {
       UNSAFE_componentWillMount() {}
@@ -1170,9 +1209,11 @@ describe('context legacy', () => {
         const root = ReactDOMClient.createRoot(container);
         await act(() => {
           root.render(
-            <React.StrictMode>
-              <Foo />
-            </React.StrictMode>,
+            <Wrapper>
+              <React.StrictMode>
+                <Foo />
+              </React.StrictMode>
+            </Wrapper>,
           );
         });
         expect(count).toBe(__DEV__ ? 2 : 1);
@@ -1200,9 +1241,11 @@ describe('context legacy', () => {
         const root = ReactDOMClient.createRoot(container);
         await act(() => {
           root.render(
-            <React.StrictMode>
-              <Foo />
-            </React.StrictMode>,
+            <Wrapper>
+              <React.StrictMode>
+                <Foo />
+              </React.StrictMode>
+            </Wrapper>,
           );
         });
         expect(count).toBe(__DEV__ ? 2 : 1);
@@ -1231,9 +1274,11 @@ describe('context legacy', () => {
         const root = ReactDOMClient.createRoot(container);
         await act(() => {
           root.render(
-            <React.StrictMode>
-              <Foo />
-            </React.StrictMode>,
+            <Wrapper>
+              <React.StrictMode>
+                <Foo />
+              </React.StrictMode>
+            </Wrapper>,
           );
         });
         expect(count).toBe(__DEV__ ? 2 : 1);
@@ -1262,16 +1307,20 @@ describe('context legacy', () => {
         const root = ReactDOMClient.createRoot(container);
         await act(() => {
           root.render(
-            <React.StrictMode>
-              <Foo />
-            </React.StrictMode>,
+            <Wrapper>
+              <React.StrictMode>
+                <Foo />
+              </React.StrictMode>
+            </Wrapper>,
           );
         });
         await act(() => {
           root.render(
-            <React.StrictMode>
-              <Foo />
-            </React.StrictMode>,
+            <Wrapper>
+              <React.StrictMode>
+                <Foo />
+              </React.StrictMode>
+            </Wrapper>,
           );
         });
 
@@ -1298,9 +1347,11 @@ describe('context legacy', () => {
         const root = ReactDOMClient.createRoot(container);
         await act(() => {
           root.render(
-            <React.StrictMode>
-              <Foo />
-            </React.StrictMode>,
+            <Wrapper>
+              <React.StrictMode>
+                <Foo />
+              </React.StrictMode>
+            </Wrapper>,
           );
         });
         await act(() => {
@@ -1331,9 +1382,11 @@ describe('context legacy', () => {
         const root = ReactDOMClient.createRoot(container);
         await act(() => {
           root.render(
-            <React.StrictMode>
-              <Foo />
-            </React.StrictMode>,
+            <Wrapper>
+              <React.StrictMode>
+                <Foo />
+              </React.StrictMode>
+            </Wrapper>,
           );
         });
         expect(count).toBe(__DEV__ ? 2 : 1);
@@ -1358,9 +1411,11 @@ describe('context legacy', () => {
         const root = ReactDOMClient.createRoot(container);
         await act(() => {
           root.render(
-            <React.StrictMode>
-              <Foo />
-            </React.StrictMode>,
+            <Wrapper>
+              <React.StrictMode>
+                <Foo />
+              </React.StrictMode>
+            </Wrapper>,
           );
         });
         expect(count).toBe(__DEV__ ? 2 : 1);
@@ -1388,9 +1443,11 @@ describe('context legacy', () => {
         const root = ReactDOMClient.createRoot(container);
         await act(() => {
           root.render(
-            <React.StrictMode>
-              <Foo />
-            </React.StrictMode>,
+            <Wrapper>
+              <React.StrictMode>
+                <Foo />
+              </React.StrictMode>
+            </Wrapper>,
           );
         });
         expect(count).toBe(__DEV__ ? 2 : 1);
@@ -1419,9 +1476,11 @@ describe('context legacy', () => {
         const root = ReactDOMClient.createRoot(container);
         await act(() => {
           root.render(
-            <React.StrictMode>
-              <Foo />
-            </React.StrictMode>,
+            <Wrapper>
+              <React.StrictMode>
+                <Foo />
+              </React.StrictMode>
+            </Wrapper>,
           );
         });
         expect(count).toBe(__DEV__ ? 2 : 1);
@@ -1450,16 +1509,20 @@ describe('context legacy', () => {
         const root = ReactDOMClient.createRoot(container);
         await act(() => {
           root.render(
-            <React.StrictMode>
-              <Foo />
-            </React.StrictMode>,
+            <Wrapper>
+              <React.StrictMode>
+                <Foo />
+              </React.StrictMode>
+            </Wrapper>,
           );
         });
         await act(() => {
           root.render(
-            <React.StrictMode>
-              <Foo />
-            </React.StrictMode>,
+            <Wrapper>
+              <React.StrictMode>
+                <Foo />
+              </React.StrictMode>
+            </Wrapper>,
           );
         });
         expect(count).toBe(__DEV__ ? 2 : 1);
@@ -1485,9 +1548,11 @@ describe('context legacy', () => {
         const root = ReactDOMClient.createRoot(container);
         await act(() => {
           root.render(
-            <React.StrictMode>
-              <Foo />
-            </React.StrictMode>,
+            <Wrapper>
+              <React.StrictMode>
+                <Foo />
+              </React.StrictMode>
+            </Wrapper>,
           );
         });
         await act(() => {
@@ -1518,9 +1583,11 @@ describe('context legacy', () => {
         const root = ReactDOMClient.createRoot(container);
         await act(() => {
           root.render(
-            <React.StrictMode>
-              <Foo />
-            </React.StrictMode>,
+            <Wrapper>
+              <React.StrictMode>
+                <Foo />
+              </React.StrictMode>
+            </Wrapper>,
           );
         });
         expect(count).toBe(__DEV__ ? 2 : 1);

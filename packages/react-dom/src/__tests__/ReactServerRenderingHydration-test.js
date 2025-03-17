@@ -340,10 +340,15 @@ describe('ReactDOMServerHydration', () => {
       }
     }
 
+    function Wrapper({children}) {
+      return children;
+    }
     const markup = (
-      <React.StrictMode>
-        <ComponentWithWarning />
-      </React.StrictMode>
+      <Wrapper>
+        <React.StrictMode>
+          <ComponentWithWarning />
+        </React.StrictMode>
+      </Wrapper>
     );
 
     const element = document.createElement('div');

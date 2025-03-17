@@ -14,6 +14,7 @@ let ReactNoop;
 let Scheduler;
 let act;
 let assertLog;
+let Wrapper;
 
 describe('StrictEffectsMode', () => {
   beforeEach(() => {
@@ -25,6 +26,9 @@ describe('StrictEffectsMode', () => {
     React = require('react');
     Scheduler = require('scheduler');
     ReactNoop = require('react-noop-renderer');
+    Wrapper = function Wrapper({children}) {
+      return children;
+    };
   });
 
   // @gate !disableLegacyMode
@@ -46,9 +50,11 @@ describe('StrictEffectsMode', () => {
     const root = ReactNoop.createLegacyRoot();
     await act(() => {
       root.render(
-        <React.StrictMode>
-          <App text={'mount'} />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App text={'mount'} />
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
 
@@ -72,9 +78,11 @@ describe('StrictEffectsMode', () => {
 
     await act(() => {
       ReactNoop.renderToRootWithID(
-        <React.StrictMode>
-          <App text={'mount'} />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App text={'mount'} />
+          </React.StrictMode>
+        </Wrapper>,
         'root',
       );
     });
@@ -94,9 +102,11 @@ describe('StrictEffectsMode', () => {
 
     await act(() => {
       ReactNoop.renderToRootWithID(
-        <React.StrictMode>
-          <App text={'update'} />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App text={'update'} />
+          </React.StrictMode>
+        </Wrapper>,
         'root',
       );
     });
@@ -132,9 +142,11 @@ describe('StrictEffectsMode', () => {
 
     await act(() => {
       ReactNoop.renderToRootWithID(
-        <React.StrictMode>
-          <App text={'mount'} />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App text={'mount'} />
+          </React.StrictMode>
+        </Wrapper>,
         'root',
       );
     });
@@ -154,9 +166,11 @@ describe('StrictEffectsMode', () => {
 
     await act(() => {
       ReactNoop.renderToRootWithID(
-        <React.StrictMode>
-          <App text={'update'} />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App text={'update'} />
+          </React.StrictMode>
+        </Wrapper>,
         'root',
       );
     });
@@ -192,9 +206,11 @@ describe('StrictEffectsMode', () => {
 
     await act(() => {
       ReactNoop.renderToRootWithID(
-        <React.StrictMode>
-          <App text={'mount'} />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App text={'mount'} />
+          </React.StrictMode>
+        </Wrapper>,
         'root',
       );
     });
@@ -214,9 +230,11 @@ describe('StrictEffectsMode', () => {
 
     await act(() => {
       ReactNoop.renderToRootWithID(
-        <React.StrictMode>
-          <App text={'update'} />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App text={'update'} />
+          </React.StrictMode>
+        </Wrapper>,
         'root',
       );
     });
@@ -250,9 +268,11 @@ describe('StrictEffectsMode', () => {
 
     await act(() => {
       ReactNoop.renderToRootWithID(
-        <React.StrictMode>
-          <App text={'mount'} />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App text={'mount'} />
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
 
@@ -269,9 +289,11 @@ describe('StrictEffectsMode', () => {
 
     await act(() => {
       ReactNoop.renderToRootWithID(
-        <React.StrictMode>
-          <App text={'update'} />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App text={'update'} />
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
 
@@ -310,9 +332,11 @@ describe('StrictEffectsMode', () => {
 
     await act(() => {
       ReactNoop.renderToRootWithID(
-        <React.StrictMode>
-          <App />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App />
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
 
@@ -348,9 +372,11 @@ describe('StrictEffectsMode', () => {
 
     await act(() => {
       ReactNoop.renderToRootWithID(
-        <React.StrictMode>
-          <App text={'mount'} />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App text={'mount'} />
+          </React.StrictMode>
+        </Wrapper>,
         'root',
       );
     });
@@ -367,9 +393,11 @@ describe('StrictEffectsMode', () => {
 
     await act(() => {
       ReactNoop.renderToRootWithID(
-        <React.StrictMode>
-          <App text={'update'} />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App text={'update'} />
+          </React.StrictMode>
+        </Wrapper>,
         'root',
       );
     });
@@ -400,9 +428,11 @@ describe('StrictEffectsMode', () => {
 
     await act(() => {
       ReactNoop.renderToRootWithID(
-        <React.StrictMode>
-          <App text={'mount'} />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App text={'mount'} />
+          </React.StrictMode>
+        </Wrapper>,
         'root',
       );
     });
@@ -415,9 +445,11 @@ describe('StrictEffectsMode', () => {
 
     await act(() => {
       ReactNoop.renderToRootWithID(
-        <React.StrictMode>
-          <App text={'update'} />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App text={'update'} />
+          </React.StrictMode>
+        </Wrapper>,
         'root',
       );
     });
@@ -454,9 +486,11 @@ describe('StrictEffectsMode', () => {
     const root = ReactNoop.createLegacyRoot();
     await act(() => {
       root.render(
-        <React.StrictMode>
-          <App text={'mount'} />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App text={'mount'} />
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
 
@@ -485,9 +519,11 @@ describe('StrictEffectsMode', () => {
 
     await act(() => {
       ReactNoop.renderToRootWithID(
-        <React.StrictMode>
-          <App text={'mount'} />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App text={'mount'} />
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
 
@@ -552,9 +588,11 @@ describe('StrictEffectsMode', () => {
 
     await act(() => {
       ReactNoop.renderToRootWithID(
-        <React.StrictMode>
-          <App />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App />
+          </React.StrictMode>
+        </Wrapper>,
         'root',
       );
     });
@@ -639,9 +677,11 @@ describe('StrictEffectsMode', () => {
 
     await act(() => {
       ReactNoop.renderToRootWithID(
-        <React.StrictMode>
-          <App text={'mount'} />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App text={'mount'} />
+          </React.StrictMode>
+        </Wrapper>,
         'root',
       );
     });
@@ -668,9 +708,11 @@ describe('StrictEffectsMode', () => {
 
     await act(() => {
       ReactNoop.renderToRootWithID(
-        <React.StrictMode>
-          <App text={'mount'} />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App text={'mount'} />
+          </React.StrictMode>
+        </Wrapper>,
         'root',
       );
     });
@@ -727,9 +769,11 @@ describe('StrictEffectsMode', () => {
 
     await act(() => {
       ReactNoop.renderToRootWithID(
-        <React.StrictMode>
-          <App text={'mount'} />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App text={'mount'} />
+          </React.StrictMode>
+        </Wrapper>,
         'root',
       );
     });
@@ -750,9 +794,11 @@ describe('StrictEffectsMode', () => {
 
     await act(() => {
       ReactNoop.renderToRootWithID(
-        <React.StrictMode>
-          <App text={'mount'} />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <App text={'mount'} />
+          </React.StrictMode>
+        </Wrapper>,
         'root',
       );
     });
@@ -850,9 +896,11 @@ describe('StrictEffectsMode', () => {
     shouldSuspend = false;
     await act(() => {
       ReactNoop.render(
-        <React.StrictMode>
-          <Parent />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <Parent />
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
 
@@ -861,9 +909,11 @@ describe('StrictEffectsMode', () => {
     log = [];
     await act(() => {
       ReactNoop.render(
-        <React.StrictMode>
-          <Parent />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <Parent />
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
 
@@ -871,9 +921,11 @@ describe('StrictEffectsMode', () => {
     log.push('-----------------------after update');
     await act(() => {
       ReactNoop.render(
-        <React.StrictMode>
-          <Parent prop={'bar'} />
-        </React.StrictMode>,
+        <Wrapper>
+          <React.StrictMode>
+            <Parent prop={'bar'} />
+          </React.StrictMode>
+        </Wrapper>,
       );
     });
 
@@ -885,66 +937,44 @@ describe('StrictEffectsMode', () => {
       shouldSuspend = false;
     });
 
-    if (gate(flags => flags.useModernStrictMode)) {
-      expect(log).toEqual([
-        'Parent rendered',
-        'Parent rendered',
-        'Child rendered',
-        'Child suspended',
-        'Fallback',
-        'Fallback',
-        '-----------------------after update',
-        'Parent rendered',
-        'Parent rendered',
-        'Child rendered',
-        'Child suspended',
-        'Fallback',
-        'Fallback',
-        'Parent dep destroy',
-        'Parent dep create',
-        '-----------------------after suspense',
-        'Child rendered',
-        'Child rendered',
-        // !!! Committed, destroy and create effect.
-        // !!! The other effect is not destroyed and created
-        // !!! because the dep didn't change
-        'Child dep destroy',
-        'Child dep create',
-
-        // Double invoke both effects
-        'Child destroy',
-        'Child dep destroy',
-        'Child create',
-        'Child dep create',
-        // Fires setState
-        '-----------------------after setState',
-        'Child rendered',
-        'Child rendered',
-        'Child dep create',
-      ]);
-    } else {
-      expect(log).toEqual([
-        'Parent rendered',
-        'Parent rendered',
-        'Child rendered',
-        'Child suspended',
-        'Fallback',
-        'Fallback',
-        '-----------------------after update',
-        'Parent rendered',
-        'Parent rendered',
-        'Child rendered',
-        'Child suspended',
-        'Fallback',
-        'Fallback',
-        'Parent dep destroy',
-        'Parent dep create',
-        '-----------------------after suspense',
-        'Child rendered',
-        'Child rendered',
-        'Child dep destroy',
-        'Child dep create',
-      ]);
-    }
+    expect(log).toEqual([
+      'Parent rendered',
+      'Parent rendered',
+      'Child rendered',
+      'Child suspended',
+      'Fallback',
+      'Fallback',
+      '-----------------------after update',
+      'Parent rendered',
+      'Parent rendered',
+      'Child rendered',
+      'Child suspended',
+      'Fallback',
+      'Fallback',
+      'Parent dep destroy',
+      'Parent dep create',
+      '-----------------------after suspense',
+      'Child rendered',
+      'Child rendered',
+      // !!! Committed, destroy and create effect.
+      // !!! The other effect is not destroyed and created
+      // !!! because the dep didn't change
+      'Child dep destroy',
+      'Child dep create',
+      ...(gate(flags => flags.useModernStrictMode)
+        ? [
+            // Double invoke both effects
+            'Child destroy',
+            'Child dep destroy',
+            'Child create',
+            'Child dep create',
+            // Fires setState
+            '-----------------------after setState',
+            'Child rendered',
+            'Child rendered',
+            'Child dep create',
+          ]
+        : []),
+    ]);
   });
 });
