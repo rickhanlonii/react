@@ -122,8 +122,9 @@ describe('StrictEffectsMode defaults', () => {
 
         await waitForPaint([
           'useLayoutEffect mount "one"',
-          'useLayoutEffect unmount "one"',
-          'useLayoutEffect mount "one"',
+          ...(gate(flags => flags.useModernStrictMode)
+            ? []
+            : ['useLayoutEffect unmount "one"', 'useLayoutEffect mount "one"']),
         ]);
       });
 
@@ -180,10 +181,14 @@ describe('StrictEffectsMode defaults', () => {
         await waitForAll([
           'useLayoutEffect mount "one"',
           'useEffect mount "one"',
-          'useLayoutEffect unmount "one"',
-          'useEffect unmount "one"',
-          'useLayoutEffect mount "one"',
-          'useEffect mount "one"',
+          ...(gate(flags => flags.useModernStrictMode)
+            ? []
+            : [
+                'useLayoutEffect unmount "one"',
+                'useEffect unmount "one"',
+                'useLayoutEffect mount "one"',
+                'useEffect mount "one"',
+              ]),
         ]);
       });
 
@@ -244,10 +249,14 @@ describe('StrictEffectsMode defaults', () => {
       assertLog([
         'useLayoutEffect mount',
         'useEffect mount',
-        'useLayoutEffect unmount',
-        'useEffect unmount',
-        'useLayoutEffect mount',
-        'useEffect mount',
+        ...(gate(flags => flags.useModernStrictMode)
+          ? []
+          : [
+              'useLayoutEffect unmount',
+              'useEffect unmount',
+              'useLayoutEffect mount',
+              'useEffect mount',
+            ]),
       ]);
 
       await act(() => {
@@ -302,10 +311,14 @@ describe('StrictEffectsMode defaults', () => {
       assertLog([
         'useEffect One mount',
         'useEffect Two mount',
-        'useEffect One unmount',
-        'useEffect Two unmount',
-        'useEffect One mount',
-        'useEffect Two mount',
+        ...(gate(flags => flags.useModernStrictMode)
+          ? []
+          : [
+              'useEffect One unmount',
+              'useEffect Two unmount',
+              'useEffect One mount',
+              'useEffect Two mount',
+            ]),
       ]);
 
       await act(() => {
@@ -360,10 +373,14 @@ describe('StrictEffectsMode defaults', () => {
       assertLog([
         'useLayoutEffect One mount',
         'useLayoutEffect Two mount',
-        'useLayoutEffect One unmount',
-        'useLayoutEffect Two unmount',
-        'useLayoutEffect One mount',
-        'useLayoutEffect Two mount',
+        ...(gate(flags => flags.useModernStrictMode)
+          ? []
+          : [
+              'useLayoutEffect One unmount',
+              'useLayoutEffect Two unmount',
+              'useLayoutEffect One mount',
+              'useLayoutEffect Two mount',
+            ]),
       ]);
 
       await act(() => {
@@ -416,8 +433,9 @@ describe('StrictEffectsMode defaults', () => {
       assertLog([
         'useLayoutEffect mount',
         'useEffect mount',
-        'useLayoutEffect mount',
-        'useEffect mount',
+        ...(gate(flags => flags.useModernStrictMode)
+          ? []
+          : ['useLayoutEffect mount', 'useEffect mount']),
       ]);
 
       await act(() => {
@@ -463,10 +481,15 @@ describe('StrictEffectsMode defaults', () => {
         );
       });
 
-      expect(onRefMock.mock.calls.length).toBe(3);
-      expect(onRefMock.mock.calls[0][0]).not.toBeNull();
-      expect(onRefMock.mock.calls[1][0]).toBe(null);
-      expect(onRefMock.mock.calls[2][0]).not.toBeNull();
+      if (gate(flags => flags.useModernStrictMode)) {
+        expect(onRefMock.mock.calls.length).toBe(1);
+        expect(onRefMock.mock.calls[0][0]).not.toBeNull();
+      } else {
+        expect(onRefMock.mock.calls.length).toBe(3);
+        expect(onRefMock.mock.calls[0][0]).not.toBeNull();
+        expect(onRefMock.mock.calls[1][0]).toBe(null);
+        expect(onRefMock.mock.calls[2][0]).not.toBeNull();
+      }
     });
 
     it('passes the right context to class component lifecycles', async () => {
@@ -505,8 +528,9 @@ describe('StrictEffectsMode defaults', () => {
 
       assertLog([
         'componentDidMount',
-        'componentWillUnmount',
-        'componentDidMount',
+        ...(gate(flags => flags.useModernStrictMode)
+          ? []
+          : ['componentWillUnmount', 'componentDidMount']),
       ]);
     });
 
@@ -541,8 +565,9 @@ describe('StrictEffectsMode defaults', () => {
 
       assertLog([
         'componentDidMount',
-        'componentWillUnmount',
-        'componentDidMount',
+        ...(gate(flags => flags.useModernStrictMode)
+          ? []
+          : ['componentWillUnmount', 'componentDidMount']),
       ]);
 
       await act(() => {
@@ -598,10 +623,14 @@ describe('StrictEffectsMode defaults', () => {
         'mount',
         'useLayoutEffect mount',
         'useEffect mount',
-        'useLayoutEffect unmount',
-        'useEffect unmount',
-        'useLayoutEffect mount',
-        'useEffect mount',
+        ...(gate(flags => flags.useModernStrictMode)
+          ? []
+          : [
+              'useLayoutEffect unmount',
+              'useEffect unmount',
+              'useLayoutEffect mount',
+              'useEffect mount',
+            ]),
         'mount',
         'useLayoutEffect unmount',
         'useLayoutEffect mount',
@@ -653,10 +682,14 @@ describe('StrictEffectsMode defaults', () => {
       assertLog([
         'App useLayoutEffect mount',
         'App useEffect mount',
-        'App useLayoutEffect unmount',
-        'App useEffect unmount',
-        'App useLayoutEffect mount',
-        'App useEffect mount',
+        ...(gate(flags => flags.useModernStrictMode)
+          ? []
+          : [
+              'App useLayoutEffect unmount',
+              'App useEffect unmount',
+              'App useLayoutEffect mount',
+              'App useEffect mount',
+            ]),
       ]);
 
       await act(() => {
@@ -729,12 +762,16 @@ describe('StrictEffectsMode defaults', () => {
         'componentDidMount',
         'useLayoutEffect mount',
         'useEffect mount',
-        'componentWillUnmount',
-        'useLayoutEffect unmount',
-        'useEffect unmount',
-        'componentDidMount',
-        'useLayoutEffect mount',
-        'useEffect mount',
+        ...(gate(flags => flags.useModernStrictMode)
+          ? []
+          : [
+              'componentWillUnmount',
+              'useLayoutEffect unmount',
+              'useEffect unmount',
+              'componentDidMount',
+              'useLayoutEffect mount',
+              'useEffect mount',
+            ]),
       ]);
 
       await act(() => {

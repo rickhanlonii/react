@@ -54,10 +54,14 @@ describe('Activity StrictMode', () => {
       'A: render',
       'A: useLayoutEffect mount',
       'A: useEffect mount',
-      'A: useLayoutEffect unmount',
-      'A: useEffect unmount',
-      'A: useLayoutEffect mount',
-      'A: useEffect mount',
+      ...(gate(flags => flags.useModernStrictMode)
+        ? []
+        : [
+            'A: useLayoutEffect unmount',
+            'A: useEffect unmount',
+            'A: useLayoutEffect mount',
+            'A: useEffect mount',
+          ]),
     ]);
   });
 
@@ -258,8 +262,9 @@ describe('Activity StrictMode', () => {
       'Child rendered',
       'Child suspended',
       'Parent mount',
-      'Parent unmount',
-      'Parent mount',
+      ...(gate(flags => flags.useModernStrictMode)
+        ? []
+        : ['Parent unmount', 'Parent mount']),
       '------------------------------',
       'Child rendered',
       'Child rendered',

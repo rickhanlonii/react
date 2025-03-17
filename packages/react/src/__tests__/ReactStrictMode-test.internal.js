@@ -104,10 +104,14 @@ describe('ReactStrictMode', () => {
           'A: render',
           'A: useLayoutEffect mount',
           'A: useEffect mount',
-          'A: useLayoutEffect unmount',
-          'A: useEffect unmount',
-          'A: useLayoutEffect mount',
-          'A: useEffect mount',
+          ...(gate(flags => flags.useModernStrictMode)
+            ? []
+            : [
+                'A: useLayoutEffect unmount',
+                'A: useEffect unmount',
+                'A: useLayoutEffect mount',
+                'A: useEffect mount',
+              ]),
         ]);
       });
 
@@ -184,10 +188,14 @@ describe('ReactStrictMode', () => {
           'B: useLayoutEffect mount',
           'A: useEffect mount',
           'B: useEffect mount',
-          'B: useLayoutEffect unmount',
-          'B: useEffect unmount',
-          'B: useLayoutEffect mount',
-          'B: useEffect mount',
+          ...(gate(flags => flags.useModernStrictMode)
+            ? []
+            : [
+                'B: useLayoutEffect unmount',
+                'B: useEffect unmount',
+                'B: useLayoutEffect mount',
+                'B: useEffect mount',
+              ]),
         ]);
       });
     }

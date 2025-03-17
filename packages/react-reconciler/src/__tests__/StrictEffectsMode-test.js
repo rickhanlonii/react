@@ -91,10 +91,14 @@ describe('StrictEffectsMode', () => {
       assertLog([
         'useLayoutEffect mount',
         'useEffect mount',
-        'useLayoutEffect unmount',
-        'useEffect unmount',
-        'useLayoutEffect mount',
-        'useEffect mount',
+        ...(gate(flags => flags.useModernStrictMode)
+          ? []
+          : [
+              'useLayoutEffect unmount',
+              'useEffect unmount',
+              'useLayoutEffect mount',
+              'useEffect mount',
+            ]),
       ]);
     } else {
       assertLog(['useLayoutEffect mount', 'useEffect mount']);
@@ -155,10 +159,14 @@ describe('StrictEffectsMode', () => {
       assertLog([
         'useEffect One mount',
         'useEffect Two mount',
-        'useEffect One unmount',
-        'useEffect Two unmount',
-        'useEffect One mount',
-        'useEffect Two mount',
+        ...(gate(flags => flags.useModernStrictMode)
+          ? []
+          : [
+              'useEffect One unmount',
+              'useEffect Two unmount',
+              'useEffect One mount',
+              'useEffect Two mount',
+            ]),
       ]);
     } else {
       assertLog(['useEffect One mount', 'useEffect Two mount']);
@@ -219,10 +227,14 @@ describe('StrictEffectsMode', () => {
       assertLog([
         'useLayoutEffect One mount',
         'useLayoutEffect Two mount',
-        'useLayoutEffect One unmount',
-        'useLayoutEffect Two unmount',
-        'useLayoutEffect One mount',
-        'useLayoutEffect Two mount',
+        ...(gate(flags => flags.useModernStrictMode)
+          ? []
+          : [
+              'useLayoutEffect One unmount',
+              'useLayoutEffect Two unmount',
+              'useLayoutEffect One mount',
+              'useLayoutEffect Two mount',
+            ]),
       ]);
     } else {
       assertLog(['useLayoutEffect One mount', 'useLayoutEffect Two mount']);
@@ -280,8 +292,9 @@ describe('StrictEffectsMode', () => {
       assertLog([
         'useLayoutEffect mount',
         'useEffect mount',
-        'useLayoutEffect mount',
-        'useEffect mount',
+        ...(gate(flags => flags.useModernStrictMode)
+          ? []
+          : ['useLayoutEffect mount', 'useEffect mount']),
       ]);
     } else {
       assertLog(['useLayoutEffect mount', 'useEffect mount']);
@@ -343,8 +356,9 @@ describe('StrictEffectsMode', () => {
     if (__DEV__) {
       assertLog([
         'componentDidMount',
-        'componentWillUnmount',
-        'componentDidMount',
+        ...(gate(flags => flags.useModernStrictMode)
+          ? []
+          : ['componentWillUnmount', 'componentDidMount']),
       ]);
     } else {
       assertLog(['componentDidMount']);
@@ -384,8 +398,9 @@ describe('StrictEffectsMode', () => {
     if (__DEV__) {
       assertLog([
         'componentDidMount',
-        'componentWillUnmount',
-        'componentDidMount',
+        ...(gate(flags => flags.useModernStrictMode)
+          ? []
+          : ['componentWillUnmount', 'componentDidMount']),
       ]);
     } else {
       assertLog(['componentDidMount']);
@@ -437,7 +452,7 @@ describe('StrictEffectsMode', () => {
       );
     });
 
-    if (__DEV__) {
+    if (__DEV__ && !gate(flags => flags.useModernStrictMode)) {
       assertLog(['componentWillUnmount']);
     } else {
       assertLog([]);
@@ -532,10 +547,14 @@ describe('StrictEffectsMode', () => {
         'mount',
         'useLayoutEffect mount',
         'useEffect mount',
-        'useLayoutEffect unmount',
-        'useEffect unmount',
-        'useLayoutEffect mount',
-        'useEffect mount',
+        ...(gate(flags => flags.useModernStrictMode)
+          ? []
+          : [
+              'useLayoutEffect unmount',
+              'useEffect unmount',
+              'useLayoutEffect mount',
+              'useEffect mount',
+            ]),
         'mount',
         'useLayoutEffect unmount',
         'useLayoutEffect mount',
@@ -601,10 +620,14 @@ describe('StrictEffectsMode', () => {
       assertLog([
         'App useLayoutEffect mount',
         'App useEffect mount',
-        'App useLayoutEffect unmount',
-        'App useEffect unmount',
-        'App useLayoutEffect mount',
-        'App useEffect mount',
+        ...(gate(flags => flags.useModernStrictMode)
+          ? []
+          : [
+              'App useLayoutEffect unmount',
+              'App useEffect unmount',
+              'App useLayoutEffect mount',
+              'App useEffect mount',
+            ]),
       ]);
     } else {
       assertLog(['App useLayoutEffect mount', 'App useEffect mount']);
@@ -691,12 +714,16 @@ describe('StrictEffectsMode', () => {
         'componentDidMount',
         'useLayoutEffect mount',
         'useEffect mount',
-        'componentWillUnmount',
-        'useLayoutEffect unmount',
-        'useEffect unmount',
-        'componentDidMount',
-        'useLayoutEffect mount',
-        'useEffect mount',
+        ...(gate(flags => flags.useModernStrictMode)
+          ? []
+          : [
+              'componentWillUnmount',
+              'useLayoutEffect unmount',
+              'useEffect unmount',
+              'componentDidMount',
+              'useLayoutEffect mount',
+              'useEffect mount',
+            ]),
       ]);
     } else {
       assertLog([
@@ -782,11 +809,15 @@ describe('StrictEffectsMode', () => {
       assertLog([
         'useLayoutEffect mount',
         'useEffect mount',
-        'componentWillUnmount',
-        'useLayoutEffect unmount',
-        'useEffect unmount',
-        'useLayoutEffect mount',
-        'useEffect mount',
+        ...(gate(flags => flags.useModernStrictMode)
+          ? []
+          : [
+              'componentWillUnmount',
+              'useLayoutEffect unmount',
+              'useEffect unmount',
+              'useLayoutEffect mount',
+              'useEffect mount',
+            ]),
       ]);
     } else {
       assertLog(['useLayoutEffect mount', 'useEffect mount']);
