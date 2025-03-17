@@ -12,7 +12,7 @@
 // This test is a hot mess. It heavily uses internals and relies on DOM even
 // though the responder plugin is only used in React Native. Sadness ensues.
 // The coverage is valuable though, so we will keep it for now.
-const {HostComponent} = require('react-reconciler/src/ReactWorkTags');
+const {WorkTag} = require('react-reconciler/src/ReactWorkTags');
 
 let EventBatching;
 let EventPluginUtils;
@@ -345,25 +345,25 @@ const CHILD_HOST_NODE2 = {};
 // TODO: we could test this with regular DOM nodes (and real fibers) instead.
 const GRANDPARENT_INST = {
   return: null,
-  tag: HostComponent,
+  tag: WorkTag.HostComponent,
   stateNode: GRANDPARENT_HOST_NODE,
   memoizedProps: {},
 };
 const PARENT_INST = {
   return: GRANDPARENT_INST,
-  tag: HostComponent,
+  tag: WorkTag.HostComponent,
   stateNode: PARENT_HOST_NODE,
   memoizedProps: {},
 };
 const CHILD_INST = {
   return: PARENT_INST,
-  tag: HostComponent,
+  tag: WorkTag.HostComponent,
   stateNode: CHILD_HOST_NODE,
   memoizedProps: {},
 };
 const CHILD_INST2 = {
   return: PARENT_INST,
-  tag: HostComponent,
+  tag: WorkTag.HostComponent,
   stateNode: CHILD_HOST_NODE2,
   memoizedProps: {},
 };

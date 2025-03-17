@@ -21,7 +21,7 @@ import {
 } from './ReactFiberConfig';
 import {isFiberSuspenseAndTimedOut} from './ReactFiberTreeReflection';
 
-import {HostComponent, ScopeComponent, ContextProvider} from './ReactWorkTags';
+import {WorkTag} from './ReactWorkTags';
 import {
   enableScopeAPI,
   enableRenderableContext,
@@ -39,7 +39,7 @@ function collectScopedNodes(
   scopedNodes: Array<any>,
 ): void {
   if (enableScopeAPI) {
-    if (node.tag === HostComponent) {
+    if (node.tag === WorkTag.HostComponent) {
       const {type, memoizedProps, stateNode} = node;
       const instance = getPublicInstance(stateNode);
       if (
@@ -65,7 +65,7 @@ function collectFirstScopedNode(
   fn: ReactScopeQuery,
 ): null | Object {
   if (enableScopeAPI) {
-    if (node.tag === HostComponent) {
+    if (node.tag === WorkTag.HostComponent) {
       const {type, memoizedProps, stateNode} = node;
       const instance = getPublicInstance(stateNode);
       if (instance !== null && fn(type, memoizedProps, instance) === true) {
@@ -117,7 +117,7 @@ function collectNearestContextValues<T>(
   childContextValues: Array<T>,
 ): void {
   if (
-    node.tag === ContextProvider &&
+    node.tag === WorkTag.ContextProvider &&
     (enableRenderableContext ? node.type : node.type._context) === context
   ) {
     const contextValue = node.memoizedProps.value;
@@ -180,7 +180,7 @@ function DO_NOT_USE_queryFirstNode(
 function containsNode(this: $FlowFixMe, node: Object): boolean {
   let fiber = getInstanceFromNode(node);
   while (fiber !== null) {
-    if (fiber.tag === ScopeComponent && fiber.stateNode === this) {
+    if (fiber.tag === WorkTag.ScopeComponent && fiber.stateNode === this) {
       return true;
     }
     fiber = fiber.return;

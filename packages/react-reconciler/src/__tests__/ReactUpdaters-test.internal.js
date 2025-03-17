@@ -9,6 +9,8 @@
 
 'use strict';
 
+import {WorkTag} from '../ReactWorkTags';
+
 let React;
 let ReactFeatureFlags;
 let ReactDOM;
@@ -101,7 +103,7 @@ describe('updaters', () => {
   });
 
   it('should report the (host) root as the scheduler for root-level render', async () => {
-    const {HostRoot} = require('react-reconciler/src/ReactWorkTags');
+    const {WorkTag} = require('react-reconciler/src/ReactWorkTags');
 
     const Parent = () => <Child />;
     const Child = () => null;
@@ -110,13 +112,13 @@ describe('updaters', () => {
     await act(() => {
       root.render(<Parent />);
     });
-    expect(allSchedulerTags).toEqual([[HostRoot]]);
+    expect(allSchedulerTags).toEqual([[WorkTag.HostRoot]]);
     assertLog(['onCommitRoot']);
 
     await act(() => {
       root.render(<Parent />);
     });
-    expect(allSchedulerTags).toEqual([[HostRoot], [HostRoot]]);
+    expect(allSchedulerTags).toEqual([[WorkTag.HostRoot], [WorkTag.HostRoot]]);
     assertLog(['onCommitRoot']);
   });
 

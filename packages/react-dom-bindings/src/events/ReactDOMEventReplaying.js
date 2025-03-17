@@ -33,7 +33,7 @@ import {
   getClosestInstanceFromNode,
   getFiberCurrentPropsFromNode,
 } from '../client/ReactDOMComponentTree';
-import {HostRoot, SuspenseComponent} from 'react-reconciler/src/ReactWorkTags';
+import {WorkTag} from 'react-reconciler/src/ReactWorkTags';
 import {isHigherEventPriority} from 'react-reconciler/src/ReactEventPriorities';
 import {isRootDehydrated} from 'react-reconciler/src/ReactFiberShellHydration';
 import {dispatchReplayedFormAction} from './plugins/FormActionEventPlugin';
@@ -306,7 +306,7 @@ function attemptExplicitHydrationTarget(
     const nearestMounted = getNearestMountedFiber(targetInst);
     if (nearestMounted !== null) {
       const tag = nearestMounted.tag;
-      if (tag === SuspenseComponent) {
+      if (tag === WorkTag.SuspenseComponent) {
         const instance = getSuspenseInstanceFromFiber(nearestMounted);
         if (instance !== null) {
           // We're blocked on hydrating this boundary.
@@ -318,7 +318,7 @@ function attemptExplicitHydrationTarget(
 
           return;
         }
-      } else if (tag === HostRoot) {
+      } else if (tag === WorkTag.HostRoot) {
         const root: FiberRoot = nearestMounted.stateNode;
         if (isRootDehydrated(root)) {
           queuedTarget.blockedOn = getContainerFromFiber(nearestMounted);

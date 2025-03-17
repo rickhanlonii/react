@@ -33,7 +33,7 @@ import {
   GestureLane,
 } from './ReactFiberLane';
 import {NoFlags, Placement, Hydrating} from './ReactFiberFlags';
-import {HostRoot, OffscreenComponent} from './ReactWorkTags';
+import {WorkTag} from './ReactWorkTags';
 import {OffscreenVisible} from './ReactFiberActivityComponent';
 
 export type ConcurrentUpdate = {
@@ -233,7 +233,7 @@ function markUpdateLaneFromFiberToRoot(
       alternate.childLanes = mergeLanes(alternate.childLanes, lane);
     }
 
-    if (parent.tag === OffscreenComponent) {
+    if (parent.tag === WorkTag.OffscreenComponent) {
       // Check if this offscreen boundary is currently hidden.
       //
       // The instance may be null if the Offscreen parent was unmounted. Usually
@@ -264,7 +264,7 @@ function markUpdateLaneFromFiberToRoot(
     parent = parent.return;
   }
 
-  if (node.tag === HostRoot) {
+  if (node.tag === WorkTag.HostRoot) {
     const root: FiberRoot = node.stateNode;
     if (isHidden && update !== null) {
       markHiddenUpdate(root, update, lane);
@@ -297,7 +297,7 @@ function getRootForUpdatedFiber(sourceFiber: Fiber): FiberRoot | null {
     node = parent;
     parent = node.return;
   }
-  return node.tag === HostRoot ? (node.stateNode: FiberRoot) : null;
+  return node.tag === WorkTag.HostRoot ? (node.stateNode: FiberRoot) : null;
 }
 
 function detectUpdateOnUnmountedFiber(sourceFiber: Fiber, parent: Fiber) {

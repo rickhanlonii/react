@@ -21,7 +21,7 @@ import {
   type EventPriority,
 } from 'react-reconciler/src/ReactEventPriorities';
 import type {Fiber} from 'react-reconciler/src/ReactInternalTypes';
-import {HostText} from 'react-reconciler/src/ReactWorkTags';
+import {WorkTag} from 'react-reconciler/src/ReactWorkTags';
 
 // Modules provided by RN:
 import {
@@ -347,7 +347,7 @@ export function getPublicInstanceFromInternalInstanceHandle(
     return null;
   }
 
-  if (internalInstanceHandle.tag === HostText) {
+  if (internalInstanceHandle.tag === WorkTag.HostText) {
     const textInstance: TextInstance = instance;
     return getPublicTextInstance(textInstance, internalInstanceHandle);
   }

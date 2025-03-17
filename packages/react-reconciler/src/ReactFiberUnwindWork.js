@@ -14,21 +14,7 @@ import type {SuspenseState} from './ReactFiberSuspenseComponent';
 import type {Cache} from './ReactFiberCacheComponent';
 import type {TracingMarkerInstance} from './ReactFiberTracingMarkerComponent';
 
-import {
-  ClassComponent,
-  HostRoot,
-  HostComponent,
-  HostHoistable,
-  HostSingleton,
-  HostPortal,
-  ContextProvider,
-  SuspenseComponent,
-  SuspenseListComponent,
-  OffscreenComponent,
-  LegacyHiddenComponent,
-  CacheComponent,
-  TracingMarkerComponent,
-} from './ReactWorkTags';
+import {WorkTag} from './ReactWorkTags';
 import {DidCapture, NoFlags, ShouldCapture} from './ReactFiberFlags';
 import {NoMode, ProfileMode} from './ReactTypeOfMode';
 import {
@@ -70,7 +56,7 @@ function unwindWork(
   // for hydration.
   popTreeContext(workInProgress);
   switch (workInProgress.tag) {
-    case ClassComponent: {
+    case WorkTag.ClassComponent: {
       const Component = workInProgress.type;
       if (isLegacyContextProvider(Component)) {
         popLegacyContext(workInProgress);
@@ -88,7 +74,7 @@ function unwindWork(
       }
       return null;
     }
-    case HostRoot: {
+    case WorkTag.HostRoot: {
       const root: FiberRoot = workInProgress.stateNode;
       const cache: Cache = workInProgress.memoizedState.cache;
       popCacheProvider(workInProgress, cache);
@@ -113,14 +99,14 @@ function unwindWork(
       // We unwound to the root without completing it. Exit.
       return null;
     }
-    case HostHoistable:
-    case HostSingleton:
-    case HostComponent: {
+    case WorkTag.HostHoistable:
+    case WorkTag.HostSingleton:
+    case WorkTag.HostComponent: {
       // TODO: popHydrationState
       popHostContext(workInProgress);
       return null;
     }
-    case SuspenseComponent: {
+    case WorkTag.SuspenseComponent: {
       popSuspenseHandler(workInProgress);
       const suspenseState: null | SuspenseState = workInProgress.memoizedState;
       if (suspenseState !== null && suspenseState.dehydrated !== null) {
@@ -148,16 +134,16 @@ function unwindWork(
       }
       return null;
     }
-    case SuspenseListComponent: {
+    case WorkTag.SuspenseListComponent: {
       popSuspenseListContext(workInProgress);
       // SuspenseList doesn't actually catch anything. It should've been
       // caught by a nested boundary. If not, it should bubble through.
       return null;
     }
-    case HostPortal:
+    case WorkTag.HostPortal:
       popHostContainer(workInProgress);
       return null;
-    case ContextProvider:
+    case WorkTag.ContextProvider:
       let context: ReactContext<any>;
       if (enableRenderableContext) {
         context = workInProgress.type;
@@ -166,8 +152,8 @@ function unwindWork(
       }
       popProvider(context, workInProgress);
       return null;
-    case OffscreenComponent:
-    case LegacyHiddenComponent: {
+    case WorkTag.OffscreenComponent:
+    case WorkTag.LegacyHiddenComponent: {
       popSuspenseHandler(workInProgress);
       popHiddenContext(workInProgress);
       popTransition(workInProgress, current);
@@ -185,11 +171,11 @@ function unwindWork(
       }
       return null;
     }
-    case CacheComponent:
+    case WorkTag.CacheComponent:
       const cache: Cache = workInProgress.memoizedState.cache;
       popCacheProvider(workInProgress, cache);
       return null;
-    case TracingMarkerComponent:
+    case WorkTag.TracingMarkerComponent:
       if (enableTransitionTracing) {
         if (workInProgress.stateNode !== null) {
           popMarkerInstance(workInProgress);
@@ -212,14 +198,14 @@ function unwindInterruptedWork(
   // for hydration.
   popTreeContext(interruptedWork);
   switch (interruptedWork.tag) {
-    case ClassComponent: {
+    case WorkTag.ClassComponent: {
       const childContextTypes = interruptedWork.type.childContextTypes;
       if (childContextTypes !== null && childContextTypes !== undefined) {
         popLegacyContext(interruptedWork);
       }
       break;
     }
-    case HostRoot: {
+    case WorkTag.HostRoot: {
       const root: FiberRoot = interruptedWork.stateNode;
       const cache: Cache = interruptedWork.memoizedState.cache;
       popCacheProvider(interruptedWork, cache);
@@ -233,22 +219,22 @@ function unwindInterruptedWork(
       popTopLevelLegacyContextObject(interruptedWork);
       break;
     }
-    case HostHoistable:
-    case HostSingleton:
-    case HostComponent: {
+    case WorkTag.HostHoistable:
+    case WorkTag.HostSingleton:
+    case WorkTag.HostComponent: {
       popHostContext(interruptedWork);
       break;
     }
-    case HostPortal:
+    case WorkTag.HostPortal:
       popHostContainer(interruptedWork);
       break;
-    case SuspenseComponent:
+    case WorkTag.SuspenseComponent:
       popSuspenseHandler(interruptedWork);
       break;
-    case SuspenseListComponent:
+    case WorkTag.SuspenseListComponent:
       popSuspenseListContext(interruptedWork);
       break;
-    case ContextProvider:
+    case WorkTag.ContextProvider:
       let context: ReactContext<any>;
       if (enableRenderableContext) {
         context = interruptedWork.type;
@@ -257,17 +243,17 @@ function unwindInterruptedWork(
       }
       popProvider(context, interruptedWork);
       break;
-    case OffscreenComponent:
-    case LegacyHiddenComponent:
+    case WorkTag.OffscreenComponent:
+    case WorkTag.LegacyHiddenComponent:
       popSuspenseHandler(interruptedWork);
       popHiddenContext(interruptedWork);
       popTransition(interruptedWork, current);
       break;
-    case CacheComponent:
+    case WorkTag.CacheComponent:
       const cache: Cache = interruptedWork.memoizedState.cache;
       popCacheProvider(interruptedWork, cache);
       break;
-    case TracingMarkerComponent:
+    case WorkTag.TracingMarkerComponent:
       if (enableTransitionTracing) {
         const instance: TracingMarkerInstance | null =
           interruptedWork.stateNode;

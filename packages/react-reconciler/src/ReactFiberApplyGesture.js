@@ -49,15 +49,7 @@ import {
   ViewTransitionNamedStatic,
   ViewTransitionStatic,
 } from './ReactFiberFlags';
-import {
-  HostComponent,
-  HostHoistable,
-  HostSingleton,
-  HostText,
-  HostPortal,
-  OffscreenComponent,
-  ViewTransitionComponent,
-} from './ReactWorkTags';
+import {WorkTag} from './ReactWorkTags';
 import {
   restoreEnterOrExitViewTransitions,
   restoreNestedViewTransitions,
@@ -123,11 +115,14 @@ function trackDeletedPairViewTransitions(deletion: Fiber): void {
   }
   let child = deletion.child;
   while (child !== null) {
-    if (child.tag === OffscreenComponent && child.memoizedState === null) {
+    if (
+      child.tag === WorkTag.OffscreenComponent &&
+      child.memoizedState === null
+    ) {
       // This tree was already hidden so we skip it.
     } else {
       if (
-        child.tag === ViewTransitionComponent &&
+        child.tag === WorkTag.ViewTransitionComponent &&
         (child.flags & ViewTransitionNamedStatic) !== NoFlags
       ) {
         const props: ViewTransitionProps = child.memoizedProps;
@@ -176,7 +171,7 @@ function trackDeletedPairViewTransitions(deletion: Fiber): void {
 }
 
 function trackEnterViewTransitions(deletion: Fiber): void {
-  if (deletion.tag === ViewTransitionComponent) {
+  if (deletion.tag === WorkTag.ViewTransitionComponent) {
     const props: ViewTransitionProps = deletion.memoizedProps;
     const name = getViewTransitionName(props, deletion.stateNode);
     const pair =
@@ -376,7 +371,7 @@ function recursivelyInsertNewFiber(
   visitPhase: VisitPhase,
 ): void {
   switch (finishedWork.tag) {
-    case HostHoistable: {
+    case WorkTag.HostHoistable: {
       if (supportsResources) {
         // TODO: Hoistables should get optimistically inserted and then removed.
         recursivelyInsertNew(
@@ -389,7 +384,7 @@ function recursivelyInsertNewFiber(
       }
       // Fall through
     }
-    case HostSingleton: {
+    case WorkTag.HostSingleton: {
       if (supportsSingletons) {
         recursivelyInsertNew(
           finishedWork,
@@ -416,7 +411,7 @@ function recursivelyInsertNewFiber(
       }
       // Fall through
     }
-    case HostComponent: {
+    case WorkTag.HostComponent: {
       const instance: Instance = finishedWork.stateNode;
       // For insertions we don't need to clone. It's already new state node.
       if (visitPhase !== INSERT_APPEARING_PAIR) {
@@ -439,7 +434,7 @@ function recursivelyInsertNewFiber(
       }
       break;
     }
-    case HostText: {
+    case WorkTag.HostText: {
       const textInstance: TextInstance = finishedWork.stateNode;
       if (textInstance === null) {
         throw new Error(
@@ -453,11 +448,11 @@ function recursivelyInsertNewFiber(
       }
       break;
     }
-    case HostPortal: {
+    case WorkTag.HostPortal: {
       // TODO: Consider what should happen to Portals. For now we exclude them.
       break;
     }
-    case OffscreenComponent: {
+    case WorkTag.OffscreenComponent: {
       const newState: OffscreenState | null = finishedWork.memoizedState;
       const isHidden = newState !== null;
       if (!isHidden) {
@@ -474,7 +469,7 @@ function recursivelyInsertNewFiber(
       }
       break;
     }
-    case ViewTransitionComponent:
+    case WorkTag.ViewTransitionComponent:
       const prevMutationContext = pushMutationContext();
       const viewTransitionState: ViewTransitionState = finishedWork.stateNode;
       // TODO: If this was already cloned by a previous pass we can reuse those clones.
@@ -526,7 +521,7 @@ function recursivelyInsertClonesFromExistingTree(
   let child = parentFiber.child;
   while (child !== null) {
     switch (child.tag) {
-      case HostComponent: {
+      case WorkTag.HostComponent: {
         const instance: Instance = child.stateNode;
         let nextPhase: VisitPhase;
         switch (visitPhase) {
@@ -578,7 +573,7 @@ function recursivelyInsertClonesFromExistingTree(
         }
         break;
       }
-      case HostText: {
+      case WorkTag.HostText: {
         const textInstance: TextInstance = child.stateNode;
         if (textInstance === null) {
           throw new Error(
@@ -593,11 +588,11 @@ function recursivelyInsertClonesFromExistingTree(
         }
         break;
       }
-      case HostPortal: {
+      case WorkTag.HostPortal: {
         // TODO: Consider what should happen to Portals. For now we exclude them.
         break;
       }
-      case OffscreenComponent: {
+      case WorkTag.OffscreenComponent: {
         const newState: OffscreenState | null = child.memoizedState;
         const isHidden = newState !== null;
         if (!isHidden) {
@@ -615,7 +610,7 @@ function recursivelyInsertClonesFromExistingTree(
         }
         break;
       }
-      case ViewTransitionComponent:
+      case WorkTag.ViewTransitionComponent:
         const prevMutationContext = pushMutationContext();
         const viewTransitionState: ViewTransitionState = child.stateNode;
         // TODO: If this was already cloned by a previous pass we can reuse those clones.
@@ -733,7 +728,7 @@ function insertDestinationClonesOfFiber(
   // because the fiber tag is more specific. An exception is any flag related
   // to reconciliation, because those can be set on all fiber types.
   switch (finishedWork.tag) {
-    case HostHoistable: {
+    case WorkTag.HostHoistable: {
       if (supportsResources) {
         // TODO: Hoistables should get optimistically inserted and then removed.
         recursivelyInsertClones(
@@ -746,7 +741,7 @@ function insertDestinationClonesOfFiber(
       }
       // Fall through
     }
-    case HostSingleton: {
+    case WorkTag.HostSingleton: {
       if (supportsSingletons) {
         recursivelyInsertClones(
           finishedWork,
@@ -792,7 +787,7 @@ function insertDestinationClonesOfFiber(
       }
       // Fall through
     }
-    case HostComponent: {
+    case WorkTag.HostComponent: {
       const instance: Instance = finishedWork.stateNode;
       let clone: Instance;
       if (finishedWork.child === null) {
@@ -838,7 +833,7 @@ function insertDestinationClonesOfFiber(
       }
       break;
     }
-    case HostText: {
+    case WorkTag.HostText: {
       const textInstance: TextInstance = finishedWork.stateNode;
       if (textInstance === null) {
         throw new Error(
@@ -858,11 +853,11 @@ function insertDestinationClonesOfFiber(
       }
       break;
     }
-    case HostPortal: {
+    case WorkTag.HostPortal: {
       // TODO: Consider what should happen to Portals. For now we exclude them.
       break;
     }
-    case OffscreenComponent: {
+    case WorkTag.OffscreenComponent: {
       const newState: OffscreenState | null = finishedWork.memoizedState;
       const isHidden = newState !== null;
       if (!isHidden) {
@@ -888,7 +883,7 @@ function insertDestinationClonesOfFiber(
       }
       break;
     }
-    case ViewTransitionComponent:
+    case WorkTag.ViewTransitionComponent:
       const prevMutationContext = pushMutationContext();
       const viewTransitionState: ViewTransitionState = finishedWork.stateNode;
       // TODO: If this was already cloned by a previous pass we can reuse those clones.
@@ -971,7 +966,7 @@ export function insertDestinationClones(
 }
 
 function measureExitViewTransitions(placement: Fiber): void {
-  if (placement.tag === ViewTransitionComponent) {
+  if (placement.tag === WorkTag.ViewTransitionComponent) {
     // const state: ViewTransitionState = placement.stateNode;
     const props: ViewTransitionProps = placement.memoizedProps;
     const name = props.name;
@@ -1037,20 +1032,20 @@ function applyViewTransitionsOnFiber(finishedWork: Fiber) {
   // because the fiber tag is more specific. An exception is any flag related
   // to reconciliation, because those can be set on all fiber types.
   switch (finishedWork.tag) {
-    case HostComponent: {
+    case WorkTag.HostComponent: {
       // const instance: Instance = finishedWork.stateNode;
       // TODO: Apply name and measure.
       recursivelyApplyViewTransitions(finishedWork);
       break;
     }
-    case HostText: {
+    case WorkTag.HostText: {
       break;
     }
-    case HostPortal: {
+    case WorkTag.HostPortal: {
       // TODO: Consider what should happen to Portals. For now we exclude them.
       break;
     }
-    case OffscreenComponent: {
+    case WorkTag.OffscreenComponent: {
       if (flags & Visibility) {
         const newState: OffscreenState | null = finishedWork.memoizedState;
         const isHidden = newState !== null;
@@ -1063,7 +1058,7 @@ function applyViewTransitionsOnFiber(finishedWork: Fiber) {
       }
       break;
     }
-    case ViewTransitionComponent:
+    case WorkTag.ViewTransitionComponent:
       measureUpdateViewTransition(current, finishedWork);
       const viewTransitionState: ViewTransitionState = finishedWork.stateNode;
       viewTransitionState.clones = null; // Reset
@@ -1130,20 +1125,20 @@ function restoreViewTransitionsOnFiber(finishedWork: Fiber) {
   // because the fiber tag is more specific. An exception is any flag related
   // to reconciliation, because those can be set on all fiber types.
   switch (finishedWork.tag) {
-    case HostComponent: {
+    case WorkTag.HostComponent: {
       // const instance: Instance = finishedWork.stateNode;
       // TODO: Restore the name.
       recursivelyRestoreViewTransitions(finishedWork);
       break;
     }
-    case HostText: {
+    case WorkTag.HostText: {
       break;
     }
-    case HostPortal: {
+    case WorkTag.HostPortal: {
       // TODO: Consider what should happen to Portals. For now we exclude them.
       break;
     }
-    case OffscreenComponent: {
+    case WorkTag.OffscreenComponent: {
       if (flags & Visibility) {
         const newState: OffscreenState | null = finishedWork.memoizedState;
         const isHidden = newState !== null;
@@ -1156,7 +1151,7 @@ function restoreViewTransitionsOnFiber(finishedWork: Fiber) {
       }
       break;
     }
-    case ViewTransitionComponent:
+    case WorkTag.ViewTransitionComponent:
       const viewTransitionState: ViewTransitionState = finishedWork.stateNode;
       viewTransitionState.clones = null; // Reset
       recursivelyRestoreViewTransitions(finishedWork);

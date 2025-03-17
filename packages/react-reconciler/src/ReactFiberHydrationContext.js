@@ -21,12 +21,7 @@ import type {TreeContext} from './ReactFiberTreeContext';
 import type {CapturedValue} from './ReactCapturedValue';
 import type {HydrationDiffNode} from './ReactFiberHydrationDiffs';
 
-import {
-  HostComponent,
-  HostSingleton,
-  HostRoot,
-  SuspenseComponent,
-} from './ReactWorkTags';
+import {WorkTag} from './ReactWorkTags';
 import {favorSafetyOverHydrationPerf} from 'shared/ReactFeatureFlags';
 
 import {createCapturedValueAtFiber} from './ReactCapturedValue';
@@ -502,7 +497,7 @@ function prepareToHydrateHostTextInstance(fiber: Fiber): void {
   const returnFiber = hydrationParentFiber;
   if (returnFiber !== null) {
     switch (returnFiber.tag) {
-      case HostRoot: {
+      case WorkTag.HostRoot: {
         if (__DEV__) {
           if (shouldWarnIfMismatchDev) {
             const difference = diffHydratedTextForDevWarnings(
@@ -518,8 +513,8 @@ function prepareToHydrateHostTextInstance(fiber: Fiber): void {
         }
         break;
       }
-      case HostSingleton:
-      case HostComponent: {
+      case WorkTag.HostSingleton:
+      case WorkTag.HostComponent: {
         parentProps = returnFiber.memoizedProps;
         if (__DEV__) {
           if (shouldWarnIfMismatchDev) {
@@ -600,12 +595,12 @@ function popToNextHostParent(fiber: Fiber): void {
   hydrationParentFiber = fiber.return;
   while (hydrationParentFiber) {
     switch (hydrationParentFiber.tag) {
-      case HostComponent:
-      case SuspenseComponent:
+      case WorkTag.HostComponent:
+      case WorkTag.SuspenseComponent:
         rootOrSingletonContext = false;
         return;
-      case HostSingleton:
-      case HostRoot:
+      case WorkTag.HostSingleton:
+      case WorkTag.HostRoot:
         rootOrSingletonContext = true;
         return;
       default:
@@ -638,10 +633,10 @@ function popHydrationState(fiber: Fiber): boolean {
     // With float we never clear the Root, or Singleton instances. We also do not clear Instances
     // that have singleton text content
     if (
-      tag !== HostRoot &&
-      tag !== HostSingleton &&
+      tag !== WorkTag.HostRoot &&
+      tag !== WorkTag.HostSingleton &&
       !(
-        tag === HostComponent &&
+        tag === WorkTag.HostComponent &&
         (!shouldDeleteUnhydratedTailInstances(fiber.type) ||
           shouldSetTextContent(fiber.type, fiber.memoizedProps))
       )
@@ -658,8 +653,8 @@ function popHydrationState(fiber: Fiber): boolean {
     // other nodes in them. We also ignore components with pure text content in
     // side of them. We also don't delete anything inside the root container.
     if (
-      tag !== HostRoot &&
-      (tag !== HostComponent ||
+      tag !== WorkTag.HostRoot &&
+      (tag !== WorkTag.HostComponent ||
         (shouldDeleteUnhydratedTailInstances(fiber.type) &&
           !shouldSetTextContent(fiber.type, fiber.memoizedProps)))
     ) {
@@ -671,9 +666,9 @@ function popHydrationState(fiber: Fiber): boolean {
     }
   }
   popToNextHostParent(fiber);
-  if (tag === SuspenseComponent) {
+  if (tag === WorkTag.SuspenseComponent) {
     nextHydratableInstance = skipPastDehydratedSuspenseInstance(fiber);
-  } else if (supportsSingletons && tag === HostSingleton) {
+  } else if (supportsSingletons && tag === WorkTag.HostSingleton) {
     nextHydratableInstance = getNextHydratableSiblingAfterSingleton(
       fiber.type,
       nextHydratableInstance,

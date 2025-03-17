@@ -84,7 +84,7 @@ import {
   higherEventPriority,
 } from './ReactEventPriorities';
 import {readContext, checkIfContextChanged} from './ReactFiberNewContext';
-import {HostRoot, CacheComponent, HostComponent} from './ReactWorkTags';
+import {WorkTag} from './ReactWorkTags';
 import {
   LayoutStatic as LayoutStaticEffect,
   Passive as PassiveEffect,
@@ -3391,7 +3391,7 @@ export function startHostTransition<F>(
   action: (F => mixed) | null,
   formData: F,
 ): void {
-  if (formFiber.tag !== HostComponent) {
+  if (formFiber.tag !== WorkTag.HostComponent) {
     throw new Error(
       'Expected the form instance to be a HostComponent. This ' +
         'is a bug in React.',
@@ -3648,8 +3648,8 @@ function refreshCache<T>(fiber: Fiber, seedKey: ?() => T, seedValue: T): void {
   let provider = fiber.return;
   while (provider !== null) {
     switch (provider.tag) {
-      case CacheComponent:
-      case HostRoot: {
+      case WorkTag.CacheComponent:
+      case WorkTag.HostRoot: {
         // Schedule an update on the cache boundary to trigger a refresh.
         const lane = requestUpdateLane(provider);
         const refreshUpdate = createLegacyQueueUpdate(lane);

@@ -16,17 +16,7 @@ import type {OffscreenQueue} from './ReactFiberActivityComponent';
 import type {RetryQueue} from './ReactFiberSuspenseComponent';
 
 import getComponentNameFromFiber from 'react-reconciler/src/getComponentNameFromFiber';
-import {
-  ClassComponent,
-  HostRoot,
-  IncompleteClassComponent,
-  IncompleteFunctionComponent,
-  FunctionComponent,
-  ForwardRef,
-  SimpleMemoComponent,
-  SuspenseComponent,
-  OffscreenComponent,
-} from './ReactWorkTags';
+import {WorkTag} from './ReactWorkTags';
 import {
   DidCapture,
   Incomplete,
@@ -219,9 +209,9 @@ function resetSuspendedComponent(sourceFiber: Fiber, rootRenderLanes: Lanes) {
   if (
     !disableLegacyMode &&
     (sourceFiber.mode & ConcurrentMode) === NoMode &&
-    (tag === FunctionComponent ||
-      tag === ForwardRef ||
-      tag === SimpleMemoComponent)
+    (tag === WorkTag.FunctionComponent ||
+      tag === WorkTag.ForwardRef ||
+      tag === WorkTag.SimpleMemoComponent)
   ) {
     const currentSource = sourceFiber.alternate;
     if (currentSource) {
@@ -280,13 +270,13 @@ function markSuspenseBoundaryShouldCapture(
       // all lifecycle effect tags.
       sourceFiber.flags &= ~(LifecycleEffectMask | Incomplete);
 
-      if (sourceFiber.tag === ClassComponent) {
+      if (sourceFiber.tag === WorkTag.ClassComponent) {
         const currentSourceFiber = sourceFiber.alternate;
         if (currentSourceFiber === null) {
           // This is a new mount. Change the tag so it's not mistaken for a
           // completed class component. For example, we should not call
           // componentWillUnmount if it is deleted.
-          sourceFiber.tag = IncompleteClassComponent;
+          sourceFiber.tag = WorkTag.IncompleteClassComponent;
         } else {
           // When we try rendering again, we should not reuse the current fiber,
           // since it's known to be in an inconsistent state. Use a force update to
@@ -295,12 +285,12 @@ function markSuspenseBoundaryShouldCapture(
           update.tag = ForceUpdate;
           enqueueUpdate(sourceFiber, update, SyncLane);
         }
-      } else if (sourceFiber.tag === FunctionComponent) {
+      } else if (sourceFiber.tag === WorkTag.FunctionComponent) {
         const currentSourceFiber = sourceFiber.alternate;
         if (currentSourceFiber === null) {
           // This is a new mount. Change the tag so it's not mistaken for a
           // completed function component.
-          sourceFiber.tag = IncompleteFunctionComponent;
+          sourceFiber.tag = WorkTag.IncompleteFunctionComponent;
         }
       }
 
@@ -398,7 +388,7 @@ function throwException(
       const suspenseBoundary = getSuspenseHandler();
       if (suspenseBoundary !== null) {
         switch (suspenseBoundary.tag) {
-          case SuspenseComponent: {
+          case WorkTag.SuspenseComponent: {
             // If this suspense boundary is not already showing a fallback, mark
             // the in-progress render as suspended. We try to perform this logic
             // as soon as soon as possible during the render phase, so the work
@@ -483,7 +473,7 @@ function throwException(
             }
             return false;
           }
-          case OffscreenComponent: {
+          case WorkTag.OffscreenComponent: {
             if (disableLegacyMode || suspenseBoundary.mode & ConcurrentMode) {
               suspenseBoundary.flags |= ShouldCapture;
               const isSuspenseyResource =
@@ -638,7 +628,7 @@ function throwException(
   let workInProgress: Fiber = returnFiber;
   do {
     switch (workInProgress.tag) {
-      case HostRoot: {
+      case WorkTag.HostRoot: {
         workInProgress.flags |= ShouldCapture;
         const lane = pickArbitraryLane(rootRenderLanes);
         workInProgress.lanes = mergeLanes(workInProgress.lanes, lane);
@@ -650,7 +640,7 @@ function throwException(
         enqueueCapturedUpdate(workInProgress, update);
         return false;
       }
-      case ClassComponent:
+      case WorkTag.ClassComponent:
         // Capture and retry
         const ctor = workInProgress.type;
         const instance = workInProgress.stateNode;

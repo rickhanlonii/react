@@ -23,14 +23,7 @@ import type {
   RootResources,
 } from './ReactFiberConfigDOM';
 
-import {
-  HostComponent,
-  HostHoistable,
-  HostSingleton,
-  HostText,
-  HostRoot,
-  SuspenseComponent,
-} from 'react-reconciler/src/ReactWorkTags';
+import {WorkTag} from 'react-reconciler/src/ReactWorkTags';
 
 import {getParentSuspenseInstance} from './ReactFiberConfigDOM';
 
@@ -173,12 +166,12 @@ export function getInstanceFromNode(node: Node): Fiber | null {
   if (inst) {
     const tag = inst.tag;
     if (
-      tag === HostComponent ||
-      tag === HostText ||
-      tag === SuspenseComponent ||
-      tag === HostHoistable ||
-      tag === HostSingleton ||
-      tag === HostRoot
+      tag === WorkTag.HostComponent ||
+      tag === WorkTag.HostText ||
+      tag === WorkTag.SuspenseComponent ||
+      tag === WorkTag.HostHoistable ||
+      tag === WorkTag.HostSingleton ||
+      tag === WorkTag.HostRoot
     ) {
       return inst;
     } else {
@@ -195,10 +188,10 @@ export function getInstanceFromNode(node: Node): Fiber | null {
 export function getNodeFromInstance(inst: Fiber): Instance | TextInstance {
   const tag = inst.tag;
   if (
-    tag === HostComponent ||
-    tag === HostHoistable ||
-    tag === HostSingleton ||
-    tag === HostText
+    tag === WorkTag.HostComponent ||
+    tag === WorkTag.HostHoistable ||
+    tag === WorkTag.HostSingleton ||
+    tag === WorkTag.HostText
   ) {
     // In Fiber this, is just the state node right now. We assume it will be
     // a host component or host text.

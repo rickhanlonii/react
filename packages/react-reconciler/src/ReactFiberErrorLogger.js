@@ -12,7 +12,7 @@ import type {CapturedValue} from './ReactCapturedValue';
 
 import getComponentNameFromFiber from 'react-reconciler/src/getComponentNameFromFiber';
 
-import {ClassComponent} from './ReactWorkTags';
+import {WorkTag} from './ReactWorkTags';
 
 import reportGlobalError from 'shared/reportGlobalError';
 
@@ -177,7 +177,7 @@ export function logCaughtError(
     onCaughtError(error, {
       componentStack: errorInfo.stack,
       errorBoundary:
-        boundary.tag === ClassComponent
+        boundary.tag === WorkTag.ClassComponent
           ? boundary.stateNode // This should always be the case as long as we only have class boundaries
           : null,
     });

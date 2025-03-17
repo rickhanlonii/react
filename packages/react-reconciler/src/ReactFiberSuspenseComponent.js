@@ -14,7 +14,7 @@ import type {Lane} from './ReactFiberLane';
 import type {TreeContext} from './ReactFiberTreeContext';
 import type {CapturedValue} from './ReactCapturedValue';
 
-import {SuspenseComponent, SuspenseListComponent} from './ReactWorkTags';
+import {WorkTag} from './ReactWorkTags';
 import {NoFlags, DidCapture} from './ReactFiberFlags';
 import {
   isSuspenseInstancePending,
@@ -75,7 +75,7 @@ export type RetryQueue = Set<Wakeable>;
 export function findFirstSuspended(row: Fiber): null | Fiber {
   let node = row;
   while (node !== null) {
-    if (node.tag === SuspenseComponent) {
+    if (node.tag === WorkTag.SuspenseComponent) {
       const state: SuspenseState | null = node.memoizedState;
       if (state !== null) {
         const dehydrated: null | SuspenseInstance = state.dehydrated;
@@ -88,7 +88,7 @@ export function findFirstSuspended(row: Fiber): null | Fiber {
         }
       }
     } else if (
-      node.tag === SuspenseListComponent &&
+      node.tag === WorkTag.SuspenseListComponent &&
       // revealOrder undefined can't be trusted because it don't
       // keep track of whether it suspended or not.
       node.memoizedProps.revealOrder !== undefined

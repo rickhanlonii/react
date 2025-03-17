@@ -19,7 +19,7 @@ import {ReactNativeViewConfigRegistry} from 'react-native/Libraries/ReactPrivate
 import accumulateInto from './legacy-events/accumulateInto';
 import getListener from './ReactNativeGetListener';
 import forEachAccumulated from './legacy-events/forEachAccumulated';
-import {HostComponent} from 'react-reconciler/src/ReactWorkTags';
+import {WorkTag} from 'react-reconciler/src/ReactWorkTags';
 
 const {customBubblingEventTypes, customDirectEventTypes} =
   ReactNativeViewConfigRegistry;
@@ -60,7 +60,7 @@ function getParent(inst) {
     // events to their parent. We could also go through parentNode on the
     // host node but that wouldn't work for React Native and doesn't let us
     // do the portal feature.
-  } while (inst && inst.tag !== HostComponent);
+  } while (inst && inst.tag !== WorkTag.HostComponent);
   if (inst) {
     return inst;
   }

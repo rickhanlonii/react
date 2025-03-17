@@ -48,37 +48,7 @@ import {
   markComponentRenderStopped,
   setIsStrictModeForDevtools,
 } from './ReactFiberDevToolsHook';
-import {
-  FunctionComponent,
-  ClassComponent,
-  HostRoot,
-  HostComponent,
-  HostHoistable,
-  HostSingleton,
-  HostText,
-  HostPortal,
-  ForwardRef,
-  Fragment,
-  Mode,
-  ContextProvider,
-  ContextConsumer,
-  Profiler,
-  SuspenseComponent,
-  SuspenseListComponent,
-  MemoComponent,
-  SimpleMemoComponent,
-  LazyComponent,
-  IncompleteClassComponent,
-  IncompleteFunctionComponent,
-  ScopeComponent,
-  OffscreenComponent,
-  LegacyHiddenComponent,
-  CacheComponent,
-  TracingMarkerComponent,
-  Throw,
-  ViewTransitionComponent,
-  ActivityComponent,
-} from './ReactWorkTags';
+
 import {
   NoFlags,
   PerformedWork,
@@ -305,6 +275,8 @@ import {
   callRenderInDEV,
 } from './ReactFiberCallUserSpace';
 
+import {WorkTag} from './ReactWorkTags';
+
 // A special exception that's used to unwind the stack when an update flows
 // into a dehydrated boundary.
 export const SelectiveHydrationException: mixed = new Error(
@@ -501,7 +473,7 @@ function updateMemoComponent(
       // If this is a plain function component without default props,
       // and with only the default shallow comparison, we upgrade it
       // to a SimpleMemoComponent to allow fast path updates.
-      workInProgress.tag = SimpleMemoComponent;
+      workInProgress.tag = WorkTag.SimpleMemoComponent;
       workInProgress.type = resolvedType;
       if (__DEV__) {
         validateFunctionComponentInDev(workInProgress, type);
@@ -1102,7 +1074,7 @@ function mountIncompleteFunctionComponent(
 ) {
   resetSuspendedCurrentOnMountInLegacyMode(_current, workInProgress);
 
-  workInProgress.tag = FunctionComponent;
+  workInProgress.tag = WorkTag.FunctionComponent;
 
   return updateFunctionComponent(
     null,
@@ -1791,7 +1763,7 @@ function mountLazyComponent(
   if (typeof Component === 'function') {
     if (isFunctionClassComponent(Component)) {
       const resolvedProps = resolveClassComponentProps(Component, props, false);
-      workInProgress.tag = ClassComponent;
+      workInProgress.tag = WorkTag.ClassComponent;
       if (__DEV__) {
         workInProgress.type = Component =
           resolveClassForHotReloading(Component);
@@ -1807,7 +1779,7 @@ function mountLazyComponent(
       const resolvedProps = disableDefaultPropsExceptForClasses
         ? props
         : resolveDefaultPropsOnNonClassComponent(Component, props);
-      workInProgress.tag = FunctionComponent;
+      workInProgress.tag = WorkTag.FunctionComponent;
       if (__DEV__) {
         validateFunctionComponentInDev(workInProgress, Component);
         workInProgress.type = Component =
@@ -1827,7 +1799,7 @@ function mountLazyComponent(
       const resolvedProps = disableDefaultPropsExceptForClasses
         ? props
         : resolveDefaultPropsOnNonClassComponent(Component, props);
-      workInProgress.tag = ForwardRef;
+      workInProgress.tag = WorkTag.ForwardRef;
       if (__DEV__) {
         workInProgress.type = Component =
           resolveForwardRefForHotReloading(Component);
@@ -1843,7 +1815,7 @@ function mountLazyComponent(
       const resolvedProps = disableDefaultPropsExceptForClasses
         ? props
         : resolveDefaultPropsOnNonClassComponent(Component, props);
-      workInProgress.tag = MemoComponent;
+      workInProgress.tag = WorkTag.MemoComponent;
       return updateMemoComponent(
         null,
         workInProgress,
@@ -1891,7 +1863,7 @@ function mountIncompleteClassComponent(
   resetSuspendedCurrentOnMountInLegacyMode(_current, workInProgress);
 
   // Promote the fiber to a class and try rendering again.
-  workInProgress.tag = ClassComponent;
+  workInProgress.tag = WorkTag.ClassComponent;
 
   // The rest of this function is a fork of `updateClassComponent`
 
@@ -2914,12 +2886,12 @@ function propagateSuspenseContextChange(
   // to unblock.
   let node = firstChild;
   while (node !== null) {
-    if (node.tag === SuspenseComponent) {
+    if (node.tag === WorkTag.SuspenseComponent) {
       const state: SuspenseState | null = node.memoizedState;
       if (state !== null) {
         scheduleSuspenseWorkOnFiber(node, renderLanes, workInProgress);
       }
-    } else if (node.tag === SuspenseListComponent) {
+    } else if (node.tag === WorkTag.SuspenseListComponent) {
       // If the tail is hidden there might not be an Suspense boundaries
       // to schedule work on. In this case we have to schedule it on the
       // list itself.
@@ -3599,7 +3571,7 @@ function attemptEarlyBailoutIfNoScheduledUpdate(
   // the begin phase. There's still some bookkeeping we that needs to be done
   // in this optimized path, mostly pushing stuff onto the stack.
   switch (workInProgress.tag) {
-    case HostRoot: {
+    case WorkTag.HostRoot: {
       pushHostRootContext(workInProgress);
       const root: FiberRoot = workInProgress.stateNode;
       pushRootTransition(workInProgress, root, renderLanes);
@@ -3613,21 +3585,21 @@ function attemptEarlyBailoutIfNoScheduledUpdate(
       resetHydrationState();
       break;
     }
-    case HostSingleton:
-    case HostComponent:
+    case WorkTag.HostSingleton:
+    case WorkTag.HostComponent:
       pushHostContext(workInProgress);
       break;
-    case ClassComponent: {
+    case WorkTag.ClassComponent: {
       const Component = workInProgress.type;
       if (isLegacyContextProvider(Component)) {
         pushLegacyContextProvider(workInProgress);
       }
       break;
     }
-    case HostPortal:
+    case WorkTag.HostPortal:
       pushHostContainer(workInProgress, workInProgress.stateNode.containerInfo);
       break;
-    case ContextProvider: {
+    case WorkTag.ContextProvider: {
       const newValue = workInProgress.memoizedProps.value;
       let context: ReactContext<any>;
       if (enableRenderableContext) {
@@ -3638,7 +3610,7 @@ function attemptEarlyBailoutIfNoScheduledUpdate(
       pushProvider(workInProgress, context, newValue);
       break;
     }
-    case Profiler:
+    case WorkTag.Profiler:
       if (enableProfilerTimer) {
         // Profiler should only call onRender when one of its descendants actually rendered.
         const hasChildWork = includesSomeLane(
@@ -3662,7 +3634,7 @@ function attemptEarlyBailoutIfNoScheduledUpdate(
         }
       }
       break;
-    case SuspenseComponent: {
+    case WorkTag.SuspenseComponent: {
       const state: SuspenseState | null = workInProgress.memoizedState;
       if (state !== null) {
         if (state.dehydrated !== null) {
@@ -3715,7 +3687,7 @@ function attemptEarlyBailoutIfNoScheduledUpdate(
       }
       break;
     }
-    case SuspenseListComponent: {
+    case WorkTag.SuspenseListComponent: {
       const didSuspendBefore = (current.flags & DidCapture) !== NoFlags;
 
       let hasChildWork = includesSomeLane(
@@ -3780,8 +3752,8 @@ function attemptEarlyBailoutIfNoScheduledUpdate(
         return null;
       }
     }
-    case OffscreenComponent:
-    case LegacyHiddenComponent: {
+    case WorkTag.OffscreenComponent:
+    case WorkTag.LegacyHiddenComponent: {
       // Need to check if the tree still needs to be deferred. This is
       // almost identical to the logic used in the normal update path,
       // so we'll just enter that. The only difference is we'll bail out
@@ -3793,12 +3765,12 @@ function attemptEarlyBailoutIfNoScheduledUpdate(
       workInProgress.lanes = NoLanes;
       return updateOffscreenComponent(current, workInProgress, renderLanes);
     }
-    case CacheComponent: {
+    case WorkTag.CacheComponent: {
       const cache: Cache = current.memoizedState.cache;
       pushCacheProvider(workInProgress, cache);
       break;
     }
-    case TracingMarkerComponent: {
+    case WorkTag.TracingMarkerComponent: {
       if (enableTransitionTracing) {
         const instance: TracingMarkerInstance | null = workInProgress.stateNode;
         if (instance !== null) {
@@ -3905,7 +3877,7 @@ function beginWork(
   workInProgress.lanes = NoLanes;
 
   switch (workInProgress.tag) {
-    case LazyComponent: {
+    case WorkTag.LazyComponent: {
       const elementType = workInProgress.elementType;
       return mountLazyComponent(
         current,
@@ -3914,7 +3886,7 @@ function beginWork(
         renderLanes,
       );
     }
-    case FunctionComponent: {
+    case WorkTag.FunctionComponent: {
       const Component = workInProgress.type;
       const unresolvedProps = workInProgress.pendingProps;
       const resolvedProps =
@@ -3930,7 +3902,7 @@ function beginWork(
         renderLanes,
       );
     }
-    case ClassComponent: {
+    case WorkTag.ClassComponent: {
       const Component = workInProgress.type;
       const unresolvedProps = workInProgress.pendingProps;
       const resolvedProps = resolveClassComponentProps(
@@ -3946,27 +3918,27 @@ function beginWork(
         renderLanes,
       );
     }
-    case HostRoot:
+    case WorkTag.HostRoot:
       return updateHostRoot(current, workInProgress, renderLanes);
-    case HostHoistable:
+    case WorkTag.HostHoistable:
       if (supportsResources) {
         return updateHostHoistable(current, workInProgress, renderLanes);
       }
     // Fall through
-    case HostSingleton:
+    case WorkTag.HostSingleton:
       if (supportsSingletons) {
         return updateHostSingleton(current, workInProgress, renderLanes);
       }
     // Fall through
-    case HostComponent:
+    case WorkTag.HostComponent:
       return updateHostComponent(current, workInProgress, renderLanes);
-    case HostText:
+    case WorkTag.HostText:
       return updateHostText(current, workInProgress);
-    case SuspenseComponent:
+    case WorkTag.SuspenseComponent:
       return updateSuspenseComponent(current, workInProgress, renderLanes);
-    case HostPortal:
+    case WorkTag.HostPortal:
       return updatePortalComponent(current, workInProgress, renderLanes);
-    case ForwardRef: {
+    case WorkTag.ForwardRef: {
       const type = workInProgress.type;
       const unresolvedProps = workInProgress.pendingProps;
       const resolvedProps =
@@ -3982,17 +3954,17 @@ function beginWork(
         renderLanes,
       );
     }
-    case Fragment:
+    case WorkTag.Fragment:
       return updateFragment(current, workInProgress, renderLanes);
-    case Mode:
+    case WorkTag.Mode:
       return updateMode(current, workInProgress, renderLanes);
-    case Profiler:
+    case WorkTag.Profiler:
       return updateProfiler(current, workInProgress, renderLanes);
-    case ContextProvider:
+    case WorkTag.ContextProvider:
       return updateContextProvider(current, workInProgress, renderLanes);
-    case ContextConsumer:
+    case WorkTag.ContextConsumer:
       return updateContextConsumer(current, workInProgress, renderLanes);
-    case MemoComponent: {
+    case WorkTag.MemoComponent: {
       const type = workInProgress.type;
       const unresolvedProps = workInProgress.pendingProps;
       // Resolve outer props first, then resolve inner props.
@@ -4010,7 +3982,7 @@ function beginWork(
         renderLanes,
       );
     }
-    case SimpleMemoComponent: {
+    case WorkTag.SimpleMemoComponent: {
       return updateSimpleMemoComponent(
         current,
         workInProgress,
@@ -4019,7 +3991,7 @@ function beginWork(
         renderLanes,
       );
     }
-    case IncompleteClassComponent: {
+    case WorkTag.IncompleteClassComponent: {
       if (disableLegacyMode) {
         break;
       }
@@ -4038,7 +4010,7 @@ function beginWork(
         renderLanes,
       );
     }
-    case IncompleteFunctionComponent: {
+    case WorkTag.IncompleteFunctionComponent: {
       if (disableLegacyMode) {
         break;
       }
@@ -4057,22 +4029,22 @@ function beginWork(
         renderLanes,
       );
     }
-    case SuspenseListComponent: {
+    case WorkTag.SuspenseListComponent: {
       return updateSuspenseListComponent(current, workInProgress, renderLanes);
     }
-    case ScopeComponent: {
+    case WorkTag.ScopeComponent: {
       if (enableScopeAPI) {
         return updateScopeComponent(current, workInProgress, renderLanes);
       }
       break;
     }
-    case ActivityComponent: {
+    case WorkTag.ActivityComponent: {
       return updateActivityComponent(current, workInProgress, renderLanes);
     }
-    case OffscreenComponent: {
+    case WorkTag.OffscreenComponent: {
       return updateOffscreenComponent(current, workInProgress, renderLanes);
     }
-    case LegacyHiddenComponent: {
+    case WorkTag.LegacyHiddenComponent: {
       if (enableLegacyHidden) {
         return updateLegacyHiddenComponent(
           current,
@@ -4082,10 +4054,10 @@ function beginWork(
       }
       break;
     }
-    case CacheComponent: {
+    case WorkTag.CacheComponent: {
       return updateCacheComponent(current, workInProgress, renderLanes);
     }
-    case TracingMarkerComponent: {
+    case WorkTag.TracingMarkerComponent: {
       if (enableTransitionTracing) {
         return updateTracingMarkerComponent(
           current,
@@ -4095,13 +4067,13 @@ function beginWork(
       }
       break;
     }
-    case ViewTransitionComponent: {
+    case WorkTag.ViewTransitionComponent: {
       if (enableViewTransition) {
         return updateViewTransition(current, workInProgress, renderLanes);
       }
       break;
     }
-    case Throw: {
+    case WorkTag.Throw: {
       // This represents a Component that threw in the reconciliation phase.
       // So we'll rethrow here. This might be a Thenable.
       throw workInProgress.pendingProps;
@@ -4109,7 +4081,7 @@ function beginWork(
   }
 
   throw new Error(
-    `Unknown unit of work tag (${workInProgress.tag}). This error is likely caused by a bug in ` +
+    `Unknown unit of work tag (${workInProgress.tag.valueOf()}). This error is likely caused by a bug in ` +
       'React. Please file an issue.',
   );
 }

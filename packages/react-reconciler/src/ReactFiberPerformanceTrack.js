@@ -13,7 +13,7 @@ import type {Lanes} from './ReactFiberLane';
 
 import type {CapturedValue} from './ReactCapturedValue';
 
-import {SuspenseComponent} from './ReactWorkTags';
+import {WorkTag} from './ReactWorkTags';
 
 import getComponentNameFromFiber from './getComponentNameFromFiber';
 
@@ -197,7 +197,7 @@ export function logComponentErrored(
           color: 'error',
           track: COMPONENTS_TRACK,
           tooltipText:
-            fiber.tag === SuspenseComponent
+            fiber.tag === WorkTag.SuspenseComponent
               ? 'Hydration failed'
               : 'Error boundary caught an error',
           properties,

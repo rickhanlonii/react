@@ -20,7 +20,7 @@ import type {Hook} from './ReactFiberHooks';
 
 import {isPrimaryRenderer, HostTransitionContext} from './ReactFiberConfig';
 import {createCursor, push, pop} from './ReactFiberStack';
-import {ContextProvider, DehydratedFragment} from './ReactWorkTags';
+import {DehydratedFragment, WorkTag} from './ReactWorkTags';
 import {NoLanes, isSubsetOfLanes, mergeLanes} from './ReactFiberLane';
 import {
   NoFlags,
@@ -269,7 +269,7 @@ function propagateContextChanges<T>(
         }
         dep = dependency.next;
       }
-    } else if (fiber.tag === DehydratedFragment) {
+    } else if (fiber.tag === WorkTag.DehydratedFragment) {
       // If a dehydrated suspense boundary is in this subtree, we don't know
       // if it will have any context consumers in it. The best we can do is
       // mark it as having updates.
@@ -380,7 +380,7 @@ function propagateParentContextChanges(
       }
     }
 
-    if (parent.tag === ContextProvider) {
+    if (parent.tag === WorkTag.ContextProvider) {
       const currentParent = parent.alternate;
 
       if (currentParent === null) {

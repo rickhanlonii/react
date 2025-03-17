@@ -115,20 +115,7 @@ import {
   StrictEffectsMode,
   NoStrictPassiveEffectsMode,
 } from './ReactTypeOfMode';
-import {
-  HostRoot,
-  ClassComponent,
-  SuspenseComponent,
-  SuspenseListComponent,
-  OffscreenComponent,
-  FunctionComponent,
-  ForwardRef,
-  MemoComponent,
-  SimpleMemoComponent,
-  HostComponent,
-  HostHoistable,
-  HostSingleton,
-} from './ReactWorkTags';
+import {WorkTag} from './ReactWorkTags';
 import {ConcurrentRoot, LegacyRoot} from './ReactRootTags';
 import type {Flags} from './ReactFiberFlags';
 import {
@@ -1521,9 +1508,9 @@ function isRenderConsistentWithExternalStores(finishedWork: Fiber): boolean {
   while (true) {
     const tag = node.tag;
     if (
-      (tag === FunctionComponent ||
-        tag === ForwardRef ||
-        tag === SimpleMemoComponent) &&
+      (tag === WorkTag.FunctionComponent ||
+        tag === WorkTag.ForwardRef ||
+        tag === WorkTag.SimpleMemoComponent) &&
       node.flags & StoreConsistency
     ) {
       const updateQueue: FunctionComponentUpdateQueue | null =
@@ -2603,12 +2590,12 @@ function renderRootConcurrent(root: FiberRoot, lanes: Lanes) {
           case SuspendedOnInstanceAndReadyToContinue: {
             let resource: null | Resource = null;
             switch (workInProgress.tag) {
-              case HostHoistable: {
+              case WorkTag.HostHoistable: {
                 resource = workInProgress.memoizedState;
               }
               // intentional fallthrough
-              case HostComponent:
-              case HostSingleton: {
+              case WorkTag.HostComponent:
+              case WorkTag.HostSingleton: {
                 // Before unwinding the stack, check one more time if the
                 // instance is ready. It may have loaded when React yielded to
                 // the main thread.
@@ -2848,8 +2835,8 @@ function replayBeginWork(unitOfWork: Fiber): null | Fiber {
     startProfilerTimer(unitOfWork);
   }
   switch (unitOfWork.tag) {
-    case SimpleMemoComponent:
-    case FunctionComponent: {
+    case WorkTag.SimpleMemoComponent:
+    case WorkTag.FunctionComponent: {
       // Resolve `defaultProps`. This logic is copied from `beginWork`.
       // TODO: Consider moving this switch statement into that module. Also,
       // could maybe use this as an opportunity to say `use` doesn't work with
@@ -2876,7 +2863,7 @@ function replayBeginWork(unitOfWork: Fiber): null | Fiber {
       );
       break;
     }
-    case ForwardRef: {
+    case WorkTag.ForwardRef: {
       // Resolve `defaultProps`. This logic is copied from `beginWork`.
       // TODO: Consider moving this switch statement into that module. Also,
       // could maybe use this as an opportunity to say `use` doesn't work with
@@ -2899,7 +2886,7 @@ function replayBeginWork(unitOfWork: Fiber): null | Fiber {
       );
       break;
     }
-    case HostComponent: {
+    case WorkTag.HostComponent: {
       // Some host components are stateful (that's how we implement form
       // actions) but we don't bother to reuse the memoized state because it's
       // not worth the extra code. The main reason to reuse the previous hooks
@@ -3020,7 +3007,7 @@ function throwAndUnwindWorkLoop(
           suspendedReason === SuspendedOnDeprecatedThrowPromise
         ) {
           const boundary = getSuspenseHandler();
-          if (boundary !== null && boundary.tag === SuspenseComponent) {
+          if (boundary !== null && boundary.tag === WorkTag.SuspenseComponent) {
             boundary.flags |= ScheduleRetry;
           }
         }
@@ -4256,7 +4243,7 @@ export function captureCommitPhaseError(
   if (__DEV__) {
     setIsRunningInsertionEffect(false);
   }
-  if (sourceFiber.tag === HostRoot) {
+  if (sourceFiber.tag === WorkTag.HostRoot) {
     // Error was thrown at the root. There is no parent, so the root
     // itself should capture it.
     captureCommitPhaseErrorOnRoot(sourceFiber, sourceFiber, error);
@@ -4265,10 +4252,10 @@ export function captureCommitPhaseError(
 
   let fiber = nearestMountedAncestor;
   while (fiber !== null) {
-    if (fiber.tag === HostRoot) {
+    if (fiber.tag === WorkTag.HostRoot) {
       captureCommitPhaseErrorOnRoot(fiber, sourceFiber, error);
       return;
-    } else if (fiber.tag === ClassComponent) {
+    } else if (fiber.tag === WorkTag.ClassComponent) {
       const ctor = fiber.type;
       const instance = fiber.stateNode;
       if (
@@ -4457,17 +4444,17 @@ export function resolveRetryWakeable(boundaryFiber: Fiber, wakeable: Wakeable) {
   let retryLane: Lane = NoLane; // Default
   let retryCache: WeakSet<Wakeable> | Set<Wakeable> | null;
   switch (boundaryFiber.tag) {
-    case SuspenseComponent:
+    case WorkTag.SuspenseComponent:
       retryCache = boundaryFiber.stateNode;
       const suspenseState: null | SuspenseState = boundaryFiber.memoizedState;
       if (suspenseState !== null) {
         retryLane = suspenseState.retryLane;
       }
       break;
-    case SuspenseListComponent:
+    case WorkTag.SuspenseListComponent:
       retryCache = boundaryFiber.stateNode;
       break;
-    case OffscreenComponent: {
+    case WorkTag.OffscreenComponent: {
       const instance: OffscreenInstance = boundaryFiber.stateNode;
       retryCache = instance._retryCache;
       break;
@@ -4586,7 +4573,7 @@ function doubleInvokeEffectsInDEVIfNecessary(
 
   // First case: the fiber **is not** of type OffscreenComponent. No
   // special rules apply to double invoking effects.
-  if (fiber.tag !== OffscreenComponent) {
+  if (fiber.tag !== WorkTag.OffscreenComponent) {
     if (fiber.flags & PlacementDEV) {
       if (isInStrictMode) {
         runWithFiberInDEV(
@@ -4723,12 +4710,12 @@ export function warnAboutUpdateOnNotYetMountedFiberInDEV(fiber: Fiber) {
 
     const tag = fiber.tag;
     if (
-      tag !== HostRoot &&
-      tag !== ClassComponent &&
-      tag !== FunctionComponent &&
-      tag !== ForwardRef &&
-      tag !== MemoComponent &&
-      tag !== SimpleMemoComponent
+      tag !== WorkTag.HostRoot &&
+      tag !== WorkTag.ClassComponent &&
+      tag !== WorkTag.FunctionComponent &&
+      tag !== WorkTag.ForwardRef &&
+      tag !== WorkTag.MemoComponent &&
+      tag !== WorkTag.SimpleMemoComponent
     ) {
       // Only warn for user-defined components, not internal ones like Suspense.
       return;
@@ -4768,9 +4755,9 @@ function warnAboutRenderPhaseUpdatesInDEV(fiber: Fiber) {
   if (__DEV__) {
     if (ReactCurrentDebugFiberIsRenderingInDEV) {
       switch (fiber.tag) {
-        case FunctionComponent:
-        case ForwardRef:
-        case SimpleMemoComponent: {
+        case WorkTag.FunctionComponent:
+        case WorkTag.ForwardRef:
+        case WorkTag.SimpleMemoComponent: {
           const renderingComponentName =
             (workInProgress && getComponentNameFromFiber(workInProgress)) ||
             'Unknown';
@@ -4791,7 +4778,7 @@ function warnAboutRenderPhaseUpdatesInDEV(fiber: Fiber) {
           }
           break;
         }
-        case ClassComponent: {
+        case WorkTag.ClassComponent: {
           if (!didWarnAboutUpdateInRender) {
             console.error(
               'Cannot update during an existing state transition (such as ' +
@@ -4865,9 +4852,9 @@ function warnIfUpdatesNotWrappedWithActDEV(fiber: Fiber): void {
         return;
       }
       if (
-        fiber.tag !== FunctionComponent &&
-        fiber.tag !== ForwardRef &&
-        fiber.tag !== SimpleMemoComponent
+        fiber.tag !== WorkTag.FunctionComponent &&
+        fiber.tag !== WorkTag.ForwardRef &&
+        fiber.tag !== WorkTag.SimpleMemoComponent
       ) {
         // For backwards compatibility with pre-hooks code, legacy mode only
         // warns for updates that originate from a hook.

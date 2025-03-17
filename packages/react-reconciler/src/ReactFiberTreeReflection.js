@@ -11,16 +11,7 @@ import type {Fiber} from './ReactInternalTypes';
 import type {Container, SuspenseInstance, Instance} from './ReactFiberConfig';
 import type {SuspenseState} from './ReactFiberSuspenseComponent';
 
-import {
-  HostComponent,
-  HostHoistable,
-  HostSingleton,
-  HostRoot,
-  HostPortal,
-  HostText,
-  SuspenseComponent,
-  OffscreenComponent,
-} from './ReactWorkTags';
+import {WorkTag} from './ReactWorkTags';
 import {NoFlags, Placement, Hydrating} from './ReactFiberFlags';
 
 export function getNearestMountedFiber(fiber: Fiber): null | Fiber {
@@ -46,7 +37,7 @@ export function getNearestMountedFiber(fiber: Fiber): null | Fiber {
       node = node.return;
     }
   }
-  if (node.tag === HostRoot) {
+  if (node.tag === WorkTag.HostRoot) {
     // TODO: Check if this was a nested HostRoot when used with
     // renderContainerIntoSubtree.
     return nearestMounted;
@@ -59,7 +50,7 @@ export function getNearestMountedFiber(fiber: Fiber): null | Fiber {
 export function getSuspenseInstanceFromFiber(
   fiber: Fiber,
 ): null | SuspenseInstance {
-  if (fiber.tag === SuspenseComponent) {
+  if (fiber.tag === WorkTag.SuspenseComponent) {
     let suspenseState: SuspenseState | null = fiber.memoizedState;
     if (suspenseState === null) {
       const current = fiber.alternate;
@@ -75,7 +66,7 @@ export function getSuspenseInstanceFromFiber(
 }
 
 export function getContainerFromFiber(fiber: Fiber): null | Container {
-  return fiber.tag === HostRoot
+  return fiber.tag === WorkTag.HostRoot
     ? (fiber.stateNode.containerInfo: Container)
     : null;
 }
@@ -219,7 +210,7 @@ export function findCurrentFiberUsingSlowPath(fiber: Fiber): Fiber | null {
 
   // If the root is not a host container, we're in a disconnected tree. I.e.
   // unmounted.
-  if (a.tag !== HostRoot) {
+  if (a.tag !== WorkTag.HostRoot) {
     throw new Error('Unable to find node on an unmounted component.');
   }
 
@@ -242,10 +233,10 @@ function findCurrentHostFiberImpl(node: Fiber): Fiber | null {
   // Next we'll drill down this component to find the first HostComponent/Text.
   const tag = node.tag;
   if (
-    tag === HostComponent ||
-    tag === HostHoistable ||
-    tag === HostSingleton ||
-    tag === HostText
+    tag === WorkTag.HostComponent ||
+    tag === WorkTag.HostHoistable ||
+    tag === WorkTag.HostSingleton ||
+    tag === WorkTag.HostText
   ) {
     return node;
   }
@@ -273,17 +264,17 @@ function findCurrentHostFiberWithNoPortalsImpl(node: Fiber): Fiber | null {
   // Next we'll drill down this component to find the first HostComponent/Text.
   const tag = node.tag;
   if (
-    tag === HostComponent ||
-    tag === HostHoistable ||
-    tag === HostSingleton ||
-    tag === HostText
+    tag === WorkTag.HostComponent ||
+    tag === WorkTag.HostHoistable ||
+    tag === WorkTag.HostSingleton ||
+    tag === WorkTag.HostText
   ) {
     return node;
   }
 
   let child = node.child;
   while (child !== null) {
-    if (child.tag !== HostPortal) {
+    if (child.tag !== WorkTag.HostPortal) {
       const match = findCurrentHostFiberWithNoPortalsImpl(child);
       if (match !== null) {
         return match;
@@ -298,7 +289,7 @@ function findCurrentHostFiberWithNoPortalsImpl(node: Fiber): Fiber | null {
 export function isFiberSuspenseAndTimedOut(fiber: Fiber): boolean {
   const memoizedState = fiber.memoizedState;
   return (
-    fiber.tag === SuspenseComponent &&
+    fiber.tag === WorkTag.SuspenseComponent &&
     memoizedState !== null &&
     memoizedState.dehydrated === null
   );
@@ -337,12 +328,12 @@ function traverseFragmentInstanceChildren<A, B, C>(
   c: C,
 ): void {
   while (child !== null) {
-    if (child.tag === HostComponent) {
+    if (child.tag === WorkTag.HostComponent) {
       if (fn(child.stateNode, a, b, c)) {
         return;
       }
     } else if (
-      child.tag === OffscreenComponent &&
+      child.tag === WorkTag.OffscreenComponent &&
       child.memoizedState !== null
     ) {
       // Skip hidden subtrees

@@ -27,12 +27,7 @@ import type {TransitionStatus} from 'react-reconciler/src/ReactFiberConfig';
 import ErrorStackParser from 'error-stack-parser';
 import assign from 'shared/assign';
 import ReactSharedInternals from 'shared/ReactSharedInternals';
-import {
-  FunctionComponent,
-  SimpleMemoComponent,
-  ContextProvider,
-  ForwardRef,
-} from 'react-reconciler/src/ReactWorkTags';
+import {WorkTag} from 'react-reconciler/src/ReactWorkTags';
 import {
   REACT_MEMO_CACHE_SENTINEL,
   REACT_CONTEXT_TYPE,
@@ -1223,7 +1218,7 @@ export function inspectHooks<Props>(
 function setupContexts(contextMap: Map<ReactContext<any>, any>, fiber: Fiber) {
   let current: null | Fiber = fiber;
   while (current) {
-    if (current.tag === ContextProvider) {
+    if (current.tag === WorkTag.ContextProvider) {
       let context: ReactContext<any> = current.type;
       if ((context: any)._context !== undefined) {
         // Support inspection of pre-19+ providers.
@@ -1294,9 +1289,9 @@ export function inspectHooksOfFiber(
   }
 
   if (
-    fiber.tag !== FunctionComponent &&
-    fiber.tag !== SimpleMemoComponent &&
-    fiber.tag !== ForwardRef
+    fiber.tag !== WorkTag.FunctionComponent &&
+    fiber.tag !== WorkTag.SimpleMemoComponent &&
+    fiber.tag !== WorkTag.ForwardRef
   ) {
     throw new Error(
       'Unknown Fiber. Needs to be a function component to inspect hooks.',
@@ -1350,7 +1345,7 @@ export function inspectHooksOfFiber(
       setupContexts(contextMap, fiber);
     }
 
-    if (fiber.tag === ForwardRef) {
+    if (fiber.tag === WorkTag.ForwardRef) {
       return inspectHooksOfForwardRef(
         type.render,
         props,

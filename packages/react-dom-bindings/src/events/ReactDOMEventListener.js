@@ -24,7 +24,7 @@ import {
   getContainerFromFiber,
   getSuspenseInstanceFromFiber,
 } from 'react-reconciler/src/ReactFiberTreeReflection';
-import {HostRoot, SuspenseComponent} from 'react-reconciler/src/ReactWorkTags';
+import {WorkTag} from 'react-reconciler/src/ReactWorkTags';
 import {type EventSystemFlags, IS_CAPTURE_PHASE} from './EventSystemFlags';
 
 import getEventTarget from './getEventTarget';
@@ -252,7 +252,7 @@ export function findInstanceBlockingTarget(
       targetInst = null;
     } else {
       const tag = nearestMounted.tag;
-      if (tag === SuspenseComponent) {
+      if (tag === WorkTag.SuspenseComponent) {
         const instance = getSuspenseInstanceFromFiber(nearestMounted);
         if (instance !== null) {
           // Queue the event to be replayed later. Abort dispatching since we
@@ -265,7 +265,7 @@ export function findInstanceBlockingTarget(
         // the whole system, dispatch the event without a target.
         // TODO: Warn.
         targetInst = null;
-      } else if (tag === HostRoot) {
+      } else if (tag === WorkTag.HostRoot) {
         const root: FiberRoot = nearestMounted.stateNode;
         if (isRootDehydrated(root)) {
           // If this happens during a replay something went wrong and it might block

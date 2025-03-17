@@ -36,13 +36,7 @@ import {
   REACT_CONTEXT_TYPE,
   REACT_LEGACY_ELEMENT_TYPE,
 } from 'shared/ReactSymbols';
-import {
-  HostRoot,
-  HostText,
-  HostPortal,
-  Fragment,
-  FunctionComponent,
-} from './ReactWorkTags';
+import {WorkTag} from './ReactWorkTags';
 import isArray from 'shared/isArray';
 import {
   enableAsyncIterableChildren,
@@ -309,7 +303,7 @@ function warnOnFunctionType(returnFiber: Fiber, invalidChild: Function) {
 
     const name = invalidChild.displayName || invalidChild.name || 'Component';
 
-    if (returnFiber.tag === HostRoot) {
+    if (returnFiber.tag === WorkTag.HostRoot) {
       console.error(
         'Functions are not valid as a React child. This may happen if ' +
           'you return %s instead of <%s /> from render. ' +
@@ -347,7 +341,7 @@ function warnOnSymbolType(returnFiber: Fiber, invalidChild: symbol) {
     // eslint-disable-next-line react-internal/safe-string-coercion
     const name = String(invalidChild);
 
-    if (returnFiber.tag === HostRoot) {
+    if (returnFiber.tag === WorkTag.HostRoot) {
       console.error(
         'Symbols are not valid as a React child.\n' + '  root.render(%s)',
         name,
@@ -493,7 +487,7 @@ function createChildReconciler(
     textContent: string,
     lanes: Lanes,
   ) {
-    if (current === null || current.tag !== HostText) {
+    if (current === null || current.tag !== WorkTag.HostText) {
       // Insert
       const created = createFiberFromText(textContent, returnFiber.mode, lanes);
       created.return = returnFiber;
@@ -581,7 +575,7 @@ function createChildReconciler(
   ): Fiber {
     if (
       current === null ||
-      current.tag !== HostPortal ||
+      current.tag !== WorkTag.HostPortal ||
       current.stateNode.containerInfo !== portal.containerInfo ||
       current.stateNode.implementation !== portal.implementation
     ) {
@@ -610,7 +604,7 @@ function createChildReconciler(
     lanes: Lanes,
     key: null | string,
   ): Fiber {
-    if (current === null || current.tag !== Fragment) {
+    if (current === null || current.tag !== WorkTag.Fragment) {
       // Insert
       const created = createFiberFromFragment(
         fragment,
@@ -1322,7 +1316,7 @@ function createChildReconciler(
         // as its direct child since we can recreate those by rerendering the component
         // as needed.
         const isGeneratorComponent =
-          returnFiber.tag === FunctionComponent &&
+          returnFiber.tag === WorkTag.FunctionComponent &&
           // $FlowFixMe[method-unbinding]
           Object.prototype.toString.call(returnFiber.type) ===
             '[object GeneratorFunction]' &&
@@ -1375,7 +1369,7 @@ function createChildReconciler(
         // as its direct child since we can recreate those by rerendering the component
         // as needed.
         const isGeneratorComponent =
-          returnFiber.tag === FunctionComponent &&
+          returnFiber.tag === WorkTag.FunctionComponent &&
           // $FlowFixMe[method-unbinding]
           Object.prototype.toString.call(returnFiber.type) ===
             '[object AsyncGeneratorFunction]' &&
@@ -1596,7 +1590,10 @@ function createChildReconciler(
   ): Fiber {
     // There's no need to check for keys on text nodes since we don't have a
     // way to define them.
-    if (currentFirstChild !== null && currentFirstChild.tag === HostText) {
+    if (
+      currentFirstChild !== null &&
+      currentFirstChild.tag === WorkTag.HostText
+    ) {
       // We already have an existing node so let's just update it and delete
       // the rest.
       deleteRemainingChildren(returnFiber, currentFirstChild.sibling);
@@ -1632,7 +1629,7 @@ function createChildReconciler(
       if (child.key === key) {
         const elementType = element.type;
         if (elementType === REACT_FRAGMENT_TYPE) {
-          if (child.tag === Fragment) {
+          if (child.tag === WorkTag.Fragment) {
             deleteRemainingChildren(returnFiber, child.sibling);
             const existing = useFiber(child, element.props.children);
             if (enableFragmentRefs) {
@@ -1725,7 +1722,7 @@ function createChildReconciler(
       // the first item in the list.
       if (child.key === key) {
         if (
-          child.tag === HostPortal &&
+          child.tag === WorkTag.HostPortal &&
           child.stateNode.containerInfo === portal.containerInfo &&
           child.stateNode.implementation === portal.implementation
         ) {

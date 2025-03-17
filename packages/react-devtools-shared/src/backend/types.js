@@ -34,50 +34,50 @@ import type {TimelineDataExport} from 'react-devtools-timeline/src/types';
 import type {BackendBridge} from 'react-devtools-shared/src/bridge';
 import type {Source} from 'react-devtools-shared/src/shared/types';
 import type Agent from './agent';
+import type {WorkTag} from 'react-reconciler/src/ReactWorkTags';
 
 type BundleType =
   | 0 // PROD
   | 1; // DEV
 
-export type WorkTag = number;
 export type WorkFlags = number;
 export type ExpirationTime = number;
 
 export type WorkTagMap = {
-  CacheComponent: WorkTag,
-  ClassComponent: WorkTag,
-  ContextConsumer: WorkTag,
-  ContextProvider: WorkTag,
-  CoroutineComponent: WorkTag,
-  CoroutineHandlerPhase: WorkTag,
-  DehydratedSuspenseComponent: WorkTag,
-  ForwardRef: WorkTag,
-  Fragment: WorkTag,
-  FunctionComponent: WorkTag,
-  HostComponent: WorkTag,
-  HostPortal: WorkTag,
-  HostRoot: WorkTag,
-  HostHoistable: WorkTag,
-  HostSingleton: WorkTag,
-  HostText: WorkTag,
-  IncompleteClassComponent: WorkTag,
-  IncompleteFunctionComponent: WorkTag,
-  IndeterminateComponent: WorkTag,
-  LazyComponent: WorkTag,
-  LegacyHiddenComponent: WorkTag,
-  MemoComponent: WorkTag,
-  Mode: WorkTag,
-  OffscreenComponent: WorkTag,
-  Profiler: WorkTag,
-  ScopeComponent: WorkTag,
-  SimpleMemoComponent: WorkTag,
-  SuspenseComponent: WorkTag,
-  SuspenseListComponent: WorkTag,
-  TracingMarkerComponent: WorkTag,
-  YieldComponent: WorkTag,
-  Throw: WorkTag,
-  ViewTransitionComponent: WorkTag,
-  ActivityComponent: WorkTag,
+  CacheComponent: WorkTag.CacheComponent,
+  ClassComponent: WorkTag.ClassComponent,
+  ContextConsumer: WorkTag.ContextConsumer,
+  ContextProvider: WorkTag.ContextProvider,
+  CoroutineComponent: number,
+  CoroutineHandlerPhase: number,
+  DehydratedSuspenseComponent: number,
+  ForwardRef: WorkTag.ForwardRef,
+  Fragment: WorkTag.Fragment,
+  FunctionComponent: WorkTag.FunctionComponent,
+  HostComponent: WorkTag.HostComponent,
+  HostPortal: WorkTag.HostPortal,
+  HostRoot: WorkTag.HostRoot,
+  HostHoistable: WorkTag.HostHoistable,
+  HostSingleton: WorkTag.HostSingleton,
+  HostText: WorkTag.HostText,
+  IncompleteClassComponent: WorkTag.IncompleteClassComponent,
+  IncompleteFunctionComponent: WorkTag.IncompleteFunctionComponent,
+  IndeterminateComponent: number,
+  LazyComponent: WorkTag.LazyComponent,
+  LegacyHiddenComponent: WorkTag.LegacyHiddenComponent,
+  MemoComponent: WorkTag.MemoComponent,
+  Mode: WorkTag.Mode,
+  OffscreenComponent: WorkTag.OffscreenComponent,
+  Profiler: WorkTag.Profiler,
+  ScopeComponent: WorkTag.ScopeComponent,
+  SimpleMemoComponent: WorkTag.SimpleMemoComponent,
+  SuspenseComponent: WorkTag.SuspenseComponent,
+  SuspenseListComponent: WorkTag.SuspenseListComponent,
+  TracingMarkerComponent: WorkTag.TracingMarkerComponent,
+  YieldComponent: number,
+  Throw: WorkTag.Throw,
+  ViewTransitionComponent: WorkTag.ViewTransitionComponent,
+  ActivityComponent: WorkTag.ActivityComponent,
 };
 
 export type HostInstance = Object;

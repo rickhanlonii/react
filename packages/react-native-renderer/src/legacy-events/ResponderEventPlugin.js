@@ -30,7 +30,7 @@ import {
 } from './ResponderTopLevelEventTypes';
 import accumulateInto from './accumulateInto';
 import forEachAccumulated from './forEachAccumulated';
-import {HostComponent} from 'react-reconciler/src/ReactWorkTags';
+import {WorkTag} from 'react-reconciler/src/ReactWorkTags';
 
 /**
  * Instance of element that should respond to touch/move types of interactions,
@@ -162,7 +162,7 @@ function getParent(inst) {
     // events to their parent. We could also go through parentNode on the
     // host node but that wouldn't work for React Native and doesn't let us
     // do the portal feature.
-  } while (inst && inst.tag !== HostComponent);
+  } while (inst && inst.tag !== WorkTag.HostComponent);
   if (inst) {
     return inst;
   }

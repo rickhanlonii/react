@@ -14,12 +14,7 @@ import {
   current,
   runWithFiberInDEV,
 } from 'react-reconciler/src/ReactCurrentFiber';
-import {
-  HostComponent,
-  HostHoistable,
-  HostSingleton,
-  HostText,
-} from 'react-reconciler/src/ReactWorkTags';
+import {WorkTag} from 'react-reconciler/src/ReactWorkTags';
 
 import {describeDiff} from 'react-reconciler/src/ReactFiberHydrationDiffs';
 
@@ -534,9 +529,9 @@ const didWarn: {[string]: boolean} = {};
 function findAncestor(parent: null | Fiber, tagName: string): null | Fiber {
   while (parent) {
     switch (parent.tag) {
-      case HostComponent:
-      case HostHoistable:
-      case HostSingleton:
+      case WorkTag.HostComponent:
+      case WorkTag.HostHoistable:
+      case WorkTag.HostSingleton:
         if (parent.type === tagName) {
           return parent;
         }
@@ -664,7 +659,7 @@ function validateTextNesting(
         ? describeAncestors(
             ancestor,
             child,
-            child.tag !== HostText ? {children: null} : null,
+            child.tag !== WorkTag.HostText ? {children: null} : null,
           )
         : '';
 

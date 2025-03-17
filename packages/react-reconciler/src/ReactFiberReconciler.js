@@ -29,13 +29,7 @@ import {
   findCurrentHostFiberWithNoPortals,
 } from './ReactFiberTreeReflection';
 import {get as getInstance} from 'shared/ReactInstanceMap';
-import {
-  HostComponent,
-  HostSingleton,
-  ClassComponent,
-  HostRoot,
-  SuspenseComponent,
-} from './ReactWorkTags';
+import {WorkTag} from './ReactWorkTags';
 import getComponentNameFromFiber from 'react-reconciler/src/getComponentNameFromFiber';
 import isArray from 'shared/isArray';
 import {
@@ -144,7 +138,7 @@ function getContextForSubtree(
   const fiber = getInstance(parentComponent);
   const parentContext = findCurrentUnmaskedContext(fiber);
 
-  if (fiber.tag === ClassComponent) {
+  if (fiber.tag === WorkTag.ClassComponent) {
     const Component = fiber.type;
     if (isLegacyContextProvider(Component)) {
       return processChildContext(fiber, Component, parentContext);
@@ -465,8 +459,8 @@ export function getPublicRootInstance(
     return null;
   }
   switch (containerFiber.child.tag) {
-    case HostSingleton:
-    case HostComponent:
+    case WorkTag.HostSingleton:
+    case WorkTag.HostComponent:
       return getPublicInstance(containerFiber.child.stateNode);
     default:
       return containerFiber.child.stateNode;
@@ -475,7 +469,7 @@ export function getPublicRootInstance(
 
 export function attemptSynchronousHydration(fiber: Fiber): void {
   switch (fiber.tag) {
-    case HostRoot: {
+    case WorkTag.HostRoot: {
       const root: FiberRoot = fiber.stateNode;
       if (isRootDehydrated(root)) {
         // Flush the first scheduled "update".
@@ -484,7 +478,7 @@ export function attemptSynchronousHydration(fiber: Fiber): void {
       }
       break;
     }
-    case SuspenseComponent: {
+    case WorkTag.SuspenseComponent: {
       const root = enqueueConcurrentRenderForLane(fiber, SyncLane);
       if (root !== null) {
         scheduleUpdateOnFiber(root, fiber, SyncLane);
@@ -520,7 +514,7 @@ function markRetryLaneIfNotHydrated(fiber: Fiber, retryLane: Lane) {
 }
 
 export function attemptContinuousHydration(fiber: Fiber): void {
-  if (fiber.tag !== SuspenseComponent) {
+  if (fiber.tag !== WorkTag.SuspenseComponent) {
     // We ignore HostRoots here because we can't increase
     // their priority and they should not suspend on I/O,
     // since you have to wrap anything that might suspend in
@@ -536,7 +530,7 @@ export function attemptContinuousHydration(fiber: Fiber): void {
 }
 
 export function attemptHydrationAtCurrentPriority(fiber: Fiber): void {
-  if (fiber.tag !== SuspenseComponent) {
+  if (fiber.tag !== WorkTag.SuspenseComponent) {
     // We ignore HostRoots here because we can't increase
     // their priority other than synchronously flush it.
     return;

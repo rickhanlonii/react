@@ -17,38 +17,7 @@ import {
   enableViewTransition,
 } from 'shared/ReactFeatureFlags';
 
-import {
-  FunctionComponent,
-  ClassComponent,
-  HostRoot,
-  HostPortal,
-  HostComponent,
-  HostHoistable,
-  HostSingleton,
-  HostText,
-  Fragment,
-  Mode,
-  ContextConsumer,
-  ContextProvider,
-  ForwardRef,
-  Profiler,
-  SuspenseComponent,
-  MemoComponent,
-  SimpleMemoComponent,
-  LazyComponent,
-  IncompleteClassComponent,
-  IncompleteFunctionComponent,
-  DehydratedFragment,
-  SuspenseListComponent,
-  ScopeComponent,
-  OffscreenComponent,
-  LegacyHiddenComponent,
-  CacheComponent,
-  TracingMarkerComponent,
-  Throw,
-  ViewTransitionComponent,
-  ActivityComponent,
-} from 'react-reconciler/src/ReactWorkTags';
+import {WorkTag} from 'react-reconciler/src/ReactWorkTags';
 import getComponentNameFromType from 'shared/getComponentNameFromType';
 import {REACT_STRICT_MODE_TYPE} from 'shared/ReactSymbols';
 import type {ReactComponentInfo} from '../../shared/ReactTypes';
@@ -86,11 +55,11 @@ export function getComponentNameFromOwner(
 export default function getComponentNameFromFiber(fiber: Fiber): string | null {
   const {tag, type} = fiber;
   switch (tag) {
-    case ActivityComponent:
+    case WorkTag.ActivityComponent:
       return 'Activity';
-    case CacheComponent:
+    case WorkTag.CacheComponent:
       return 'Cache';
-    case ContextConsumer:
+    case WorkTag.ContextConsumer:
       if (enableRenderableContext) {
         const consumer: ReactConsumerType<any> = (type: any);
         return getContextName(consumer._context) + '.Consumer';
@@ -98,7 +67,7 @@ export default function getComponentNameFromFiber(fiber: Fiber): string | null {
         const context: ReactContext<any> = (type: any);
         return getContextName(context) + '.Consumer';
       }
-    case ContextProvider:
+    case WorkTag.ContextProvider:
       if (enableRenderableContext) {
         const context: ReactContext<any> = (type: any);
         return getContextName(context) + '.Provider';
@@ -106,60 +75,60 @@ export default function getComponentNameFromFiber(fiber: Fiber): string | null {
         const provider = (type: any);
         return getContextName(provider._context) + '.Provider';
       }
-    case DehydratedFragment:
+    case WorkTag.DehydratedFragment:
       return 'DehydratedFragment';
-    case ForwardRef:
+    case WorkTag.ForwardRef:
       return getWrappedName(type, type.render, 'ForwardRef');
-    case Fragment:
+    case WorkTag.Fragment:
       return 'Fragment';
-    case HostHoistable:
-    case HostSingleton:
-    case HostComponent:
+    case WorkTag.HostHoistable:
+    case WorkTag.HostSingleton:
+    case WorkTag.HostComponent:
       // Host component type is the display name (e.g. "div", "View")
       return type;
-    case HostPortal:
+    case WorkTag.HostPortal:
       return 'Portal';
-    case HostRoot:
+    case WorkTag.HostRoot:
       return 'Root';
-    case HostText:
+    case WorkTag.HostText:
       return 'Text';
-    case LazyComponent:
+    case WorkTag.LazyComponent:
       // Name comes from the type in this case; we don't have a tag.
       return getComponentNameFromType(type);
-    case Mode:
+    case WorkTag.Mode:
       if (type === REACT_STRICT_MODE_TYPE) {
         // Don't be less specific than shared/getComponentNameFromType
         return 'StrictMode';
       }
       return 'Mode';
-    case OffscreenComponent:
+    case WorkTag.OffscreenComponent:
       return 'Offscreen';
-    case Profiler:
+    case WorkTag.Profiler:
       return 'Profiler';
-    case ScopeComponent:
+    case WorkTag.ScopeComponent:
       return 'Scope';
-    case SuspenseComponent:
+    case WorkTag.SuspenseComponent:
       return 'Suspense';
-    case SuspenseListComponent:
+    case WorkTag.SuspenseListComponent:
       return 'SuspenseList';
-    case TracingMarkerComponent:
+    case WorkTag.TracingMarkerComponent:
       return 'TracingMarker';
-    case ViewTransitionComponent:
+    case WorkTag.ViewTransitionComponent:
       if (enableViewTransition) {
         return 'ViewTransition';
       }
     // The display name for these tags come from the user-provided type:
     // Fallthrough
-    case IncompleteClassComponent:
-    case IncompleteFunctionComponent:
+    case WorkTag.IncompleteClassComponent:
+    case WorkTag.IncompleteFunctionComponent:
       if (disableLegacyMode) {
         break;
       }
     // Fallthrough
-    case ClassComponent:
-    case FunctionComponent:
-    case MemoComponent:
-    case SimpleMemoComponent:
+    case WorkTag.ClassComponent:
+    case WorkTag.FunctionComponent:
+    case WorkTag.MemoComponent:
+    case WorkTag.SimpleMemoComponent:
       if (typeof type === 'function') {
         return (type: any).displayName || type.name || null;
       }
@@ -167,12 +136,12 @@ export default function getComponentNameFromFiber(fiber: Fiber): string | null {
         return type;
       }
       break;
-    case LegacyHiddenComponent:
+    case WorkTag.LegacyHiddenComponent:
       if (enableLegacyHidden) {
         return 'LegacyHidden';
       }
       break;
-    case Throw: {
+    case WorkTag.Throw: {
       if (__DEV__) {
         // For an error in child position we use the name of the inner most parent component.
         // Whether a Server Component or the parent Fiber.

@@ -22,13 +22,7 @@ import {enqueueConcurrentRenderForLane} from './ReactFiberConcurrentUpdates';
 import {updateContainerSync} from './ReactFiberReconciler';
 import {emptyContextObject} from './ReactFiberContext';
 import {SyncLane} from './ReactFiberLane';
-import {
-  ClassComponent,
-  FunctionComponent,
-  ForwardRef,
-  MemoComponent,
-  SimpleMemoComponent,
-} from './ReactWorkTags';
+import {WorkTag} from './ReactWorkTags';
 import {
   REACT_FORWARD_REF_TYPE,
   REACT_MEMO_TYPE,
@@ -143,13 +137,13 @@ export function isCompatibleFamilyForHotReloading(
         : null;
 
     switch (fiber.tag) {
-      case ClassComponent: {
+      case WorkTag.ClassComponent: {
         if (typeof nextType === 'function') {
           needsCompareFamilies = true;
         }
         break;
       }
-      case FunctionComponent: {
+      case WorkTag.FunctionComponent: {
         if (typeof nextType === 'function') {
           needsCompareFamilies = true;
         } else if ($$typeofNextType === REACT_LAZY_TYPE) {
@@ -161,7 +155,7 @@ export function isCompatibleFamilyForHotReloading(
         }
         break;
       }
-      case ForwardRef: {
+      case WorkTag.ForwardRef: {
         if ($$typeofNextType === REACT_FORWARD_REF_TYPE) {
           needsCompareFamilies = true;
         } else if ($$typeofNextType === REACT_LAZY_TYPE) {
@@ -169,8 +163,8 @@ export function isCompatibleFamilyForHotReloading(
         }
         break;
       }
-      case MemoComponent:
-      case SimpleMemoComponent: {
+      case WorkTag.MemoComponent:
+      case WorkTag.SimpleMemoComponent: {
         if ($$typeofNextType === REACT_MEMO_TYPE) {
           // TODO: if it was but can no longer be simple,
           // we shouldn't set this.
@@ -265,12 +259,12 @@ function scheduleFibersWithFamiliesRecursively(
 
     let candidateType = null;
     switch (tag) {
-      case FunctionComponent:
-      case SimpleMemoComponent:
-      case ClassComponent:
+      case WorkTag.FunctionComponent:
+      case WorkTag.SimpleMemoComponent:
+      case WorkTag.ClassComponent:
         candidateType = type;
         break;
-      case ForwardRef:
+      case WorkTag.ForwardRef:
         candidateType = type.render;
         break;
       default:
@@ -289,7 +283,7 @@ function scheduleFibersWithFamiliesRecursively(
         if (staleFamilies.has(family)) {
           needsRemount = true;
         } else if (updatedFamilies.has(family)) {
-          if (tag === ClassComponent) {
+          if (tag === WorkTag.ClassComponent) {
             needsRemount = true;
           } else {
             needsRender = true;

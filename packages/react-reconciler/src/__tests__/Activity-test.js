@@ -2143,4 +2143,38 @@ describe('Activity', () => {
     });
     assertLog(['attach child']);
   });
+  it('handles errors in Activity components with error boundaries', async () => {
+    const ErrorComponent = () => {
+      throw new Error('Test error');
+    };
+
+    class ErrorBoundary extends React.Component {
+      state = {hasError: false};
+
+      static getDerivedStateFromError() {
+        return {hasError: true};
+      }
+
+      render() {
+        if (this.state.hasError) {
+          return <Text text="Error occurred" />;
+        }
+        return this.props.children;
+      }
+    }
+
+    const root = ReactNoop.createRoot();
+    await act(async () => {
+      root.render(
+        <ErrorBoundary>
+          <Activity mode="visible">
+            <ErrorComponent />
+          </Activity>
+        </ErrorBoundary>,
+      );
+    });
+
+    assertLog(['Error occurred']);
+    expect(root).toMatchRenderedOutput(<span prop="Error occurred" />);
+  });
 });

@@ -14,11 +14,7 @@ import type {
   ViewTransitionState,
 } from './ReactFiberViewTransitionComponent';
 
-import {
-  HostComponent,
-  OffscreenComponent,
-  ViewTransitionComponent,
-} from './ReactWorkTags';
+import {WorkTag} from './ReactWorkTags';
 import {
   NoFlags,
   Update,
@@ -117,7 +113,7 @@ function applyViewTransitionToHostInstancesRecursive(
   }
   let inViewport = false;
   while (child !== null) {
-    if (child.tag === HostComponent) {
+    if (child.tag === WorkTag.HostComponent) {
       shouldStartViewTransition = true;
       const instance: Instance = child.stateNode;
       if (collectMeasurements !== null) {
@@ -142,12 +138,12 @@ function applyViewTransitionToHostInstancesRecursive(
       );
       viewTransitionHostInstanceIdx++;
     } else if (
-      child.tag === OffscreenComponent &&
+      child.tag === WorkTag.OffscreenComponent &&
       child.memoizedState !== null
     ) {
       // Skip any hidden subtrees. They were or are effectively not there.
     } else if (
-      child.tag === ViewTransitionComponent &&
+      child.tag === WorkTag.ViewTransitionComponent &&
       stopAtNestedViewTransitions
     ) {
       // Skip any nested view transitions for updates since in that case the
@@ -178,16 +174,16 @@ function restoreViewTransitionOnHostInstances(
     return;
   }
   while (child !== null) {
-    if (child.tag === HostComponent) {
+    if (child.tag === WorkTag.HostComponent) {
       const instance: Instance = child.stateNode;
       restoreViewTransitionName(instance, child.memoizedProps);
     } else if (
-      child.tag === OffscreenComponent &&
+      child.tag === WorkTag.OffscreenComponent &&
       child.memoizedState !== null
     ) {
       // Skip any hidden subtrees. They were or are effectively not there.
     } else if (
-      child.tag === ViewTransitionComponent &&
+      child.tag === WorkTag.ViewTransitionComponent &&
       stopAtNestedViewTransitions
     ) {
       // Skip any nested view transitions for updates since in that case the
@@ -209,12 +205,15 @@ function commitAppearingPairViewTransitions(placement: Fiber): void {
   }
   let child = placement.child;
   while (child !== null) {
-    if (child.tag === OffscreenComponent && child.memoizedState === null) {
+    if (
+      child.tag === WorkTag.OffscreenComponent &&
+      child.memoizedState === null
+    ) {
       // This tree was already hidden so we skip it.
     } else {
       commitAppearingPairViewTransitions(child);
       if (
-        child.tag === ViewTransitionComponent &&
+        child.tag === WorkTag.ViewTransitionComponent &&
         (child.flags & ViewTransitionNamedStatic) !== NoFlags
       ) {
         const instance: ViewTransitionState = child.stateNode;
@@ -261,7 +260,7 @@ export function commitEnterViewTransitions(
   placement: Fiber,
   gesture: boolean,
 ): void {
-  if (placement.tag === ViewTransitionComponent) {
+  if (placement.tag === WorkTag.ViewTransitionComponent) {
     const state: ViewTransitionState = placement.stateNode;
     const props: ViewTransitionProps = placement.memoizedProps;
     const name = getViewTransitionName(props, state);
@@ -323,11 +322,14 @@ function commitDeletedPairViewTransitions(deletion: Fiber): void {
   }
   let child = deletion.child;
   while (child !== null) {
-    if (child.tag === OffscreenComponent && child.memoizedState === null) {
+    if (
+      child.tag === WorkTag.OffscreenComponent &&
+      child.memoizedState === null
+    ) {
       // This tree was already hidden so we skip it.
     } else {
       if (
-        child.tag === ViewTransitionComponent &&
+        child.tag === WorkTag.ViewTransitionComponent &&
         (child.flags & ViewTransitionNamedStatic) !== NoFlags
       ) {
         const props: ViewTransitionProps = child.memoizedProps;
@@ -380,7 +382,7 @@ function commitDeletedPairViewTransitions(deletion: Fiber): void {
 }
 
 export function commitExitViewTransitions(deletion: Fiber): void {
-  if (deletion.tag === ViewTransitionComponent) {
+  if (deletion.tag === WorkTag.ViewTransitionComponent) {
     const props: ViewTransitionProps = deletion.memoizedProps;
     const name = getViewTransitionName(props, deletion.stateNode);
     const pair =
@@ -492,7 +494,7 @@ export function commitBeforeUpdateViewTransition(
 export function commitNestedViewTransitions(changedParent: Fiber): void {
   let child = changedParent.child;
   while (child !== null) {
-    if (child.tag === ViewTransitionComponent) {
+    if (child.tag === WorkTag.ViewTransitionComponent) {
       // In this case the outer ViewTransition component wins but if there
       // was an update through this component then the inner one wins.
       const props: ViewTransitionProps = child.memoizedProps;
@@ -524,11 +526,14 @@ function restorePairedViewTransitions(parent: Fiber): void {
   }
   let child = parent.child;
   while (child !== null) {
-    if (child.tag === OffscreenComponent && child.memoizedState === null) {
+    if (
+      child.tag === WorkTag.OffscreenComponent &&
+      child.memoizedState === null
+    ) {
       // This tree was already hidden so we skip it.
     } else {
       if (
-        child.tag === ViewTransitionComponent &&
+        child.tag === WorkTag.ViewTransitionComponent &&
         (child.flags & ViewTransitionNamedStatic) !== NoFlags
       ) {
         const instance: ViewTransitionState = child.stateNode;
@@ -544,7 +549,7 @@ function restorePairedViewTransitions(parent: Fiber): void {
 }
 
 export function restoreEnterOrExitViewTransitions(fiber: Fiber): void {
-  if (fiber.tag === ViewTransitionComponent) {
+  if (fiber.tag === WorkTag.ViewTransitionComponent) {
     const instance: ViewTransitionState = fiber.stateNode;
     instance.paired = null;
     restoreViewTransitionOnHostInstances(fiber.child, false);
@@ -572,7 +577,7 @@ export function restoreUpdateViewTransition(
 export function restoreNestedViewTransitions(changedParent: Fiber): void {
   let child = changedParent.child;
   while (child !== null) {
-    if (child.tag === ViewTransitionComponent) {
+    if (child.tag === WorkTag.ViewTransitionComponent) {
       child.memoizedState = null;
       restoreViewTransitionOnHostInstances(child.child, false);
     } else if ((child.subtreeFlags & ViewTransitionStatic) !== NoFlags) {
@@ -604,7 +609,7 @@ function cancelViewTransitionHostInstancesRecursive(
     return;
   }
   while (child !== null) {
-    if (child.tag === HostComponent) {
+    if (child.tag === WorkTag.HostComponent) {
       const instance: Instance = child.stateNode;
       if (viewTransitionCancelableChildren === null) {
         viewTransitionCancelableChildren = [];
@@ -616,12 +621,12 @@ function cancelViewTransitionHostInstancesRecursive(
       );
       viewTransitionHostInstanceIdx++;
     } else if (
-      child.tag === OffscreenComponent &&
+      child.tag === WorkTag.OffscreenComponent &&
       child.memoizedState !== null
     ) {
       // Skip any hidden subtrees. They were or are effectively not there.
     } else if (
-      child.tag === ViewTransitionComponent &&
+      child.tag === WorkTag.ViewTransitionComponent &&
       stopAtNestedViewTransitions
     ) {
       // Skip any nested view transitions for updates since in that case the
@@ -672,7 +677,7 @@ function measureViewTransitionHostInstancesRecursive(
   }
   let inViewport = false;
   while (child !== null) {
-    if (child.tag === HostComponent) {
+    if (child.tag === WorkTag.HostComponent) {
       const instance: Instance = child.stateNode;
       if (
         previousMeasurements !== null &&
@@ -739,12 +744,12 @@ function measureViewTransitionHostInstancesRecursive(
       }
       viewTransitionHostInstanceIdx++;
     } else if (
-      child.tag === OffscreenComponent &&
+      child.tag === WorkTag.OffscreenComponent &&
       child.memoizedState !== null
     ) {
       // Skip any hidden subtrees. They were or are effectively not there.
     } else if (
-      child.tag === ViewTransitionComponent &&
+      child.tag === WorkTag.ViewTransitionComponent &&
       stopAtNestedViewTransitions
     ) {
       // Skip any nested view transitions for updates since in that case the
@@ -843,7 +848,7 @@ export function measureNestedViewTransitions(
 ): void {
   let child = changedParent.child;
   while (child !== null) {
-    if (child.tag === ViewTransitionComponent) {
+    if (child.tag === WorkTag.ViewTransitionComponent) {
       const props: ViewTransitionProps = child.memoizedProps;
       const state: ViewTransitionState = child.stateNode;
       const name = getViewTransitionName(props, state);

@@ -17,16 +17,7 @@ import type {
 } from './ReactFiberConfig';
 import type {Fiber, FiberRoot} from './ReactInternalTypes';
 
-import {
-  HostRoot,
-  HostComponent,
-  HostHoistable,
-  HostSingleton,
-  HostText,
-  HostPortal,
-  DehydratedFragment,
-  Fragment,
-} from './ReactWorkTags';
+import {WorkTag} from './ReactWorkTags';
 import {ContentReset, Placement} from './ReactFiberFlags';
 import {
   supportsMutation,
@@ -248,18 +239,18 @@ export function commitFragmentInstanceDeletionEffects(fiber: Fiber): void {
 
 function isHostParent(fiber: Fiber): boolean {
   return (
-    fiber.tag === HostComponent ||
-    fiber.tag === HostRoot ||
-    (supportsResources ? fiber.tag === HostHoistable : false) ||
+    fiber.tag === WorkTag.HostComponent ||
+    fiber.tag === WorkTag.HostRoot ||
+    (supportsResources ? fiber.tag === WorkTag.HostHoistable : false) ||
     (supportsSingletons
-      ? fiber.tag === HostSingleton && isSingletonScope(fiber.type)
+      ? fiber.tag === WorkTag.HostSingleton && isSingletonScope(fiber.type)
       : false) ||
-    fiber.tag === HostPortal
+    fiber.tag === WorkTag.HostPortal
   );
 }
 
 function isFragmentInstanceParent(fiber: Fiber): boolean {
-  return fiber && fiber.tag === Fragment && fiber.stateNode !== null;
+  return fiber && fiber.tag === WorkTag.Fragment && fiber.stateNode !== null;
 }
 
 function getHostSibling(fiber: Fiber): ?Instance {
@@ -282,16 +273,16 @@ function getHostSibling(fiber: Fiber): ?Instance {
     node.sibling.return = node.return;
     node = node.sibling;
     while (
-      node.tag !== HostComponent &&
-      node.tag !== HostText &&
-      node.tag !== DehydratedFragment
+      node.tag !== WorkTag.HostComponent &&
+      node.tag !== WorkTag.HostText &&
+      node.tag !== WorkTag.DehydratedFragment
     ) {
       // If this is a host singleton we go deeper if it's not a special
       // singleton scope. If it is a singleton scope we skip over it because
       // you only insert against this scope when you are already inside of it
       if (
         supportsSingletons &&
-        node.tag === HostSingleton &&
+        node.tag === WorkTag.HostSingleton &&
         isSingletonScope(node.type)
       ) {
         continue siblings;
@@ -305,7 +296,7 @@ function getHostSibling(fiber: Fiber): ?Instance {
       }
       // If we don't have a child, try the siblings instead.
       // We also skip portals because they are not part of this host tree.
-      if (node.child === null || node.tag === HostPortal) {
+      if (node.child === null || node.tag === WorkTag.HostPortal) {
         continue siblings;
       } else {
         node.child.return = node;
@@ -327,7 +318,7 @@ function insertOrAppendPlacementNodeIntoContainer(
   parentFragmentInstances: null | Array<FragmentInstanceType>,
 ): void {
   const {tag} = node;
-  const isHost = tag === HostComponent || tag === HostText;
+  const isHost = tag === WorkTag.HostComponent || tag === WorkTag.HostText;
   if (isHost) {
     const stateNode = node.stateNode;
     if (before) {
@@ -338,7 +329,7 @@ function insertOrAppendPlacementNodeIntoContainer(
     // TODO: Enable HostText for RN
     if (
       enableFragmentRefs &&
-      tag === HostComponent &&
+      tag === WorkTag.HostComponent &&
       // Only run fragment insertion effects for initial insertions
       node.alternate === null &&
       parentFragmentInstances !== null
@@ -347,7 +338,7 @@ function insertOrAppendPlacementNodeIntoContainer(
     }
     trackHostMutation();
     return;
-  } else if (tag === HostPortal) {
+  } else if (tag === WorkTag.HostPortal) {
     // If the insertion itself is a portal, then we don't want to traverse
     // down its children. Instead, we'll get insertions from each child in
     // the portal directly.
@@ -355,7 +346,7 @@ function insertOrAppendPlacementNodeIntoContainer(
   }
 
   if (
-    (supportsSingletons ? tag === HostSingleton : false) &&
+    (supportsSingletons ? tag === WorkTag.HostSingleton : false) &&
     isSingletonScope(node.type)
   ) {
     // This singleton is the parent of deeper nodes and needs to become
@@ -392,7 +383,7 @@ function insertOrAppendPlacementNode(
   parentFragmentInstances: null | Array<FragmentInstanceType>,
 ): void {
   const {tag} = node;
-  const isHost = tag === HostComponent || tag === HostText;
+  const isHost = tag === WorkTag.HostComponent || tag === WorkTag.HostText;
   if (isHost) {
     const stateNode = node.stateNode;
     if (before) {
@@ -403,7 +394,7 @@ function insertOrAppendPlacementNode(
     // TODO: Enable HostText for RN
     if (
       enableFragmentRefs &&
-      tag === HostComponent &&
+      tag === WorkTag.HostComponent &&
       // Only run fragment insertion effects for initial insertions
       node.alternate === null &&
       parentFragmentInstances !== null
@@ -412,7 +403,7 @@ function insertOrAppendPlacementNode(
     }
     trackHostMutation();
     return;
-  } else if (tag === HostPortal) {
+  } else if (tag === WorkTag.HostPortal) {
     // If the insertion itself is a portal, then we don't want to traverse
     // down its children. Instead, we'll get insertions from each child in
     // the portal directly.
@@ -420,7 +411,7 @@ function insertOrAppendPlacementNode(
   }
 
   if (
-    (supportsSingletons ? tag === HostSingleton : false) &&
+    (supportsSingletons ? tag === WorkTag.HostSingleton : false) &&
     isSingletonScope(node.type)
   ) {
     // This singleton is the parent of deeper nodes and needs to become
@@ -476,7 +467,7 @@ function commitPlacement(finishedWork: Fiber): void {
   }
 
   switch (hostParentFiber.tag) {
-    case HostSingleton: {
+    case WorkTag.HostSingleton: {
       if (supportsSingletons) {
         const parent: Instance = hostParentFiber.stateNode;
         const before = getHostSibling(finishedWork);
@@ -492,7 +483,7 @@ function commitPlacement(finishedWork: Fiber): void {
       }
       // Fall through
     }
-    case HostComponent: {
+    case WorkTag.HostComponent: {
       const parent: Instance = hostParentFiber.stateNode;
       if (hostParentFiber.flags & ContentReset) {
         // Reset the text content of the parent before doing any insertions
@@ -512,8 +503,8 @@ function commitPlacement(finishedWork: Fiber): void {
       );
       break;
     }
-    case HostRoot:
-    case HostPortal: {
+    case WorkTag.HostRoot:
+    case WorkTag.HostPortal: {
       const parent: Container = hostParentFiber.stateNode.containerInfo;
       const before = getHostSibling(finishedWork);
       insertOrAppendPlacementNodeIntoContainer(

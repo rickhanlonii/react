@@ -11,7 +11,7 @@ import type {Fiber} from './ReactInternalTypes';
 import type {StackCursor} from './ReactFiberStack';
 
 import {disableLegacyContext} from 'shared/ReactFeatureFlags';
-import {ClassComponent, HostRoot} from './ReactWorkTags';
+import {WorkTag} from './ReactWorkTags';
 import getComponentNameFromFiber from 'react-reconciler/src/getComponentNameFromFiber';
 
 import {createCursor, push, pop} from './ReactFiberStack';
@@ -287,9 +287,9 @@ function findCurrentUnmaskedContext(fiber: Fiber): Object {
     let node: Fiber = fiber;
     do {
       switch (node.tag) {
-        case HostRoot:
+        case WorkTag.HostRoot:
           return node.stateNode.context;
-        case ClassComponent: {
+        case WorkTag.ClassComponent: {
           const Component = node.type;
           if (isContextProvider(Component)) {
             return node.stateNode.__reactInternalMemoizedMergedChildContext;

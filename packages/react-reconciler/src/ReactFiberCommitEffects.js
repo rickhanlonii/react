@@ -27,14 +27,7 @@ import {
   enableViewTransition,
   enableFragmentRefs,
 } from 'shared/ReactFeatureFlags';
-import {
-  ClassComponent,
-  Fragment,
-  HostComponent,
-  HostHoistable,
-  HostSingleton,
-  ViewTransitionComponent,
-} from './ReactWorkTags';
+import {WorkTag} from './ReactWorkTags';
 import {NoFlags} from './ReactFiberFlags';
 import getComponentNameFromFiber from 'react-reconciler/src/getComponentNameFromFiber';
 import {resolveClassComponentProps} from './ReactFiberClassComponent';
@@ -713,11 +706,11 @@ export function commitRootCallbacks(finishedWork: Fiber) {
     let instance = null;
     if (finishedWork.child !== null) {
       switch (finishedWork.child.tag) {
-        case HostSingleton:
-        case HostComponent:
+        case WorkTag.HostSingleton:
+        case WorkTag.HostComponent:
           instance = getPublicInstance(finishedWork.child.stateNode);
           break;
-        case ClassComponent:
+        case WorkTag.ClassComponent:
           instance = finishedWork.child.stateNode;
           break;
       }
@@ -876,12 +869,12 @@ function commitAttachRef(finishedWork: Fiber) {
   if (ref !== null) {
     let instanceToUse;
     switch (finishedWork.tag) {
-      case HostHoistable:
-      case HostSingleton:
-      case HostComponent:
+      case WorkTag.HostHoistable:
+      case WorkTag.HostSingleton:
+      case WorkTag.HostComponent:
         instanceToUse = getPublicInstance(finishedWork.stateNode);
         break;
-      case ViewTransitionComponent: {
+      case WorkTag.ViewTransitionComponent: {
         if (enableViewTransition) {
           const instance: ViewTransitionState = finishedWork.stateNode;
           const props: ViewTransitionProps = finishedWork.memoizedProps;
@@ -895,7 +888,7 @@ function commitAttachRef(finishedWork: Fiber) {
         instanceToUse = finishedWork.stateNode;
         break;
       }
-      case Fragment:
+      case WorkTag.Fragment:
         if (enableFragmentRefs) {
           const instance: null | FragmentInstanceType = finishedWork.stateNode;
           if (instance === null) {

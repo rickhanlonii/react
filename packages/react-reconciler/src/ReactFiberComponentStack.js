@@ -11,21 +11,7 @@ import {enableViewTransition} from 'shared/ReactFeatureFlags';
 import type {Fiber} from './ReactInternalTypes';
 import type {ReactComponentInfo} from 'shared/ReactTypes';
 
-import {
-  HostComponent,
-  HostHoistable,
-  HostSingleton,
-  LazyComponent,
-  SuspenseComponent,
-  SuspenseListComponent,
-  FunctionComponent,
-  ForwardRef,
-  SimpleMemoComponent,
-  ClassComponent,
-  HostText,
-  ViewTransitionComponent,
-  ActivityComponent,
-} from './ReactWorkTags';
+import {WorkTag} from './ReactWorkTags';
 import {
   describeBuiltInComponentFrame,
   describeFunctionComponentFrame,
@@ -36,27 +22,27 @@ import {formatOwnerStack} from 'shared/ReactOwnerStackFrames';
 
 function describeFiber(fiber: Fiber): string {
   switch (fiber.tag) {
-    case HostHoistable:
-    case HostSingleton:
-    case HostComponent:
+    case WorkTag.HostHoistable:
+    case WorkTag.HostSingleton:
+    case WorkTag.HostComponent:
       return describeBuiltInComponentFrame(fiber.type);
-    case LazyComponent:
+    case WorkTag.LazyComponent:
       // TODO: When we support Thenables as component types we should rename this.
       return describeBuiltInComponentFrame('Lazy');
-    case SuspenseComponent:
+    case WorkTag.SuspenseComponent:
       return describeBuiltInComponentFrame('Suspense');
-    case SuspenseListComponent:
+    case WorkTag.SuspenseListComponent:
       return describeBuiltInComponentFrame('SuspenseList');
-    case FunctionComponent:
-    case SimpleMemoComponent:
+    case WorkTag.FunctionComponent:
+    case WorkTag.SimpleMemoComponent:
       return describeFunctionComponentFrame(fiber.type);
-    case ForwardRef:
+    case WorkTag.ForwardRef:
       return describeFunctionComponentFrame(fiber.type.render);
-    case ClassComponent:
+    case WorkTag.ClassComponent:
       return describeClassComponentFrame(fiber.type);
-    case ActivityComponent:
+    case WorkTag.ActivityComponent:
       return describeBuiltInComponentFrame('Activity');
-    case ViewTransitionComponent:
+    case WorkTag.ViewTransitionComponent:
       if (enableViewTransition) {
         return describeBuiltInComponentFrame('ViewTransition');
       }
@@ -107,7 +93,7 @@ export function getOwnerStackByFiberInDev(workInProgress: Fiber): string {
   try {
     let info = '';
 
-    if (workInProgress.tag === HostText) {
+    if (workInProgress.tag === WorkTag.HostText) {
       // Text nodes never have an owner/stack because they're not created through JSX.
       // We use the parent since text nodes are always created through a host parent.
       workInProgress = (workInProgress.return: any);
@@ -121,29 +107,29 @@ export function getOwnerStackByFiberInDev(workInProgress: Fiber): string {
     // Similarly, if there is no owner at all, then there's no stack frame so we add the name
     // of the root component to the stack to know which component is currently executing.
     switch (workInProgress.tag) {
-      case HostHoistable:
-      case HostSingleton:
-      case HostComponent:
+      case WorkTag.HostHoistable:
+      case WorkTag.HostSingleton:
+      case WorkTag.HostComponent:
         info += describeBuiltInComponentFrame(workInProgress.type);
         break;
-      case SuspenseComponent:
+      case WorkTag.SuspenseComponent:
         info += describeBuiltInComponentFrame('Suspense');
         break;
-      case SuspenseListComponent:
+      case WorkTag.SuspenseListComponent:
         info += describeBuiltInComponentFrame('SuspenseList');
         break;
-      case ActivityComponent:
+      case WorkTag.ActivityComponent:
         info += describeBuiltInComponentFrame('Activity');
         break;
-      case ViewTransitionComponent:
+      case WorkTag.ViewTransitionComponent:
         if (enableViewTransition) {
           info += describeBuiltInComponentFrame('ViewTransition');
           break;
         }
       // Fallthrough
-      case FunctionComponent:
-      case SimpleMemoComponent:
-      case ClassComponent:
+      case WorkTag.FunctionComponent:
+      case WorkTag.SimpleMemoComponent:
+      case WorkTag.ClassComponent:
         if (!workInProgress._debugOwner && info === '') {
           // Only if we have no other data about the callsite do we add
           // the component name as the single stack frame.
@@ -152,7 +138,7 @@ export function getOwnerStackByFiberInDev(workInProgress: Fiber): string {
           );
         }
         break;
-      case ForwardRef:
+      case WorkTag.ForwardRef:
         if (!workInProgress._debugOwner && info === '') {
           info += describeFunctionComponentFrameWithoutLineNumber(
             workInProgress.type.render,

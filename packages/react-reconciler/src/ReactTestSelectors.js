@@ -10,12 +10,7 @@
 import type {Fiber} from 'react-reconciler/src/ReactInternalTypes';
 import type {Instance} from './ReactFiberConfig';
 
-import {
-  HostComponent,
-  HostHoistable,
-  HostSingleton,
-  HostText,
-} from 'react-reconciler/src/ReactWorkTags';
+import {WorkTag} from 'react-reconciler/src/ReactWorkTags';
 import getComponentNameFromType from 'shared/getComponentNameFromType';
 import {
   findFiberRoot,
@@ -157,9 +152,9 @@ function matchSelector(fiber: Fiber, selector: Selector): boolean {
       );
     case ROLE_TYPE:
       if (
-        tag === HostComponent ||
-        tag === HostHoistable ||
-        tag === HostSingleton
+        tag === WorkTag.HostComponent ||
+        tag === WorkTag.HostHoistable ||
+        tag === WorkTag.HostSingleton
       ) {
         const node = fiber.stateNode;
         if (
@@ -171,10 +166,10 @@ function matchSelector(fiber: Fiber, selector: Selector): boolean {
       break;
     case TEXT_TYPE:
       if (
-        tag === HostComponent ||
-        tag === HostText ||
-        tag === HostHoistable ||
-        tag === HostSingleton
+        tag === WorkTag.HostComponent ||
+        tag === WorkTag.HostText ||
+        tag === WorkTag.HostHoistable ||
+        tag === WorkTag.HostSingleton
       ) {
         const textContent = getTextContent(fiber);
         if (
@@ -187,9 +182,9 @@ function matchSelector(fiber: Fiber, selector: Selector): boolean {
       break;
     case TEST_NAME_TYPE:
       if (
-        tag === HostComponent ||
-        tag === HostHoistable ||
-        tag === HostSingleton
+        tag === WorkTag.HostComponent ||
+        tag === WorkTag.HostHoistable ||
+        tag === WorkTag.HostSingleton
       ) {
         const dataTestID = fiber.memoizedProps['data-testname'];
         if (
@@ -238,9 +233,9 @@ function findPaths(root: Fiber, selectors: Array<Selector>): Array<Fiber> {
     let selector = selectors[selectorIndex];
 
     if (
-      (tag === HostComponent ||
-        tag === HostHoistable ||
-        tag === HostSingleton) &&
+      (tag === WorkTag.HostComponent ||
+        tag === WorkTag.HostHoistable ||
+        tag === WorkTag.HostSingleton) &&
       isHiddenSubtree(fiber)
     ) {
       continue;
@@ -276,9 +271,9 @@ function hasMatchingPaths(root: Fiber, selectors: Array<Selector>): boolean {
     let selector = selectors[selectorIndex];
 
     if (
-      (tag === HostComponent ||
-        tag === HostHoistable ||
-        tag === HostSingleton) &&
+      (tag === WorkTag.HostComponent ||
+        tag === WorkTag.HostHoistable ||
+        tag === WorkTag.HostSingleton) &&
       isHiddenSubtree(fiber)
     ) {
       continue;
@@ -322,9 +317,9 @@ export function findAllNodes(
     const node = ((stack[index++]: any): Fiber);
     const tag = node.tag;
     if (
-      tag === HostComponent ||
-      tag === HostHoistable ||
-      tag === HostSingleton
+      tag === WorkTag.HostComponent ||
+      tag === WorkTag.HostHoistable ||
+      tag === WorkTag.HostSingleton
     ) {
       if (isHiddenSubtree(node)) {
         continue;
@@ -365,9 +360,9 @@ export function getFindAllNodesFailureDescription(
     const selector = selectors[selectorIndex];
 
     if (
-      (tag === HostComponent ||
-        tag === HostHoistable ||
-        tag === HostSingleton) &&
+      (tag === WorkTag.HostComponent ||
+        tag === WorkTag.HostHoistable ||
+        tag === WorkTag.HostSingleton) &&
       isHiddenSubtree(fiber)
     ) {
       continue;
@@ -523,9 +518,9 @@ export function focusWithin(
       continue;
     }
     if (
-      tag === HostComponent ||
-      tag === HostHoistable ||
-      tag === HostSingleton
+      tag === WorkTag.HostComponent ||
+      tag === WorkTag.HostHoistable ||
+      tag === WorkTag.HostSingleton
     ) {
       const node = fiber.stateNode;
       if (setFocusIfFocusable(node)) {

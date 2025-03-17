@@ -15,7 +15,7 @@ import {
   findCurrentFiberUsingSlowPath,
 } from 'react-reconciler/src/ReactFiberTreeReflection';
 import getComponentNameFromType from 'shared/getComponentNameFromType';
-import {HostComponent} from 'react-reconciler/src/ReactWorkTags';
+import {WorkTag} from 'react-reconciler/src/ReactWorkTags';
 // Module provided by RN:
 import {
   UIManager,
@@ -66,7 +66,7 @@ if (__DEV__) {
     // look for children first for the hostNode
     // as composite fibers do not have a hostNode
     while (fiber) {
-      if (fiber.stateNode !== null && fiber.tag === HostComponent) {
+      if (fiber.stateNode !== null && fiber.tag === WorkTag.HostComponent) {
         hostNode = findNodeHandle(fiber.stateNode);
       }
       if (hostNode) {
@@ -135,7 +135,7 @@ if (__DEV__) {
     for (let i = hierarchy.length - 1; i > 1; i--) {
       const instance = hierarchy[i];
 
-      if (instance.tag !== HostComponent) {
+      if (instance.tag !== WorkTag.HostComponent) {
         return instance;
       }
     }

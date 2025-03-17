@@ -63,31 +63,7 @@ import {
   enableViewTransition,
   enableFragmentRefs,
 } from 'shared/ReactFeatureFlags';
-import {
-  FunctionComponent,
-  ForwardRef,
-  ClassComponent,
-  HostRoot,
-  HostComponent,
-  HostHoistable,
-  HostSingleton,
-  HostText,
-  HostPortal,
-  Profiler,
-  SuspenseComponent,
-  DehydratedFragment,
-  IncompleteClassComponent,
-  MemoComponent,
-  SimpleMemoComponent,
-  SuspenseListComponent,
-  ScopeComponent,
-  OffscreenComponent,
-  LegacyHiddenComponent,
-  CacheComponent,
-  TracingMarkerComponent,
-  ViewTransitionComponent,
-  Fragment,
-} from './ReactWorkTags';
+import {WorkTag} from './ReactWorkTags';
 import {
   NoFlags,
   ContentReset,
@@ -346,7 +322,7 @@ function commitBeforeMutationEffects_begin(isViewTransitionEligible: boolean) {
     }
 
     // TODO: This should really unify with the switch in commitBeforeMutationEffectsOnFiber recursively.
-    if (enableViewTransition && fiber.tag === OffscreenComponent) {
+    if (enableViewTransition && fiber.tag === WorkTag.OffscreenComponent) {
       const isModernRoot =
         disableLegacyMode || (fiber.mode & ConcurrentMode) !== NoMode;
       if (isModernRoot) {
@@ -423,7 +399,7 @@ function commitBeforeMutationEffectsOnFiber(
       // Check to see if the focused element was inside of a hidden (Suspense) subtree.
       // TODO: Move this out of the hot path using a dedicated effect tag.
       if (
-        finishedWork.tag === SuspenseComponent &&
+        finishedWork.tag === WorkTag.SuspenseComponent &&
         isSuspenseBoundaryBeingHidden(current, finishedWork) &&
         // $FlowFixMe[incompatible-call] found when upgrading Flow
         doesFiberContain(finishedWork, focusedInstanceHandle)
@@ -435,7 +411,7 @@ function commitBeforeMutationEffectsOnFiber(
   }
 
   switch (finishedWork.tag) {
-    case FunctionComponent: {
+    case WorkTag.FunctionComponent: {
       if (enableUseEffectEventHook) {
         if ((flags & Update) !== NoFlags) {
           const updateQueue: FunctionComponentUpdateQueue | null =
@@ -452,11 +428,11 @@ function commitBeforeMutationEffectsOnFiber(
       }
       break;
     }
-    case ForwardRef:
-    case SimpleMemoComponent: {
+    case WorkTag.ForwardRef:
+    case WorkTag.SimpleMemoComponent: {
       break;
     }
-    case ClassComponent: {
+    case WorkTag.ClassComponent: {
       if ((flags & Snapshot) !== NoFlags) {
         if (current !== null) {
           commitClassSnapshot(finishedWork, current);
@@ -464,7 +440,7 @@ function commitBeforeMutationEffectsOnFiber(
       }
       break;
     }
-    case HostRoot: {
+    case WorkTag.HostRoot: {
       if ((flags & Snapshot) !== NoFlags) {
         if (supportsMutation) {
           const root = finishedWork.stateNode;
@@ -473,15 +449,15 @@ function commitBeforeMutationEffectsOnFiber(
       }
       break;
     }
-    case HostComponent:
-    case HostHoistable:
-    case HostSingleton:
-    case HostText:
-    case HostPortal:
-    case IncompleteClassComponent:
+    case WorkTag.HostComponent:
+    case WorkTag.HostHoistable:
+    case WorkTag.HostSingleton:
+    case WorkTag.HostText:
+    case WorkTag.HostPortal:
+    case WorkTag.IncompleteClassComponent:
       // Nothing to do for these component types
       break;
-    case ViewTransitionComponent:
+    case WorkTag.ViewTransitionComponent:
       if (enableViewTransition) {
         if (isViewTransitionEligible) {
           if (current === null) {
@@ -543,9 +519,9 @@ function commitLayoutEffectOnFiber(
   // most of the same things when an offscreen tree goes from hidden -> visible.
   const flags = finishedWork.flags;
   switch (finishedWork.tag) {
-    case FunctionComponent:
-    case ForwardRef:
-    case SimpleMemoComponent: {
+    case WorkTag.FunctionComponent:
+    case WorkTag.ForwardRef:
+    case WorkTag.SimpleMemoComponent: {
       recursivelyTraverseLayoutEffects(
         finishedRoot,
         finishedWork,
@@ -556,7 +532,7 @@ function commitLayoutEffectOnFiber(
       }
       break;
     }
-    case ClassComponent: {
+    case WorkTag.ClassComponent: {
       recursivelyTraverseLayoutEffects(
         finishedRoot,
         finishedWork,
@@ -575,7 +551,7 @@ function commitLayoutEffectOnFiber(
       }
       break;
     }
-    case HostRoot: {
+    case WorkTag.HostRoot: {
       const prevEffectDuration = pushNestedEffectDurations();
       recursivelyTraverseLayoutEffects(
         finishedRoot,
@@ -591,7 +567,7 @@ function commitLayoutEffectOnFiber(
       }
       break;
     }
-    case HostSingleton: {
+    case WorkTag.HostSingleton: {
       if (supportsSingletons) {
         // We acquire the singleton instance first so it has appropriate
         // styles before other layout effects run. This isn't perfect because
@@ -608,8 +584,8 @@ function commitLayoutEffectOnFiber(
       }
       // Fallthrough
     }
-    case HostHoistable:
-    case HostComponent: {
+    case WorkTag.HostHoistable:
+    case WorkTag.HostComponent: {
       recursivelyTraverseLayoutEffects(
         finishedRoot,
         finishedWork,
@@ -629,7 +605,7 @@ function commitLayoutEffectOnFiber(
       }
       break;
     }
-    case Profiler: {
+    case WorkTag.Profiler: {
       // TODO: Should this fire inside an offscreen tree? Or should it wait to
       // fire when the tree becomes visible again.
       if (flags & Update) {
@@ -665,7 +641,7 @@ function commitLayoutEffectOnFiber(
       }
       break;
     }
-    case SuspenseComponent: {
+    case WorkTag.SuspenseComponent: {
       recursivelyTraverseLayoutEffects(
         finishedRoot,
         finishedWork,
@@ -693,7 +669,7 @@ function commitLayoutEffectOnFiber(
       }
       break;
     }
-    case OffscreenComponent: {
+    case WorkTag.OffscreenComponent: {
       const isModernRoot =
         disableLegacyMode || (finishedWork.mode & ConcurrentMode) !== NoMode;
       if (isModernRoot) {
@@ -752,7 +728,7 @@ function commitLayoutEffectOnFiber(
       }
       break;
     }
-    case ViewTransitionComponent: {
+    case WorkTag.ViewTransitionComponent: {
       if (enableViewTransition) {
         recursivelyTraverseLayoutEffects(
           finishedRoot,
@@ -766,7 +742,7 @@ function commitLayoutEffectOnFiber(
       }
       break;
     }
-    case Fragment:
+    case WorkTag.Fragment:
       if (enableFragmentRefs) {
         if (flags & Ref) {
           safelyAttachRef(finishedWork, finishedWork.return);
@@ -912,7 +888,7 @@ function abortParentMarkerTransitionsForDeletedFiber(
     let fiber: null | Fiber = abortedFiber;
     while (fiber !== null) {
       switch (fiber.tag) {
-        case TracingMarkerComponent:
+        case WorkTag.TracingMarkerComponent:
           abortTracingMarkerTransitions(
             fiber,
             abort,
@@ -921,7 +897,7 @@ function abortParentMarkerTransitionsForDeletedFiber(
             isInDeletedTree,
           );
           break;
-        case HostRoot:
+        case WorkTag.HostRoot:
           const root = fiber.stateNode;
           abortRootTransitions(
             root,
@@ -973,7 +949,7 @@ function commitTransitionProgress(offscreenFiber: Fiber) {
     const parent = offscreenFiber.return;
     if (
       parent !== null &&
-      parent.tag === SuspenseComponent &&
+      parent.tag === WorkTag.SuspenseComponent &&
       parent.memoizedProps.unstable_name
     ) {
       name = parent.memoizedProps.unstable_name;
@@ -1080,20 +1056,20 @@ function hideOrUnhideAllChildren(finishedWork: Fiber, isHidden: boolean) {
     let node: Fiber = finishedWork;
     while (true) {
       if (
-        node.tag === HostComponent ||
-        (supportsResources ? node.tag === HostHoistable : false)
+        node.tag === WorkTag.HostComponent ||
+        (supportsResources ? node.tag === WorkTag.HostHoistable : false)
       ) {
         if (hostSubtreeRoot === null) {
           hostSubtreeRoot = node;
           commitShowHideHostInstance(node, isHidden);
         }
-      } else if (node.tag === HostText) {
+      } else if (node.tag === WorkTag.HostText) {
         if (hostSubtreeRoot === null) {
           commitShowHideHostTextInstance(node, isHidden);
         }
       } else if (
-        (node.tag === OffscreenComponent ||
-          node.tag === LegacyHiddenComponent) &&
+        (node.tag === WorkTag.OffscreenComponent ||
+          node.tag === WorkTag.LegacyHiddenComponent) &&
         (node.memoizedState: OffscreenState) !== null &&
         node !== finishedWork
       ) {
@@ -1175,7 +1151,7 @@ function detachFiberAfterEffects(fiber: Fiber) {
   // tree, which has its own pointers to children, parents, and siblings.
   // The other host nodes also point back to fibers, so we should detach that
   // one, too.
-  if (fiber.tag === HostComponent) {
+  if (fiber.tag === WorkTag.HostComponent) {
     const hostInstance: Instance = fiber.stateNode;
     if (hostInstance !== null) {
       detachDeletedInstance(hostInstance);
@@ -1234,7 +1210,7 @@ function commitDeletionEffects(
     let parent: null | Fiber = returnFiber;
     findParent: while (parent !== null) {
       switch (parent.tag) {
-        case HostSingleton: {
+        case WorkTag.HostSingleton: {
           if (supportsSingletons) {
             if (isSingletonScope(parent.type)) {
               hostParent = parent.stateNode;
@@ -1245,13 +1221,13 @@ function commitDeletionEffects(
           }
           // Expected fallthrough when supportsSingletons is false
         }
-        case HostComponent: {
+        case WorkTag.HostComponent: {
           hostParent = parent.stateNode;
           hostParentIsContainer = false;
           break findParent;
         }
-        case HostRoot:
-        case HostPortal: {
+        case WorkTag.HostRoot:
+        case WorkTag.HostPortal: {
           hostParent = parent.stateNode.containerInfo;
           hostParentIsContainer = true;
           break findParent;
@@ -1302,7 +1278,7 @@ function commitDeletionEffectsOnFiber(
   // into their subtree. There are simpler cases in the inner switch
   // that don't modify the stack.
   switch (deletedFiber.tag) {
-    case HostHoistable: {
+    case WorkTag.HostHoistable: {
       if (supportsResources) {
         if (!offscreenSubtreeWasHidden) {
           safelyDetachRef(deletedFiber, nearestMountedAncestor);
@@ -1321,7 +1297,7 @@ function commitDeletionEffectsOnFiber(
       }
       // Fall through
     }
-    case HostSingleton: {
+    case WorkTag.HostSingleton: {
       if (supportsSingletons) {
         if (!offscreenSubtreeWasHidden) {
           safelyDetachRef(deletedFiber, nearestMountedAncestor);
@@ -1353,16 +1329,16 @@ function commitDeletionEffectsOnFiber(
       }
       // Fall through
     }
-    case HostComponent: {
+    case WorkTag.HostComponent: {
       if (!offscreenSubtreeWasHidden) {
         safelyDetachRef(deletedFiber, nearestMountedAncestor);
       }
-      if (enableFragmentRefs && deletedFiber.tag === HostComponent) {
+      if (enableFragmentRefs && deletedFiber.tag === WorkTag.HostComponent) {
         commitFragmentInstanceDeletionEffects(deletedFiber);
       }
       // Intentional fallthrough to next branch
     }
-    case HostText: {
+    case WorkTag.HostText: {
       // We only need to remove the nearest host child. Set the host parent
       // to `null` on the stack to indicate that nested children don't
       // need to be removed.
@@ -1406,7 +1382,7 @@ function commitDeletionEffectsOnFiber(
       }
       return;
     }
-    case DehydratedFragment: {
+    case WorkTag.DehydratedFragment: {
       if (enableSuspenseCallback) {
         const hydrationCallbacks = finishedRoot.hydrationCallbacks;
         if (hydrationCallbacks !== null) {
@@ -1445,7 +1421,7 @@ function commitDeletionEffectsOnFiber(
       }
       return;
     }
-    case HostPortal: {
+    case WorkTag.HostPortal: {
       if (supportsMutation) {
         // When we go into a portal, it becomes the parent to remove from.
         const prevHostParent = hostParent;
@@ -1476,10 +1452,10 @@ function commitDeletionEffectsOnFiber(
       }
       return;
     }
-    case FunctionComponent:
-    case ForwardRef:
-    case MemoComponent:
-    case SimpleMemoComponent: {
+    case WorkTag.FunctionComponent:
+    case WorkTag.ForwardRef:
+    case WorkTag.MemoComponent:
+    case WorkTag.SimpleMemoComponent: {
       if (
         enableHiddenSubtreeInsertionEffectCleanup ||
         !offscreenSubtreeWasHidden
@@ -1505,7 +1481,7 @@ function commitDeletionEffectsOnFiber(
       );
       return;
     }
-    case ClassComponent: {
+    case WorkTag.ClassComponent: {
       if (!offscreenSubtreeWasHidden) {
         safelyDetachRef(deletedFiber, nearestMountedAncestor);
         const instance = deletedFiber.stateNode;
@@ -1524,7 +1500,7 @@ function commitDeletionEffectsOnFiber(
       );
       return;
     }
-    case ScopeComponent: {
+    case WorkTag.ScopeComponent: {
       if (enableScopeAPI) {
         if (!offscreenSubtreeWasHidden) {
           safelyDetachRef(deletedFiber, nearestMountedAncestor);
@@ -1537,7 +1513,7 @@ function commitDeletionEffectsOnFiber(
       );
       return;
     }
-    case OffscreenComponent: {
+    case WorkTag.OffscreenComponent: {
       if (!offscreenSubtreeWasHidden) {
         safelyDetachRef(deletedFiber, nearestMountedAncestor);
       }
@@ -1570,7 +1546,7 @@ function commitDeletionEffectsOnFiber(
       }
       break;
     }
-    case Fragment: {
+    case WorkTag.Fragment: {
       if (enableFragmentRefs) {
         if (!offscreenSubtreeWasHidden) {
           safelyDetachRef(deletedFiber, nearestMountedAncestor);
@@ -1646,15 +1622,15 @@ function getRetryCache(finishedWork: Fiber) {
   // TODO: Unify the interface for the retry cache so we don't have to switch
   // on the tag like this.
   switch (finishedWork.tag) {
-    case SuspenseComponent:
-    case SuspenseListComponent: {
+    case WorkTag.SuspenseComponent:
+    case WorkTag.SuspenseListComponent: {
       let retryCache = finishedWork.stateNode;
       if (retryCache === null) {
         retryCache = finishedWork.stateNode = new PossiblyWeakSet();
       }
       return retryCache;
     }
-    case OffscreenComponent: {
+    case WorkTag.OffscreenComponent: {
       const instance: OffscreenInstance = finishedWork.stateNode;
       let retryCache: null | Set<Wakeable> | WeakSet<Wakeable> =
         instance._retryCache;
@@ -1665,7 +1641,7 @@ function getRetryCache(finishedWork: Fiber) {
     }
     default: {
       throw new Error(
-        `Unexpected Suspense handler tag (${finishedWork.tag}). This is a ` +
+        `Unexpected Suspense handler tag (${finishedWork.tag.valueOf()}). This is a ` +
           'bug in React.',
       );
     }
@@ -1822,10 +1798,10 @@ function commitMutationEffectsOnFiber(
   // because the fiber tag is more specific. An exception is any flag related
   // to reconciliation, because those can be set on all fiber types.
   switch (finishedWork.tag) {
-    case FunctionComponent:
-    case ForwardRef:
-    case MemoComponent:
-    case SimpleMemoComponent: {
+    case WorkTag.FunctionComponent:
+    case WorkTag.ForwardRef:
+    case WorkTag.MemoComponent:
+    case WorkTag.SimpleMemoComponent: {
       recursivelyTraverseMutationEffects(root, finishedWork, lanes);
       commitReconciliationEffects(finishedWork, lanes);
 
@@ -1845,7 +1821,7 @@ function commitMutationEffectsOnFiber(
       }
       break;
     }
-    case ClassComponent: {
+    case WorkTag.ClassComponent: {
       recursivelyTraverseMutationEffects(root, finishedWork, lanes);
       commitReconciliationEffects(finishedWork, lanes);
 
@@ -1864,7 +1840,7 @@ function commitMutationEffectsOnFiber(
       }
       break;
     }
-    case HostHoistable: {
+    case WorkTag.HostHoistable: {
       if (supportsResources) {
         // We cast because we always set the root at the React root and so it cannot be
         // null while we are processing mutation effects
@@ -1942,7 +1918,7 @@ function commitMutationEffectsOnFiber(
       }
       // Fall through
     }
-    case HostSingleton: {
+    case WorkTag.HostSingleton: {
       if (supportsSingletons) {
         recursivelyTraverseMutationEffects(root, finishedWork, lanes);
         commitReconciliationEffects(finishedWork, lanes);
@@ -1960,7 +1936,7 @@ function commitMutationEffectsOnFiber(
       }
       // Fall through
     }
-    case HostComponent: {
+    case WorkTag.HostComponent: {
       recursivelyTraverseMutationEffects(root, finishedWork, lanes);
 
       commitReconciliationEffects(finishedWork, lanes);
@@ -2011,7 +1987,7 @@ function commitMutationEffectsOnFiber(
       }
       break;
     }
-    case HostText: {
+    case WorkTag.HostText: {
       recursivelyTraverseMutationEffects(root, finishedWork, lanes);
       commitReconciliationEffects(finishedWork, lanes);
 
@@ -2036,7 +2012,7 @@ function commitMutationEffectsOnFiber(
       }
       break;
     }
-    case HostRoot: {
+    case WorkTag.HostRoot: {
       const prevEffectDuration = pushNestedEffectDurations();
 
       if (supportsResources) {
@@ -2088,7 +2064,7 @@ function commitMutationEffectsOnFiber(
 
       break;
     }
-    case HostPortal: {
+    case WorkTag.HostPortal: {
       if (supportsResources) {
         const previousHoistableRoot = currentHoistableRoot;
         currentHoistableRoot = getHoistableRoot(
@@ -2113,7 +2089,7 @@ function commitMutationEffectsOnFiber(
       }
       break;
     }
-    case Profiler: {
+    case WorkTag.Profiler: {
       const prevEffectDuration = pushNestedEffectDurations();
 
       recursivelyTraverseMutationEffects(root, finishedWork, lanes);
@@ -2128,7 +2104,7 @@ function commitMutationEffectsOnFiber(
       }
       break;
     }
-    case SuspenseComponent: {
+    case WorkTag.SuspenseComponent: {
       recursivelyTraverseMutationEffects(root, finishedWork, lanes);
       commitReconciliationEffects(finishedWork, lanes);
 
@@ -2180,7 +2156,7 @@ function commitMutationEffectsOnFiber(
       }
       break;
     }
-    case OffscreenComponent: {
+    case WorkTag.OffscreenComponent: {
       if (flags & Ref) {
         if (!offscreenSubtreeWasHidden && current !== null) {
           safelyDetachRef(current, current.return);
@@ -2272,7 +2248,7 @@ function commitMutationEffectsOnFiber(
       }
       break;
     }
-    case SuspenseListComponent: {
+    case WorkTag.SuspenseListComponent: {
       recursivelyTraverseMutationEffects(root, finishedWork, lanes);
       commitReconciliationEffects(finishedWork, lanes);
 
@@ -2286,7 +2262,7 @@ function commitMutationEffectsOnFiber(
       }
       break;
     }
-    case ViewTransitionComponent: {
+    case WorkTag.ViewTransitionComponent: {
       if (enableViewTransition) {
         if (flags & Ref) {
           if (!offscreenSubtreeWasHidden && current !== null) {
@@ -2316,7 +2292,7 @@ function commitMutationEffectsOnFiber(
       }
       break;
     }
-    case ScopeComponent: {
+    case WorkTag.ScopeComponent: {
       if (enableScopeAPI) {
         recursivelyTraverseMutationEffects(root, finishedWork, lanes);
         commitReconciliationEffects(finishedWork, lanes);
@@ -2338,7 +2314,7 @@ function commitMutationEffectsOnFiber(
       }
       break;
     }
-    case Fragment:
+    case WorkTag.Fragment:
       if (enableFragmentRefs) {
         if (current && current.stateNode !== null) {
           updateFragmentInstanceFiber(finishedWork, current.stateNode);
@@ -2408,7 +2384,7 @@ function recursivelyResetForms(parentFiber: Fiber) {
 
 function resetFormOnFiber(fiber: Fiber) {
   recursivelyResetForms(fiber);
-  if (fiber.tag === HostComponent && fiber.flags & FormReset) {
+  if (fiber.tag === WorkTag.HostComponent && fiber.flags & FormReset) {
     const formInstance: FormInstance = fiber.stateNode;
     resetFormInstance(formInstance);
   }
@@ -2465,7 +2441,7 @@ function commitAfterMutationEffectsOnFiber(
   }
 
   switch (finishedWork.tag) {
-    case HostRoot: {
+    case WorkTag.HostRoot: {
       viewTransitionContextChanged = false;
       pushViewTransitionCancelableScope();
       recursivelyTraverseAfterMutationEffects(root, finishedWork, lanes);
@@ -2489,11 +2465,11 @@ function commitAfterMutationEffectsOnFiber(
       }
       break;
     }
-    case HostComponent: {
+    case WorkTag.HostComponent: {
       recursivelyTraverseAfterMutationEffects(root, finishedWork, lanes);
       break;
     }
-    case OffscreenComponent: {
+    case WorkTag.OffscreenComponent: {
       const isModernRoot =
         disableLegacyMode || (finishedWork.mode & ConcurrentMode) !== NoMode;
       if (isModernRoot) {
@@ -2516,7 +2492,7 @@ function commitAfterMutationEffectsOnFiber(
       }
       break;
     }
-    case ViewTransitionComponent: {
+    case WorkTag.ViewTransitionComponent: {
       const wasMutated = (finishedWork.flags & Update) !== NoFlags;
 
       const prevContextChanged = viewTransitionContextChanged;
@@ -2614,10 +2590,10 @@ export function disappearLayoutEffects(finishedWork: Fiber) {
   const prevEffectStart = pushComponentEffectStart();
   const prevEffectErrors = pushComponentEffectErrors();
   switch (finishedWork.tag) {
-    case FunctionComponent:
-    case ForwardRef:
-    case MemoComponent:
-    case SimpleMemoComponent: {
+    case WorkTag.FunctionComponent:
+    case WorkTag.ForwardRef:
+    case WorkTag.MemoComponent:
+    case WorkTag.SimpleMemoComponent: {
       // TODO (Offscreen) Check: flags & LayoutStatic
       commitHookLayoutUnmountEffects(
         finishedWork,
@@ -2627,7 +2603,7 @@ export function disappearLayoutEffects(finishedWork: Fiber) {
       recursivelyTraverseDisappearLayoutEffects(finishedWork);
       break;
     }
-    case ClassComponent: {
+    case WorkTag.ClassComponent: {
       // TODO (Offscreen) Check: flags & RefStatic
       safelyDetachRef(finishedWork, finishedWork.return);
 
@@ -2643,26 +2619,26 @@ export function disappearLayoutEffects(finishedWork: Fiber) {
       recursivelyTraverseDisappearLayoutEffects(finishedWork);
       break;
     }
-    case HostSingleton: {
+    case WorkTag.HostSingleton: {
       if (supportsSingletons) {
         // TODO (Offscreen) Check: flags & RefStatic
         commitHostSingletonRelease(finishedWork);
       }
       // Expected fallthrough to HostComponent
     }
-    case HostHoistable:
-    case HostComponent: {
+    case WorkTag.HostHoistable:
+    case WorkTag.HostComponent: {
       // TODO (Offscreen) Check: flags & RefStatic
       safelyDetachRef(finishedWork, finishedWork.return);
 
-      if (enableFragmentRefs && finishedWork.tag === HostComponent) {
+      if (enableFragmentRefs && finishedWork.tag === WorkTag.HostComponent) {
         commitFragmentInstanceDeletionEffects(finishedWork);
       }
 
       recursivelyTraverseDisappearLayoutEffects(finishedWork);
       break;
     }
-    case OffscreenComponent: {
+    case WorkTag.OffscreenComponent: {
       // TODO (Offscreen) Check: flags & RefStatic
       safelyDetachRef(finishedWork, finishedWork.return);
 
@@ -2675,14 +2651,14 @@ export function disappearLayoutEffects(finishedWork: Fiber) {
       }
       break;
     }
-    case ViewTransitionComponent: {
+    case WorkTag.ViewTransitionComponent: {
       if (enableViewTransition) {
         safelyDetachRef(finishedWork, finishedWork.return);
       }
       recursivelyTraverseDisappearLayoutEffects(finishedWork);
       break;
     }
-    case Fragment: {
+    case WorkTag.Fragment: {
       if (enableFragmentRefs) {
         safelyDetachRef(finishedWork, finishedWork.return);
       }
@@ -2739,9 +2715,9 @@ export function reappearLayoutEffects(
   // Turn on layout effects in a tree that previously disappeared.
   const flags = finishedWork.flags;
   switch (finishedWork.tag) {
-    case FunctionComponent:
-    case ForwardRef:
-    case SimpleMemoComponent: {
+    case WorkTag.FunctionComponent:
+    case WorkTag.ForwardRef:
+    case WorkTag.SimpleMemoComponent: {
       recursivelyTraverseReappearLayoutEffects(
         finishedRoot,
         finishedWork,
@@ -2751,7 +2727,7 @@ export function reappearLayoutEffects(
       commitHookLayoutEffects(finishedWork, HookLayout);
       break;
     }
-    case ClassComponent: {
+    case WorkTag.ClassComponent: {
       recursivelyTraverseReappearLayoutEffects(
         finishedRoot,
         finishedWork,
@@ -2777,7 +2753,7 @@ export function reappearLayoutEffects(
     // case HostRoot: {
     //  ...
     // }
-    case HostSingleton: {
+    case WorkTag.HostSingleton: {
       if (supportsSingletons) {
         // We acquire the singleton instance first so it has appropriate
         // styles before other layout effects run. This isn't perfect because
@@ -2791,10 +2767,10 @@ export function reappearLayoutEffects(
       }
       // Fallthrough
     }
-    case HostHoistable:
-    case HostComponent: {
+    case WorkTag.HostHoistable:
+    case WorkTag.HostComponent: {
       // TODO: Enable HostText for RN
-      if (enableFragmentRefs && finishedWork.tag === HostComponent) {
+      if (enableFragmentRefs && finishedWork.tag === WorkTag.HostComponent) {
         commitFragmentInstanceInsertionEffects(finishedWork);
       }
       recursivelyTraverseReappearLayoutEffects(
@@ -2815,7 +2791,7 @@ export function reappearLayoutEffects(
       safelyAttachRef(finishedWork, finishedWork.return);
       break;
     }
-    case Profiler: {
+    case WorkTag.Profiler: {
       // TODO: Figure out how Profiler updates should work with Offscreen
       if (includeWorkInProgressEffects && flags & Update) {
         const prevEffectDuration = pushNestedEffectDurations();
@@ -2850,7 +2826,7 @@ export function reappearLayoutEffects(
       }
       break;
     }
-    case SuspenseComponent: {
+    case WorkTag.SuspenseComponent: {
       recursivelyTraverseReappearLayoutEffects(
         finishedRoot,
         finishedWork,
@@ -2863,7 +2839,7 @@ export function reappearLayoutEffects(
       }
       break;
     }
-    case OffscreenComponent: {
+    case WorkTag.OffscreenComponent: {
       const offscreenState: OffscreenState = finishedWork.memoizedState;
       const isHidden = offscreenState !== null;
       if (isHidden) {
@@ -2879,7 +2855,7 @@ export function reappearLayoutEffects(
       safelyAttachRef(finishedWork, finishedWork.return);
       break;
     }
-    case ViewTransitionComponent: {
+    case WorkTag.ViewTransitionComponent: {
       if (enableViewTransition) {
         recursivelyTraverseReappearLayoutEffects(
           finishedRoot,
@@ -2891,7 +2867,7 @@ export function reappearLayoutEffects(
       }
       break;
     }
-    case Fragment: {
+    case WorkTag.Fragment: {
       if (enableFragmentRefs) {
         safelyAttachRef(finishedWork, finishedWork.return);
       }
@@ -3221,9 +3197,9 @@ function commitPassiveMountOnFiber(
   // or when toggling effects inside a hidden tree.
   const flags = finishedWork.flags;
   switch (finishedWork.tag) {
-    case FunctionComponent:
-    case ForwardRef:
-    case SimpleMemoComponent: {
+    case WorkTag.FunctionComponent:
+    case WorkTag.ForwardRef:
+    case WorkTag.SimpleMemoComponent: {
       // If this component rendered in Profiling mode (DEV or in Profiler component) then log its
       // render time. We do this after the fact in the passive effect to avoid the overhead of this
       // getting in the way of the render characteristics and avoid the overhead of unwinding
@@ -3258,7 +3234,7 @@ function commitPassiveMountOnFiber(
       }
       break;
     }
-    case ClassComponent: {
+    case WorkTag.ClassComponent: {
       // If this component rendered in Profiling mode (DEV or in Profiler component) then log its
       // render time. We do this after the fact in the passive effect to avoid the overhead of this
       // getting in the way of the render characteristics and avoid the overhead of unwinding
@@ -3297,7 +3273,7 @@ function commitPassiveMountOnFiber(
       );
       break;
     }
-    case HostRoot: {
+    case WorkTag.HostRoot: {
       const prevEffectDuration = pushNestedEffectDurations();
 
       const wasInHydratedSubtree = inHydratedSubtree;
@@ -3380,7 +3356,7 @@ function commitPassiveMountOnFiber(
       }
       break;
     }
-    case Profiler: {
+    case WorkTag.Profiler: {
       // Only Profilers with work in their subtree will have a Passive effect scheduled.
       if (flags & Passive) {
         const prevEffectDuration = pushNestedEffectDurations();
@@ -3421,7 +3397,7 @@ function commitPassiveMountOnFiber(
       }
       break;
     }
-    case SuspenseComponent: {
+    case WorkTag.SuspenseComponent: {
       const wasInHydratedSubtree = inHydratedSubtree;
       if (enableProfilerTimer && enableComponentPerformanceTrack) {
         const prevState: SuspenseState | null =
@@ -3440,7 +3416,7 @@ function commitPassiveMountOnFiber(
           if (
             deletions !== null &&
             deletions.length > 0 &&
-            deletions[0].tag === DehydratedFragment
+            deletions[0].tag === WorkTag.DehydratedFragment
           ) {
             // This was an abandoned hydration that deleted the dehydrated fragment. That means we
             // are not hydrating this Suspense boundary.
@@ -3479,7 +3455,7 @@ function commitPassiveMountOnFiber(
       }
       break;
     }
-    case LegacyHiddenComponent: {
+    case WorkTag.LegacyHiddenComponent: {
       if (enableLegacyHidden) {
         recursivelyTraversePassiveMountEffects(
           finishedRoot,
@@ -3497,7 +3473,7 @@ function commitPassiveMountOnFiber(
       }
       break;
     }
-    case OffscreenComponent: {
+    case WorkTag.OffscreenComponent: {
       // TODO: Pass `current` as argument to this function
       const instance: OffscreenInstance = finishedWork.stateNode;
       const current = finishedWork.alternate;
@@ -3596,7 +3572,7 @@ function commitPassiveMountOnFiber(
       }
       break;
     }
-    case CacheComponent: {
+    case WorkTag.CacheComponent: {
       recursivelyTraversePassiveMountEffects(
         finishedRoot,
         finishedWork,
@@ -3611,7 +3587,7 @@ function commitPassiveMountOnFiber(
       }
       break;
     }
-    case ViewTransitionComponent: {
+    case WorkTag.ViewTransitionComponent: {
       if (enableViewTransition) {
         if (isViewTransitionEligible) {
           const current = finishedWork.alternate;
@@ -3644,7 +3620,7 @@ function commitPassiveMountOnFiber(
       }
       // Fallthrough
     }
-    case TracingMarkerComponent: {
+    case WorkTag.TracingMarkerComponent: {
       if (enableTransitionTracing) {
         recursivelyTraversePassiveMountEffects(
           finishedRoot,
@@ -3773,9 +3749,9 @@ export function reconnectPassiveEffects(
 
   const flags = finishedWork.flags;
   switch (finishedWork.tag) {
-    case FunctionComponent:
-    case ForwardRef:
-    case SimpleMemoComponent: {
+    case WorkTag.FunctionComponent:
+    case WorkTag.ForwardRef:
+    case WorkTag.SimpleMemoComponent: {
       recursivelyTraverseReconnectPassiveEffects(
         finishedRoot,
         finishedWork,
@@ -3794,7 +3770,7 @@ export function reconnectPassiveEffects(
     // case HostRoot: {
     //  ...
     // }
-    case LegacyHiddenComponent: {
+    case WorkTag.LegacyHiddenComponent: {
       if (enableLegacyHidden) {
         recursivelyTraverseReconnectPassiveEffects(
           finishedRoot,
@@ -3814,7 +3790,7 @@ export function reconnectPassiveEffects(
       }
       break;
     }
-    case OffscreenComponent: {
+    case WorkTag.OffscreenComponent: {
       const instance: OffscreenInstance = finishedWork.stateNode;
       const nextState: OffscreenState | null = finishedWork.memoizedState;
 
@@ -3885,7 +3861,7 @@ export function reconnectPassiveEffects(
       }
       break;
     }
-    case CacheComponent: {
+    case WorkTag.CacheComponent: {
       recursivelyTraverseReconnectPassiveEffects(
         finishedRoot,
         finishedWork,
@@ -3901,7 +3877,7 @@ export function reconnectPassiveEffects(
       }
       break;
     }
-    case TracingMarkerComponent: {
+    case WorkTag.TracingMarkerComponent: {
       if (enableTransitionTracing) {
         recursivelyTraverseReconnectPassiveEffects(
           finishedRoot,
@@ -4022,7 +3998,7 @@ function commitAtomicPassiveEffects(
   // regular effects are currently disconnected.
   const flags = finishedWork.flags;
   switch (finishedWork.tag) {
-    case OffscreenComponent: {
+    case WorkTag.OffscreenComponent: {
       recursivelyTraverseAtomicPassiveEffects(
         finishedRoot,
         finishedWork,
@@ -4038,7 +4014,7 @@ function commitAtomicPassiveEffects(
       }
       break;
     }
-    case CacheComponent: {
+    case WorkTag.CacheComponent: {
       recursivelyTraverseAtomicPassiveEffects(
         finishedRoot,
         finishedWork,
@@ -4103,7 +4079,7 @@ function recursivelyAccumulateSuspenseyCommit(parentFiber: Fiber): void {
 
 function accumulateSuspenseyCommitOnFiber(fiber: Fiber) {
   switch (fiber.tag) {
-    case HostHoistable: {
+    case WorkTag.HostHoistable: {
       recursivelyAccumulateSuspenseyCommit(fiber);
       if (fiber.flags & suspenseyCommitFlag) {
         if (fiber.memoizedState !== null) {
@@ -4121,7 +4097,7 @@ function accumulateSuspenseyCommitOnFiber(fiber: Fiber) {
       }
       break;
     }
-    case HostComponent: {
+    case WorkTag.HostComponent: {
       recursivelyAccumulateSuspenseyCommit(fiber);
       if (fiber.flags & suspenseyCommitFlag) {
         const type = fiber.type;
@@ -4130,8 +4106,8 @@ function accumulateSuspenseyCommitOnFiber(fiber: Fiber) {
       }
       break;
     }
-    case HostRoot:
-    case HostPortal: {
+    case WorkTag.HostRoot:
+    case WorkTag.HostPortal: {
       if (supportsResources) {
         const previousHoistableRoot = currentHoistableRoot;
         const container: Container = fiber.stateNode.containerInfo;
@@ -4144,7 +4120,7 @@ function accumulateSuspenseyCommitOnFiber(fiber: Fiber) {
       }
       break;
     }
-    case OffscreenComponent: {
+    case WorkTag.OffscreenComponent: {
       const isHidden = (fiber.memoizedState: OffscreenState | null) !== null;
       if (isHidden) {
         // Don't suspend in hidden trees
@@ -4166,7 +4142,7 @@ function accumulateSuspenseyCommitOnFiber(fiber: Fiber) {
       }
       break;
     }
-    case ViewTransitionComponent: {
+    case WorkTag.ViewTransitionComponent: {
       if (enableViewTransition) {
         if ((fiber.flags & suspenseyCommitFlag) !== NoFlags) {
           const props: ViewTransitionProps = fiber.memoizedProps;
@@ -4254,9 +4230,9 @@ function commitPassiveUnmountOnFiber(finishedWork: Fiber): void {
   const prevEffectStart = pushComponentEffectStart();
   const prevEffectErrors = pushComponentEffectErrors();
   switch (finishedWork.tag) {
-    case FunctionComponent:
-    case ForwardRef:
-    case SimpleMemoComponent: {
+    case WorkTag.FunctionComponent:
+    case WorkTag.ForwardRef:
+    case WorkTag.SimpleMemoComponent: {
       recursivelyTraversePassiveUnmountEffects(finishedWork);
       if (finishedWork.flags & Passive) {
         commitHookPassiveUnmountEffects(
@@ -4267,7 +4243,7 @@ function commitPassiveUnmountOnFiber(finishedWork: Fiber): void {
       }
       break;
     }
-    case HostRoot: {
+    case WorkTag.HostRoot: {
       const prevEffectDuration = pushNestedEffectDurations();
       recursivelyTraversePassiveUnmountEffects(finishedWork);
       if (enableProfilerTimer && enableProfilerCommitHooks) {
@@ -4277,7 +4253,7 @@ function commitPassiveUnmountOnFiber(finishedWork: Fiber): void {
       }
       break;
     }
-    case Profiler: {
+    case WorkTag.Profiler: {
       const prevEffectDuration = pushNestedEffectDurations();
 
       recursivelyTraversePassiveUnmountEffects(finishedWork);
@@ -4291,7 +4267,7 @@ function commitPassiveUnmountOnFiber(finishedWork: Fiber): void {
       }
       break;
     }
-    case OffscreenComponent: {
+    case WorkTag.OffscreenComponent: {
       const instance: OffscreenInstance = finishedWork.stateNode;
       const nextState: OffscreenState | null = finishedWork.memoizedState;
 
@@ -4303,7 +4279,7 @@ function commitPassiveUnmountOnFiber(finishedWork: Fiber): void {
         // For backwards compatibility, don't unmount when a tree suspends. In
         // the future we may change this to unmount after a delay.
         (finishedWork.return === null ||
-          finishedWork.return.tag !== SuspenseComponent)
+          finishedWork.return.tag !== WorkTag.SuspenseComponent)
       ) {
         // The effects are currently connected. Disconnect them.
         // TODO: Add option or heuristic to delay before disconnecting the
@@ -4375,9 +4351,9 @@ function recursivelyTraverseDisconnectPassiveEffects(parentFiber: Fiber): void {
 
 export function disconnectPassiveEffect(finishedWork: Fiber): void {
   switch (finishedWork.tag) {
-    case FunctionComponent:
-    case ForwardRef:
-    case SimpleMemoComponent: {
+    case WorkTag.FunctionComponent:
+    case WorkTag.ForwardRef:
+    case WorkTag.SimpleMemoComponent: {
       // TODO: Check PassiveStatic flag
       commitHookPassiveUnmountEffects(
         finishedWork,
@@ -4389,7 +4365,7 @@ export function disconnectPassiveEffect(finishedWork: Fiber): void {
       recursivelyTraverseDisconnectPassiveEffects(finishedWork);
       break;
     }
-    case OffscreenComponent: {
+    case WorkTag.OffscreenComponent: {
       const instance: OffscreenInstance = finishedWork.stateNode;
       if (instance._visibility & OffscreenPassiveEffectsConnected) {
         instance._visibility &= ~OffscreenPassiveEffectsConnected;
@@ -4464,9 +4440,9 @@ function commitPassiveUnmountInsideDeletedTreeOnFiber(
   const prevEffectStart = pushComponentEffectStart();
   const prevEffectErrors = pushComponentEffectErrors();
   switch (current.tag) {
-    case FunctionComponent:
-    case ForwardRef:
-    case SimpleMemoComponent: {
+    case WorkTag.FunctionComponent:
+    case WorkTag.ForwardRef:
+    case WorkTag.SimpleMemoComponent: {
       commitHookPassiveUnmountEffects(
         current,
         nearestMountedAncestor,
@@ -4483,8 +4459,8 @@ function commitPassiveUnmountInsideDeletedTreeOnFiber(
     //   releaseCache(cache);
     //   break;
     // }
-    case LegacyHiddenComponent:
-    case OffscreenComponent: {
+    case WorkTag.LegacyHiddenComponent:
+    case WorkTag.OffscreenComponent: {
       if (
         current.memoizedState !== null &&
         current.memoizedState.cachePool !== null
@@ -4500,7 +4476,7 @@ function commitPassiveUnmountInsideDeletedTreeOnFiber(
       }
       break;
     }
-    case SuspenseComponent: {
+    case WorkTag.SuspenseComponent: {
       if (enableTransitionTracing) {
         // We need to mark this fiber's parents as deleted
         const offscreenFiber: Fiber = (current.child: any);
@@ -4537,12 +4513,12 @@ function commitPassiveUnmountInsideDeletedTreeOnFiber(
       }
       break;
     }
-    case CacheComponent: {
+    case WorkTag.CacheComponent: {
       const cache = current.memoizedState.cache;
       releaseCache(cache);
       break;
     }
-    case TracingMarkerComponent: {
+    case WorkTag.TracingMarkerComponent: {
       if (enableTransitionTracing) {
         // We need to mark this fiber's parents as deleted
         const instance: TracingMarkerInstance = current.stateNode;
@@ -4602,13 +4578,13 @@ export function invokeLayoutEffectMountInDEV(fiber: Fiber): void {
     // We don't need to re-check StrictEffectsMode here.
     // This function is only called if that check has already passed.
     switch (fiber.tag) {
-      case FunctionComponent:
-      case ForwardRef:
-      case SimpleMemoComponent: {
+      case WorkTag.FunctionComponent:
+      case WorkTag.ForwardRef:
+      case WorkTag.SimpleMemoComponent: {
         commitHookEffectListMount(HookLayout | HookHasEffect, fiber);
         break;
       }
-      case ClassComponent: {
+      case WorkTag.ClassComponent: {
         commitClassDidMount(fiber);
         break;
       }
@@ -4621,9 +4597,9 @@ export function invokePassiveEffectMountInDEV(fiber: Fiber): void {
     // We don't need to re-check StrictEffectsMode here.
     // This function is only called if that check has already passed.
     switch (fiber.tag) {
-      case FunctionComponent:
-      case ForwardRef:
-      case SimpleMemoComponent: {
+      case WorkTag.FunctionComponent:
+      case WorkTag.ForwardRef:
+      case WorkTag.SimpleMemoComponent: {
         commitHookEffectListMount(HookPassive | HookHasEffect, fiber);
         break;
       }
@@ -4636,9 +4612,9 @@ export function invokeLayoutEffectUnmountInDEV(fiber: Fiber): void {
     // We don't need to re-check StrictEffectsMode here.
     // This function is only called if that check has already passed.
     switch (fiber.tag) {
-      case FunctionComponent:
-      case ForwardRef:
-      case SimpleMemoComponent: {
+      case WorkTag.FunctionComponent:
+      case WorkTag.ForwardRef:
+      case WorkTag.SimpleMemoComponent: {
         commitHookEffectListUnmount(
           HookLayout | HookHasEffect,
           fiber,
@@ -4646,7 +4622,7 @@ export function invokeLayoutEffectUnmountInDEV(fiber: Fiber): void {
         );
         break;
       }
-      case ClassComponent: {
+      case WorkTag.ClassComponent: {
         const instance = fiber.stateNode;
         if (typeof instance.componentWillUnmount === 'function') {
           safelyCallComponentWillUnmount(fiber, fiber.return, instance);
@@ -4662,9 +4638,9 @@ export function invokePassiveEffectUnmountInDEV(fiber: Fiber): void {
     // We don't need to re-check StrictEffectsMode here.
     // This function is only called if that check has already passed.
     switch (fiber.tag) {
-      case FunctionComponent:
-      case ForwardRef:
-      case SimpleMemoComponent: {
+      case WorkTag.FunctionComponent:
+      case WorkTag.ForwardRef:
+      case WorkTag.SimpleMemoComponent: {
         commitHookEffectListUnmount(
           HookPassive | HookHasEffect,
           fiber,

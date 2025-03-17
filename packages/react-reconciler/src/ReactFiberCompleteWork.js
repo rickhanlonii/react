@@ -47,37 +47,7 @@ import {
 
 import {now} from './Scheduler';
 
-import {
-  FunctionComponent,
-  ClassComponent,
-  HostRoot,
-  HostComponent,
-  HostHoistable,
-  HostSingleton,
-  HostText,
-  HostPortal,
-  ContextProvider,
-  ContextConsumer,
-  ForwardRef,
-  Fragment,
-  Mode,
-  Profiler,
-  SuspenseComponent,
-  SuspenseListComponent,
-  MemoComponent,
-  SimpleMemoComponent,
-  LazyComponent,
-  IncompleteClassComponent,
-  IncompleteFunctionComponent,
-  ScopeComponent,
-  OffscreenComponent,
-  LegacyHiddenComponent,
-  CacheComponent,
-  TracingMarkerComponent,
-  Throw,
-  ViewTransitionComponent,
-  ActivityComponent,
-} from './ReactWorkTags';
+import {WorkTag} from './ReactWorkTags';
 import {NoMode, ConcurrentMode, ProfileMode} from './ReactTypeOfMode';
 import {
   Placement,
@@ -241,11 +211,11 @@ function appendAllChildren(
     // children to find all the terminal nodes.
     let node = workInProgress.child;
     while (node !== null) {
-      if (node.tag === HostComponent || node.tag === HostText) {
+      if (node.tag === WorkTag.HostComponent || node.tag === WorkTag.HostText) {
         appendInitialChild(parent, node.stateNode);
       } else if (
-        node.tag === HostPortal ||
-        (supportsSingletons ? node.tag === HostSingleton : false)
+        node.tag === WorkTag.HostPortal ||
+        (supportsSingletons ? node.tag === WorkTag.HostSingleton : false)
       ) {
         // If we have a portal child, then we don't want to traverse
         // down its children. Instead, we'll get insertions from each child in
@@ -276,7 +246,7 @@ function appendAllChildren(
     // children to find all the terminal nodes.
     let node = workInProgress.child;
     while (node !== null) {
-      if (node.tag === HostComponent) {
+      if (node.tag === WorkTag.HostComponent) {
         let instance = node.stateNode;
         if (needsVisibilityToggle && isHidden) {
           // This child is inside a timed out tree. Hide it.
@@ -285,7 +255,7 @@ function appendAllChildren(
           instance = cloneHiddenInstance(instance, type, props);
         }
         appendInitialChild(parent, instance);
-      } else if (node.tag === HostText) {
+      } else if (node.tag === WorkTag.HostText) {
         let instance = node.stateNode;
         if (needsVisibilityToggle && isHidden) {
           // This child is inside a timed out tree. Hide it.
@@ -293,12 +263,12 @@ function appendAllChildren(
           instance = cloneHiddenTextInstance(instance, text);
         }
         appendInitialChild(parent, instance);
-      } else if (node.tag === HostPortal) {
+      } else if (node.tag === WorkTag.HostPortal) {
         // If we have a portal child, then we don't want to traverse
         // down its children. Instead, we'll get insertions from each child in
         // the portal directly.
       } else if (
-        node.tag === OffscreenComponent &&
+        node.tag === WorkTag.OffscreenComponent &&
         node.memoizedState !== null
       ) {
         // The children in this boundary are hidden. Toggle their visibility
@@ -353,7 +323,7 @@ function appendAllChildrenToContainer(
     // children to find all the terminal nodes.
     let node = workInProgress.child;
     while (node !== null) {
-      if (node.tag === HostComponent) {
+      if (node.tag === WorkTag.HostComponent) {
         let instance = node.stateNode;
         if (needsVisibilityToggle && isHidden) {
           // This child is inside a timed out tree. Hide it.
@@ -362,7 +332,7 @@ function appendAllChildrenToContainer(
           instance = cloneHiddenInstance(instance, type, props);
         }
         appendChildToContainerChildSet(containerChildSet, instance);
-      } else if (node.tag === HostText) {
+      } else if (node.tag === WorkTag.HostText) {
         let instance = node.stateNode;
         if (needsVisibilityToggle && isHidden) {
           // This child is inside a timed out tree. Hide it.
@@ -370,12 +340,12 @@ function appendAllChildrenToContainer(
           instance = cloneHiddenTextInstance(instance, text);
         }
         appendChildToContainerChildSet(containerChildSet, instance);
-      } else if (node.tag === HostPortal) {
+      } else if (node.tag === WorkTag.HostPortal) {
         // If we have a portal child, then we don't want to traverse
         // down its children. Instead, we'll get insertions from each child in
         // the portal directly.
       } else if (
-        node.tag === OffscreenComponent &&
+        node.tag === WorkTag.OffscreenComponent &&
         node.memoizedState !== null
       ) {
         // The children in this boundary are hidden. Toggle their visibility
@@ -632,7 +602,7 @@ function scheduleRetryEffect(
       // TODO: This check should probably be moved into claimNextRetryLane
       // I also suspect that we need some further consolidation of offscreen
       // and retry lanes.
-      workInProgress.tag !== OffscreenComponent
+      workInProgress.tag !== WorkTag.OffscreenComponent
         ? claimNextRetryLane()
         : OffscreenLane;
     workInProgress.lanes = mergeLanes(workInProgress.lanes, retryLane);
@@ -967,25 +937,25 @@ function completeWork(
   // for hydration.
   popTreeContext(workInProgress);
   switch (workInProgress.tag) {
-    case IncompleteFunctionComponent: {
+    case WorkTag.IncompleteFunctionComponent: {
       if (disableLegacyMode) {
         break;
       }
       // Fallthrough
     }
-    case ActivityComponent:
-    case LazyComponent:
-    case SimpleMemoComponent:
-    case FunctionComponent:
-    case ForwardRef:
-    case Fragment:
-    case Mode:
-    case Profiler:
-    case ContextConsumer:
-    case MemoComponent:
+    case WorkTag.ActivityComponent:
+    case WorkTag.LazyComponent:
+    case WorkTag.SimpleMemoComponent:
+    case WorkTag.FunctionComponent:
+    case WorkTag.ForwardRef:
+    case WorkTag.Fragment:
+    case WorkTag.Mode:
+    case WorkTag.Profiler:
+    case WorkTag.ContextConsumer:
+    case WorkTag.MemoComponent:
       bubbleProperties(workInProgress);
       return null;
-    case ClassComponent: {
+    case WorkTag.ClassComponent: {
       const Component = workInProgress.type;
       if (isLegacyContextProvider(Component)) {
         popLegacyContext(workInProgress);
@@ -993,7 +963,7 @@ function completeWork(
       bubbleProperties(workInProgress);
       return null;
     }
-    case HostRoot: {
+    case WorkTag.HostRoot: {
       const fiberRoot = (workInProgress.stateNode: FiberRoot);
 
       if (enableTransitionTracing) {
@@ -1074,7 +1044,7 @@ function completeWork(
       }
       return null;
     }
-    case HostHoistable: {
+    case WorkTag.HostHoistable: {
       if (supportsResources) {
         // The branching here is more complicated than you might expect because
         // a HostHoistable sometimes corresponds to a Resource and sometimes
@@ -1172,7 +1142,7 @@ function completeWork(
       }
       // Fall through
     }
-    case HostSingleton: {
+    case WorkTag.HostSingleton: {
       if (supportsSingletons) {
         popHostContext(workInProgress);
         const rootContainerInstance = getRootHostContainer();
@@ -1242,7 +1212,7 @@ function completeWork(
       }
       // Fall through
     }
-    case HostComponent: {
+    case WorkTag.HostComponent: {
       popHostContext(workInProgress);
       const type = workInProgress.type;
       if (current !== null && workInProgress.stateNode != null) {
@@ -1331,7 +1301,7 @@ function completeWork(
       );
       return null;
     }
-    case HostText: {
+    case WorkTag.HostText: {
       const newText = newProps;
       if (current && workInProgress.stateNode != null) {
         const oldText = current.memoizedProps;
@@ -1366,7 +1336,7 @@ function completeWork(
       bubbleProperties(workInProgress);
       return null;
     }
-    case SuspenseComponent: {
+    case WorkTag.SuspenseComponent: {
       const nextState: null | SuspenseState = workInProgress.memoizedState;
 
       // Special path for dehydrated boundaries. We may eventually move this
@@ -1499,7 +1469,7 @@ function completeWork(
       }
       return null;
     }
-    case HostPortal:
+    case WorkTag.HostPortal:
       popHostContainer(workInProgress);
       updateHostContainer(current, workInProgress);
       if (current === null) {
@@ -1507,7 +1477,7 @@ function completeWork(
       }
       bubbleProperties(workInProgress);
       return null;
-    case ContextProvider:
+    case WorkTag.ContextProvider:
       // Pop provider fiber
       let context: ReactContext<any>;
       if (enableRenderableContext) {
@@ -1518,7 +1488,7 @@ function completeWork(
       popProvider(context, workInProgress);
       bubbleProperties(workInProgress);
       return null;
-    case IncompleteClassComponent: {
+    case WorkTag.IncompleteClassComponent: {
       if (disableLegacyMode) {
         break;
       }
@@ -1531,7 +1501,7 @@ function completeWork(
       bubbleProperties(workInProgress);
       return null;
     }
-    case SuspenseListComponent: {
+    case WorkTag.SuspenseListComponent: {
       popSuspenseListContext(workInProgress);
 
       const renderState: null | SuspenseListRenderState =
@@ -1738,7 +1708,7 @@ function completeWork(
       bubbleProperties(workInProgress);
       return null;
     }
-    case ScopeComponent: {
+    case WorkTag.ScopeComponent: {
       if (enableScopeAPI) {
         if (current === null) {
           const scopeInstance: ReactScopeInstance = createScopeInstance();
@@ -1761,15 +1731,18 @@ function completeWork(
       }
       break;
     }
-    case OffscreenComponent:
-    case LegacyHiddenComponent: {
+    case WorkTag.OffscreenComponent:
+    case WorkTag.LegacyHiddenComponent: {
       popSuspenseHandler(workInProgress);
       popHiddenContext(workInProgress);
       const nextState: OffscreenState | null = workInProgress.memoizedState;
       const nextIsHidden = nextState !== null;
 
       // Schedule a Visibility effect if the visibility has changed
-      if (enableLegacyHidden && workInProgress.tag === LegacyHiddenComponent) {
+      if (
+        enableLegacyHidden &&
+        workInProgress.tag === WorkTag.LegacyHiddenComponent
+      ) {
         // LegacyHidden doesn't do any hiding — it only pre-renders.
       } else {
         if (current !== null) {
@@ -1807,7 +1780,7 @@ function completeWork(
           // schedule a visibility effect.
           if (
             (!enableLegacyHidden ||
-              workInProgress.tag !== LegacyHiddenComponent) &&
+              workInProgress.tag !== WorkTag.LegacyHiddenComponent) &&
             workInProgress.subtreeFlags & (Placement | Update)
           ) {
             workInProgress.flags |= Visibility;
@@ -1846,7 +1819,7 @@ function completeWork(
 
       return null;
     }
-    case CacheComponent: {
+    case WorkTag.CacheComponent: {
       let previousCache: Cache | null = null;
       if (current !== null) {
         previousCache = current.memoizedState.cache;
@@ -1860,7 +1833,7 @@ function completeWork(
       bubbleProperties(workInProgress);
       return null;
     }
-    case TracingMarkerComponent: {
+    case WorkTag.TracingMarkerComponent: {
       if (enableTransitionTracing) {
         const instance: TracingMarkerInstance | null = workInProgress.stateNode;
         if (instance !== null) {
@@ -1870,7 +1843,7 @@ function completeWork(
       }
       return null;
     }
-    case ViewTransitionComponent: {
+    case WorkTag.ViewTransitionComponent: {
       if (enableViewTransition) {
         // We're a component that might need an exit transition. This flag will
         // bubble up to the parent tree to indicate that there's a child that
@@ -1880,7 +1853,7 @@ function completeWork(
       }
       return null;
     }
-    case Throw: {
+    case WorkTag.Throw: {
       if (!disableLegacyMode) {
         // Only Legacy Mode completes an errored node.
         return null;

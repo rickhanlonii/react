@@ -98,12 +98,7 @@ import {
   enableMoveBefore,
   disableCommentsAsDOMContainers,
 } from 'shared/ReactFeatureFlags';
-import {
-  HostComponent,
-  HostHoistable,
-  HostText,
-  HostSingleton,
-} from 'react-reconciler/src/ReactWorkTags';
+import {WorkTag} from 'react-reconciler/src/ReactWorkTags';
 import {listenToAllSupportedEvents} from '../events/DOMPluginEventSystem';
 import {validateLinkPropsForStyleResource} from '../shared/ReactDOMResourceValidation';
 import escapeSelectorAttributeValueInsideDoubleQuotes from './escapeSelectorAttributeValueInsideDoubleQuotes';
@@ -3094,9 +3089,9 @@ export function matchAccessibilityRole(node: Instance, role: string): boolean {
 
 export function getTextContent(fiber: Fiber): string | null {
   switch (fiber.tag) {
-    case HostHoistable:
-    case HostSingleton:
-    case HostComponent:
+    case WorkTag.HostHoistable:
+    case WorkTag.HostSingleton:
+    case WorkTag.HostComponent:
       let textContent = '';
       const childNodes = fiber.stateNode.childNodes;
       for (let i = 0; i < childNodes.length; i++) {
@@ -3106,7 +3101,7 @@ export function getTextContent(fiber: Fiber): string | null {
         }
       }
       return textContent;
-    case HostText:
+    case WorkTag.HostText:
       return fiber.stateNode.textContent;
   }
 
@@ -3114,7 +3109,9 @@ export function getTextContent(fiber: Fiber): string | null {
 }
 
 export function isHiddenSubtree(fiber: Fiber): boolean {
-  return fiber.tag === HostComponent && fiber.memoizedProps.hidden === true;
+  return (
+    fiber.tag === WorkTag.HostComponent && fiber.memoizedProps.hidden === true
+  );
 }
 
 export function setFocusIfFocusable(node: Instance): boolean {
@@ -3470,7 +3467,7 @@ function requestFormReset(form: HTMLFormElement) {
   const formInst = getInstanceFromNodeDOMTree(form);
   if (
     formInst !== null &&
-    formInst.tag === HostComponent &&
+    formInst.tag === WorkTag.HostComponent &&
     formInst.type === 'form'
   ) {
     requestFormResetOnFiber(formInst);

@@ -28,26 +28,7 @@ import {
   defaultOnRecoverableError,
 } from 'react-reconciler/src/ReactFiberReconciler';
 import {findCurrentFiberUsingSlowPath} from 'react-reconciler/src/ReactFiberTreeReflection';
-import {
-  Fragment,
-  FunctionComponent,
-  ClassComponent,
-  HostComponent,
-  HostHoistable,
-  HostSingleton,
-  HostPortal,
-  HostText,
-  HostRoot,
-  ContextConsumer,
-  ContextProvider,
-  Mode,
-  ForwardRef,
-  Profiler,
-  MemoComponent,
-  SimpleMemoComponent,
-  IncompleteClassComponent,
-  ScopeComponent,
-} from 'react-reconciler/src/ReactWorkTags';
+import {WorkTag} from 'react-reconciler/src/ReactWorkTags';
 import isArray from 'shared/isArray';
 import getComponentNameFromType from 'shared/getComponentNameFromType';
 import ReactVersion from 'shared/ReactVersion';
@@ -189,11 +170,11 @@ function toTree(node: null | Fiber): $FlowFixMe {
     return null;
   }
   switch (node.tag) {
-    case HostRoot:
+    case WorkTag.HostRoot:
       return childrenToTree(node.child);
-    case HostPortal:
+    case WorkTag.HostPortal:
       return childrenToTree(node.child);
-    case ClassComponent:
+    case WorkTag.ClassComponent:
       return {
         nodeType: 'component',
         type: node.type,
@@ -201,8 +182,8 @@ function toTree(node: null | Fiber): $FlowFixMe {
         instance: node.stateNode,
         rendered: childrenToTree(node.child),
       };
-    case FunctionComponent:
-    case SimpleMemoComponent:
+    case WorkTag.FunctionComponent:
+    case WorkTag.SimpleMemoComponent:
       return {
         nodeType: 'component',
         type: node.type,
@@ -210,9 +191,9 @@ function toTree(node: null | Fiber): $FlowFixMe {
         instance: null,
         rendered: childrenToTree(node.child),
       };
-    case HostHoistable:
-    case HostSingleton:
-    case HostComponent: {
+    case WorkTag.HostHoistable:
+    case WorkTag.HostSingleton:
+    case WorkTag.HostComponent: {
       return {
         nodeType: 'host',
         type: node.type,
@@ -221,17 +202,17 @@ function toTree(node: null | Fiber): $FlowFixMe {
         rendered: flatten(nodeAndSiblingsArray(node.child).map(toTree)),
       };
     }
-    case HostText:
+    case WorkTag.HostText:
       return node.stateNode.text;
-    case Fragment:
-    case ContextProvider:
-    case ContextConsumer:
-    case Mode:
-    case Profiler:
-    case ForwardRef:
-    case MemoComponent:
-    case IncompleteClassComponent:
-    case ScopeComponent:
+    case WorkTag.Fragment:
+    case WorkTag.ContextProvider:
+    case WorkTag.ContextConsumer:
+    case WorkTag.Mode:
+    case WorkTag.Profiler:
+    case WorkTag.ForwardRef:
+    case WorkTag.MemoComponent:
+    case WorkTag.IncompleteClassComponent:
+    case WorkTag.ScopeComponent:
       return childrenToTree(node.child);
     default:
       throw new Error(
@@ -240,15 +221,15 @@ function toTree(node: null | Fiber): $FlowFixMe {
   }
 }
 
-const validWrapperTypes = new Set([
-  FunctionComponent,
-  ClassComponent,
-  HostComponent,
-  ForwardRef,
-  MemoComponent,
-  SimpleMemoComponent,
+const validWrapperTypes = new Set<WorkTag>([
+  WorkTag.FunctionComponent,
+  WorkTag.ClassComponent,
+  WorkTag.HostComponent,
+  WorkTag.ForwardRef,
+  WorkTag.MemoComponent,
+  WorkTag.SimpleMemoComponent,
   // Normally skipped, but used when there's more than one root child.
-  HostRoot,
+  WorkTag.HostRoot,
 ]);
 
 function getChildren(parent: Fiber) {
@@ -264,7 +245,7 @@ function getChildren(parent: Fiber) {
     let descend = false;
     if (validWrapperTypes.has(node.tag)) {
       children.push(wrapFiber(node));
-    } else if (node.tag === HostText) {
+    } else if (node.tag === WorkTag.HostText) {
       if (__DEV__) {
         checkPropStringCoercion(node.memoizedProps, 'memoizedProps');
       }
@@ -320,9 +301,9 @@ class ReactTestInstance {
   get instance(): $FlowFixMe {
     const tag = this._fiber.tag;
     if (
-      tag === HostComponent ||
-      tag === HostHoistable ||
-      tag === HostSingleton
+      tag === WorkTag.HostComponent ||
+      tag === WorkTag.HostHoistable ||
+      tag === WorkTag.HostSingleton
     ) {
       return getPublicInstance(this._fiber.stateNode);
     } else {
@@ -342,7 +323,7 @@ class ReactTestInstance {
     let parent = this._fiber.return;
     while (parent !== null) {
       if (validWrapperTypes.has(parent.tag)) {
-        if (parent.tag === HostRoot) {
+        if (parent.tag === WorkTag.HostRoot) {
           // Special case: we only "materialize" instances for roots
           // if they have more than a single child. So we'll check that now.
           if (getChildren(parent).length < 2) {

@@ -27,15 +27,7 @@ import {
 } from './EventSystemFlags';
 import {isReplayingEvent} from './CurrentReplayingEvent';
 
-import {
-  HostRoot,
-  HostPortal,
-  HostComponent,
-  HostHoistable,
-  HostSingleton,
-  HostText,
-  ScopeComponent,
-} from 'react-reconciler/src/ReactWorkTags';
+import {WorkTag} from 'react-reconciler/src/ReactWorkTags';
 
 import getEventTarget from './getEventTarget';
 import {
@@ -630,12 +622,12 @@ export function dispatchEventForPluginEventSystem(
           return;
         }
         const nodeTag = node.tag;
-        if (nodeTag === HostRoot || nodeTag === HostPortal) {
+        if (nodeTag === WorkTag.HostRoot || nodeTag === WorkTag.HostPortal) {
           let container = node.stateNode.containerInfo;
           if (isMatchingRootContainer(container, targetContainerNode)) {
             break;
           }
-          if (nodeTag === HostPortal) {
+          if (nodeTag === WorkTag.HostPortal) {
             // The target is a portal, but it's not the rootContainer we're looking for.
             // Normally portals handle their own events all the way down to the root.
             // So we should be able to stop now. However, we don't know if this portal
@@ -643,7 +635,10 @@ export function dispatchEventForPluginEventSystem(
             let grandNode = node.return;
             while (grandNode !== null) {
               const grandTag = grandNode.tag;
-              if (grandTag === HostRoot || grandTag === HostPortal) {
+              if (
+                grandTag === WorkTag.HostRoot ||
+                grandTag === WorkTag.HostPortal
+              ) {
                 const grandContainer = grandNode.stateNode.containerInfo;
                 if (
                   isMatchingRootContainer(grandContainer, targetContainerNode)
@@ -669,10 +664,10 @@ export function dispatchEventForPluginEventSystem(
             }
             const parentTag = parentNode.tag;
             if (
-              parentTag === HostComponent ||
-              parentTag === HostText ||
-              parentTag === HostHoistable ||
-              parentTag === HostSingleton
+              parentTag === WorkTag.HostComponent ||
+              parentTag === WorkTag.HostText ||
+              parentTag === WorkTag.HostHoistable ||
+              parentTag === WorkTag.HostSingleton
             ) {
               node = ancestorInst = parentNode;
               continue mainLoop;
@@ -728,9 +723,9 @@ export function accumulateSinglePhaseListeners(
     const {stateNode, tag} = instance;
     // Handle listeners that are on HostComponents (i.e. <div>)
     if (
-      (tag === HostComponent ||
-        tag === HostHoistable ||
-        tag === HostSingleton) &&
+      (tag === WorkTag.HostComponent ||
+        tag === WorkTag.HostHoistable ||
+        tag === WorkTag.HostSingleton) &&
       stateNode !== null
     ) {
       lastHostComponent = stateNode;
@@ -769,7 +764,7 @@ export function accumulateSinglePhaseListeners(
     } else if (
       enableCreateEventHandleAPI &&
       enableScopeAPI &&
-      tag === ScopeComponent &&
+      tag === WorkTag.ScopeComponent &&
       lastHostComponent !== null &&
       stateNode !== null
     ) {
@@ -843,9 +838,9 @@ export function accumulateTwoPhaseListeners(
     const {stateNode, tag} = instance;
     // Handle listeners that are on HostComponents (i.e. <div>)
     if (
-      (tag === HostComponent ||
-        tag === HostHoistable ||
-        tag === HostSingleton) &&
+      (tag === WorkTag.HostComponent ||
+        tag === WorkTag.HostHoistable ||
+        tag === WorkTag.HostSingleton) &&
       stateNode !== null
     ) {
       const currentTarget = stateNode;
@@ -862,7 +857,7 @@ export function accumulateTwoPhaseListeners(
         );
       }
     }
-    if (instance.tag === HostRoot) {
+    if (instance.tag === WorkTag.HostRoot) {
       return listeners;
     }
     instance = instance.return;
@@ -884,7 +879,11 @@ function getParent(inst: Fiber | null): Fiber | null {
     // events to their parent. We could also go through parentNode on the
     // host node but that wouldn't work for React Native and doesn't let us
     // do the portal feature.
-  } while (inst && inst.tag !== HostComponent && inst.tag !== HostSingleton);
+  } while (
+    inst &&
+    inst.tag !== WorkTag.HostComponent &&
+    inst.tag !== WorkTag.HostSingleton
+  );
   if (inst) {
     return inst;
   }
@@ -951,9 +950,9 @@ function accumulateEnterLeaveListenersForEvent(
       break;
     }
     if (
-      (tag === HostComponent ||
-        tag === HostHoistable ||
-        tag === HostSingleton) &&
+      (tag === WorkTag.HostComponent ||
+        tag === WorkTag.HostHoistable ||
+        tag === WorkTag.HostSingleton) &&
       stateNode !== null
     ) {
       const currentTarget = stateNode;

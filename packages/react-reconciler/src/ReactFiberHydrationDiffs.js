@@ -9,19 +9,7 @@
 
 import type {Fiber} from './ReactInternalTypes';
 
-import {
-  HostComponent,
-  HostHoistable,
-  HostSingleton,
-  LazyComponent,
-  SuspenseComponent,
-  SuspenseListComponent,
-  FunctionComponent,
-  ForwardRef,
-  SimpleMemoComponent,
-  ClassComponent,
-  HostText,
-} from './ReactWorkTags';
+import {WorkTag} from './ReactWorkTags';
 
 import {REACT_ELEMENT_TYPE} from 'shared/ReactSymbols';
 import assign from 'shared/assign';
@@ -75,24 +63,24 @@ function removed(indent: number): string {
 
 function describeFiberType(fiber: Fiber): null | string {
   switch (fiber.tag) {
-    case HostHoistable:
-    case HostSingleton:
-    case HostComponent:
+    case WorkTag.HostHoistable:
+    case WorkTag.HostSingleton:
+    case WorkTag.HostComponent:
       return fiber.type;
-    case LazyComponent:
+    case WorkTag.LazyComponent:
       return 'Lazy';
-    case SuspenseComponent:
+    case WorkTag.SuspenseComponent:
       return 'Suspense';
-    case SuspenseListComponent:
+    case WorkTag.SuspenseListComponent:
       return 'SuspenseList';
-    case FunctionComponent:
-    case SimpleMemoComponent:
+    case WorkTag.FunctionComponent:
+    case WorkTag.SimpleMemoComponent:
       const fn = fiber.type;
       return fn.displayName || fn.name || null;
-    case ForwardRef:
+    case WorkTag.ForwardRef:
       const render = fiber.type.render;
       return render.displayName || render.name || null;
-    case ClassComponent:
+    case WorkTag.ClassComponent:
       const ctr = fiber.type;
       return ctr.displayName || ctr.name || null;
     default:
@@ -557,7 +545,7 @@ function describeNode(node: HydrationDiffNode, indent: number): string {
   // when something throws.
   const clientProps = node.fiber.pendingProps;
 
-  if (node.fiber.tag === HostText) {
+  if (node.fiber.tag === WorkTag.HostText) {
     // Text Node
     selfContent = describeTextDiff(clientProps, node.serverProps, indent);
     indent++;
