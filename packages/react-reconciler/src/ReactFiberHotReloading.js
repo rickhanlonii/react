@@ -83,7 +83,10 @@ export function resolveClassForHotReloading(type: any): any {
   return resolveFunctionForHotReloading(type);
 }
 
-export function resolveForwardRefForHotReloading(type: any): any {
+export function resolveForwardRefForHotReloading(
+  type: any,
+  elementType: any,
+): any {
   if (__DEV__) {
     if (resolveFamily === null) {
       // Hot reloading is disabled.
@@ -110,9 +113,13 @@ export function resolveForwardRefForHotReloading(type: any): any {
             (syntheticType: any).displayName = type.displayName;
           }
           return syntheticType;
+        } else if (elementType != null) {
+          const elementFamily = resolveFamily(elementType);
+          if (elementFamily !== undefined) {
+            return elementFamily.current;
+          }
         }
       }
-      return type;
     }
     // Use the latest known implementation.
     return family.current;
@@ -261,7 +268,7 @@ function scheduleFibersWithFamiliesRecursively(
   staleFamilies: Set<Family>,
 ): void {
   if (__DEV__) {
-    const {alternate, child, sibling, tag, type} = fiber;
+    const {alternate, child, sibling, tag, type, elementType} = fiber;
 
     let candidateType = null;
     switch (tag) {
@@ -271,7 +278,7 @@ function scheduleFibersWithFamiliesRecursively(
         candidateType = type;
         break;
       case ForwardRef:
-        candidateType = type.render;
+        candidateType = elementType;
         break;
       default:
         break;

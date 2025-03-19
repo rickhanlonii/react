@@ -429,7 +429,10 @@ export function createWorkInProgress(current: Fiber, pendingProps: any): Fiber {
         workInProgress.type = resolveClassForHotReloading(current.type);
         break;
       case ForwardRef:
-        workInProgress.type = resolveForwardRefForHotReloading(current.type);
+        workInProgress.type = resolveForwardRefForHotReloading(
+          current.type,
+          current.elementType,
+        );
         break;
       default:
         break;
