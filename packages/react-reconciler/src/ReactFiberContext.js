@@ -152,6 +152,7 @@ function pushTopLevelContextObject(
   if (disableLegacyContext) {
     return;
   } else {
+    // console.error('HIT');
     if (contextStackCursor.current !== emptyContextObject) {
       throw new Error(
         'Unexpected context found on stack. ' +

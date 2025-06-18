@@ -1761,6 +1761,7 @@ function updateHostRoot(
   workInProgress: Fiber,
   renderLanes: Lanes,
 ) {
+  // update host root
   pushHostRootContext(workInProgress);
 
   if (current === null) {
@@ -3833,6 +3834,7 @@ function attemptEarlyBailoutIfNoScheduledUpdate(
   // in this optimized path, mostly pushing stuff onto the stack.
   switch (workInProgress.tag) {
     case HostRoot: {
+      // console.warn('bailout');
       pushHostRootContext(workInProgress);
       const root: FiberRoot = workInProgress.stateNode;
       pushRootTransition(workInProgress, root, renderLanes);

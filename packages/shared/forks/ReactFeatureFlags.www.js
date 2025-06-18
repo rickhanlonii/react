@@ -63,7 +63,7 @@ export const enableHydrationLaneScheduling = true;
 export const enableSchedulingProfiler: boolean =
   __PROFILE__ && dynamicFeatureFlags.enableSchedulingProfiler;
 
-export const disableLegacyContext = __EXPERIMENTAL__;
+export const disableLegacyContext = false;
 
 export const enableLegacyCache = true;
 
