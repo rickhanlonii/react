@@ -7,36 +7,41 @@
  * @noflow
  * @nolint
  * @preventMunge
- * @generated SignedSource<<b5f0f82fdd9d6e3043c1259e7ffcf255>>
+ * @generated SignedSource<<453945d75318f02d8ce69988b0dd882f>>
  */
 
 "use strict";
-var REACT_LEGACY_ELEMENT_TYPE = Symbol.for("react.element"),
+var renameElementSymbol =
+    require("ReactNativeInternalFeatureFlags").renameElementSymbol,
+  REACT_LEGACY_ELEMENT_TYPE = Symbol.for("react.element"),
+  REACT_ELEMENT_TYPE = renameElementSymbol
+    ? Symbol.for("react.transitional.element")
+    : REACT_LEGACY_ELEMENT_TYPE,
   REACT_PORTAL_TYPE = Symbol.for("react.portal"),
   REACT_FRAGMENT_TYPE = Symbol.for("react.fragment"),
   REACT_STRICT_MODE_TYPE = Symbol.for("react.strict_mode"),
-  REACT_PROFILER_TYPE = Symbol.for("react.profiler");
-Symbol.for("react.provider");
-var REACT_CONSUMER_TYPE = Symbol.for("react.consumer"),
+  REACT_PROFILER_TYPE = Symbol.for("react.profiler"),
+  REACT_CONSUMER_TYPE = Symbol.for("react.consumer"),
   REACT_CONTEXT_TYPE = Symbol.for("react.context"),
   REACT_FORWARD_REF_TYPE = Symbol.for("react.forward_ref"),
   REACT_SUSPENSE_TYPE = Symbol.for("react.suspense"),
   REACT_SUSPENSE_LIST_TYPE = Symbol.for("react.suspense_list"),
   REACT_MEMO_TYPE = Symbol.for("react.memo"),
   REACT_LAZY_TYPE = Symbol.for("react.lazy"),
-  REACT_OFFSCREEN_TYPE = Symbol.for("react.offscreen"),
+  REACT_VIEW_TRANSITION_TYPE = Symbol.for("react.view_transition"),
   REACT_CLIENT_REFERENCE = Symbol.for("react.client.reference");
 function typeOf(object) {
   if ("object" === typeof object && null !== object) {
     var $$typeof = object.$$typeof;
     switch ($$typeof) {
-      case REACT_LEGACY_ELEMENT_TYPE:
+      case REACT_ELEMENT_TYPE:
         switch (((object = object.type), object)) {
           case REACT_FRAGMENT_TYPE:
           case REACT_PROFILER_TYPE:
           case REACT_STRICT_MODE_TYPE:
           case REACT_SUSPENSE_TYPE:
           case REACT_SUSPENSE_LIST_TYPE:
+          case REACT_VIEW_TRANSITION_TYPE:
             return object;
           default:
             switch (((object = object && object.$$typeof), object)) {
@@ -58,7 +63,7 @@ function typeOf(object) {
 }
 exports.ContextConsumer = REACT_CONSUMER_TYPE;
 exports.ContextProvider = REACT_CONTEXT_TYPE;
-exports.Element = REACT_LEGACY_ELEMENT_TYPE;
+exports.Element = REACT_ELEMENT_TYPE;
 exports.ForwardRef = REACT_FORWARD_REF_TYPE;
 exports.Fragment = REACT_FRAGMENT_TYPE;
 exports.Lazy = REACT_LAZY_TYPE;
@@ -78,7 +83,7 @@ exports.isElement = function (object) {
   return (
     "object" === typeof object &&
     null !== object &&
-    object.$$typeof === REACT_LEGACY_ELEMENT_TYPE
+    object.$$typeof === REACT_ELEMENT_TYPE
   );
 };
 exports.isForwardRef = function (object) {
@@ -116,7 +121,6 @@ exports.isValidElementType = function (type) {
     type === REACT_STRICT_MODE_TYPE ||
     type === REACT_SUSPENSE_TYPE ||
     type === REACT_SUSPENSE_LIST_TYPE ||
-    type === REACT_OFFSCREEN_TYPE ||
     ("object" === typeof type &&
       null !== type &&
       (type.$$typeof === REACT_LAZY_TYPE ||
