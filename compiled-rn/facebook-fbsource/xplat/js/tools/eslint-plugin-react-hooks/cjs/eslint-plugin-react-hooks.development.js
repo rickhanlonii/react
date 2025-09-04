@@ -12,7 +12,7 @@
  * @lightSyntaxTransform
  * @preventMunge
  * @oncall react_core
- * @generated SignedSource<<92021fc3beead9e56f852b5daa23438d>>
+ * @generated SignedSource<<b6aab3157a965bb10b8d116c436fd916>>
  */
 
 'use strict';
@@ -40775,7 +40775,7 @@ function computeSignatureForInstruction(context, env, instr) {
                     effects.push({
                         kind: 'Freeze',
                         value: operand,
-                        reason: ValueReason.Other,
+                        reason: ValueReason.HookCaptured,
                     });
                 }
             }
@@ -41509,7 +41509,8 @@ class CollectDependenciesVisitor extends ReactiveFunctionVisitor {
         this.state = state;
         this.options = {
             memoizeJsxElements: !this.env.config.enableForest,
-            forceMemoizePrimitives: this.env.config.enableForest,
+            forceMemoizePrimitives: this.env.config.enableForest ||
+                this.env.config.enablePreserveExistingMemoizationGuarantees,
         };
     }
     computeMemoizationInputs(value, lvalue) {
@@ -41597,9 +41598,14 @@ class CollectDependenciesVisitor extends ReactiveFunctionVisitor {
             case 'JSXText':
             case 'BinaryExpression':
             case 'UnaryExpression': {
-                const level = options.forceMemoizePrimitives
-                    ? MemoizationLevel.Memoized
-                    : MemoizationLevel.Never;
+                if (options.forceMemoizePrimitives) {
+                    const level = MemoizationLevel.Conditional;
+                    return {
+                        lvalues: lvalue !== null ? [{ place: lvalue, level }] : [],
+                        rvalues: [...eachReactiveValueOperand(value)],
+                    };
+                }
+                const level = MemoizationLevel.Never;
                 return {
                     lvalues: lvalue !== null ? [{ place: lvalue, level }] : [],
                     rvalues: [],
@@ -41730,9 +41736,7 @@ class CollectDependenciesVisitor extends ReactiveFunctionVisitor {
             }
             case 'ComputedLoad':
             case 'PropertyLoad': {
-                const level = options.forceMemoizePrimitives
-                    ? MemoizationLevel.Memoized
-                    : MemoizationLevel.Conditional;
+                const level = MemoizationLevel.Conditional;
                 return {
                     lvalues: lvalue !== null ? [{ place: lvalue, level }] : [],
                     rvalues: [value.object],
@@ -45882,7 +45886,7 @@ function alignMethodCallScopes(fn) {
 }
 
 function alignReactiveScopesToBlockScopesHIR(fn) {
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c, _d, _e, _f, _g;
     const activeBlockFallthroughRanges = [];
     const activeScopes = new Set();
     const seen = new Set();
@@ -45952,6 +45956,20 @@ function alignReactiveScopesToBlockScopesHIR(fn) {
             });
             if (node != null) {
                 valueBlockNodes.set(fallthrough, node);
+            }
+        }
+        else if (terminal.kind === 'goto') {
+            const start = activeBlockFallthroughRanges.find(range => range.fallthrough === terminal.block);
+            if (start != null && start !== activeBlockFallthroughRanges.at(-1)) {
+                const fallthroughBlock = fn.body.blocks.get(start.fallthrough);
+                const firstId = (_g = (_f = fallthroughBlock.instructions[0]) === null || _f === void 0 ? void 0 : _f.id) !== null && _g !== void 0 ? _g : fallthroughBlock.terminal.id;
+                for (const scope of activeScopes) {
+                    if (scope.range.end <= terminal.id) {
+                        continue;
+                    }
+                    scope.range.start = makeInstructionId(Math.min(start.range.start, scope.range.start));
+                    scope.range.end = makeInstructionId(Math.max(firstId, scope.range.end));
+                }
             }
         }
         mapTerminalSuccessors(terminal, successor => {
