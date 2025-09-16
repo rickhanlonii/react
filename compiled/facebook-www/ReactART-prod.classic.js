@@ -1756,6 +1756,7 @@ function releaseIsomorphicIndicator() {
 }
 var prevOnStartTransitionFinish = ReactSharedInternals.S;
 ReactSharedInternals.S = function (transition, returnValue) {
+  globalMostRecentTransitionTime = now();
   "object" === typeof returnValue &&
     null !== returnValue &&
     "function" === typeof returnValue.then &&
@@ -1938,7 +1939,7 @@ function coerceRef(workInProgress, element) {
   element = element.props.ref;
   workInProgress.ref = void 0 !== element ? element : null;
 }
-function throwOnInvalidObjectType(returnFiber, newChild) {
+function throwOnInvalidObjectTypeImpl(returnFiber, newChild) {
   if (newChild.$$typeof === REACT_LEGACY_ELEMENT_TYPE)
     throw Error(formatProdErrorMessage(525));
   returnFiber = Object.prototype.toString.call(newChild);
@@ -2151,7 +2152,7 @@ function createChildReconciler(shouldTrackSideEffects) {
           readContextDuringReconciliation(returnFiber, newChild),
           lanes
         );
-      throwOnInvalidObjectType(returnFiber, newChild);
+      throwOnInvalidObjectTypeImpl(returnFiber, newChild);
     }
     return null;
   }
@@ -2199,7 +2200,7 @@ function createChildReconciler(shouldTrackSideEffects) {
           readContextDuringReconciliation(returnFiber, newChild),
           lanes
         );
-      throwOnInvalidObjectType(returnFiber, newChild);
+      throwOnInvalidObjectTypeImpl(returnFiber, newChild);
     }
     return null;
   }
@@ -2270,7 +2271,7 @@ function createChildReconciler(shouldTrackSideEffects) {
           readContextDuringReconciliation(returnFiber, newChild),
           lanes
         );
-      throwOnInvalidObjectType(returnFiber, newChild);
+      throwOnInvalidObjectTypeImpl(returnFiber, newChild);
     }
     return null;
   }
@@ -2590,7 +2591,7 @@ function createChildReconciler(shouldTrackSideEffects) {
           readContextDuringReconciliation(returnFiber, newChild),
           lanes
         );
-      throwOnInvalidObjectType(returnFiber, newChild);
+      throwOnInvalidObjectTypeImpl(returnFiber, newChild);
     }
     return ("string" === typeof newChild && "" !== newChild) ||
       "number" === typeof newChild ||
@@ -9605,6 +9606,7 @@ var DefaultAsyncDispatcher = {
   workInProgressRootDidIncludeRecursiveRenderUpdate = !1,
   didIncludeCommitPhaseUpdate = !1,
   globalMostRecentFallbackTime = 0,
+  globalMostRecentTransitionTime = 0,
   workInProgressRootRenderTargetTime = Infinity,
   workInProgressTransitions = null,
   currentPendingTransitionCallbacks = null,
@@ -9935,7 +9937,12 @@ function commitRootWhenReady(
     16785408 === (subtreeFlags & 16785408)
   )
     (appearingViewTransitions = null),
-      accumulateSuspenseyCommitOnFiber(finishedWork);
+      accumulateSuspenseyCommitOnFiber(finishedWork),
+      (lanes & 62914560) === lanes
+        ? globalMostRecentFallbackTime - now()
+        : (lanes & 4194048) === lanes
+          ? globalMostRecentTransitionTime - now()
+          : 0;
   commitRoot(
     root,
     finishedWork,
@@ -11417,24 +11424,24 @@ var slice = Array.prototype.slice,
     };
     return Text;
   })(React.Component);
-var internals$jscomp$inline_1631 = {
+var internals$jscomp$inline_1645 = {
   bundleType: 0,
-  version: "19.2.0-www-classic-b9a04536-20250904",
+  version: "19.2.0-www-classic-a51f9252-20250916",
   rendererPackageName: "react-art",
   currentDispatcherRef: ReactSharedInternals,
-  reconcilerVersion: "19.2.0-www-classic-b9a04536-20250904"
+  reconcilerVersion: "19.2.0-www-classic-a51f9252-20250916"
 };
 if ("undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__) {
-  var hook$jscomp$inline_1632 = __REACT_DEVTOOLS_GLOBAL_HOOK__;
+  var hook$jscomp$inline_1646 = __REACT_DEVTOOLS_GLOBAL_HOOK__;
   if (
-    !hook$jscomp$inline_1632.isDisabled &&
-    hook$jscomp$inline_1632.supportsFiber
+    !hook$jscomp$inline_1646.isDisabled &&
+    hook$jscomp$inline_1646.supportsFiber
   )
     try {
-      (rendererID = hook$jscomp$inline_1632.inject(
-        internals$jscomp$inline_1631
+      (rendererID = hook$jscomp$inline_1646.inject(
+        internals$jscomp$inline_1645
       )),
-        (injectedHook = hook$jscomp$inline_1632);
+        (injectedHook = hook$jscomp$inline_1646);
     } catch (err) {}
 }
 var Path = Mode$1.Path;
@@ -11448,4 +11455,4 @@ exports.RadialGradient = RadialGradient;
 exports.Shape = TYPES.SHAPE;
 exports.Surface = Surface;
 exports.Text = Text;
-exports.version = "19.2.0-www-classic-b9a04536-20250904";
+exports.version = "19.2.0-www-classic-a51f9252-20250916";

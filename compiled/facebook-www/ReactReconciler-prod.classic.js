@@ -1840,7 +1840,7 @@ module.exports = function ($$$config) {
     element = element.props.ref;
     workInProgress.ref = void 0 !== element ? element : null;
   }
-  function throwOnInvalidObjectType(returnFiber, newChild) {
+  function throwOnInvalidObjectTypeImpl(returnFiber, newChild) {
     if (newChild.$$typeof === REACT_LEGACY_ELEMENT_TYPE)
       throw Error(formatProdErrorMessage(525));
     returnFiber = Object.prototype.toString.call(newChild);
@@ -2054,7 +2054,7 @@ module.exports = function ($$$config) {
             readContextDuringReconciliation(returnFiber, newChild),
             lanes
           );
-        throwOnInvalidObjectType(returnFiber, newChild);
+        throwOnInvalidObjectTypeImpl(returnFiber, newChild);
       }
       return null;
     }
@@ -2102,7 +2102,7 @@ module.exports = function ($$$config) {
             readContextDuringReconciliation(returnFiber, newChild),
             lanes
           );
-        throwOnInvalidObjectType(returnFiber, newChild);
+        throwOnInvalidObjectTypeImpl(returnFiber, newChild);
       }
       return null;
     }
@@ -2173,7 +2173,7 @@ module.exports = function ($$$config) {
             readContextDuringReconciliation(returnFiber, newChild),
             lanes
           );
-        throwOnInvalidObjectType(returnFiber, newChild);
+        throwOnInvalidObjectTypeImpl(returnFiber, newChild);
       }
       return null;
     }
@@ -2515,7 +2515,7 @@ module.exports = function ($$$config) {
             readContextDuringReconciliation(returnFiber, newChild),
             lanes
           );
-        throwOnInvalidObjectType(returnFiber, newChild);
+        throwOnInvalidObjectTypeImpl(returnFiber, newChild);
       }
       return ("string" === typeof newChild && "" !== newChild) ||
         "number" === typeof newChild ||
@@ -10598,19 +10598,36 @@ module.exports = function ($$$config) {
         parentFiber = parentFiber.sibling;
       }
   }
-  function recursivelyAccumulateSuspenseyCommit(parentFiber, committedLanes) {
+  function recursivelyAccumulateSuspenseyCommit(
+    parentFiber,
+    committedLanes,
+    suspendedState
+  ) {
     if (parentFiber.subtreeFlags & suspenseyCommitFlag)
       for (parentFiber = parentFiber.child; null !== parentFiber; )
-        accumulateSuspenseyCommitOnFiber(parentFiber, committedLanes),
+        accumulateSuspenseyCommitOnFiber(
+          parentFiber,
+          committedLanes,
+          suspendedState
+        ),
           (parentFiber = parentFiber.sibling);
   }
-  function accumulateSuspenseyCommitOnFiber(fiber, committedLanes) {
+  function accumulateSuspenseyCommitOnFiber(
+    fiber,
+    committedLanes,
+    suspendedState
+  ) {
     switch (fiber.tag) {
       case 26:
-        recursivelyAccumulateSuspenseyCommit(fiber, committedLanes);
+        recursivelyAccumulateSuspenseyCommit(
+          fiber,
+          committedLanes,
+          suspendedState
+        );
         if (fiber.flags & suspenseyCommitFlag)
           if (null !== fiber.memoizedState)
             suspendResource(
+              suspendedState,
               currentHoistableRoot,
               fiber.memoizedState,
               fiber.memoizedProps
@@ -10621,18 +10638,22 @@ module.exports = function ($$$config) {
             fiber = fiber.memoizedProps;
             ((committedLanes & 335544128) === committedLanes ||
               maySuspendCommitInSyncRender(type, fiber)) &&
-              suspendInstance(instance, type, fiber);
+              suspendInstance(suspendedState, instance, type, fiber);
           }
         break;
       case 5:
-        recursivelyAccumulateSuspenseyCommit(fiber, committedLanes);
+        recursivelyAccumulateSuspenseyCommit(
+          fiber,
+          committedLanes,
+          suspendedState
+        );
         fiber.flags & suspenseyCommitFlag &&
           ((instance = fiber.stateNode),
           (type = fiber.type),
           (fiber = fiber.memoizedProps),
           ((committedLanes & 335544128) === committedLanes ||
             maySuspendCommitInSyncRender(type, fiber)) &&
-            suspendInstance(instance, type, fiber));
+            suspendInstance(suspendedState, instance, type, fiber));
         break;
       case 3:
       case 4:
@@ -10641,9 +10662,17 @@ module.exports = function ($$$config) {
             (currentHoistableRoot = getHoistableRoot(
               fiber.stateNode.containerInfo
             )),
-            recursivelyAccumulateSuspenseyCommit(fiber, committedLanes),
+            recursivelyAccumulateSuspenseyCommit(
+              fiber,
+              committedLanes,
+              suspendedState
+            ),
             (currentHoistableRoot = instance))
-          : recursivelyAccumulateSuspenseyCommit(fiber, committedLanes);
+          : recursivelyAccumulateSuspenseyCommit(
+              fiber,
+              committedLanes,
+              suspendedState
+            );
         break;
       case 22:
         null === fiber.memoizedState &&
@@ -10651,9 +10680,17 @@ module.exports = function ($$$config) {
           null !== instance && null !== instance.memoizedState
             ? ((instance = suspenseyCommitFlag),
               (suspenseyCommitFlag = 16777216),
-              recursivelyAccumulateSuspenseyCommit(fiber, committedLanes),
+              recursivelyAccumulateSuspenseyCommit(
+                fiber,
+                committedLanes,
+                suspendedState
+              ),
               (suspenseyCommitFlag = instance))
-            : recursivelyAccumulateSuspenseyCommit(fiber, committedLanes));
+            : recursivelyAccumulateSuspenseyCommit(
+                fiber,
+                committedLanes,
+                suspendedState
+              ));
         break;
       case 30:
         if (enableViewTransition) {
@@ -10666,11 +10703,19 @@ module.exports = function ($$$config) {
               null === appearingViewTransitions &&
                 (appearingViewTransitions = new Map()),
               appearingViewTransitions.set(instance, type)));
-          recursivelyAccumulateSuspenseyCommit(fiber, committedLanes);
+          recursivelyAccumulateSuspenseyCommit(
+            fiber,
+            committedLanes,
+            suspendedState
+          );
           break;
         }
       default:
-        recursivelyAccumulateSuspenseyCommit(fiber, committedLanes);
+        recursivelyAccumulateSuspenseyCommit(
+          fiber,
+          committedLanes,
+          suspendedState
+        );
     }
   }
   function detachAlternateSiblings(parentFiber) {
@@ -11347,24 +11392,41 @@ module.exports = function ($$$config) {
     completedRenderEndTime
   ) {
     root.timeoutHandle = noTimeout;
-    suspendedCommitReason = finishedWork.subtreeFlags;
-    var isViewTransitionEligible =
-      enableViewTransition && (lanes & 335544064) === lanes;
+    var subtreeFlags = finishedWork.subtreeFlags,
+      isViewTransitionEligible =
+        enableViewTransition && (lanes & 335544064) === lanes;
+    suspendedCommitReason = null;
     if (
       isViewTransitionEligible ||
-      suspendedCommitReason & 8192 ||
-      16785408 === (suspendedCommitReason & 16785408)
+      subtreeFlags & 8192 ||
+      16785408 === (subtreeFlags & 16785408)
     )
       if (
-        (startSuspendingCommit(),
+        ((suspendedCommitReason = startSuspendingCommit()),
         (appearingViewTransitions = null),
-        accumulateSuspenseyCommitOnFiber(finishedWork, lanes),
+        accumulateSuspenseyCommitOnFiber(
+          finishedWork,
+          lanes,
+          suspendedCommitReason
+        ),
         isViewTransitionEligible &&
-          suspendOnActiveViewTransition(root.containerInfo),
-        (suspendedCommitReason = waitForCommitToBeReady()),
-        null !== suspendedCommitReason)
+          suspendOnActiveViewTransition(
+            suspendedCommitReason,
+            root.containerInfo
+          ),
+        (subtreeFlags =
+          (lanes & 62914560) === lanes
+            ? globalMostRecentFallbackTime - now()
+            : (lanes & 4194048) === lanes
+              ? globalMostRecentTransitionTime - now()
+              : 0),
+        (subtreeFlags = waitForCommitToBeReady(
+          suspendedCommitReason,
+          subtreeFlags
+        )),
+        null !== subtreeFlags)
       ) {
-        root.cancelPendingCommit = suspendedCommitReason(
+        root.cancelPendingCommit = subtreeFlags(
           commitRoot.bind(
             null,
             root,
@@ -11377,6 +11439,7 @@ module.exports = function ($$$config) {
             updatedLanes,
             suspendedRetryLanes,
             exitStatus,
+            suspendedCommitReason,
             1,
             completedRenderStartTime,
             completedRenderEndTime
@@ -11394,7 +11457,9 @@ module.exports = function ($$$config) {
       didIncludeRenderPhaseUpdate,
       spawnedLane,
       updatedLanes,
-      suspendedRetryLanes
+      suspendedRetryLanes,
+      exitStatus,
+      suspendedCommitReason
     );
   }
   function isRenderConsistentWithExternalStores(finishedWork) {
@@ -11955,7 +12020,9 @@ module.exports = function ($$$config) {
     didIncludeRenderPhaseUpdate,
     spawnedLane,
     updatedLanes,
-    suspendedRetryLanes
+    suspendedRetryLanes,
+    exitStatus,
+    suspendedState
   ) {
     root.cancelPendingCommit = null;
     do flushPendingEffects();
@@ -11964,12 +12031,12 @@ module.exports = function ($$$config) {
     if (null !== finishedWork) {
       if (finishedWork === root.current)
         throw Error(formatProdErrorMessage(177));
-      var remainingLanes = finishedWork.lanes | finishedWork.childLanes;
-      remainingLanes |= concurrentlyUpdatedLanes;
+      exitStatus = finishedWork.lanes | finishedWork.childLanes;
+      exitStatus |= concurrentlyUpdatedLanes;
       markRootFinished(
         root,
         lanes,
-        remainingLanes,
+        exitStatus,
         spawnedLane,
         updatedLanes,
         suspendedRetryLanes
@@ -11981,7 +12048,7 @@ module.exports = function ($$$config) {
       pendingFinishedWork = finishedWork;
       pendingEffectsRoot = root;
       pendingEffectsLanes = lanes;
-      pendingEffectsRemainingLanes = remainingLanes;
+      pendingEffectsRemainingLanes = exitStatus;
       pendingPassiveTransitions = transitions;
       pendingRecoverableErrors = recoverableErrors;
       pendingDidIncludeRenderPhaseUpdate = didIncludeRenderPhaseUpdate;
@@ -12022,6 +12089,7 @@ module.exports = function ($$$config) {
       pendingEffectsStatus = 1;
       enableViewTransition && finishedWork
         ? (pendingViewTransition = startViewTransition(
+            suspendedState,
             root.containerInfo,
             pendingTransitionTypes,
             flushMutationEffects,
@@ -13268,6 +13336,7 @@ module.exports = function ($$$config) {
     needsIsomorphicIndicator = !1,
     prevOnStartTransitionFinish = ReactSharedInternals.S;
   ReactSharedInternals.S = function (transition, returnValue) {
+    globalMostRecentTransitionTime = now();
     "object" === typeof returnValue &&
       null !== returnValue &&
       "function" === typeof returnValue.then &&
@@ -13787,6 +13856,7 @@ module.exports = function ($$$config) {
     workInProgressRootDidIncludeRecursiveRenderUpdate = !1,
     didIncludeCommitPhaseUpdate = !1,
     globalMostRecentFallbackTime = 0,
+    globalMostRecentTransitionTime = 0,
     workInProgressRootRenderTargetTime = Infinity,
     workInProgressTransitions = null,
     currentPendingTransitionCallbacks = null,
@@ -14163,7 +14233,7 @@ module.exports = function ($$$config) {
       version: rendererVersion,
       rendererPackageName: rendererPackageName,
       currentDispatcherRef: ReactSharedInternals,
-      reconcilerVersion: "19.2.0-www-classic-b9a04536-20250904"
+      reconcilerVersion: "19.2.0-www-classic-a51f9252-20250916"
     };
     null !== extraDevToolsConfig &&
       (internals.rendererConfig = extraDevToolsConfig);

@@ -3093,6 +3093,7 @@ function releaseIsomorphicIndicator() {
 }
 var prevOnStartTransitionFinish = ReactSharedInternals.S;
 ReactSharedInternals.S = function (transition, returnValue) {
+  globalMostRecentTransitionTime = now$1();
   if (
     "object" === typeof returnValue &&
     null !== returnValue &&
@@ -3295,7 +3296,7 @@ function coerceRef(workInProgress, element) {
   element = element.props.ref;
   workInProgress.ref = void 0 !== element ? element : null;
 }
-function throwOnInvalidObjectType(returnFiber, newChild) {
+function throwOnInvalidObjectTypeImpl(returnFiber, newChild) {
   if (newChild.$$typeof === REACT_LEGACY_ELEMENT_TYPE)
     throw Error(formatProdErrorMessage(525));
   returnFiber = Object.prototype.toString.call(newChild);
@@ -3508,7 +3509,7 @@ function createChildReconciler(shouldTrackSideEffects) {
           readContextDuringReconciliation(returnFiber, newChild),
           lanes
         );
-      throwOnInvalidObjectType(returnFiber, newChild);
+      throwOnInvalidObjectTypeImpl(returnFiber, newChild);
     }
     return null;
   }
@@ -3556,7 +3557,7 @@ function createChildReconciler(shouldTrackSideEffects) {
           readContextDuringReconciliation(returnFiber, newChild),
           lanes
         );
-      throwOnInvalidObjectType(returnFiber, newChild);
+      throwOnInvalidObjectTypeImpl(returnFiber, newChild);
     }
     return null;
   }
@@ -3627,7 +3628,7 @@ function createChildReconciler(shouldTrackSideEffects) {
           readContextDuringReconciliation(returnFiber, newChild),
           lanes
         );
-      throwOnInvalidObjectType(returnFiber, newChild);
+      throwOnInvalidObjectTypeImpl(returnFiber, newChild);
     }
     return null;
   }
@@ -3955,7 +3956,7 @@ function createChildReconciler(shouldTrackSideEffects) {
           readContextDuringReconciliation(returnFiber, newChild),
           lanes
         );
-      throwOnInvalidObjectType(returnFiber, newChild);
+      throwOnInvalidObjectTypeImpl(returnFiber, newChild);
     }
     return ("string" === typeof newChild && "" !== newChild) ||
       "number" === typeof newChild ||
@@ -13092,39 +13093,64 @@ function commitPassiveUnmountEffects(finishedWork) {
   commitPassiveUnmountOnFiber(finishedWork);
 }
 var suspenseyCommitFlag = 8192;
-function recursivelyAccumulateSuspenseyCommit(parentFiber, committedLanes) {
+function recursivelyAccumulateSuspenseyCommit(
+  parentFiber,
+  committedLanes,
+  suspendedState
+) {
   if (parentFiber.subtreeFlags & suspenseyCommitFlag)
     for (parentFiber = parentFiber.child; null !== parentFiber; )
-      accumulateSuspenseyCommitOnFiber(parentFiber, committedLanes),
+      accumulateSuspenseyCommitOnFiber(
+        parentFiber,
+        committedLanes,
+        suspendedState
+      ),
         (parentFiber = parentFiber.sibling);
 }
-function accumulateSuspenseyCommitOnFiber(fiber, committedLanes) {
+function accumulateSuspenseyCommitOnFiber(
+  fiber,
+  committedLanes,
+  suspendedState
+) {
   switch (fiber.tag) {
     case 26:
-      recursivelyAccumulateSuspenseyCommit(fiber, committedLanes);
+      recursivelyAccumulateSuspenseyCommit(
+        fiber,
+        committedLanes,
+        suspendedState
+      );
       fiber.flags & suspenseyCommitFlag &&
         (null !== fiber.memoizedState
           ? suspendResource(
+              suspendedState,
               currentHoistableRoot,
               fiber.memoizedState,
               fiber.memoizedProps
             )
           : ((fiber = fiber.stateNode),
             (committedLanes & 335544128) === committedLanes &&
-              suspendInstance(fiber)));
+              suspendInstance(suspendedState, fiber)));
       break;
     case 5:
-      recursivelyAccumulateSuspenseyCommit(fiber, committedLanes);
+      recursivelyAccumulateSuspenseyCommit(
+        fiber,
+        committedLanes,
+        suspendedState
+      );
       fiber.flags & suspenseyCommitFlag &&
         ((fiber = fiber.stateNode),
         (committedLanes & 335544128) === committedLanes &&
-          suspendInstance(fiber));
+          suspendInstance(suspendedState, fiber));
       break;
     case 3:
     case 4:
       var previousHoistableRoot = currentHoistableRoot;
       currentHoistableRoot = getHoistableRoot(fiber.stateNode.containerInfo);
-      recursivelyAccumulateSuspenseyCommit(fiber, committedLanes);
+      recursivelyAccumulateSuspenseyCommit(
+        fiber,
+        committedLanes,
+        suspendedState
+      );
       currentHoistableRoot = previousHoistableRoot;
       break;
     case 22:
@@ -13134,9 +13160,17 @@ function accumulateSuspenseyCommitOnFiber(fiber, committedLanes) {
         null !== previousHoistableRoot.memoizedState
           ? ((previousHoistableRoot = suspenseyCommitFlag),
             (suspenseyCommitFlag = 16777216),
-            recursivelyAccumulateSuspenseyCommit(fiber, committedLanes),
+            recursivelyAccumulateSuspenseyCommit(
+              fiber,
+              committedLanes,
+              suspendedState
+            ),
             (suspenseyCommitFlag = previousHoistableRoot))
-          : recursivelyAccumulateSuspenseyCommit(fiber, committedLanes));
+          : recursivelyAccumulateSuspenseyCommit(
+              fiber,
+              committedLanes,
+              suspendedState
+            ));
       break;
     case 30:
       if (enableViewTransition) {
@@ -13151,11 +13185,19 @@ function accumulateSuspenseyCommitOnFiber(fiber, committedLanes) {
             (appearingViewTransitions = new Map());
           appearingViewTransitions.set(previousHoistableRoot, state);
         }
-        recursivelyAccumulateSuspenseyCommit(fiber, committedLanes);
+        recursivelyAccumulateSuspenseyCommit(
+          fiber,
+          committedLanes,
+          suspendedState
+        );
         break;
       }
     default:
-      recursivelyAccumulateSuspenseyCommit(fiber, committedLanes);
+      recursivelyAccumulateSuspenseyCommit(
+        fiber,
+        committedLanes,
+        suspendedState
+      );
   }
 }
 function detachAlternateSiblings(parentFiber) {
@@ -13497,6 +13539,7 @@ var PossiblyWeakMap = "function" === typeof WeakMap ? WeakMap : Map,
   workInProgressRootDidIncludeRecursiveRenderUpdate = !1,
   didIncludeCommitPhaseUpdate = !1,
   globalMostRecentFallbackTime = 0,
+  globalMostRecentTransitionTime = 0,
   workInProgressRootRenderTargetTime = Infinity,
   workInProgressTransitions = null,
   currentPendingTransitionCallbacks = null,
@@ -13930,31 +13973,46 @@ function commitRootWhenReady(
   root.timeoutHandle = -1;
   var subtreeFlags = finishedWork.subtreeFlags,
     isViewTransitionEligible =
-      enableViewTransition && (lanes & 335544064) === lanes;
+      enableViewTransition && (lanes & 335544064) === lanes,
+    suspendedState = null;
   if (
     isViewTransitionEligible ||
     subtreeFlags & 8192 ||
     16785408 === (subtreeFlags & 16785408)
-  ) {
-    suspendedState = { stylesheets: null, count: 0, unsuspend: noop$1 };
-    appearingViewTransitions = null;
-    accumulateSuspenseyCommitOnFiber(finishedWork, lanes);
-    if (isViewTransitionEligible) {
-      isViewTransitionEligible = root.containerInfo;
-      if (null === suspendedState) throw Error(formatProdErrorMessage(475));
-      subtreeFlags = suspendedState;
-      isViewTransitionEligible = (
-        9 === isViewTransitionEligible.nodeType
-          ? isViewTransitionEligible
-          : isViewTransitionEligible.ownerDocument
-      ).__reactViewTransition;
-      null != isViewTransitionEligible &&
-        (subtreeFlags.count++,
-        (subtreeFlags = onUnsuspend.bind(subtreeFlags)),
-        isViewTransitionEligible.finished.then(subtreeFlags, subtreeFlags));
-    }
-    subtreeFlags = waitForCommitToBeReady();
-    if (null !== subtreeFlags) {
+  )
+    if (
+      ((suspendedState = {
+        stylesheets: null,
+        count: 0,
+        imgCount: 0,
+        imgBytes: 0,
+        suspenseyImages: [],
+        waitingForImages: !0,
+        unsuspend: noop$1
+      }),
+      (appearingViewTransitions = null),
+      accumulateSuspenseyCommitOnFiber(finishedWork, lanes, suspendedState),
+      isViewTransitionEligible &&
+        ((subtreeFlags = suspendedState),
+        (isViewTransitionEligible = root.containerInfo),
+        (isViewTransitionEligible = (
+          9 === isViewTransitionEligible.nodeType
+            ? isViewTransitionEligible
+            : isViewTransitionEligible.ownerDocument
+        ).__reactViewTransition),
+        null != isViewTransitionEligible &&
+          (subtreeFlags.count++,
+          (subtreeFlags = onUnsuspend.bind(subtreeFlags)),
+          isViewTransitionEligible.finished.then(subtreeFlags, subtreeFlags))),
+      (subtreeFlags =
+        (lanes & 62914560) === lanes
+          ? globalMostRecentFallbackTime - now$1()
+          : (lanes & 4194048) === lanes
+            ? globalMostRecentTransitionTime - now$1()
+            : 0),
+      (subtreeFlags = waitForCommitToBeReady(suspendedState, subtreeFlags)),
+      null !== subtreeFlags)
+    ) {
       root.cancelPendingCommit = subtreeFlags(
         commitRoot.bind(
           null,
@@ -13968,6 +14026,7 @@ function commitRootWhenReady(
           updatedLanes,
           suspendedRetryLanes,
           exitStatus,
+          suspendedState,
           1,
           completedRenderStartTime,
           completedRenderEndTime
@@ -13976,7 +14035,6 @@ function commitRootWhenReady(
       markRootSuspended(root, lanes, spawnedLane, !didSkipSuspendedSiblings);
       return;
     }
-  }
   commitRoot(
     root,
     finishedWork,
@@ -13988,6 +14046,7 @@ function commitRootWhenReady(
     updatedLanes,
     suspendedRetryLanes,
     exitStatus,
+    suspendedState,
     suspendedCommitReason,
     completedRenderStartTime,
     completedRenderEndTime
@@ -14833,6 +14892,7 @@ function commitRoot(
   updatedLanes,
   suspendedRetryLanes,
   exitStatus,
+  suspendedState,
   suspendedCommitReason,
   completedRenderStartTime,
   completedRenderEndTime
@@ -14965,6 +15025,7 @@ function commitRoot(
     pendingEffectsStatus = 1;
     enableViewTransition && finishedWork
       ? (pendingViewTransition = startViewTransition(
+          suspendedState,
           root.containerInfo,
           pendingTransitionTypes,
           flushMutationEffects,
@@ -16998,20 +17059,20 @@ function debounceScrollEnd(targetInst, nativeEvent, nativeEventTarget) {
     (nativeEventTarget[internalScrollTimer] = targetInst));
 }
 for (
-  var i$jscomp$inline_2071 = 0;
-  i$jscomp$inline_2071 < simpleEventPluginEvents.length;
-  i$jscomp$inline_2071++
+  var i$jscomp$inline_2090 = 0;
+  i$jscomp$inline_2090 < simpleEventPluginEvents.length;
+  i$jscomp$inline_2090++
 ) {
-  var eventName$jscomp$inline_2072 =
-      simpleEventPluginEvents[i$jscomp$inline_2071],
-    domEventName$jscomp$inline_2073 =
-      eventName$jscomp$inline_2072.toLowerCase(),
-    capitalizedEvent$jscomp$inline_2074 =
-      eventName$jscomp$inline_2072[0].toUpperCase() +
-      eventName$jscomp$inline_2072.slice(1);
+  var eventName$jscomp$inline_2091 =
+      simpleEventPluginEvents[i$jscomp$inline_2090],
+    domEventName$jscomp$inline_2092 =
+      eventName$jscomp$inline_2091.toLowerCase(),
+    capitalizedEvent$jscomp$inline_2093 =
+      eventName$jscomp$inline_2091[0].toUpperCase() +
+      eventName$jscomp$inline_2091.slice(1);
   registerSimpleEvent(
-    domEventName$jscomp$inline_2073,
-    "on" + capitalizedEvent$jscomp$inline_2074
+    domEventName$jscomp$inline_2092,
+    "on" + capitalizedEvent$jscomp$inline_2093
   );
 }
 registerSimpleEvent(ANIMATION_END, "onAnimationEnd");
@@ -18875,6 +18936,66 @@ function updateProperties(domElement, tag, lastProps, nextProps) {
         (null == propKey$274 && null == propKey) ||
         setProp(domElement, tag, lastProp, propKey$274, nextProps, propKey);
 }
+function isLikelyStaticResource(initiatorType) {
+  switch (initiatorType) {
+    case "css":
+    case "script":
+    case "font":
+    case "img":
+    case "image":
+    case "input":
+    case "link":
+      return !0;
+    default:
+      return !1;
+  }
+}
+function estimateBandwidth() {
+  if ("function" === typeof performance.getEntriesByType) {
+    for (
+      var count = 0,
+        bits = 0,
+        resourceEntries = performance.getEntriesByType("resource"),
+        i = 0;
+      i < resourceEntries.length;
+      i++
+    ) {
+      var entry = resourceEntries[i],
+        transferSize = entry.transferSize,
+        initiatorType = entry.initiatorType,
+        duration = entry.duration;
+      if (transferSize && duration && isLikelyStaticResource(initiatorType)) {
+        initiatorType = 0;
+        duration = entry.responseEnd;
+        for (i += 1; i < resourceEntries.length; i++) {
+          var overlapEntry = resourceEntries[i],
+            overlapStartTime = overlapEntry.startTime;
+          if (overlapStartTime > duration) break;
+          var overlapTransferSize = overlapEntry.transferSize,
+            overlapInitiatorType = overlapEntry.initiatorType;
+          overlapTransferSize &&
+            isLikelyStaticResource(overlapInitiatorType) &&
+            ((overlapEntry = overlapEntry.responseEnd),
+            (initiatorType +=
+              overlapTransferSize *
+              (overlapEntry < duration
+                ? 1
+                : (duration - overlapStartTime) /
+                  (overlapEntry - overlapStartTime))));
+        }
+        --i;
+        bits += (8 * (transferSize + initiatorType)) / (entry.duration / 1e3);
+        count++;
+        if (10 < count) break;
+      }
+    }
+    if (0 < count) return bits / count / 1e6;
+  }
+  return navigator.connection &&
+    ((count = navigator.connection.downlink), "number" === typeof count)
+    ? count
+    : 5;
+}
 var eventsEnabled = null,
   selectionInformation = null;
 function getOwnerDocumentFromRootContainer(rootContainerElement) {
@@ -19177,7 +19298,12 @@ function measureClonedInstance(instance) {
 function forceLayout(ownerDocument) {
   return ownerDocument.documentElement.clientHeight;
 }
+function waitForImageToLoad(resolve) {
+  this.addEventListener("load", resolve);
+  this.addEventListener("error", resolve);
+}
 function startViewTransition(
+  suspendedState,
   rootContainer,
   transitionTypes,
   mutationCallback,
@@ -19192,33 +19318,63 @@ function startViewTransition(
   try {
     var transition = ownerDocument.startViewTransition({
       update: function () {
-        var ownerWindow = ownerDocument.defaultView;
-        ownerWindow =
-          ownerWindow.navigation && ownerWindow.navigation.transition;
-        var previousFontLoadingStatus = ownerDocument.fonts.status;
+        var ownerWindow = ownerDocument.defaultView,
+          pendingNavigation =
+            ownerWindow.navigation && ownerWindow.navigation.transition,
+          previousFontLoadingStatus = ownerDocument.fonts.status;
         mutationCallback();
-        if (
-          "loaded" === previousFontLoadingStatus &&
-          (forceLayout(ownerDocument), "loading" === ownerDocument.fonts.status)
-        )
+        var blockingPromises = [];
+        "loaded" === previousFontLoadingStatus &&
+          (forceLayout(ownerDocument),
+          "loading" === ownerDocument.fonts.status &&
+            blockingPromises.push(ownerDocument.fonts.ready));
+        if (null !== suspendedState) {
+          previousFontLoadingStatus = suspendedState.suspenseyImages;
+          for (
+            var blockingIndexSnapshot = blockingPromises.length,
+              imgBytes = 0,
+              i = 0;
+            i < previousFontLoadingStatus.length;
+            i++
+          ) {
+            var suspenseyImage = previousFontLoadingStatus[i];
+            if (!suspenseyImage.complete) {
+              var rect = suspenseyImage.getBoundingClientRect();
+              if (
+                0 < rect.bottom &&
+                0 < rect.right &&
+                rect.top < ownerWindow.innerHeight &&
+                rect.left < ownerWindow.innerWidth
+              ) {
+                imgBytes += estimateImageBytes(suspenseyImage);
+                if (imgBytes > estimatedBytesWithinLimit) {
+                  blockingPromises.length = blockingIndexSnapshot;
+                  break;
+                }
+                suspenseyImage = new Promise(
+                  waitForImageToLoad.bind(suspenseyImage)
+                );
+                blockingPromises.push(suspenseyImage);
+              }
+            }
+          }
+        }
+        if (0 < blockingPromises.length)
           return (
-            (previousFontLoadingStatus = Promise.race([
-              ownerDocument.fonts.ready,
+            (ownerWindow = Promise.race([
+              Promise.all(blockingPromises),
               new Promise(function (resolve) {
                 return setTimeout(resolve, 500);
               })
             ]).then(layoutCallback, layoutCallback)),
-            (ownerWindow
-              ? Promise.allSettled([
-                  ownerWindow.finished,
-                  previousFontLoadingStatus
-                ])
-              : previousFontLoadingStatus
+            (pendingNavigation
+              ? Promise.allSettled([pendingNavigation.finished, ownerWindow])
+              : ownerWindow
             ).then(afterMutationCallback, afterMutationCallback)
           );
         layoutCallback();
-        if (ownerWindow)
-          return ownerWindow.finished.then(
+        if (pendingNavigation)
+          return pendingNavigation.finished.then(
             afterMutationCallback,
             afterMutationCallback
           );
@@ -19301,6 +19457,8 @@ function startViewTransition(
                   "Skipping view transition because document visibility state has become hidden." ===
                     error.message ||
                   "Skipping view transition because viewport size changed." ===
+                    error.message ||
+                  "Transition was aborted because of invalid state" ===
                     error.message
                 )
                   error = null;
@@ -20742,26 +20900,25 @@ function preloadResource(resource) {
     ? !1
     : !0;
 }
-var suspendedState = null;
-function suspendInstance(instance) {
-  if (enableViewTransition) {
-    if (null === suspendedState) throw Error(formatProdErrorMessage(475));
-    var state = suspendedState;
-    "function" === typeof instance.decode &&
-      "function" === typeof setTimeout &&
-      (state.count++,
-      (state = onUnsuspend.bind(state)),
-      Promise.race([
-        instance.decode(),
-        new Promise(function (resolve) {
-          return setTimeout(resolve, 500);
-        })
-      ]).then(state, state));
-  }
+function estimateImageBytes(instance) {
+  return (
+    (instance.width || 100) *
+    (instance.height || 100) *
+    ("number" === typeof devicePixelRatio ? devicePixelRatio : 1) *
+    0.25
+  );
 }
-function suspendResource(hoistableRoot, resource, props) {
-  if (null === suspendedState) throw Error(formatProdErrorMessage(475));
-  var state = suspendedState;
+function suspendInstance(state, instance) {
+  enableViewTransition &&
+    "function" === typeof instance.decode &&
+    (state.imgCount++,
+    instance.complete ||
+      ((state.imgBytes += estimateImageBytes(instance)),
+      state.suspenseyImages.push(instance)),
+    (state = onUnsuspendImg.bind(state)),
+    instance.decode().then(state, state));
+}
+function suspendResource(state, hoistableRoot, resource, props) {
   if (
     "stylesheet" === resource.type &&
     ("string" !== typeof props.media ||
@@ -20810,13 +20967,12 @@ function suspendResource(hoistableRoot, resource, props) {
       hoistableRoot.addEventListener("error", resource));
   }
 }
-function waitForCommitToBeReady() {
-  if (null === suspendedState) throw Error(formatProdErrorMessage(475));
-  var state = suspendedState;
+var estimatedBytesWithinLimit = 0;
+function waitForCommitToBeReady(state, timeoutOffset) {
   state.stylesheets &&
     0 === state.count &&
     insertSuspendedStylesheets(state, state.stylesheets);
-  return 0 < state.count
+  return 0 < state.count || 0 < state.imgCount
     ? function (commit) {
         var stylesheetTimer = setTimeout(function () {
           state.stylesheets &&
@@ -20826,24 +20982,52 @@ function waitForCommitToBeReady() {
             state.unsuspend = null;
             unsuspend();
           }
-        }, 6e4);
+        }, 6e4 + timeoutOffset);
+        0 < state.imgBytes &&
+          0 === estimatedBytesWithinLimit &&
+          (estimatedBytesWithinLimit = 62500 * estimateBandwidth());
+        var imgTimer = setTimeout(
+          function () {
+            state.waitingForImages = !1;
+            if (
+              0 === state.count &&
+              (state.stylesheets &&
+                insertSuspendedStylesheets(state, state.stylesheets),
+              state.unsuspend)
+            ) {
+              var unsuspend = state.unsuspend;
+              state.unsuspend = null;
+              unsuspend();
+            }
+          },
+          (state.imgBytes > estimatedBytesWithinLimit ? 50 : 800) +
+            timeoutOffset
+        );
         state.unsuspend = commit;
         return function () {
           state.unsuspend = null;
           clearTimeout(stylesheetTimer);
+          clearTimeout(imgTimer);
         };
       }
     : null;
 }
-function onUnsuspend() {
-  this.count--;
-  if (0 === this.count)
-    if (this.stylesheets) insertSuspendedStylesheets(this, this.stylesheets);
-    else if (this.unsuspend) {
-      var unsuspend = this.unsuspend;
-      this.unsuspend = null;
+function checkIfFullyUnsuspended(state) {
+  if (0 === state.count && (0 === state.imgCount || !state.waitingForImages))
+    if (state.stylesheets) insertSuspendedStylesheets(state, state.stylesheets);
+    else if (state.unsuspend) {
+      var unsuspend = state.unsuspend;
+      state.unsuspend = null;
       unsuspend();
     }
+}
+function onUnsuspend() {
+  this.count--;
+  checkIfFullyUnsuspended(this);
+}
+function onUnsuspendImg() {
+  this.imgCount--;
+  checkIfFullyUnsuspended(this);
 }
 var precedencesByRoot = null;
 function insertSuspendedStylesheets(state, resources) {
@@ -21626,16 +21810,16 @@ function getCrossOriginStringAs(as, input) {
   if ("string" === typeof input)
     return "use-credentials" === input ? input : "";
 }
-var isomorphicReactPackageVersion$jscomp$inline_2351 = React.version;
+var isomorphicReactPackageVersion$jscomp$inline_2370 = React.version;
 if (
-  "19.2.0-www-modern-b9a04536-20250904" !==
-  isomorphicReactPackageVersion$jscomp$inline_2351
+  "19.2.0-www-modern-a51f9252-20250916" !==
+  isomorphicReactPackageVersion$jscomp$inline_2370
 )
   throw Error(
     formatProdErrorMessage(
       527,
-      isomorphicReactPackageVersion$jscomp$inline_2351,
-      "19.2.0-www-modern-b9a04536-20250904"
+      isomorphicReactPackageVersion$jscomp$inline_2370,
+      "19.2.0-www-modern-a51f9252-20250916"
     )
   );
 Internals.findDOMNode = function (componentOrElement) {
@@ -21651,27 +21835,27 @@ Internals.Events = [
     return fn(a);
   }
 ];
-var internals$jscomp$inline_2353 = {
+var internals$jscomp$inline_2372 = {
   bundleType: 0,
-  version: "19.2.0-www-modern-b9a04536-20250904",
+  version: "19.2.0-www-modern-a51f9252-20250916",
   rendererPackageName: "react-dom",
   currentDispatcherRef: ReactSharedInternals,
-  reconcilerVersion: "19.2.0-www-modern-b9a04536-20250904"
+  reconcilerVersion: "19.2.0-www-modern-a51f9252-20250916"
 };
 enableSchedulingProfiler &&
-  ((internals$jscomp$inline_2353.getLaneLabelMap = getLaneLabelMap),
-  (internals$jscomp$inline_2353.injectProfilingHooks = injectProfilingHooks));
+  ((internals$jscomp$inline_2372.getLaneLabelMap = getLaneLabelMap),
+  (internals$jscomp$inline_2372.injectProfilingHooks = injectProfilingHooks));
 if ("undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__) {
-  var hook$jscomp$inline_2963 = __REACT_DEVTOOLS_GLOBAL_HOOK__;
+  var hook$jscomp$inline_2982 = __REACT_DEVTOOLS_GLOBAL_HOOK__;
   if (
-    !hook$jscomp$inline_2963.isDisabled &&
-    hook$jscomp$inline_2963.supportsFiber
+    !hook$jscomp$inline_2982.isDisabled &&
+    hook$jscomp$inline_2982.supportsFiber
   )
     try {
-      (rendererID = hook$jscomp$inline_2963.inject(
-        internals$jscomp$inline_2353
+      (rendererID = hook$jscomp$inline_2982.inject(
+        internals$jscomp$inline_2372
       )),
-        (injectedHook = hook$jscomp$inline_2963);
+        (injectedHook = hook$jscomp$inline_2982);
     } catch (err) {}
 }
 function defaultOnDefaultTransitionIndicator() {
@@ -22089,7 +22273,7 @@ exports.useFormState = function (action, initialState, permalink) {
 exports.useFormStatus = function () {
   return ReactSharedInternals.H.useHostTransitionStatus();
 };
-exports.version = "19.2.0-www-modern-b9a04536-20250904";
+exports.version = "19.2.0-www-modern-a51f9252-20250916";
 "undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ &&
   "function" ===
     typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStop &&
