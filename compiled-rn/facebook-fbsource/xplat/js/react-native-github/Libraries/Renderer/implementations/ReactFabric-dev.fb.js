@@ -7,7 +7,7 @@
  * @noflow
  * @nolint
  * @preventMunge
- * @generated SignedSource<<66c3c6aceaeb6b42ab405103e9e16116>>
+ * @generated SignedSource<<d4a9b229d03bae1f10c11178d1603b95>>
  */
 
 "use strict";
@@ -3557,7 +3557,7 @@ __DEV__ &&
           cache.controller.abort();
         });
     }
-    function startUpdateTimerByLane(lane, method) {
+    function startUpdateTimerByLane(lane, method, fiber) {
       if (enableComponentPerformanceTrack) {
         var JSCompiler_temp;
         (JSCompiler_temp = 0 !== (lane & 3)) ||
@@ -3566,6 +3566,9 @@ __DEV__ &&
           if (0 > blockingUpdateTime) {
             blockingUpdateTime = now();
             blockingUpdateTask = createTask(method);
+            blockingUpdateMethodName = method;
+            null != fiber &&
+              (blockingUpdateComponentName = getComponentNameFromFiber(fiber));
             (executionContext & (RenderContext | CommitContext)) !==
               NoContext && (blockingUpdateType = 1);
             if (-1.1 !== blockingEventTime || null !== blockingEventType)
@@ -3578,6 +3581,9 @@ __DEV__ &&
           0 > transitionUpdateTime &&
           ((transitionUpdateTime = now()),
           (transitionUpdateTask = createTask(method)),
+          (transitionUpdateMethodName = method),
+          null != fiber &&
+            (transitionUpdateComponentName = getComponentNameFromFiber(fiber)),
           0 > transitionStartTime)
         ) {
           if (-1.1 !== transitionEventTime || null !== transitionEventType)
@@ -4185,6 +4191,16 @@ __DEV__ &&
             : previousDebugInfo.concat(debugInfo));
       return previousDebugInfo;
     }
+    function getCurrentDebugTask() {
+      var debugInfo = currentDebugInfo;
+      if (null != debugInfo)
+        for (var i = debugInfo.length - 1; 0 <= i; i--)
+          if (null != debugInfo[i].name) {
+            var debugTask = debugInfo[i].debugTask;
+            if (null != debugTask) return debugTask;
+          }
+      return null;
+    }
     function validateFragmentProps(element, fiber, returnFiber) {
       for (var keys = Object.keys(element.props), i = 0; i < keys.length; i++) {
         var key = keys[i];
@@ -4226,7 +4242,7 @@ __DEV__ &&
       element = element.props.ref;
       workInProgress.ref = void 0 !== element ? element : null;
     }
-    function throwOnInvalidObjectType(returnFiber, newChild) {
+    function throwOnInvalidObjectTypeImpl(returnFiber, newChild) {
       if (newChild.$$typeof === REACT_LEGACY_ELEMENT_TYPE)
         throw Error(
           'A React Element from an older version of React was rendered. This is not supported. It can happen if:\n- Multiple copies of the "react" package is used.\n- A library pre-bundled an old copy of "react" or "react/jsx-runtime".\n- A compiler tries to "inline" JSX instead of using the runtime.'
@@ -4240,7 +4256,15 @@ __DEV__ &&
           "). If you meant to render a collection of children, use an array instead."
       );
     }
-    function warnOnFunctionType(returnFiber, invalidChild) {
+    function throwOnInvalidObjectType(returnFiber, newChild) {
+      var debugTask = getCurrentDebugTask();
+      null !== debugTask
+        ? debugTask.run(
+            throwOnInvalidObjectTypeImpl.bind(null, returnFiber, newChild)
+          )
+        : throwOnInvalidObjectTypeImpl(returnFiber, newChild);
+    }
+    function warnOnFunctionTypeImpl(returnFiber, invalidChild) {
       var parentName = getComponentNameFromFiber(returnFiber) || "Component";
       ownerHasFunctionTypeWarning[parentName] ||
         ((ownerHasFunctionTypeWarning[parentName] = !0),
@@ -4262,7 +4286,15 @@ __DEV__ &&
               parentName
             ));
     }
-    function warnOnSymbolType(returnFiber, invalidChild) {
+    function warnOnFunctionType(returnFiber, invalidChild) {
+      var debugTask = getCurrentDebugTask();
+      null !== debugTask
+        ? debugTask.run(
+            warnOnFunctionTypeImpl.bind(null, returnFiber, invalidChild)
+          )
+        : warnOnFunctionTypeImpl(returnFiber, invalidChild);
+    }
+    function warnOnSymbolTypeImpl(returnFiber, invalidChild) {
       var parentName = getComponentNameFromFiber(returnFiber) || "Component";
       ownerHasSymbolTypeWarning[parentName] ||
         ((ownerHasSymbolTypeWarning[parentName] = !0),
@@ -4278,6 +4310,14 @@ __DEV__ &&
               invalidChild,
               parentName
             ));
+    }
+    function warnOnSymbolType(returnFiber, invalidChild) {
+      var debugTask = getCurrentDebugTask();
+      null !== debugTask
+        ? debugTask.run(
+            warnOnSymbolTypeImpl.bind(null, returnFiber, invalidChild)
+          )
+        : warnOnSymbolTypeImpl(returnFiber, invalidChild);
     }
     function createChildReconciler(shouldTrackSideEffects) {
       function deleteChild(returnFiber, childToDelete) {
@@ -6426,7 +6466,7 @@ __DEV__ &&
     function subscribeToStore(fiber, inst, subscribe) {
       return subscribe(function () {
         checkIfSnapshotChanged(inst) &&
-          (startUpdateTimerByLane(2, "updateSyncExternalStore()"),
+          (startUpdateTimerByLane(2, "updateSyncExternalStore()", fiber),
           forceStoreRerender(fiber));
       });
     }
@@ -7087,21 +7127,21 @@ __DEV__ &&
         switch (provider.tag) {
           case 24:
           case 3:
-            var lane = requestUpdateLane(provider);
-            fiber = createUpdate(lane);
-            var root = enqueueUpdate(provider, fiber, lane);
+            var lane = requestUpdateLane(provider),
+              refreshUpdate = createUpdate(lane),
+              root = enqueueUpdate(provider, refreshUpdate, lane);
             null !== root &&
-              (startUpdateTimerByLane(lane, "refresh()"),
+              (startUpdateTimerByLane(lane, "refresh()", fiber),
               scheduleUpdateOnFiber(root, provider, lane),
               entangleTransitions(root, provider, lane));
-            provider = createCache();
+            fiber = createCache();
             null !== seedKey &&
               void 0 !== seedKey &&
               null !== root &&
               console.error(
                 "The seed argument is not enabled outside experimental channels."
               );
-            fiber.payload = { cache: provider };
+            refreshUpdate.payload = { cache: fiber };
             return;
         }
         provider = provider.return;
@@ -7127,7 +7167,7 @@ __DEV__ &&
         ? enqueueRenderPhaseUpdate(queue, update)
         : ((update = enqueueConcurrentHookUpdate(fiber, queue, update, args)),
           null !== update &&
-            (startUpdateTimerByLane(args, "dispatch()"),
+            (startUpdateTimerByLane(args, "dispatch()", fiber),
             scheduleUpdateOnFiber(update, fiber, args),
             entangleTransitionUpdate(update, queue, args)));
       markStateUpdateScheduled(fiber, args);
@@ -7140,7 +7180,7 @@ __DEV__ &&
         );
       args = requestUpdateLane(fiber);
       dispatchSetStateInternal(fiber, queue, action, args) &&
-        startUpdateTimerByLane(args, "setState()");
+        startUpdateTimerByLane(args, "setState()", fiber);
       markStateUpdateScheduled(fiber, args);
     }
     function dispatchSetStateInternal(fiber, queue, action, lane) {
@@ -7222,7 +7262,7 @@ __DEV__ &&
           2
         )),
           null !== throwIfDuringRender &&
-            (startUpdateTimerByLane(2, "setOptimistic()"),
+            (startUpdateTimerByLane(2, "setOptimistic()", fiber),
             scheduleUpdateOnFiber(throwIfDuringRender, fiber, 2));
       markStateUpdateScheduled(fiber, 2);
     }
@@ -13863,6 +13903,7 @@ __DEV__ &&
                 workInProgressRootInterleavedUpdatedLanes,
                 workInProgressSuspendedRetryLanes,
                 startTime,
+                null,
                 IMMEDIATE_COMMIT,
                 renderStartTime,
                 forceSync
@@ -13947,9 +13988,18 @@ __DEV__ &&
     ) {
       root.timeoutHandle = noTimeout;
       didSkipSuspendedSiblings = finishedWork.subtreeFlags;
-      (didSkipSuspendedSiblings & 8192 ||
-        16785408 === (didSkipSuspendedSiblings & 16785408)) &&
-        accumulateSuspenseyCommitOnFiber(finishedWork);
+      var suspendedState = null;
+      if (
+        didSkipSuspendedSiblings & 8192 ||
+        16785408 === (didSkipSuspendedSiblings & 16785408)
+      )
+        (suspendedState = null),
+          accumulateSuspenseyCommitOnFiber(finishedWork),
+          (lanes & 62914560) === lanes
+            ? globalMostRecentFallbackTime - now$1()
+            : (lanes & 4194048) === lanes
+              ? globalMostRecentTransitionTime - now$1()
+              : 0;
       commitRoot(
         root,
         finishedWork,
@@ -13961,6 +14011,7 @@ __DEV__ &&
         updatedLanes,
         suspendedRetryLanes,
         exitStatus,
+        suspendedState,
         suspendedCommitReason,
         completedRenderStartTime,
         completedRenderEndTime
@@ -14145,7 +14196,7 @@ __DEV__ &&
         workInProgressUpdateTask = null;
         if (0 !== (lanes & 3) || 0 !== (lanes & 124)) {
           workInProgressUpdateTask = blockingUpdateTask;
-          previousRenderStartTime =
+          endTime =
             0 <= blockingUpdateTime && blockingUpdateTime < blockingClampTime
               ? blockingClampTime
               : blockingUpdateTime;
@@ -14159,22 +14210,23 @@ __DEV__ &&
               blockingSuspendedTime,
               0 <= clampedEventTime
                 ? clampedEventTime
-                : 0 <= previousRenderStartTime
-                  ? previousRenderStartTime
+                : 0 <= endTime
+                  ? endTime
                   : renderStartTime,
               lanes,
               workInProgressUpdateTask
             ));
           var eventType = blockingEventType,
-            eventIsRepeat = blockingEventIsRepeat;
-          endTime = 1 === blockingUpdateType;
-          debugTask = 2 === blockingUpdateType;
-          color = renderStartTime;
-          label = blockingUpdateTask;
+            eventIsRepeat = blockingEventIsRepeat,
+            isSpawnedUpdate = 1 === blockingUpdateType,
+            isPingedUpdate = 2 === blockingUpdateType;
+          debugTask = renderStartTime;
+          previousRenderStartTime = blockingUpdateTask;
+          color = blockingUpdateMethodName;
+          label = blockingUpdateComponentName;
           if (supportsUserTiming) {
             currentTrack = "Blocking";
-            var eventEndTime =
-              0 < previousRenderStartTime ? previousRenderStartTime : color;
+            var eventEndTime = 0 < endTime ? endTime : debugTask;
             if (
               0 < clampedEventTime &&
               null !== eventType &&
@@ -14183,8 +14235,8 @@ __DEV__ &&
               var color$jscomp$0 = eventIsRepeat
                 ? "secondary-light"
                 : "warning";
-              label
-                ? label.run(
+              previousRenderStartTime
+                ? previousRenderStartTime.run(
                     console.timeStamp.bind(
                       console,
                       eventIsRepeat ? "" : "Event: " + eventType,
@@ -14204,54 +14256,54 @@ __DEV__ &&
                     color$jscomp$0
                   );
             }
-            0 < previousRenderStartTime &&
-              color > previousRenderStartTime &&
-              ((clampedEventTime = endTime
+            0 < endTime &&
+              debugTask > endTime &&
+              ((clampedEventTime = isSpawnedUpdate
                 ? "error"
                 : (lanes & 738197653) === lanes
                   ? "tertiary-light"
                   : "primary-light"),
-              label
-                ? label.run(
-                    console.timeStamp.bind(
-                      console,
-                      debugTask
-                        ? "Promise Resolved"
-                        : endTime
-                          ? "Cascading Update"
-                          : 5 < color - previousRenderStartTime
-                            ? "Update Blocked"
-                            : "Update",
-                      previousRenderStartTime,
-                      color,
-                      currentTrack,
-                      "Scheduler \u269b",
-                      clampedEventTime
+              (isSpawnedUpdate = isPingedUpdate
+                ? "Promise Resolved"
+                : isSpawnedUpdate
+                  ? "Cascading Update"
+                  : 5 < debugTask - endTime
+                    ? "Update Blocked"
+                    : "Update"),
+              (isPingedUpdate = []),
+              null != label && isPingedUpdate.push(["Component name", label]),
+              null != color && isPingedUpdate.push(["Method name", color]),
+              (endTime = {
+                start: endTime,
+                end: debugTask,
+                detail: {
+                  devtools: {
+                    properties: isPingedUpdate,
+                    track: currentTrack,
+                    trackGroup: "Scheduler \u269b",
+                    color: clampedEventTime
+                  }
+                }
+              }),
+              previousRenderStartTime
+                ? previousRenderStartTime.run(
+                    performance.measure.bind(
+                      performance,
+                      isSpawnedUpdate,
+                      endTime
                     )
                   )
-                : console.timeStamp(
-                    debugTask
-                      ? "Promise Resolved"
-                      : endTime
-                        ? "Cascading Update"
-                        : 5 < color - previousRenderStartTime
-                          ? "Update Blocked"
-                          : "Update",
-                    previousRenderStartTime,
-                    color,
-                    currentTrack,
-                    "Scheduler \u269b",
-                    clampedEventTime
-                  ));
+                : performance.measure(isSpawnedUpdate, endTime));
           }
           blockingUpdateTime = -1.1;
           blockingUpdateType = 0;
+          blockingUpdateComponentName = blockingUpdateMethodName = null;
           blockingSuspendedTime = -1.1;
           blockingEventIsRepeat = !0;
         }
         0 !== (lanes & 4194048) &&
           ((workInProgressUpdateTask = transitionUpdateTask),
-          (previousRenderStartTime =
+          (isSpawnedUpdate =
             0 <= transitionStartTime &&
             transitionStartTime < transitionClampTime
               ? transitionClampTime
@@ -14280,23 +14332,25 @@ __DEV__ &&
             )),
           (eventType = transitionEventType),
           (eventIsRepeat = transitionEventIsRepeat),
-          (debugTask = 2 === transitionUpdateType),
-          (color = renderStartTime),
-          (label = transitionUpdateTask),
+          (isPingedUpdate = 2 === transitionUpdateType),
+          (debugTask = renderStartTime),
+          (previousRenderStartTime = transitionUpdateTask),
+          (color = transitionUpdateMethodName),
+          (label = transitionUpdateComponentName),
           supportsUserTiming &&
             ((currentTrack = "Transition"),
             (eventEndTime =
-              0 < previousRenderStartTime
-                ? previousRenderStartTime
+              0 < isSpawnedUpdate
+                ? isSpawnedUpdate
                 : 0 < endTime
                   ? endTime
-                  : color),
+                  : debugTask),
             0 < clampedEventTime &&
               eventEndTime > clampedEventTime &&
               null !== eventType &&
               ((color$jscomp$0 = eventIsRepeat ? "secondary-light" : "warning"),
-              label
-                ? label.run(
+              previousRenderStartTime
+                ? previousRenderStartTime.run(
                     console.timeStamp.bind(
                       console,
                       eventIsRepeat ? "" : "Event: " + eventType,
@@ -14315,15 +14369,15 @@ __DEV__ &&
                     "Scheduler \u269b",
                     color$jscomp$0
                   )),
-            (clampedEventTime = 0 < endTime ? endTime : color),
-            0 < previousRenderStartTime &&
-              clampedEventTime > previousRenderStartTime &&
-              (label
-                ? label.run(
+            (clampedEventTime = 0 < endTime ? endTime : debugTask),
+            0 < isSpawnedUpdate &&
+              clampedEventTime > isSpawnedUpdate &&
+              (previousRenderStartTime
+                ? previousRenderStartTime.run(
                     console.timeStamp.bind(
                       console,
                       "Action",
-                      previousRenderStartTime,
+                      isSpawnedUpdate,
                       clampedEventTime,
                       currentTrack,
                       "Scheduler \u269b",
@@ -14332,42 +14386,43 @@ __DEV__ &&
                   )
                 : console.timeStamp(
                     "Action",
-                    previousRenderStartTime,
+                    isSpawnedUpdate,
                     clampedEventTime,
                     currentTrack,
                     "Scheduler \u269b",
                     "primary-dark"
                   )),
             0 < endTime &&
-              color > endTime &&
-              (label
-                ? label.run(
-                    console.timeStamp.bind(
-                      console,
-                      debugTask
-                        ? "Promise Resolved"
-                        : 5 < color - endTime
-                          ? "Update Blocked"
-                          : "Update",
-                      endTime,
-                      color,
-                      currentTrack,
-                      "Scheduler \u269b",
-                      "primary-light"
+              debugTask > endTime &&
+              ((isSpawnedUpdate = isPingedUpdate
+                ? "Promise Resolved"
+                : 5 < debugTask - endTime
+                  ? "Update Blocked"
+                  : "Update"),
+              (isPingedUpdate = []),
+              null != label && isPingedUpdate.push(["Component name", label]),
+              null != color && isPingedUpdate.push(["Method name", color]),
+              (endTime = {
+                start: endTime,
+                end: debugTask,
+                detail: {
+                  devtools: {
+                    properties: isPingedUpdate,
+                    track: currentTrack,
+                    trackGroup: "Scheduler \u269b",
+                    color: "primary-light"
+                  }
+                }
+              }),
+              previousRenderStartTime
+                ? previousRenderStartTime.run(
+                    performance.measure.bind(
+                      performance,
+                      isSpawnedUpdate,
+                      endTime
                     )
                   )
-                : console.timeStamp(
-                    debugTask
-                      ? "Promise Resolved"
-                      : 5 < color - endTime
-                        ? "Update Blocked"
-                        : "Update",
-                    endTime,
-                    color,
-                    currentTrack,
-                    "Scheduler \u269b",
-                    "primary-light"
-                  ))),
+                : performance.measure(isSpawnedUpdate, endTime))),
           (transitionUpdateTime = transitionStartTime = -1.1),
           (transitionUpdateType = 0),
           (transitionSuspendedTime = -1.1),
@@ -14975,6 +15030,7 @@ __DEV__ &&
       updatedLanes,
       suspendedRetryLanes,
       exitStatus,
+      suspendedState,
       suspendedCommitReason,
       completedRenderStartTime,
       completedRenderEndTime
@@ -16506,7 +16562,7 @@ __DEV__ &&
         (container.callback = callback));
       element = enqueueUpdate(rootFiber, container, lane);
       null !== element &&
-        (startUpdateTimerByLane(lane, "root.render()"),
+        (startUpdateTimerByLane(lane, "root.render()", null),
         scheduleUpdateOnFiber(element, rootFiber, lane),
         entangleTransitions(element, rootFiber, lane));
     }
@@ -17622,6 +17678,8 @@ __DEV__ &&
       blockingUpdateTime = -1.1,
       blockingUpdateTask = null,
       blockingUpdateType = 0,
+      blockingUpdateMethodName = null,
+      blockingUpdateComponentName = null,
       blockingEventTime = -1.1,
       blockingEventType = null,
       blockingEventIsRepeat = !1,
@@ -17631,6 +17689,8 @@ __DEV__ &&
       transitionUpdateTime = -1.1,
       transitionUpdateType = 0,
       transitionUpdateTask = null,
+      transitionUpdateMethodName = null,
+      transitionUpdateComponentName = null,
       transitionEventTime = -1.1,
       transitionEventType = null,
       transitionEventIsRepeat = !1,
@@ -17657,6 +17717,7 @@ __DEV__ &&
       needsIsomorphicIndicator = !1,
       prevOnStartTransitionFinish = ReactSharedInternals.S;
     ReactSharedInternals.S = function (transition, returnValue) {
+      globalMostRecentTransitionTime = now$1();
       if (
         "object" === typeof returnValue &&
         null !== returnValue &&
@@ -19094,7 +19155,7 @@ __DEV__ &&
             (warnOnInvalidCallback(callback), (update.callback = callback));
           payload = enqueueUpdate(inst, update, lane);
           null !== payload &&
-            (startUpdateTimerByLane(lane, "this.setState()"),
+            (startUpdateTimerByLane(lane, "this.setState()", inst),
             scheduleUpdateOnFiber(payload, inst, lane),
             entangleTransitions(payload, inst, lane));
           markStateUpdateScheduled(inst, lane);
@@ -19110,7 +19171,7 @@ __DEV__ &&
             (warnOnInvalidCallback(callback), (update.callback = callback));
           payload = enqueueUpdate(inst, update, lane);
           null !== payload &&
-            (startUpdateTimerByLane(lane, "this.replaceState()"),
+            (startUpdateTimerByLane(lane, "this.replaceState()", inst),
             scheduleUpdateOnFiber(payload, inst, lane),
             entangleTransitions(payload, inst, lane));
           markStateUpdateScheduled(inst, lane);
@@ -19125,7 +19186,7 @@ __DEV__ &&
             (warnOnInvalidCallback(callback), (update.callback = callback));
           callback = enqueueUpdate(inst, update, lane);
           null !== callback &&
-            (startUpdateTimerByLane(lane, "this.forceUpdate()"),
+            (startUpdateTimerByLane(lane, "this.forceUpdate()", inst),
             scheduleUpdateOnFiber(callback, inst, lane),
             entangleTransitions(callback, inst, lane));
           null !== injectedProfilingHooks &&
@@ -19230,6 +19291,7 @@ __DEV__ &&
       workInProgressRootRecoverableErrors = null,
       workInProgressRootDidIncludeRecursiveRenderUpdate = !1,
       globalMostRecentFallbackTime = 0,
+      globalMostRecentTransitionTime = 0,
       FALLBACK_THROTTLE_MS = 300,
       workInProgressRootRenderTargetTime = Infinity,
       RENDER_TIMEOUT_MS = 500,
@@ -19705,10 +19767,10 @@ __DEV__ &&
     (function () {
       var internals = {
         bundleType: 1,
-        version: "19.2.0-native-fb-b9a04536-20250904",
+        version: "19.2.0-native-fb-a51f9252-20250916",
         rendererPackageName: "react-native-renderer",
         currentDispatcherRef: ReactSharedInternals,
-        reconcilerVersion: "19.2.0-native-fb-b9a04536-20250904"
+        reconcilerVersion: "19.2.0-native-fb-a51f9252-20250916"
       };
       null !== extraDevToolsConfig &&
         (internals.rendererConfig = extraDevToolsConfig);
@@ -19867,8 +19929,7 @@ __DEV__ &&
           null
         );
         root.hydrationCallbacks = null;
-        concurrentRoot = 1 === concurrentRoot ? 1 : 0;
-        isDevToolsPresent && (concurrentRoot |= 2);
+        concurrentRoot = (1 === concurrentRoot ? 1 : 0) | 2;
         concurrentRoot = createFiber(3, null, null, concurrentRoot);
         root.current = concurrentRoot;
         concurrentRoot.stateNode = root;
