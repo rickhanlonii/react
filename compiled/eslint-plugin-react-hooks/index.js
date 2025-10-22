@@ -22,12 +22,22 @@ if (process.env.NODE_ENV !== "production") {
 
 var core$1 = require('@babel/core');
 var BabelParser = require('@babel/parser');
-var zod = require('zod');
-var zodValidationError = require('zod-validation-error');
+var v4 = require('zod/v4');
+var v4$1 = require('zod-validation-error/v4');
 var crypto = require('crypto');
-var PluginProposalPrivateMethods = require('@babel/plugin-proposal-private-methods');
 var HermesParser = require('hermes-parser');
 var util = require('util');
+
+const SETTINGS_KEY = 'react-hooks';
+const SETTINGS_ADDITIONAL_EFFECT_HOOKS_KEY = 'additionalEffectHooks';
+function getAdditionalEffectHooksFromSettings(settings) {
+    var _a;
+    const additionalHooks = (_a = settings[SETTINGS_KEY]) === null || _a === void 0 ? void 0 : _a[SETTINGS_ADDITIONAL_EFFECT_HOOKS_KEY];
+    if (additionalHooks != null && typeof additionalHooks === 'string') {
+        return new RegExp(additionalHooks);
+    }
+    return undefined;
+}
 
 const rule$1 = {
     meta: {
@@ -59,23 +69,24 @@ const rule$1 = {
                     },
                     requireExplicitEffectDeps: {
                         type: 'boolean',
-                    }
+                    },
                 },
             },
         ],
     },
     create(context) {
         const rawOptions = context.options && context.options[0];
+        const settings = context.settings || {};
         const additionalHooks = rawOptions && rawOptions.additionalHooks
             ? new RegExp(rawOptions.additionalHooks)
-            : undefined;
+            : getAdditionalEffectHooksFromSettings(settings);
         const enableDangerousAutofixThisMayCauseInfiniteLoops = (rawOptions &&
             rawOptions.enableDangerousAutofixThisMayCauseInfiniteLoops) ||
             false;
         const experimental_autoDependenciesHooks = rawOptions && Array.isArray(rawOptions.experimental_autoDependenciesHooks)
             ? rawOptions.experimental_autoDependenciesHooks
             : [];
-        const requireExplicitEffectDeps = rawOptions && rawOptions.requireExplicitEffectDeps || false;
+        const requireExplicitEffectDeps = (rawOptions && rawOptions.requireExplicitEffectDeps) || false;
         const options = {
             additionalHooks,
             experimental_autoDependenciesHooks,
@@ -944,7 +955,7 @@ const rule$1 = {
                 reportProblem({
                     node: reactiveHook,
                     message: `React Hook ${reactiveHookName} always requires dependencies. ` +
-                        `Please add a dependency array or an explicit \`undefined\``
+                        `Please add a dependency array or an explicit \`undefined\``,
                 });
             }
             const isAutoDepsHook = options.experimental_autoDependenciesHooks.includes(reactiveHookName);
@@ -1446,9 +1457,7 @@ function isAncestorNodeOf(a, b) {
         a.range[1] >= b.range[1]);
 }
 function isUseEffectEventIdentifier$1(node) {
-    {
-        return node.type === 'Identifier' && node.name === 'useEffectEvent';
-    }
+    return node.type === 'Identifier' && node.name === 'useEffectEvent';
 }
 function getUnknownDependenciesMessage(reactiveHookName) {
     return (`React Hook ${reactiveHookName} received a function whose dependencies ` +
@@ -17996,7 +18005,8 @@ function printErrorSummary(category, message) {
         case ErrorCategory.StaticComponents:
         case ErrorCategory.Suppression:
         case ErrorCategory.Syntax:
-        case ErrorCategory.UseMemo: {
+        case ErrorCategory.UseMemo:
+        case ErrorCategory.VoidUseMemo: {
             heading = 'Error';
             break;
         }
@@ -18027,6 +18037,7 @@ var ErrorCategory;
     ErrorCategory["CapitalizedCalls"] = "CapitalizedCalls";
     ErrorCategory["StaticComponents"] = "StaticComponents";
     ErrorCategory["UseMemo"] = "UseMemo";
+    ErrorCategory["VoidUseMemo"] = "VoidUseMemo";
     ErrorCategory["Factories"] = "Factories";
     ErrorCategory["PreserveManualMemo"] = "PreserveManualMemo";
     ErrorCategory["IncompatibleLibrary"] = "IncompatibleLibrary";
@@ -18050,6 +18061,12 @@ var ErrorCategory;
     ErrorCategory["Fire"] = "Fire";
     ErrorCategory["FBT"] = "FBT";
 })(ErrorCategory || (ErrorCategory = {}));
+var LintRulePreset;
+(function (LintRulePreset) {
+    LintRulePreset["Recommended"] = "recommended";
+    LintRulePreset["RecommendedLatest"] = "recommended-latest";
+    LintRulePreset["Off"] = "off";
+})(LintRulePreset || (LintRulePreset = {}));
 const RULE_NAME_PATTERN = /^[a-z]+(-[a-z]+)*$/;
 function getRuleForCategory(category) {
     const rule = getRuleForCategoryImpl(category);
@@ -18064,7 +18081,7 @@ function getRuleForCategoryImpl(category) {
                 severity: ErrorSeverity.Error,
                 name: 'automatic-effect-dependencies',
                 description: 'Verifies that automatic effect dependencies are compiled if opted-in',
-                recommended: false,
+                preset: LintRulePreset.Off,
             };
         }
         case ErrorCategory.CapitalizedCalls: {
@@ -18073,7 +18090,7 @@ function getRuleForCategoryImpl(category) {
                 severity: ErrorSeverity.Error,
                 name: 'capitalized-calls',
                 description: 'Validates against calling capitalized functions/methods instead of using JSX',
-                recommended: false,
+                preset: LintRulePreset.Off,
             };
         }
         case ErrorCategory.Config: {
@@ -18082,7 +18099,7 @@ function getRuleForCategoryImpl(category) {
                 severity: ErrorSeverity.Error,
                 name: 'config',
                 description: 'Validates the compiler configuration options',
-                recommended: true,
+                preset: LintRulePreset.Recommended,
             };
         }
         case ErrorCategory.EffectDependencies: {
@@ -18091,7 +18108,7 @@ function getRuleForCategoryImpl(category) {
                 severity: ErrorSeverity.Error,
                 name: 'memoized-effect-dependencies',
                 description: 'Validates that effect dependencies are memoized',
-                recommended: false,
+                preset: LintRulePreset.Off,
             };
         }
         case ErrorCategory.EffectDerivationsOfState: {
@@ -18100,7 +18117,7 @@ function getRuleForCategoryImpl(category) {
                 severity: ErrorSeverity.Error,
                 name: 'no-deriving-state-in-effects',
                 description: 'Validates against deriving values from state in an effect',
-                recommended: false,
+                preset: LintRulePreset.Off,
             };
         }
         case ErrorCategory.EffectSetState: {
@@ -18109,7 +18126,7 @@ function getRuleForCategoryImpl(category) {
                 severity: ErrorSeverity.Error,
                 name: 'set-state-in-effect',
                 description: 'Validates against calling setState synchronously in an effect, which can lead to re-renders that degrade performance',
-                recommended: true,
+                preset: LintRulePreset.Recommended,
             };
         }
         case ErrorCategory.ErrorBoundaries: {
@@ -18118,7 +18135,7 @@ function getRuleForCategoryImpl(category) {
                 severity: ErrorSeverity.Error,
                 name: 'error-boundaries',
                 description: 'Validates usage of error boundaries instead of try/catch for errors in child components',
-                recommended: true,
+                preset: LintRulePreset.Recommended,
             };
         }
         case ErrorCategory.Factories: {
@@ -18128,7 +18145,7 @@ function getRuleForCategoryImpl(category) {
                 name: 'component-hook-factories',
                 description: 'Validates against higher order functions defining nested components or hooks. ' +
                     'Components and hooks should be defined at the module level',
-                recommended: true,
+                preset: LintRulePreset.Recommended,
             };
         }
         case ErrorCategory.FBT: {
@@ -18137,7 +18154,7 @@ function getRuleForCategoryImpl(category) {
                 severity: ErrorSeverity.Error,
                 name: 'fbt',
                 description: 'Validates usage of fbt',
-                recommended: false,
+                preset: LintRulePreset.Off,
             };
         }
         case ErrorCategory.Fire: {
@@ -18146,7 +18163,7 @@ function getRuleForCategoryImpl(category) {
                 severity: ErrorSeverity.Error,
                 name: 'fire',
                 description: 'Validates usage of `fire`',
-                recommended: false,
+                preset: LintRulePreset.Off,
             };
         }
         case ErrorCategory.Gating: {
@@ -18155,7 +18172,7 @@ function getRuleForCategoryImpl(category) {
                 severity: ErrorSeverity.Error,
                 name: 'gating',
                 description: 'Validates configuration of [gating mode](https://react.dev/reference/react-compiler/gating)',
-                recommended: true,
+                preset: LintRulePreset.Recommended,
             };
         }
         case ErrorCategory.Globals: {
@@ -18165,7 +18182,7 @@ function getRuleForCategoryImpl(category) {
                 name: 'globals',
                 description: 'Validates against assignment/mutation of globals during render, part of ensuring that ' +
                     '[side effects must render outside of render](https://react.dev/reference/rules/components-and-hooks-must-be-pure#side-effects-must-run-outside-of-render)',
-                recommended: true,
+                preset: LintRulePreset.Recommended,
             };
         }
         case ErrorCategory.Hooks: {
@@ -18174,7 +18191,7 @@ function getRuleForCategoryImpl(category) {
                 severity: ErrorSeverity.Error,
                 name: 'hooks',
                 description: 'Validates the rules of hooks',
-                recommended: false,
+                preset: LintRulePreset.Off,
             };
         }
         case ErrorCategory.Immutability: {
@@ -18183,7 +18200,7 @@ function getRuleForCategoryImpl(category) {
                 severity: ErrorSeverity.Error,
                 name: 'immutability',
                 description: 'Validates against mutating props, state, and other values that [are immutable](https://react.dev/reference/rules/components-and-hooks-must-be-pure#props-and-state-are-immutable)',
-                recommended: true,
+                preset: LintRulePreset.Recommended,
             };
         }
         case ErrorCategory.Invariant: {
@@ -18192,7 +18209,7 @@ function getRuleForCategoryImpl(category) {
                 severity: ErrorSeverity.Error,
                 name: 'invariant',
                 description: 'Internal invariants',
-                recommended: false,
+                preset: LintRulePreset.Off,
             };
         }
         case ErrorCategory.PreserveManualMemo: {
@@ -18203,7 +18220,7 @@ function getRuleForCategoryImpl(category) {
                 description: 'Validates that existing manual memoized is preserved by the compiler. ' +
                     'React Compiler will only compile components and hooks if its inference ' +
                     '[matches or exceeds the existing manual memoization](https://react.dev/learn/react-compiler/introduction#what-should-i-do-about-usememo-usecallback-and-reactmemo)',
-                recommended: true,
+                preset: LintRulePreset.Recommended,
             };
         }
         case ErrorCategory.Purity: {
@@ -18212,7 +18229,7 @@ function getRuleForCategoryImpl(category) {
                 severity: ErrorSeverity.Error,
                 name: 'purity',
                 description: 'Validates that [components/hooks are pure](https://react.dev/reference/rules/components-and-hooks-must-be-pure) by checking that they do not call known-impure functions',
-                recommended: true,
+                preset: LintRulePreset.Recommended,
             };
         }
         case ErrorCategory.Refs: {
@@ -18221,7 +18238,7 @@ function getRuleForCategoryImpl(category) {
                 severity: ErrorSeverity.Error,
                 name: 'refs',
                 description: 'Validates correct usage of refs, not reading/writing during render. See the "pitfalls" section in [`useRef()` usage](https://react.dev/reference/react/useRef#usage)',
-                recommended: true,
+                preset: LintRulePreset.Recommended,
             };
         }
         case ErrorCategory.RenderSetState: {
@@ -18230,7 +18247,7 @@ function getRuleForCategoryImpl(category) {
                 severity: ErrorSeverity.Error,
                 name: 'set-state-in-render',
                 description: 'Validates against setting state during render, which can trigger additional renders and potential infinite render loops',
-                recommended: true,
+                preset: LintRulePreset.Recommended,
             };
         }
         case ErrorCategory.StaticComponents: {
@@ -18239,7 +18256,7 @@ function getRuleForCategoryImpl(category) {
                 severity: ErrorSeverity.Error,
                 name: 'static-components',
                 description: 'Validates that components are static, not recreated every render. Components that are recreated dynamically can reset state and trigger excessive re-rendering',
-                recommended: true,
+                preset: LintRulePreset.Recommended,
             };
         }
         case ErrorCategory.Suppression: {
@@ -18248,7 +18265,7 @@ function getRuleForCategoryImpl(category) {
                 severity: ErrorSeverity.Error,
                 name: 'rule-suppression',
                 description: 'Validates against suppression of other rules',
-                recommended: false,
+                preset: LintRulePreset.Off,
             };
         }
         case ErrorCategory.Syntax: {
@@ -18257,7 +18274,7 @@ function getRuleForCategoryImpl(category) {
                 severity: ErrorSeverity.Error,
                 name: 'syntax',
                 description: 'Validates against invalid syntax',
-                recommended: false,
+                preset: LintRulePreset.Off,
             };
         }
         case ErrorCategory.Todo: {
@@ -18266,7 +18283,7 @@ function getRuleForCategoryImpl(category) {
                 severity: ErrorSeverity.Hint,
                 name: 'todo',
                 description: 'Unimplemented features',
-                recommended: false,
+                preset: LintRulePreset.Off,
             };
         }
         case ErrorCategory.UnsupportedSyntax: {
@@ -18275,7 +18292,7 @@ function getRuleForCategoryImpl(category) {
                 severity: ErrorSeverity.Warning,
                 name: 'unsupported-syntax',
                 description: 'Validates against syntax that we do not plan to support in React Compiler',
-                recommended: true,
+                preset: LintRulePreset.Recommended,
             };
         }
         case ErrorCategory.UseMemo: {
@@ -18284,7 +18301,16 @@ function getRuleForCategoryImpl(category) {
                 severity: ErrorSeverity.Error,
                 name: 'use-memo',
                 description: 'Validates usage of the useMemo() hook against common mistakes. See [`useMemo()` docs](https://react.dev/reference/react/useMemo) for more information.',
-                recommended: true,
+                preset: LintRulePreset.Recommended,
+            };
+        }
+        case ErrorCategory.VoidUseMemo: {
+            return {
+                category,
+                severity: ErrorSeverity.Error,
+                name: 'void-use-memo',
+                description: 'Validates that useMemos always return a value and that the result of the useMemo is used by the component/hook. See [`useMemo()` docs](https://react.dev/reference/react/useMemo) for more information.',
+                preset: LintRulePreset.RecommendedLatest,
             };
         }
         case ErrorCategory.IncompatibleLibrary: {
@@ -18293,7 +18319,7 @@ function getRuleForCategoryImpl(category) {
                 severity: ErrorSeverity.Warning,
                 name: 'incompatible-library',
                 description: 'Validates against usage of libraries which are incompatible with memoization (manual or automatic)',
-                recommended: true,
+                preset: LintRulePreset.Recommended,
             };
         }
         default: {
@@ -18715,7 +18741,7 @@ var ValueKind;
     ValueKind["Mutable"] = "mutable";
     ValueKind["Context"] = "context";
 })(ValueKind || (ValueKind = {}));
-const ValueKindSchema = zod.z.enum([
+const ValueKindSchema = v4.z.enum([
     ValueKind.MaybeFrozen,
     ValueKind.Frozen,
     ValueKind.Primitive,
@@ -18723,7 +18749,7 @@ const ValueKindSchema = zod.z.enum([
     ValueKind.Mutable,
     ValueKind.Context,
 ]);
-const ValueReasonSchema = zod.z.enum([
+const ValueReasonSchema = v4.z.enum([
     ValueReason.Context,
     ValueReason.Effect,
     ValueReason.Global,
@@ -18747,7 +18773,7 @@ var Effect;
     Effect["Mutate"] = "mutate";
     Effect["Store"] = "store";
 })(Effect || (Effect = {}));
-const EffectSchema = zod.z.enum([
+const EffectSchema = v4.z.enum([
     Effect.Read,
     Effect.Mutate,
     Effect.ConditionallyMutate,
@@ -21165,25 +21191,25 @@ function assertValidBlockNesting(fn) {
 function assertValidMutableRanges(fn) {
     for (const [, block] of fn.body.blocks) {
         for (const phi of block.phis) {
-            visit$2(phi.place, `phi for block bb${block.id}`);
+            visit$1(phi.place, `phi for block bb${block.id}`);
             for (const [pred, operand] of phi.operands) {
-                visit$2(operand, `phi predecessor bb${pred} for block bb${block.id}`);
+                visit$1(operand, `phi predecessor bb${pred} for block bb${block.id}`);
             }
         }
         for (const instr of block.instructions) {
             for (const operand of eachInstructionLValue(instr)) {
-                visit$2(operand, `instruction [${instr.id}]`);
+                visit$1(operand, `instruction [${instr.id}]`);
             }
             for (const operand of eachInstructionOperand(instr)) {
-                visit$2(operand, `instruction [${instr.id}]`);
+                visit$1(operand, `instruction [${instr.id}]`);
             }
         }
         for (const operand of eachTerminalOperand(block.terminal)) {
-            visit$2(operand, `terminal [${block.terminal.id}]`);
+            visit$1(operand, `terminal [${block.terminal.id}]`);
         }
     }
 }
-function visit$2(place, description) {
+function visit$1(place, description) {
     validateMutableRange(place, place.identifier.mutableRange, description);
     if (place.identifier.scope !== null) {
         validateMutableRange(place, place.identifier.scope.range, description);
@@ -24125,7 +24151,7 @@ function lowerObjectMethod(builder, property) {
     };
 }
 function lowerObjectPropertyKey(builder, property) {
-    var _a, _b;
+    var _a;
     const key = property.get('key');
     if (key.isStringLiteral()) {
         return {
@@ -24134,15 +24160,6 @@ function lowerObjectPropertyKey(builder, property) {
         };
     }
     else if (property.node.computed && key.isExpression()) {
-        if (!key.isIdentifier() && !key.isMemberExpression()) {
-            builder.errors.push({
-                reason: `(BuildHIR::lowerExpression) Expected Identifier, got ${key.type} key in ObjectExpression`,
-                category: ErrorCategory.Todo,
-                loc: (_a = key.node.loc) !== null && _a !== void 0 ? _a : null,
-                suggestions: null,
-            });
-            return null;
-        }
         const place = lowerExpressionToTemporary(builder, key);
         return {
             kind: 'computed',
@@ -24164,7 +24181,7 @@ function lowerObjectPropertyKey(builder, property) {
     builder.errors.push({
         reason: `(BuildHIR::lowerExpression) Expected Identifier, got ${key.type} key in ObjectExpression`,
         category: ErrorCategory.Todo,
-        loc: (_b = key.node.loc) !== null && _b !== void 0 ? _b : null,
+        loc: (_a = key.node.loc) !== null && _a !== void 0 ? _a : null,
         suggestions: null,
     });
     return null;
@@ -25488,6 +25505,10 @@ function isReorderableExpression(builder, expr, allowLocalIdentifiers) {
             else {
                 return true;
             }
+        }
+        case 'TSInstantiationExpression': {
+            const innerExpr = expr.get('expression');
+            return isReorderableExpression(builder, innerExpr, allowLocalIdentifiers);
         }
         case 'RegExpLiteral':
         case 'StringLiteral':
@@ -31340,85 +31361,85 @@ function getReanimatedModuleType(registry) {
     return addObject(registry, null, reanimatedType);
 }
 
-const ObjectPropertiesSchema = zod.z
-    .record(zod.z.string(), zod.z.lazy(() => TypeSchema))
+const ObjectPropertiesSchema = v4.z
+    .record(v4.z.string(), v4.z.lazy(() => TypeSchema))
     .refine(record => {
     return Object.keys(record).every(key => key === '*' || key === 'default' || libExports$1.isValidIdentifier(key));
 }, 'Expected all "object" property names to be valid identifier, `*` to match any property, of `default` to define a module default export');
-const ObjectTypeSchema = zod.z.object({
-    kind: zod.z.literal('object'),
+const ObjectTypeSchema = v4.z.object({
+    kind: v4.z.literal('object'),
     properties: ObjectPropertiesSchema.nullable(),
 });
-const LifetimeIdSchema = zod.z.string().refine(id => id.startsWith('@'), {
+const LifetimeIdSchema = v4.z.string().refine(id => id.startsWith('@'), {
     message: "Placeholder names must start with '@'",
 });
-const FreezeEffectSchema = zod.z.object({
-    kind: zod.z.literal('Freeze'),
+const FreezeEffectSchema = v4.z.object({
+    kind: v4.z.literal('Freeze'),
     value: LifetimeIdSchema,
     reason: ValueReasonSchema,
 });
-const MutateEffectSchema = zod.z.object({
-    kind: zod.z.literal('Mutate'),
+const MutateEffectSchema = v4.z.object({
+    kind: v4.z.literal('Mutate'),
     value: LifetimeIdSchema,
 });
-const MutateTransitiveConditionallySchema = zod.z.object({
-    kind: zod.z.literal('MutateTransitiveConditionally'),
+const MutateTransitiveConditionallySchema = v4.z.object({
+    kind: v4.z.literal('MutateTransitiveConditionally'),
     value: LifetimeIdSchema,
 });
-const CreateEffectSchema = zod.z.object({
-    kind: zod.z.literal('Create'),
+const CreateEffectSchema = v4.z.object({
+    kind: v4.z.literal('Create'),
     into: LifetimeIdSchema,
     value: ValueKindSchema,
     reason: ValueReasonSchema,
 });
-const AssignEffectSchema = zod.z.object({
-    kind: zod.z.literal('Assign'),
+const AssignEffectSchema = v4.z.object({
+    kind: v4.z.literal('Assign'),
     from: LifetimeIdSchema,
     into: LifetimeIdSchema,
 });
-const AliasEffectSchema = zod.z.object({
-    kind: zod.z.literal('Alias'),
+const AliasEffectSchema = v4.z.object({
+    kind: v4.z.literal('Alias'),
     from: LifetimeIdSchema,
     into: LifetimeIdSchema,
 });
-const ImmutableCaptureEffectSchema = zod.z.object({
-    kind: zod.z.literal('ImmutableCapture'),
+const ImmutableCaptureEffectSchema = v4.z.object({
+    kind: v4.z.literal('ImmutableCapture'),
     from: LifetimeIdSchema,
     into: LifetimeIdSchema,
 });
-const CaptureEffectSchema = zod.z.object({
-    kind: zod.z.literal('Capture'),
+const CaptureEffectSchema = v4.z.object({
+    kind: v4.z.literal('Capture'),
     from: LifetimeIdSchema,
     into: LifetimeIdSchema,
 });
-const CreateFromEffectSchema = zod.z.object({
-    kind: zod.z.literal('CreateFrom'),
+const CreateFromEffectSchema = v4.z.object({
+    kind: v4.z.literal('CreateFrom'),
     from: LifetimeIdSchema,
     into: LifetimeIdSchema,
 });
-const ApplyArgSchema = zod.z.union([
+const ApplyArgSchema = v4.z.union([
     LifetimeIdSchema,
-    zod.z.object({
-        kind: zod.z.literal('Spread'),
+    v4.z.object({
+        kind: v4.z.literal('Spread'),
         place: LifetimeIdSchema,
     }),
-    zod.z.object({
-        kind: zod.z.literal('Hole'),
+    v4.z.object({
+        kind: v4.z.literal('Hole'),
     }),
 ]);
-const ApplyEffectSchema = zod.z.object({
-    kind: zod.z.literal('Apply'),
+const ApplyEffectSchema = v4.z.object({
+    kind: v4.z.literal('Apply'),
     receiver: LifetimeIdSchema,
     function: LifetimeIdSchema,
-    mutatesFunction: zod.z.boolean(),
-    args: zod.z.array(ApplyArgSchema),
+    mutatesFunction: v4.z.boolean(),
+    args: v4.z.array(ApplyArgSchema),
     into: LifetimeIdSchema,
 });
-const ImpureEffectSchema = zod.z.object({
-    kind: zod.z.literal('Impure'),
+const ImpureEffectSchema = v4.z.object({
+    kind: v4.z.literal('Impure'),
     place: LifetimeIdSchema,
 });
-const AliasingEffectSchema = zod.z.union([
+const AliasingEffectSchema = v4.z.union([
     FreezeEffectSchema,
     CreateEffectSchema,
     CreateFromEffectSchema,
@@ -31431,50 +31452,50 @@ const AliasingEffectSchema = zod.z.union([
     MutateTransitiveConditionallySchema,
     ApplyEffectSchema,
 ]);
-const AliasingSignatureSchema = zod.z.object({
+const AliasingSignatureSchema = v4.z.object({
     receiver: LifetimeIdSchema,
-    params: zod.z.array(LifetimeIdSchema),
+    params: v4.z.array(LifetimeIdSchema),
     rest: LifetimeIdSchema.nullable(),
     returns: LifetimeIdSchema,
-    effects: zod.z.array(AliasingEffectSchema),
-    temporaries: zod.z.array(LifetimeIdSchema),
+    effects: v4.z.array(AliasingEffectSchema),
+    temporaries: v4.z.array(LifetimeIdSchema),
 });
-const FunctionTypeSchema = zod.z.object({
-    kind: zod.z.literal('function'),
-    positionalParams: zod.z.array(EffectSchema),
+const FunctionTypeSchema = v4.z.object({
+    kind: v4.z.literal('function'),
+    positionalParams: v4.z.array(EffectSchema),
     restParam: EffectSchema.nullable(),
     calleeEffect: EffectSchema,
-    returnType: zod.z.lazy(() => TypeSchema),
+    returnType: v4.z.lazy(() => TypeSchema),
     returnValueKind: ValueKindSchema,
-    noAlias: zod.z.boolean().nullable().optional(),
-    mutableOnlyIfOperandsAreMutable: zod.z.boolean().nullable().optional(),
-    impure: zod.z.boolean().nullable().optional(),
-    canonicalName: zod.z.string().nullable().optional(),
+    noAlias: v4.z.boolean().nullable().optional(),
+    mutableOnlyIfOperandsAreMutable: v4.z.boolean().nullable().optional(),
+    impure: v4.z.boolean().nullable().optional(),
+    canonicalName: v4.z.string().nullable().optional(),
     aliasing: AliasingSignatureSchema.nullable().optional(),
-    knownIncompatible: zod.z.string().nullable().optional(),
+    knownIncompatible: v4.z.string().nullable().optional(),
 });
-const HookTypeSchema = zod.z.object({
-    kind: zod.z.literal('hook'),
-    positionalParams: zod.z.array(EffectSchema).nullable().optional(),
+const HookTypeSchema = v4.z.object({
+    kind: v4.z.literal('hook'),
+    positionalParams: v4.z.array(EffectSchema).nullable().optional(),
     restParam: EffectSchema.nullable().optional(),
-    returnType: zod.z.lazy(() => TypeSchema),
+    returnType: v4.z.lazy(() => TypeSchema),
     returnValueKind: ValueKindSchema.nullable().optional(),
-    noAlias: zod.z.boolean().nullable().optional(),
+    noAlias: v4.z.boolean().nullable().optional(),
     aliasing: AliasingSignatureSchema.nullable().optional(),
-    knownIncompatible: zod.z.string().nullable().optional(),
+    knownIncompatible: v4.z.string().nullable().optional(),
 });
-const BuiltInTypeSchema = zod.z.union([
-    zod.z.literal('Any'),
-    zod.z.literal('Ref'),
-    zod.z.literal('Array'),
-    zod.z.literal('Primitive'),
-    zod.z.literal('MixedReadonly'),
+const BuiltInTypeSchema = v4.z.union([
+    v4.z.literal('Any'),
+    v4.z.literal('Ref'),
+    v4.z.literal('Array'),
+    v4.z.literal('Primitive'),
+    v4.z.literal('MixedReadonly'),
 ]);
-const TypeReferenceSchema = zod.z.object({
-    kind: zod.z.literal('type'),
+const TypeReferenceSchema = v4.z.object({
+    kind: v4.z.literal('type'),
     name: BuiltInTypeSchema,
 });
-const TypeSchema = zod.z.union([
+const TypeSchema = v4.z.union([
     ObjectTypeSchema,
     FunctionTypeSchema,
     HookTypeSchema,
@@ -32070,95 +32091,89 @@ function defaultModuleTypeProvider(moduleName) {
 }
 
 var _Environment_instances, _Environment_globals, _Environment_shapes, _Environment_moduleTypes, _Environment_nextIdentifer, _Environment_nextBlock, _Environment_nextScope, _Environment_scope, _Environment_outlinedFunctions, _Environment_contextIdentifiers, _Environment_hoistedIdentifiers, _Environment_flowTypeEnvironment, _Environment_resolveModuleType, _Environment_isKnownReactModule, _Environment_getCustomHookType;
-const ReactElementSymbolSchema = zod.z.object({
-    elementSymbol: zod.z.union([
-        zod.z.literal('react.element'),
-        zod.z.literal('react.transitional.element'),
+const ReactElementSymbolSchema = v4.z.object({
+    elementSymbol: v4.z.union([
+        v4.z.literal('react.element'),
+        v4.z.literal('react.transitional.element'),
     ]),
-    globalDevVar: zod.z.string(),
+    globalDevVar: v4.z.string(),
 });
-const ExternalFunctionSchema = zod.z.object({
-    source: zod.z.string(),
-    importSpecifierName: zod.z.string(),
+const ExternalFunctionSchema = v4.z.object({
+    source: v4.z.string(),
+    importSpecifierName: v4.z.string(),
 });
-const InstrumentationSchema = zod.z
+const InstrumentationSchema = v4.z
     .object({
     fn: ExternalFunctionSchema,
     gating: ExternalFunctionSchema.nullable(),
-    globalGating: zod.z.string().nullable(),
+    globalGating: v4.z.string().nullable(),
 })
     .refine(opts => opts.gating != null || opts.globalGating != null, 'Expected at least one of gating or globalGating');
 const USE_FIRE_FUNCTION_NAME = 'useFire';
 const EMIT_FREEZE_GLOBAL_GATING = 'true';
-const MacroMethodSchema = zod.z.union([
-    zod.z.object({ type: zod.z.literal('wildcard') }),
-    zod.z.object({ type: zod.z.literal('name'), name: zod.z.string() }),
-]);
-const MacroSchema = zod.z.union([
-    zod.z.string(),
-    zod.z.tuple([zod.z.string(), zod.z.array(MacroMethodSchema)]),
-]);
-const HookSchema = zod.z.object({
-    effectKind: zod.z.nativeEnum(Effect),
-    valueKind: zod.z.nativeEnum(ValueKind),
-    noAlias: zod.z.boolean().default(false),
-    transitiveMixedData: zod.z.boolean().default(false),
+const MacroSchema = v4.z.string();
+const HookSchema = v4.z.object({
+    effectKind: v4.z.nativeEnum(Effect),
+    valueKind: v4.z.nativeEnum(ValueKind),
+    noAlias: v4.z.boolean().default(false),
+    transitiveMixedData: v4.z.boolean().default(false),
 });
-const EnvironmentConfigSchema = zod.z.object({
-    customHooks: zod.z.map(zod.z.string(), HookSchema).default(new Map()),
-    moduleTypeProvider: zod.z.nullable(zod.z.function().args(zod.z.string())).default(null),
-    customMacros: zod.z.nullable(zod.z.array(MacroSchema)).default(null),
-    enableResetCacheOnSourceFileChanges: zod.z.nullable(zod.z.boolean()).default(null),
-    enablePreserveExistingMemoizationGuarantees: zod.z.boolean().default(false),
-    validatePreserveExistingMemoizationGuarantees: zod.z.boolean().default(true),
-    enablePreserveExistingManualUseMemo: zod.z.boolean().default(false),
-    enableForest: zod.z.boolean().default(false),
-    enableUseTypeAnnotations: zod.z.boolean().default(false),
-    flowTypeProvider: zod.z.nullable(zod.z.function().args(zod.z.string())).default(null),
-    enableOptionalDependencies: zod.z.boolean().default(true),
-    enableFire: zod.z.boolean().default(false),
-    enableNameAnonymousFunctions: zod.z.boolean().default(false),
-    inferEffectDependencies: zod.z
-        .nullable(zod.z.array(zod.z.object({
+const EnvironmentConfigSchema = v4.z.object({
+    customHooks: v4.z.map(v4.z.string(), HookSchema).default(new Map()),
+    moduleTypeProvider: v4.z.nullable(v4.z.any()).default(null),
+    customMacros: v4.z.nullable(v4.z.array(MacroSchema)).default(null),
+    enableResetCacheOnSourceFileChanges: v4.z.nullable(v4.z.boolean()).default(null),
+    enablePreserveExistingMemoizationGuarantees: v4.z.boolean().default(true),
+    validatePreserveExistingMemoizationGuarantees: v4.z.boolean().default(true),
+    enablePreserveExistingManualUseMemo: v4.z.boolean().default(false),
+    enableForest: v4.z.boolean().default(false),
+    enableUseTypeAnnotations: v4.z.boolean().default(false),
+    flowTypeProvider: v4.z.nullable(v4.z.any()).default(null),
+    enableOptionalDependencies: v4.z.boolean().default(true),
+    enableFire: v4.z.boolean().default(false),
+    enableNameAnonymousFunctions: v4.z.boolean().default(false),
+    inferEffectDependencies: v4.z
+        .nullable(v4.z.array(v4.z.object({
         function: ExternalFunctionSchema,
-        autodepsIndex: zod.z.number().min(1, 'autodepsIndex must be > 0'),
+        autodepsIndex: v4.z.number().min(1, 'autodepsIndex must be > 0'),
     })))
         .default(null),
     inlineJsxTransform: ReactElementSymbolSchema.nullable().default(null),
-    validateHooksUsage: zod.z.boolean().default(true),
-    validateRefAccessDuringRender: zod.z.boolean().default(true),
-    validateNoSetStateInRender: zod.z.boolean().default(true),
-    validateNoSetStateInEffects: zod.z.boolean().default(false),
-    validateNoDerivedComputationsInEffects: zod.z.boolean().default(false),
-    validateNoJSXInTryStatements: zod.z.boolean().default(false),
-    validateStaticComponents: zod.z.boolean().default(false),
-    validateMemoizedEffectDependencies: zod.z.boolean().default(false),
-    validateNoCapitalizedCalls: zod.z.nullable(zod.z.array(zod.z.string())).default(null),
-    validateBlocklistedImports: zod.z.nullable(zod.z.array(zod.z.string())).default(null),
-    validateNoImpureFunctionsInRender: zod.z.boolean().default(false),
-    validateNoFreezingKnownMutableFunctions: zod.z.boolean().default(false),
-    enableAssumeHooksFollowRulesOfReact: zod.z.boolean().default(true),
-    enableTransitivelyFreezeFunctionExpressions: zod.z.boolean().default(true),
+    validateHooksUsage: v4.z.boolean().default(true),
+    validateRefAccessDuringRender: v4.z.boolean().default(true),
+    validateNoSetStateInRender: v4.z.boolean().default(true),
+    validateNoSetStateInEffects: v4.z.boolean().default(false),
+    validateNoDerivedComputationsInEffects: v4.z.boolean().default(false),
+    validateNoJSXInTryStatements: v4.z.boolean().default(false),
+    validateStaticComponents: v4.z.boolean().default(false),
+    validateMemoizedEffectDependencies: v4.z.boolean().default(false),
+    validateNoCapitalizedCalls: v4.z.nullable(v4.z.array(v4.z.string())).default(null),
+    validateBlocklistedImports: v4.z.nullable(v4.z.array(v4.z.string())).default(null),
+    validateNoImpureFunctionsInRender: v4.z.boolean().default(false),
+    validateNoFreezingKnownMutableFunctions: v4.z.boolean().default(false),
+    enableAssumeHooksFollowRulesOfReact: v4.z.boolean().default(true),
+    enableTransitivelyFreezeFunctionExpressions: v4.z.boolean().default(true),
     enableEmitFreeze: ExternalFunctionSchema.nullable().default(null),
     enableEmitHookGuards: ExternalFunctionSchema.nullable().default(null),
-    enableInstructionReordering: zod.z.boolean().default(false),
-    enableFunctionOutlining: zod.z.boolean().default(true),
-    enableJsxOutlining: zod.z.boolean().default(false),
+    enableInstructionReordering: v4.z.boolean().default(false),
+    enableFunctionOutlining: v4.z.boolean().default(true),
+    enableJsxOutlining: v4.z.boolean().default(false),
     enableEmitInstrumentForget: InstrumentationSchema.nullable().default(null),
-    assertValidMutableRanges: zod.z.boolean().default(false),
-    enableChangeVariableCodegen: zod.z.boolean().default(false),
-    enableMemoizationComments: zod.z.boolean().default(false),
-    throwUnknownException__testonly: zod.z.boolean().default(false),
-    enableTreatFunctionDepsAsConditional: zod.z.boolean().default(false),
-    disableMemoizationForDebugging: zod.z.boolean().default(false),
+    assertValidMutableRanges: v4.z.boolean().default(false),
+    enableChangeVariableCodegen: v4.z.boolean().default(false),
+    enableMemoizationComments: v4.z.boolean().default(false),
+    throwUnknownException__testonly: v4.z.boolean().default(false),
+    enableTreatFunctionDepsAsConditional: v4.z.boolean().default(false),
+    disableMemoizationForDebugging: v4.z.boolean().default(false),
     enableChangeDetectionForDebugging: ExternalFunctionSchema.nullable().default(null),
-    enableCustomTypeDefinitionForReanimated: zod.z.boolean().default(false),
-    hookPattern: zod.z.string().nullable().default(null),
-    enableTreatRefLikeIdentifiersAsRefs: zod.z.boolean().default(true),
+    enableCustomTypeDefinitionForReanimated: v4.z.boolean().default(false),
+    hookPattern: v4.z.string().nullable().default(null),
+    enableTreatRefLikeIdentifiersAsRefs: v4.z.boolean().default(true),
+    enableTreatSetIdentifiersAsStateSetters: v4.z.boolean().default(false),
     lowerContextAccess: ExternalFunctionSchema.nullable().default(null),
-    validateNoVoidUseMemo: zod.z.boolean().default(false),
-    validateNoDynamicallyCreatedComponentsOrHooks: zod.z.boolean().default(false),
-    enableAllowSetStateFromRefsInEffects: zod.z.boolean().default(true),
+    validateNoVoidUseMemo: v4.z.boolean().default(true),
+    validateNoDynamicallyCreatedComponentsOrHooks: v4.z.boolean().default(false),
+    enableAllowSetStateFromRefsInEffects: v4.z.boolean().default(true),
 });
 class Environment {
     constructor(scope, fnType, compilerMode, config, contextIdentifiers, parentFunction, logger, filename, code, programContext) {
@@ -32478,6 +32493,12 @@ _Environment_globals = new WeakMap(), _Environment_shapes = new WeakMap(), _Envi
         if (moduleTypeProvider == null) {
             return null;
         }
+        if (typeof moduleTypeProvider !== 'function') {
+            CompilerError.throwInvalidConfig({
+                reason: `Expected a function for \`moduleTypeProvider\``,
+                loc,
+            });
+        }
         const unparsedModuleConfig = moduleTypeProvider(moduleName);
         if (unparsedModuleConfig != null) {
             const parsedModuleConfig = TypeSchema.safeParse(unparsedModuleConfig);
@@ -32529,7 +32550,7 @@ function validateEnvironmentConfig(partialConfig) {
     }
     CompilerError.throwInvalidConfig({
         reason: 'Could not validate environment config. Update React Compiler config to fix the error',
-        description: `${zodValidationError.fromZodError(config.error)}`,
+        description: `${v4$1.fromZodError(config.error)}`,
         loc: null,
         suggestions: null,
     });
@@ -32541,7 +32562,7 @@ function tryParseExternalFunction(maybeExternalFunction) {
     }
     CompilerError.throwInvalidConfig({
         reason: 'Could not parse external function. Update React Compiler config to fix the error',
-        description: `${zodValidationError.fromZodError(externalFunction.error)}`,
+        description: `${v4$1.fromZodError(externalFunction.error)}`,
         loc: null,
         suggestions: null,
     });
@@ -37135,158 +37156,187 @@ var GuardKind;
     GuardKind[GuardKind["DisallowHook"] = 3] = "DisallowHook";
 })(GuardKind || (GuardKind = {}));
 
+var InlineLevel;
+(function (InlineLevel) {
+    InlineLevel["Transitive"] = "Transitive";
+    InlineLevel["Shallow"] = "Shallow";
+})(InlineLevel || (InlineLevel = {}));
+const SHALLOW_MACRO = {
+    level: InlineLevel.Shallow,
+    properties: null,
+};
+const TRANSITIVE_MACRO = {
+    level: InlineLevel.Transitive,
+    properties: null,
+};
+const FBT_MACRO = {
+    level: InlineLevel.Transitive,
+    properties: new Map([['*', SHALLOW_MACRO]]),
+};
+FBT_MACRO.properties.set('enum', FBT_MACRO);
 function memoizeFbtAndMacroOperandsInSameScope(fn) {
     var _a;
-    const fbtMacroTags = new Set([
-        ...Array.from(FBT_TAGS).map((tag) => [tag, []]),
-        ...((_a = fn.env.config.customMacros) !== null && _a !== void 0 ? _a : []),
+    const macroKinds = new Map([
+        ...Array.from(FBT_TAGS.entries()),
+        ...((_a = fn.env.config.customMacros) !== null && _a !== void 0 ? _a : []).map(name => [name, TRANSITIVE_MACRO]),
     ]);
-    const fbtValues = new Set();
-    const macroMethods = new Map();
-    while (true) {
-        let vsize = fbtValues.size;
-        let msize = macroMethods.size;
-        visit$1(fn, fbtMacroTags, fbtValues, macroMethods);
-        if (vsize === fbtValues.size && msize === macroMethods.size) {
-            break;
-        }
-    }
-    return fbtValues;
+    const macroTags = populateMacroTags(fn, macroKinds);
+    const macroValues = mergeMacroArguments(fn, macroTags, macroKinds);
+    return macroValues;
 }
-const FBT_TAGS = new Set([
-    'fbt',
-    'fbt:param',
-    'fbs',
-    'fbs:param',
+const FBT_TAGS = new Map([
+    ['fbt', FBT_MACRO],
+    ['fbt:param', SHALLOW_MACRO],
+    ['fbt:enum', FBT_MACRO],
+    ['fbt:plural', SHALLOW_MACRO],
+    ['fbs', FBT_MACRO],
+    ['fbs:param', SHALLOW_MACRO],
+    ['fbs:enum', FBT_MACRO],
+    ['fbs:plural', SHALLOW_MACRO],
 ]);
 const SINGLE_CHILD_FBT_TAGS = new Set([
     'fbt:param',
     'fbs:param',
 ]);
-function visit$1(fn, fbtMacroTags, fbtValues, macroMethods) {
-    for (const [, block] of fn.body.blocks) {
-        for (const instruction of block.instructions) {
-            const { lvalue, value } = instruction;
-            if (lvalue === null) {
-                continue;
-            }
-            if (value.kind === 'Primitive' &&
-                typeof value.value === 'string' &&
-                matchesExactTag(value.value, fbtMacroTags)) {
-                fbtValues.add(lvalue.identifier.id);
-            }
-            else if (value.kind === 'LoadGlobal' &&
-                matchesExactTag(value.binding.name, fbtMacroTags)) {
-                fbtValues.add(lvalue.identifier.id);
-            }
-            else if (value.kind === 'LoadGlobal' &&
-                matchTagRoot(value.binding.name, fbtMacroTags) !== null) {
-                const methods = matchTagRoot(value.binding.name, fbtMacroTags);
-                macroMethods.set(lvalue.identifier.id, methods);
-            }
-            else if (value.kind === 'PropertyLoad' &&
-                macroMethods.has(value.object.identifier.id)) {
-                const methods = macroMethods.get(value.object.identifier.id);
-                const newMethods = [];
-                for (const method of methods) {
-                    if (method.length > 0 &&
-                        (method[0].type === 'wildcard' ||
-                            (method[0].type === 'name' && method[0].name === value.property))) {
-                        if (method.length > 1) {
-                            newMethods.push(method.slice(1));
-                        }
-                        else {
-                            fbtValues.add(lvalue.identifier.id);
+function populateMacroTags(fn, macroKinds) {
+    var _a;
+    const macroTags = new Map();
+    for (const block of fn.body.blocks.values()) {
+        for (const instr of block.instructions) {
+            const { lvalue, value } = instr;
+            switch (value.kind) {
+                case 'Primitive': {
+                    if (typeof value.value === 'string') {
+                        const macroDefinition = macroKinds.get(value.value);
+                        if (macroDefinition != null) {
+                            macroTags.set(lvalue.identifier.id, macroDefinition);
                         }
                     }
+                    break;
                 }
-                if (newMethods.length > 0) {
-                    macroMethods.set(lvalue.identifier.id, newMethods);
+                case 'LoadGlobal': {
+                    let macroDefinition = macroKinds.get(value.binding.name);
+                    if (macroDefinition != null) {
+                        macroTags.set(lvalue.identifier.id, macroDefinition);
+                    }
+                    break;
                 }
-            }
-            else if (isFbtCallExpression(fbtValues, value)) {
-                const fbtScope = lvalue.identifier.scope;
-                if (fbtScope === null) {
-                    continue;
-                }
-                for (const operand of eachReactiveValueOperand(value)) {
-                    operand.identifier.scope = fbtScope;
-                    expandFbtScopeRange(fbtScope.range, operand.identifier.mutableRange);
-                    fbtValues.add(operand.identifier.id);
-                }
-            }
-            else if (isFbtJsxExpression(fbtMacroTags, fbtValues, value) ||
-                isFbtJsxChild(fbtValues, lvalue, value)) {
-                const fbtScope = lvalue.identifier.scope;
-                if (fbtScope === null) {
-                    continue;
-                }
-                for (const operand of eachReactiveValueOperand(value)) {
-                    operand.identifier.scope = fbtScope;
-                    expandFbtScopeRange(fbtScope.range, operand.identifier.mutableRange);
-                    fbtValues.add(operand.identifier.id);
+                case 'PropertyLoad': {
+                    if (typeof value.property === 'string') {
+                        const macroDefinition = macroTags.get(value.object.identifier.id);
+                        if (macroDefinition != null) {
+                            const propertyDefinition = macroDefinition.properties != null
+                                ? ((_a = macroDefinition.properties.get(value.property)) !== null && _a !== void 0 ? _a : macroDefinition.properties.get('*'))
+                                : null;
+                            const propertyMacro = propertyDefinition !== null && propertyDefinition !== void 0 ? propertyDefinition : macroDefinition;
+                            macroTags.set(lvalue.identifier.id, propertyMacro);
+                        }
+                    }
+                    break;
                 }
             }
-            else if (fbtValues.has(lvalue.identifier.id)) {
-                const fbtScope = lvalue.identifier.scope;
-                if (fbtScope === null) {
-                    return;
+        }
+    }
+    return macroTags;
+}
+function mergeMacroArguments(fn, macroTags, macroKinds) {
+    var _a;
+    const macroValues = new Set(macroTags.keys());
+    for (const block of Array.from(fn.body.blocks.values()).reverse()) {
+        for (let i = block.instructions.length - 1; i >= 0; i--) {
+            const instr = block.instructions[i];
+            const { lvalue, value } = instr;
+            switch (value.kind) {
+                case 'DeclareContext':
+                case 'DeclareLocal':
+                case 'Destructure':
+                case 'LoadContext':
+                case 'LoadLocal':
+                case 'PostfixUpdate':
+                case 'PrefixUpdate':
+                case 'StoreContext':
+                case 'StoreLocal': {
+                    break;
                 }
-                for (const operand of eachReactiveValueOperand(value)) {
-                    if (operand.identifier.name !== null &&
-                        operand.identifier.name.kind === 'named') {
+                case 'CallExpression':
+                case 'MethodCall': {
+                    const scope = lvalue.identifier.scope;
+                    if (scope == null) {
                         continue;
                     }
-                    operand.identifier.scope = fbtScope;
-                    expandFbtScopeRange(fbtScope.range, operand.identifier.mutableRange);
+                    const callee = value.kind === 'CallExpression' ? value.callee : value.property;
+                    const macroDefinition = (_a = macroTags.get(callee.identifier.id)) !== null && _a !== void 0 ? _a : macroTags.get(lvalue.identifier.id);
+                    if (macroDefinition != null) {
+                        visitOperands(macroDefinition, scope, lvalue, value, macroValues, macroTags);
+                    }
+                    break;
+                }
+                case 'JsxExpression': {
+                    const scope = lvalue.identifier.scope;
+                    if (scope == null) {
+                        continue;
+                    }
+                    let macroDefinition;
+                    if (value.tag.kind === 'Identifier') {
+                        macroDefinition = macroTags.get(value.tag.identifier.id);
+                    }
+                    else {
+                        macroDefinition = macroKinds.get(value.tag.name);
+                    }
+                    macroDefinition !== null && macroDefinition !== void 0 ? macroDefinition : (macroDefinition = macroTags.get(lvalue.identifier.id));
+                    if (macroDefinition != null) {
+                        visitOperands(macroDefinition, scope, lvalue, value, macroValues, macroTags);
+                    }
+                    break;
+                }
+                default: {
+                    const scope = lvalue.identifier.scope;
+                    if (scope == null) {
+                        continue;
+                    }
+                    const macroDefinition = macroTags.get(lvalue.identifier.id);
+                    if (macroDefinition != null) {
+                        visitOperands(macroDefinition, scope, lvalue, value, macroValues, macroTags);
+                    }
+                    break;
                 }
             }
         }
-    }
-}
-function matchesExactTag(s, tags) {
-    return Array.from(tags).some(macro => typeof macro === 'string'
-        ? s === macro
-        : macro[1].length === 0 && macro[0] === s);
-}
-function matchTagRoot(s, tags) {
-    const methods = [];
-    for (const macro of tags) {
-        if (typeof macro === 'string') {
-            continue;
+        for (const phi of block.phis) {
+            const scope = phi.place.identifier.scope;
+            if (scope == null) {
+                continue;
+            }
+            const macroDefinition = macroTags.get(phi.place.identifier.id);
+            if (macroDefinition == null ||
+                macroDefinition.level === InlineLevel.Shallow) {
+                continue;
+            }
+            macroValues.add(phi.place.identifier.id);
+            for (const operand of phi.operands.values()) {
+                operand.identifier.scope = scope;
+                expandFbtScopeRange(scope.range, operand.identifier.mutableRange);
+                macroTags.set(operand.identifier.id, macroDefinition);
+                macroValues.add(operand.identifier.id);
+            }
         }
-        const [tag, rest] = macro;
-        if (tag === s && rest.length > 0) {
-            methods.push(rest);
-        }
     }
-    if (methods.length > 0) {
-        return methods;
-    }
-    else {
-        return null;
-    }
-}
-function isFbtCallExpression(fbtValues, value) {
-    return ((value.kind === 'CallExpression' &&
-        fbtValues.has(value.callee.identifier.id)) ||
-        (value.kind === 'MethodCall' && fbtValues.has(value.property.identifier.id)));
-}
-function isFbtJsxExpression(fbtMacroTags, fbtValues, value) {
-    return (value.kind === 'JsxExpression' &&
-        ((value.tag.kind === 'Identifier' &&
-            fbtValues.has(value.tag.identifier.id)) ||
-            (value.tag.kind === 'BuiltinTag' &&
-                matchesExactTag(value.tag.name, fbtMacroTags))));
-}
-function isFbtJsxChild(fbtValues, lvalue, value) {
-    return ((value.kind === 'JsxExpression' || value.kind === 'JsxFragment') &&
-        lvalue !== null &&
-        fbtValues.has(lvalue.identifier.id));
+    return macroValues;
 }
 function expandFbtScopeRange(fbtRange, extendWith) {
     if (extendWith.start !== 0) {
         fbtRange.start = makeInstructionId(Math.min(fbtRange.start, extendWith.start));
+    }
+}
+function visitOperands(macroDefinition, scope, lvalue, value, macroValues, macroTags) {
+    macroValues.add(lvalue.identifier.id);
+    for (const operand of eachInstructionValueOperand(value)) {
+        if (macroDefinition.level === InlineLevel.Transitive) {
+            operand.identifier.scope = scope;
+            expandFbtScopeRange(scope.range, operand.identifier.mutableRange);
+            macroTags.set(operand.identifier.id, macroDefinition);
+        }
+        macroValues.add(operand.identifier.id);
     }
 }
 
@@ -40486,7 +40536,7 @@ function inferMutationAliasingEffects(fn, { isFunctionExpression } = {
     }
     queue(fn.body.entry, initialState);
     const hoistedContextDeclarations = findHoistedContextDeclarations(fn);
-    const context = new Context$1(isFunctionExpression, fn, hoistedContextDeclarations);
+    const context = new Context$1(isFunctionExpression, fn, hoistedContextDeclarations, findNonMutatedDestructureSpreads(fn));
     let iterationCount = 0;
     while (queuedStates.size !== 0) {
         iterationCount++;
@@ -40550,7 +40600,7 @@ function findHoistedContextDeclarations(fn) {
     return hoisted;
 }
 let Context$1 = class Context {
-    constructor(isFunctionExpression, fn, hoistedContextDeclarations) {
+    constructor(isFunctionExpression, fn, hoistedContextDeclarations, nonMutatingSpreads) {
         this.internedEffects = new Map();
         this.instructionSignatureCache = new Map();
         this.effectInstructionValueCache = new Map();
@@ -40560,6 +40610,7 @@ let Context$1 = class Context {
         this.isFuctionExpression = isFunctionExpression;
         this.fn = fn;
         this.hoistedContextDeclarations = hoistedContextDeclarations;
+        this.nonMutatingSpreads = nonMutatingSpreads;
     }
     cacheApplySignature(signature, effect, f) {
         const inner = getOrInsertDefault(this.applySignatureCache, signature, new Map());
@@ -40575,6 +40626,114 @@ let Context$1 = class Context {
         return interned;
     }
 };
+function findNonMutatedDestructureSpreads(fn) {
+    const knownFrozen = new Set();
+    if (fn.fnType === 'Component') {
+        const [props] = fn.params;
+        if (props != null && props.kind === 'Identifier') {
+            knownFrozen.add(props.identifier.id);
+        }
+    }
+    else {
+        for (const param of fn.params) {
+            if (param.kind === 'Identifier') {
+                knownFrozen.add(param.identifier.id);
+            }
+        }
+    }
+    const candidateNonMutatingSpreads = new Map();
+    for (const block of fn.body.blocks.values()) {
+        if (candidateNonMutatingSpreads.size !== 0) {
+            for (const phi of block.phis) {
+                for (const operand of phi.operands.values()) {
+                    const spread = candidateNonMutatingSpreads.get(operand.identifier.id);
+                    if (spread != null) {
+                        candidateNonMutatingSpreads.delete(spread);
+                    }
+                }
+            }
+        }
+        for (const instr of block.instructions) {
+            const { lvalue, value } = instr;
+            switch (value.kind) {
+                case 'Destructure': {
+                    if (!knownFrozen.has(value.value.identifier.id) ||
+                        !(value.lvalue.kind === InstructionKind.Let ||
+                            value.lvalue.kind === InstructionKind.Const) ||
+                        value.lvalue.pattern.kind !== 'ObjectPattern') {
+                        continue;
+                    }
+                    for (const item of value.lvalue.pattern.properties) {
+                        if (item.kind !== 'Spread') {
+                            continue;
+                        }
+                        candidateNonMutatingSpreads.set(item.place.identifier.id, item.place.identifier.id);
+                    }
+                    break;
+                }
+                case 'LoadLocal': {
+                    const spread = candidateNonMutatingSpreads.get(value.place.identifier.id);
+                    if (spread != null) {
+                        candidateNonMutatingSpreads.set(lvalue.identifier.id, spread);
+                    }
+                    break;
+                }
+                case 'StoreLocal': {
+                    const spread = candidateNonMutatingSpreads.get(value.value.identifier.id);
+                    if (spread != null) {
+                        candidateNonMutatingSpreads.set(lvalue.identifier.id, spread);
+                        candidateNonMutatingSpreads.set(value.lvalue.place.identifier.id, spread);
+                    }
+                    break;
+                }
+                case 'JsxFragment':
+                case 'JsxExpression': {
+                    break;
+                }
+                case 'PropertyLoad': {
+                    break;
+                }
+                case 'CallExpression':
+                case 'MethodCall': {
+                    const callee = value.kind === 'CallExpression' ? value.callee : value.property;
+                    if (getHookKind(fn.env, callee.identifier) != null) {
+                        if (!isRefOrRefValue(lvalue.identifier)) {
+                            knownFrozen.add(lvalue.identifier.id);
+                        }
+                    }
+                    else {
+                        if (candidateNonMutatingSpreads.size !== 0) {
+                            for (const operand of eachInstructionValueOperand(value)) {
+                                const spread = candidateNonMutatingSpreads.get(operand.identifier.id);
+                                if (spread != null) {
+                                    candidateNonMutatingSpreads.delete(spread);
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                default: {
+                    if (candidateNonMutatingSpreads.size !== 0) {
+                        for (const operand of eachInstructionValueOperand(value)) {
+                            const spread = candidateNonMutatingSpreads.get(operand.identifier.id);
+                            if (spread != null) {
+                                candidateNonMutatingSpreads.delete(spread);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    const nonMutatingSpreads = new Set();
+    for (const [key, value] of candidateNonMutatingSpreads) {
+        if (key === value) {
+            nonMutatingSpreads.add(key);
+        }
+    }
+    return nonMutatingSpreads;
+}
 function inferParam(param, initialState, paramKind) {
     const place = param.kind === 'Identifier' ? param : param.place;
     const value = {
@@ -41665,7 +41824,9 @@ function computeSignatureForInstruction(context, env, instr) {
         }
         case 'PropertyStore':
         case 'ComputedStore': {
-            const mutationReason = value.kind === 'PropertyStore' && value.property === 'current'
+            const mutationReason = value.kind === 'PropertyStore' &&
+                value.property === 'current' &&
+                value.object.identifier.type.kind === 'Type'
                 ? { kind: 'AssignCurrentProperty' }
                 : null;
             effects.push({
@@ -41827,7 +41988,9 @@ function computeSignatureForInstruction(context, env, instr) {
                         kind: 'Create',
                         into: place,
                         reason: ValueReason.Other,
-                        value: ValueKind.Mutable,
+                        value: context.nonMutatingSpreads.has(place.identifier.id)
+                            ? ValueKind.Frozen
+                            : ValueKind.Mutable,
                     });
                     effects.push({
                         kind: 'Capture',
@@ -44518,7 +44681,6 @@ function extractManualMemoizationArgs(instr, kind, sidemap, errors) {
     };
 }
 function dropManualMemoization(func) {
-    var _a;
     const errors = new CompilerError();
     const isValidationEnabled = func.env.config.validatePreserveExistingMemoizationGuarantees ||
         func.env.config.validateNoSetStateInRender ||
@@ -44547,26 +44709,6 @@ function dropManualMemoization(func) {
                     const { fnPlace, depsList } = extractManualMemoizationArgs(instr, manualMemo.kind, sidemap, errors);
                     if (fnPlace == null) {
                         continue;
-                    }
-                    if (func.env.config.validateNoVoidUseMemo &&
-                        manualMemo.kind === 'useMemo') {
-                        const funcToCheck = (_a = sidemap.functions.get(fnPlace.identifier.id)) === null || _a === void 0 ? void 0 : _a.value;
-                        if (funcToCheck !== undefined && funcToCheck.loweredFunc.func) {
-                            if (!hasNonVoidReturn(funcToCheck.loweredFunc.func)) {
-                                errors.pushDiagnostic(CompilerDiagnostic.create({
-                                    category: ErrorCategory.UseMemo,
-                                    reason: 'useMemo() callbacks must return a value',
-                                    description: `This ${manualMemo.loadInstr.value.kind === 'PropertyLoad'
-                                        ? 'React.useMemo'
-                                        : 'useMemo'} callback doesn't return a value. useMemo is for computing and caching values, not for arbitrary side effects`,
-                                    suggestions: null,
-                                }).withDetails({
-                                    kind: 'error',
-                                    loc: instr.value.loc,
-                                    message: 'useMemo() callbacks must return a value',
-                                }));
-                            }
-                        }
                     }
                     instr.value = getManualMemoizationReplacement(fnPlace, instr.value.loc, manualMemo.kind);
                     if (isValidationEnabled) {
@@ -44678,17 +44820,6 @@ function findOptionalPlaces(fn) {
         }
     }
     return optionals;
-}
-function hasNonVoidReturn(func) {
-    for (const [, block] of func.body.blocks) {
-        if (block.terminal.kind === 'return') {
-            if (block.terminal.returnVariant === 'Explicit' ||
-                block.terminal.returnVariant === 'Implicit') {
-                return true;
-            }
-        }
-    }
-    return false;
 }
 
 class StableSidemap {
@@ -45343,6 +45474,29 @@ function collectNonNullsInBlocks(fn, context) {
                     const innerHoistables = assertNonNull(innerHoistableMap.get(innerFn.func.body.entry));
                     for (const entry of innerHoistables.assumedNonNullObjects) {
                         assumedNonNullObjects.add(entry);
+                    }
+                }
+            }
+            else if (fn.env.config.enablePreserveExistingMemoizationGuarantees &&
+                instr.value.kind === 'StartMemoize' &&
+                instr.value.deps != null) {
+                for (const dep of instr.value.deps) {
+                    if (dep.root.kind === 'NamedLocal') {
+                        if (!isImmutableAtInstr(dep.root.value.identifier, instr.id, context)) {
+                            continue;
+                        }
+                        for (let i = 0; i < dep.path.length; i++) {
+                            const pathEntry = dep.path[i];
+                            if (pathEntry.optional) {
+                                break;
+                            }
+                            const depNode = context.registry.getOrCreateProperty({
+                                identifier: dep.root.value.identifier,
+                                path: dep.path.slice(0, i),
+                                reactive: dep.root.value.reactive,
+                            });
+                            assumedNonNullObjects.add(depNode);
+                        }
                     }
                 }
             }
@@ -48008,9 +48162,16 @@ function* generateInstructionTypes(env, names, instr) {
         }
         case 'CallExpression': {
             const returnType = makeType();
+            let shapeId = null;
+            if (env.config.enableTreatSetIdentifiersAsStateSetters) {
+                const name = getName(names, value.callee.identifier.id);
+                if (name.startsWith('set')) {
+                    shapeId = BuiltInSetStateId;
+                }
+            }
             yield equation(value.callee.identifier.type, {
                 kind: 'Function',
-                shapeId: null,
+                shapeId,
                 return: returnType,
                 isConstructor: false,
             });
@@ -48103,7 +48264,7 @@ function* generateInstructionTypes(env, names, instr) {
                         });
                     }
                     else {
-                        break;
+                        continue;
                     }
                 }
             }
@@ -50142,11 +50303,18 @@ function isUnmemoized(operand, scopes) {
 
 function validateUseMemo(fn) {
     const errors = new CompilerError();
+    const voidMemoErrors = new CompilerError();
     const useMemos = new Set();
     const react = new Set();
     const functions = new Map();
+    const unusedUseMemos = new Map();
     for (const [, block] of fn.body.blocks) {
         for (const { lvalue, value } of block.instructions) {
+            if (unusedUseMemos.size !== 0) {
+                for (const operand of eachInstructionValueOperand(value)) {
+                    unusedUseMemos.delete(operand.identifier.id);
+                }
+            }
             switch (value.kind) {
                 case 'LoadGlobal': {
                     if (value.binding.name === 'useMemo') {
@@ -50171,10 +50339,8 @@ function validateUseMemo(fn) {
                 }
                 case 'MethodCall':
                 case 'CallExpression': {
-                    const callee = value.kind === 'CallExpression'
-                        ? value.callee.identifier.id
-                        : value.property.identifier.id;
-                    const isUseMemo = useMemos.has(callee);
+                    const callee = value.kind === 'CallExpression' ? value.callee : value.property;
+                    const isUseMemo = useMemos.has(callee.identifier.id);
                     if (!isUseMemo || value.args.length === 0) {
                         continue;
                     }
@@ -50214,12 +50380,86 @@ function validateUseMemo(fn) {
                             message: 'Async and generator functions are not supported',
                         }));
                     }
+                    validateNoContextVariableAssignment(body.loweredFunc.func, errors);
+                    if (fn.env.config.validateNoVoidUseMemo) {
+                        if (!hasNonVoidReturn(body.loweredFunc.func)) {
+                            voidMemoErrors.pushDiagnostic(CompilerDiagnostic.create({
+                                category: ErrorCategory.VoidUseMemo,
+                                reason: 'useMemo() callbacks must return a value',
+                                description: `This useMemo() callback doesn't return a value. useMemo() is for computing and caching values, not for arbitrary side effects`,
+                                suggestions: null,
+                            }).withDetails({
+                                kind: 'error',
+                                loc: body.loc,
+                                message: 'useMemo() callbacks must return a value',
+                            }));
+                        }
+                        else {
+                            unusedUseMemos.set(lvalue.identifier.id, callee.loc);
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+        if (unusedUseMemos.size !== 0) {
+            for (const operand of eachTerminalOperand(block.terminal)) {
+                unusedUseMemos.delete(operand.identifier.id);
+            }
+        }
+    }
+    if (unusedUseMemos.size !== 0) {
+        for (const loc of unusedUseMemos.values()) {
+            voidMemoErrors.pushDiagnostic(CompilerDiagnostic.create({
+                category: ErrorCategory.VoidUseMemo,
+                reason: 'useMemo() result is unused',
+                description: `This useMemo() value is unused. useMemo() is for computing and caching values, not for arbitrary side effects`,
+                suggestions: null,
+            }).withDetails({
+                kind: 'error',
+                loc,
+                message: 'useMemo() result is unused',
+            }));
+        }
+    }
+    fn.env.logErrors(voidMemoErrors.asResult());
+    return errors.asResult();
+}
+function validateNoContextVariableAssignment(fn, errors) {
+    const context = new Set(fn.context.map(place => place.identifier.id));
+    for (const block of fn.body.blocks.values()) {
+        for (const instr of block.instructions) {
+            const value = instr.value;
+            switch (value.kind) {
+                case 'StoreContext': {
+                    if (context.has(value.lvalue.place.identifier.id)) {
+                        errors.pushDiagnostic(CompilerDiagnostic.create({
+                            category: ErrorCategory.UseMemo,
+                            reason: 'useMemo() callbacks may not reassign variables declared outside of the callback',
+                            description: 'useMemo() callbacks must be pure functions and cannot reassign variables defined outside of the callback function',
+                            suggestions: null,
+                        }).withDetails({
+                            kind: 'error',
+                            loc: value.lvalue.place.loc,
+                            message: 'Cannot reassign variable',
+                        }));
+                    }
                     break;
                 }
             }
         }
     }
-    return errors.asResult();
+}
+function hasNonVoidReturn(func) {
+    for (const [, block] of func.body.blocks) {
+        if (block.terminal.kind === 'return') {
+            if (block.terminal.returnVariant === 'Explicit' ||
+                block.terminal.returnVariant === 'Implicit') {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 function validateLocalsNotReassignedAfterRender(fn) {
@@ -51977,7 +52217,7 @@ function nameAnonymousFunctions(fn) {
     const functions = nameAnonymousFunctionsImpl(fn);
     function visit(node, prefix) {
         var _a, _b;
-        if (node.generatedName != null) {
+        if (node.generatedName != null && node.fn.nameHint == null) {
             const name = `${prefix}${node.generatedName}]`;
             node.fn.nameHint = name;
             node.fn.loweredFunc.func.nameHint = name;
@@ -52010,6 +52250,10 @@ function nameAnonymousFunctionsImpl(fn) {
                     if (name != null && name.kind === 'named') {
                         names.set(lvalue.identifier.id, name.value);
                     }
+                    const func = functions.get(value.place.identifier.id);
+                    if (func != null) {
+                        functions.set(lvalue.identifier.id, func);
+                    }
                     break;
                 }
                 case 'PropertyLoad': {
@@ -52037,6 +52281,7 @@ function nameAnonymousFunctionsImpl(fn) {
                     const node = functions.get(value.value.identifier.id);
                     const variableName = value.lvalue.place.identifier.name;
                     if (node != null &&
+                        node.generatedName == null &&
                         variableName != null &&
                         variableName.kind === 'named') {
                         node.generatedName = variableName.value;
@@ -52067,7 +52312,7 @@ function nameAnonymousFunctionsImpl(fn) {
                             continue;
                         }
                         const node = functions.get(arg.identifier.id);
-                        if (node != null) {
+                        if (node != null && node.generatedName == null) {
                             const generatedName = fnArgCount > 1 ? `${calleeName}(arg${i})` : `${calleeName}()`;
                             node.generatedName = generatedName;
                             functions.delete(arg.identifier.id);
@@ -52081,7 +52326,7 @@ function nameAnonymousFunctionsImpl(fn) {
                             continue;
                         }
                         const node = functions.get(attr.place.identifier.id);
-                        if (node != null) {
+                        if (node != null && node.generatedName == null) {
                             const elementName = value.tag.kind === 'BuiltinTag'
                                 ? value.tag.name
                                 : ((_b = names.get(value.tag.identifier.id)) !== null && _b !== void 0 ? _b : null);
@@ -53636,7 +53881,18 @@ function addImportsToProgram(path, programContext) {
             maybeExistingImports.pushContainer('specifiers', importSpecifiers);
         }
         else {
-            stmts.push(libExports$1.importDeclaration(importSpecifiers, libExports$1.stringLiteral(moduleName)));
+            if (path.node.sourceType === 'module') {
+                stmts.push(libExports$1.importDeclaration(importSpecifiers, libExports$1.stringLiteral(moduleName)));
+            }
+            else {
+                stmts.push(libExports$1.variableDeclaration('const', [
+                    libExports$1.variableDeclarator(libExports$1.objectPattern(sortedImport.map(specifier => {
+                        return libExports$1.objectProperty(libExports$1.identifier(specifier.imported), libExports$1.identifier(specifier.name));
+                    })), libExports$1.callExpression(libExports$1.identifier('require'), [
+                        libExports$1.stringLiteral(moduleName),
+                    ])),
+                ]));
+            }
         }
     }
     path.unshiftContainer('body', stmts);
@@ -53649,27 +53905,27 @@ function isNonNamespacedImport(importDeclPath) {
         importDeclPath.node.importKind !== 'typeof');
 }
 
-zod.z.enum([
+v4.z.enum([
     'all_errors',
     'critical_errors',
     'none',
 ]);
-const DynamicGatingOptionsSchema = zod.z.object({
-    source: zod.z.string(),
+const DynamicGatingOptionsSchema = v4.z.object({
+    source: v4.z.string(),
 });
-const CustomOptOutDirectiveSchema = zod.z
-    .nullable(zod.z.array(zod.z.string()))
+const CustomOptOutDirectiveSchema = v4.z
+    .nullable(v4.z.array(v4.z.string()))
     .default(null);
-const CompilerReactTargetSchema = zod.z.union([
-    zod.z.literal('17'),
-    zod.z.literal('18'),
-    zod.z.literal('19'),
-    zod.z.object({
-        kind: zod.z.literal('donotuse_meta_internal'),
-        runtimeModule: zod.z.string().default('react'),
+const CompilerReactTargetSchema = v4.z.union([
+    v4.z.literal('17'),
+    v4.z.literal('18'),
+    v4.z.literal('19'),
+    v4.z.object({
+        kind: v4.z.literal('donotuse_meta_internal'),
+        runtimeModule: v4.z.string().default('react'),
     }),
 ]);
-zod.z.enum([
+v4.z.enum([
     'infer',
     'syntax',
     'annotation',
@@ -53742,7 +53998,7 @@ function parsePluginOptions(obj) {
                         else {
                             CompilerError.throwInvalidConfig({
                                 reason: 'Could not parse dynamic gating. Update React Compiler config to fix the error',
-                                description: `${zodValidationError.fromZodError(result.error)}`,
+                                description: `${v4$1.fromZodError(result.error)}`,
                                 loc: null,
                                 suggestions: null,
                             });
@@ -53758,7 +54014,7 @@ function parsePluginOptions(obj) {
                     else {
                         CompilerError.throwInvalidConfig({
                             reason: 'Could not parse custom opt out directives. Update React Compiler config to fix the error',
-                            description: `${zodValidationError.fromZodError(result.error)}`,
+                            description: `${v4$1.fromZodError(result.error)}`,
                             loc: null,
                             suggestions: null,
                         });
@@ -53781,7 +54037,7 @@ function parseTargetConfig(value) {
     else {
         CompilerError.throwInvalidConfig({
             reason: 'Not a valid target',
-            description: `${zodValidationError.fromZodError(parsed.error)}`,
+            description: `${v4$1.fromZodError(parsed.error)}`,
             suggestions: null,
             loc: null,
         });
@@ -54103,7 +54359,7 @@ const COMPILER_OPTIONS = {
     noEmit: true,
     panicThreshold: 'none',
     flowSuppressions: false,
-    environment: validateEnvironmentConfig({
+    environment: {
         validateRefAccessDuringRender: true,
         validateNoSetStateInRender: true,
         validateNoSetStateInEffects: true,
@@ -54115,7 +54371,7 @@ const COMPILER_OPTIONS = {
         validateNoCapitalizedCalls: [],
         validateHooksUsage: true,
         validateNoDerivedComputationsInEffects: true,
-    }),
+    },
 };
 const FLOW_SUPPRESSION_REGEX = /\$FlowFixMe\[([^\]]*)\]/g;
 function getFlowSuppressions(sourceCode) {
@@ -54135,20 +54391,6 @@ function getFlowSuppressions(sourceCode) {
     }
     return results;
 }
-function filterUnusedOptOutDirectives(directives) {
-    const results = [];
-    for (const directive of directives) {
-        if (OPT_OUT_DIRECTIVES.has(directive.value.value) &&
-            directive.loc != null) {
-            results.push({
-                loc: directive.loc,
-                directive: directive.value.value,
-                range: [directive.start, directive.end],
-            });
-        }
-    }
-    return results;
-}
 function runReactCompilerImpl({ sourceCode, filename, userOpts, }) {
     var _a, _b;
     const options = parsePluginOptions(Object.assign(Object.assign(Object.assign({}, COMPILER_OPTIONS), userOpts), { environment: Object.assign(Object.assign({}, COMPILER_OPTIONS.environment), userOpts.environment) }));
@@ -54157,7 +54399,6 @@ function runReactCompilerImpl({ sourceCode, filename, userOpts, }) {
         filename,
         userOpts,
         flowSuppressions: [],
-        unusedOptOutDirectives: [],
         events: [],
     };
     const userLogger = options.logger;
@@ -54204,29 +54445,11 @@ function runReactCompilerImpl({ sourceCode, filename, userOpts, }) {
                 filename,
                 highlightCode: false,
                 retainLines: true,
-                plugins: [
-                    [PluginProposalPrivateMethods.default, { loose: true }],
-                    [BabelPluginReactCompiler, options],
-                ],
+                plugins: [[BabelPluginReactCompiler, options]],
                 sourceType: 'module',
                 configFile: false,
                 babelrc: false,
             });
-            if (results.events.filter(e => e.kind === 'CompileError').length === 0) {
-                core$1.traverse(babelAST, {
-                    FunctionDeclaration(path) {
-                        results.unusedOptOutDirectives.push(...filterUnusedOptOutDirectives(path.node.body.directives));
-                    },
-                    ArrowFunctionExpression(path) {
-                        if (path.node.body.type === 'BlockStatement') {
-                            results.unusedOptOutDirectives.push(...filterUnusedOptOutDirectives(path.node.body.directives));
-                        }
-                    },
-                    FunctionExpression(path) {
-                        results.unusedOptOutDirectives.push(...filterUnusedOptOutDirectives(path.node.body.directives));
-                    },
-                });
-            }
         }
         catch (err) {
         }
@@ -54387,7 +54610,7 @@ function makeRule(rule) {
             type: 'problem',
             docs: {
                 description: rule.description,
-                recommended: rule.recommended,
+                recommended: rule.preset === LintRulePreset.Recommended,
             },
             fixable: 'code',
             hasSuggestions: true,
@@ -54396,53 +54619,19 @@ function makeRule(rule) {
         create,
     };
 }
-const NoUnusedDirectivesRule = {
-    meta: {
-        type: 'suggestion',
-        docs: {
-            recommended: true,
-        },
-        fixable: 'code',
-        hasSuggestions: true,
-        schema: [{ type: 'object', additionalProperties: true }],
-    },
-    create(context) {
-        const results = getReactCompilerResult(context);
-        for (const directive of results.unusedOptOutDirectives) {
-            context.report({
-                message: `Unused '${directive.directive}' directive`,
-                loc: directive.loc,
-                suggest: [
-                    {
-                        desc: 'Remove the directive',
-                        fix(fixer) {
-                            return fixer.removeRange(directive.range);
-                        },
-                    },
-                ],
-            });
-        }
-        return {};
-    },
-};
 const allRules = LintRules.reduce((acc, rule) => {
     acc[rule.name] = { rule: makeRule(rule), severity: rule.severity };
     return acc;
-}, {
-    'no-unused-directives': {
-        rule: NoUnusedDirectivesRule,
-        severity: ErrorSeverity.Error,
-    },
-});
-const recommendedRules = LintRules.filter(rule => rule.recommended).reduce((acc, rule) => {
+}, {});
+const recommendedRules = LintRules.filter(rule => rule.preset === LintRulePreset.Recommended).reduce((acc, rule) => {
     acc[rule.name] = { rule: makeRule(rule), severity: rule.severity };
     return acc;
-}, {
-    'no-unused-directives': {
-        rule: NoUnusedDirectivesRule,
-        severity: ErrorSeverity.Error,
-    },
-});
+}, {});
+const recommendedLatestRules = LintRules.filter(rule => rule.preset === LintRulePreset.Recommended ||
+    rule.preset === LintRulePreset.RecommendedLatest).reduce((acc, rule) => {
+    acc[rule.name] = { rule: makeRule(rule), severity: rule.severity };
+    return acc;
+}, {});
 function mapErrorSeverityToESlint(severity) {
     switch (severity) {
         case ErrorSeverity.Error: {
@@ -57345,13 +57534,30 @@ function getNodeWithoutReactNamespace(node) {
     }
     return node;
 }
-function isUseEffectIdentifier(node) {
-    return node.type === 'Identifier' && node.name === 'useEffect';
+function isEffectIdentifier(node, additionalHooks) {
+    const isBuiltInEffect = node.type === 'Identifier' &&
+        (node.name === 'useEffect' ||
+            node.name === 'useLayoutEffect' ||
+            node.name === 'useInsertionEffect');
+    if (isBuiltInEffect) {
+        return true;
+    }
+    if (additionalHooks && node.type === 'Identifier') {
+        return additionalHooks.test(node.name);
+    }
+    return false;
 }
 function isUseEffectEventIdentifier(node) {
-    {
-        return node.type === 'Identifier' && node.name === 'useEffectEvent';
+    return node.type === 'Identifier' && node.name === 'useEffectEvent';
+}
+function useEffectEventError(fn, called) {
+    if (fn === null) {
+        return (`React Hook "useEffectEvent" can only be called at the top level of your component.` +
+            ` It cannot be passed down.`);
     }
+    return (`\`${fn}\` is a function created with React Hook "useEffectEvent", and can only be called from ` +
+        'Effects and Effect Events in the same component.' +
+        (called ? '' : ' It cannot be assigned to a variable or passed down.'));
 }
 function isUseIdentifier(node) {
     return isReactFunction(node, 'use');
@@ -57364,8 +57570,21 @@ const rule = {
             recommended: true,
             url: 'https://react.dev/reference/rules/rules-of-hooks',
         },
+        schema: [
+            {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                    additionalHooks: {
+                        type: 'string',
+                    },
+                },
+            },
+        ],
     },
     create(context) {
+        const settings = context.settings || {};
+        const additionalEffectHooks = getAdditionalEffectHooksFromSettings(settings);
         let lastEffect = null;
         const codePathReactHooksMapStack = [];
         const codePathSegmentStack = [];
@@ -57635,6 +57854,7 @@ const rule = {
                 analyzer.leaveNode(node);
             },
             CallExpression(node) {
+                var _a, _b;
                 if (isHook(node.callee)) {
                     const reactHooksMap = last(codePathReactHooksMapStack);
                     const codePathSegment = last(codePathSegmentStack);
@@ -57646,19 +57866,24 @@ const rule = {
                     reactHooks.push(node.callee);
                 }
                 const nodeWithoutNamespace = getNodeWithoutReactNamespace(node.callee);
-                if ((isUseEffectIdentifier(nodeWithoutNamespace) ||
+                if ((isEffectIdentifier(nodeWithoutNamespace, additionalEffectHooks) ||
                     isUseEffectEventIdentifier(nodeWithoutNamespace)) &&
                     node.arguments.length > 0) {
                     lastEffect = node;
                 }
+                if (isUseEffectEventIdentifier(nodeWithoutNamespace) &&
+                    ((_a = node.parent) === null || _a === void 0 ? void 0 : _a.type) !== 'VariableDeclarator' &&
+                    ((_b = node.parent) === null || _b === void 0 ? void 0 : _b.type) !== 'ExpressionStatement') {
+                    const message = useEffectEventError(null, false);
+                    context.report({
+                        node,
+                        message,
+                    });
+                }
             },
             Identifier(node) {
                 if (lastEffect == null && useEffectEventFunctions.has(node)) {
-                    const message = `\`${getSourceCode().getText(node)}\` is a function created with React Hook "useEffectEvent", and can only be called from ` +
-                        'the same component.' +
-                        (node.parent.type === 'CallExpression'
-                            ? ''
-                            : ' They cannot be assigned to variables or passed down.');
+                    const message = useEffectEventError(getSourceCode().getText(node), node.parent.type === 'CallExpression');
                     context.report({
                         node,
                         message,
@@ -57725,43 +57950,52 @@ function last(array) {
 }
 
 const rules = Object.assign({ 'exhaustive-deps': rule$1, 'rules-of-hooks': rule }, Object.fromEntries(Object.entries(allRules).map(([name, config]) => [name, config.rule])));
-const ruleConfigs = Object.assign({ 'react-hooks/rules-of-hooks': 'error', 'react-hooks/exhaustive-deps': 'warn' }, Object.fromEntries(Object.entries(recommendedRules).map(([name, ruleConfig]) => {
+const basicRuleConfigs = {
+    'react-hooks/rules-of-hooks': 'error',
+    'react-hooks/exhaustive-deps': 'warn',
+};
+const recommendedCompilerRuleConfigs = Object.fromEntries(Object.entries(recommendedRules).map(([name, ruleConfig]) => {
     return [
-        'react-hooks/' + name,
+        `react-hooks/${name}`,
         mapErrorSeverityToESlint(ruleConfig.severity),
     ];
-})));
+}));
+const recommendedLatestCompilerRuleConfigs = Object.fromEntries(Object.entries(recommendedLatestRules).map(([name, ruleConfig]) => {
+    return [
+        `react-hooks/${name}`,
+        mapErrorSeverityToESlint(ruleConfig.severity),
+    ];
+}));
+const recommendedRuleConfigs = Object.assign(Object.assign({}, basicRuleConfigs), recommendedCompilerRuleConfigs);
+const recommendedLatestRuleConfigs = Object.assign(Object.assign({}, basicRuleConfigs), recommendedLatestCompilerRuleConfigs);
+const plugins = ['react-hooks'];
+const configs = {
+    recommended: {
+        plugins,
+        rules: recommendedRuleConfigs,
+    },
+    'recommended-latest': {
+        plugins,
+        rules: recommendedLatestRuleConfigs,
+    },
+    flat: {},
+};
 const plugin = {
     meta: {
         name: 'eslint-plugin-react-hooks',
+        version: '7.0.0',
     },
-    configs: {},
     rules,
+    configs,
 };
-Object.assign(plugin.configs, {
-    'recommended-legacy': {
-        plugins: ['react-hooks'],
-        rules: ruleConfigs,
+Object.assign(configs.flat, {
+    'recommended-latest': {
+        plugins: { 'react-hooks': plugin },
+        rules: configs['recommended-latest'].rules,
     },
-    'flat/recommended': [
-        {
-            plugins: {
-                'react-hooks': plugin,
-            },
-            rules: ruleConfigs,
-        },
-    ],
-    'recommended-latest': [
-        {
-            plugins: {
-                'react-hooks': plugin,
-            },
-            rules: ruleConfigs,
-        },
-    ],
     recommended: {
-        plugins: ['react-hooks'],
-        rules: ruleConfigs,
+        plugins: { 'react-hooks': plugin },
+        rules: configs.recommended.rules,
     },
 });
 

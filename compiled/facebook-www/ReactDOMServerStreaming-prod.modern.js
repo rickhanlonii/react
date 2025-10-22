@@ -400,11 +400,16 @@ function getSuspenseFallbackFormatContext(resumableState, parentContext) {
   );
 }
 function getSuspenseContentFormatContext(resumableState, parentContext) {
+  resumableState = getSuspenseViewTransition(parentContext.viewTransition);
+  var subtreeScope = parentContext.tagScope | 16;
+  null !== resumableState &&
+    "none" !== resumableState.share &&
+    (subtreeScope |= 64);
   return createFormatContext(
     parentContext.insertionMode,
     parentContext.selectedValue,
-    parentContext.tagScope | 16,
-    getSuspenseViewTransition(parentContext.viewTransition)
+    subtreeScope,
+    resumableState
   );
 }
 function makeId(resumableState, treeId, localId) {
@@ -1800,6 +1805,9 @@ function pushStartInstance(
           ("t" !== srcSet[2] && "T" !== srcSet[2]) ||
           ("a" !== srcSet[3] && "A" !== srcSet[3]))
       ) {
+        null !== hoistableState &&
+          formatContext.tagScope & 64 &&
+          (hoistableState.suspenseyImages = !0);
         var sizes = "string" === typeof props.sizes ? props.sizes : void 0,
           key$jscomp$0 = srcSet ? srcSet + "\n" + (sizes || "") : src,
           promotablePreloads = renderState.preloads.images,
@@ -2506,7 +2514,7 @@ function writeStyleResourceAttributeInAttr(destination, name, value) {
   destination.buffer += attributeName;
 }
 function createHoistableState() {
-  return { styles: new Set(), stylesheets: new Set() };
+  return { styles: new Set(), stylesheets: new Set(), suspenseyImages: !1 };
 }
 function prefetchDNS(href) {
   var request = currentRequest ? currentRequest : null;
@@ -2914,6 +2922,10 @@ function hoistStylesheetDependency(stylesheet) {
 function hoistHoistables(parentState, childState) {
   childState.styles.forEach(hoistStyleQueueDependency, parentState);
   childState.stylesheets.forEach(hoistStylesheetDependency, parentState);
+  childState.suspenseyImages && (parentState.suspenseyImages = !0);
+}
+function hasSuspenseyContent(hoistableState) {
+  return 0 < hoistableState.stylesheets.size || hoistableState.suspenseyImages;
 }
 var bind = Function.prototype.bind,
   REACT_CLIENT_REFERENCE = Symbol.for("react.client.reference");
@@ -3703,7 +3715,10 @@ function getViewTransitionClassName(defaultClass, eventClass) {
       : eventClass;
 }
 function isEligibleForOutlining(request, boundary) {
-  return 500 < boundary.byteSize && null === boundary.contentPreamble;
+  return (
+    (500 < boundary.byteSize || hasSuspenseyContent(boundary.contentState)) &&
+    null === boundary.contentPreamble
+  );
 }
 function defaultErrorHandler(error) {
   if (
@@ -4595,6 +4610,7 @@ function renderElement(request, task, keyPath, type, props, ref) {
             subtreeScope = prevContext$jscomp$0.tagScope & -25;
           subtreeScope =
             "none" !== update ? subtreeScope | 32 : subtreeScope & -33;
+          "none" !== enter && (subtreeScope |= 64);
           var JSCompiler_inline_result$jscomp$3 = createFormatContext(
             prevContext$jscomp$0.insertionMode,
             prevContext$jscomp$0.selectedValue,
@@ -5310,6 +5326,105 @@ function renderChildrenArray(request, task, children, childIndex) {
   task.treeContext = replay;
   task.keyPath = prevKeyPath;
 }
+function trackPostponedBoundary(request, trackedPostpones, boundary) {
+  boundary.status = 5;
+  boundary.rootSegmentID = request.nextSegmentId++;
+  request = boundary.trackedContentKeyPath;
+  if (null === request)
+    throw Error(
+      "It should not be possible to postpone at the root. This is a bug in React."
+    );
+  var fallbackReplayNode = boundary.trackedFallbackNode,
+    children = [],
+    boundaryNode = trackedPostpones.workingMap.get(request);
+  if (void 0 === boundaryNode)
+    return (
+      (boundary = [
+        request[1],
+        request[2],
+        children,
+        null,
+        fallbackReplayNode,
+        boundary.rootSegmentID
+      ]),
+      trackedPostpones.workingMap.set(request, boundary),
+      addToReplayParent(boundary, request[0], trackedPostpones),
+      boundary
+    );
+  boundaryNode[4] = fallbackReplayNode;
+  boundaryNode[5] = boundary.rootSegmentID;
+  return boundaryNode;
+}
+function trackPostpone(request, trackedPostpones, task, segment) {
+  segment.status = 5;
+  var keyPath = task.keyPath,
+    boundary = task.blockedBoundary;
+  if (null === boundary)
+    (segment.id = request.nextSegmentId++),
+      (trackedPostpones.rootSlots = segment.id),
+      null !== request.completedRootSegment &&
+        (request.completedRootSegment.status = 5);
+  else {
+    if (null !== boundary && 0 === boundary.status) {
+      var boundaryNode = trackPostponedBoundary(
+        request,
+        trackedPostpones,
+        boundary
+      );
+      if (
+        boundary.trackedContentKeyPath === keyPath &&
+        -1 === task.childIndex
+      ) {
+        -1 === segment.id &&
+          (segment.id = segment.parentFlushed
+            ? boundary.rootSegmentID
+            : request.nextSegmentId++);
+        boundaryNode[3] = segment.id;
+        return;
+      }
+    }
+    -1 === segment.id &&
+      (segment.id =
+        segment.parentFlushed && null !== boundary
+          ? boundary.rootSegmentID
+          : request.nextSegmentId++);
+    if (-1 === task.childIndex)
+      null === keyPath
+        ? (trackedPostpones.rootSlots = segment.id)
+        : ((task = trackedPostpones.workingMap.get(keyPath)),
+          void 0 === task
+            ? ((task = [keyPath[1], keyPath[2], [], segment.id]),
+              addToReplayParent(task, keyPath[0], trackedPostpones))
+            : (task[3] = segment.id));
+    else {
+      if (null === keyPath)
+        if (((request = trackedPostpones.rootSlots), null === request))
+          request = trackedPostpones.rootSlots = {};
+        else {
+          if ("number" === typeof request)
+            throw Error(
+              "It should not be possible to postpone both at the root of an element as well as a slot below. This is a bug in React."
+            );
+        }
+      else if (
+        ((boundary = trackedPostpones.workingMap),
+        (boundaryNode = boundary.get(keyPath)),
+        void 0 === boundaryNode)
+      )
+        (request = {}),
+          (boundaryNode = [keyPath[1], keyPath[2], [], request]),
+          boundary.set(keyPath, boundaryNode),
+          addToReplayParent(boundaryNode, keyPath[0], trackedPostpones);
+      else if (((request = boundaryNode[3]), null === request))
+        request = boundaryNode[3] = {};
+      else if ("number" === typeof request)
+        throw Error(
+          "It should not be possible to postpone both at the root of an element as well as a slot below. This is a bug in React."
+        );
+      request[task.childIndex] = segment.id;
+    }
+  }
+}
 function untrackBoundary(request, boundary) {
   request = request.trackedPostpones;
   null !== request &&
@@ -5426,21 +5541,21 @@ function renderNode(request, task, node, childIndex) {
       chunkLength = segment.chunks.length;
     try {
       return renderNodeDestructive(request, task, node, childIndex);
-    } catch (thrownValue$61) {
+    } catch (thrownValue$63) {
       if (
         (resetHooksState(),
         (segment.children.length = childrenLength),
         (segment.chunks.length = chunkLength),
         (node =
-          thrownValue$61 === SuspenseException
+          thrownValue$63 === SuspenseException
             ? getSuspendedThenable()
-            : thrownValue$61),
+            : thrownValue$63),
         12 !== request.status && "object" === typeof node && null !== node)
       ) {
         if ("function" === typeof node.then) {
           segment = node;
           node =
-            thrownValue$61 === SuspenseException
+            thrownValue$63 === SuspenseException
               ? getThenableStateAfterSuspending()
               : null;
           request = spawnNewSuspendedRenderTask(request, task, node).ping;
@@ -5455,7 +5570,7 @@ function renderNode(request, task, node, childIndex) {
         }
         if ("Maximum call stack size exceeded" === node.message) {
           segment =
-            thrownValue$61 === SuspenseException
+            thrownValue$63 === SuspenseException
               ? getThenableStateAfterSuspending()
               : null;
           segment = spawnNewSuspendedRenderTask(request, task, segment);
@@ -5543,19 +5658,24 @@ function abortTask(task, request, error) {
     if (6 === segment.status) return;
     segment.status = 3;
   }
-  segment = getThrownInfo(task.componentStack);
+  var errorInfo = getThrownInfo(task.componentStack);
   if (null === boundary) {
     if (13 !== request.status && 14 !== request.status) {
       boundary = task.replay;
       if (null === boundary) {
-        logRecoverableError(request, error, segment);
-        fatalError(request, error);
+        null !== request.trackedPostpones && null !== segment
+          ? ((boundary = request.trackedPostpones),
+            logRecoverableError(request, error, errorInfo),
+            trackPostpone(request, boundary, task, segment),
+            finishedTask(request, null, task.row, segment))
+          : (logRecoverableError(request, error, errorInfo),
+            fatalError(request, error));
         return;
       }
       boundary.pendingTasks--;
       0 === boundary.pendingTasks &&
         0 < boundary.nodes.length &&
-        ((segment = logRecoverableError(request, error, segment)),
+        ((segment = logRecoverableError(request, error, errorInfo)),
         abortRemainingReplayNodes(
           request,
           null,
@@ -5567,24 +5687,36 @@ function abortTask(task, request, error) {
       request.pendingRootTasks--;
       0 === request.pendingRootTasks && completeShell(request);
     }
-  } else
-    4 !== boundary.status &&
-      ((boundary.status = 4),
-      (segment = logRecoverableError(request, error, segment)),
-      (boundary.status = 4),
-      (boundary.errorDigest = segment),
-      untrackBoundary(request, boundary),
-      boundary.parentFlushed &&
-        request.clientRenderedBoundaries.push(boundary)),
-      boundary.pendingTasks--,
-      (segment = boundary.row),
-      null !== segment &&
-        0 === --segment.pendingTasks &&
-        finishSuspenseListRow(request, segment),
-      boundary.fallbackAbortableTasks.forEach(function (fallbackTask) {
-        return abortTask(fallbackTask, request, error);
-      }),
-      boundary.fallbackAbortableTasks.clear();
+  } else {
+    var trackedPostpones$64 = request.trackedPostpones;
+    if (4 !== boundary.status) {
+      if (null !== trackedPostpones$64 && null !== segment)
+        return (
+          logRecoverableError(request, error, errorInfo),
+          trackPostpone(request, trackedPostpones$64, task, segment),
+          boundary.fallbackAbortableTasks.forEach(function (fallbackTask) {
+            return abortTask(fallbackTask, request, error);
+          }),
+          boundary.fallbackAbortableTasks.clear(),
+          finishedTask(request, boundary, task.row, segment)
+        );
+      boundary.status = 4;
+      segment = logRecoverableError(request, error, errorInfo);
+      boundary.status = 4;
+      boundary.errorDigest = segment;
+      untrackBoundary(request, boundary);
+      boundary.parentFlushed && request.clientRenderedBoundaries.push(boundary);
+    }
+    boundary.pendingTasks--;
+    segment = boundary.row;
+    null !== segment &&
+      0 === --segment.pendingTasks &&
+      finishSuspenseListRow(request, segment);
+    boundary.fallbackAbortableTasks.forEach(function (fallbackTask) {
+      return abortTask(fallbackTask, request, error);
+    });
+    boundary.fallbackAbortableTasks.clear();
+  }
   task = task.row;
   null !== task &&
     0 === --task.pendingTasks &&
@@ -5688,22 +5820,22 @@ function queueCompletedSegment(boundary, segment) {
       queueCompletedSegment(boundary, childSegment);
   } else boundary.completedSegments.push(segment);
 }
-function finishedTask(request$jscomp$0, boundary, row, segment) {
+function finishedTask(request, boundary, row, segment) {
   null !== row &&
     (0 === --row.pendingTasks
-      ? finishSuspenseListRow(request$jscomp$0, row)
-      : row.together && tryToResolveTogetherRow(request$jscomp$0, row));
-  request$jscomp$0.allPendingTasks--;
+      ? finishSuspenseListRow(request, row)
+      : row.together && tryToResolveTogetherRow(request, row));
+  request.allPendingTasks--;
   if (null === boundary) {
     if (null !== segment && segment.parentFlushed) {
-      if (null !== request$jscomp$0.completedRootSegment)
+      if (null !== request.completedRootSegment)
         throw Error(
           "There can only be one root segment. This is a bug in React."
         );
-      request$jscomp$0.completedRootSegment = segment;
+      request.completedRootSegment = segment;
     }
-    request$jscomp$0.pendingRootTasks--;
-    0 === request$jscomp$0.pendingRootTasks && completeShell(request$jscomp$0);
+    request.pendingRootTasks--;
+    0 === request.pendingRootTasks && completeShell(request);
   } else if ((boundary.pendingTasks--, 4 !== boundary.status))
     if (0 === boundary.pendingTasks)
       if (
@@ -5712,33 +5844,29 @@ function finishedTask(request$jscomp$0, boundary, row, segment) {
           segment.parentFlushed &&
           (1 === segment.status || 3 === segment.status) &&
           queueCompletedSegment(boundary, segment),
-        boundary.parentFlushed &&
-          request$jscomp$0.completedBoundaries.push(boundary),
+        boundary.parentFlushed && request.completedBoundaries.push(boundary),
         1 === boundary.status)
       )
         (row = boundary.row),
           null !== row &&
             hoistHoistables(row.hoistables, boundary.contentState),
-          isEligibleForOutlining(request$jscomp$0, boundary) ||
-            (boundary.fallbackAbortableTasks.forEach(
-              abortTaskSoft,
-              request$jscomp$0
-            ),
+          isEligibleForOutlining(request, boundary) ||
+            (boundary.fallbackAbortableTasks.forEach(abortTaskSoft, request),
             boundary.fallbackAbortableTasks.clear(),
             null !== row &&
               0 === --row.pendingTasks &&
-              finishSuspenseListRow(request$jscomp$0, row)),
-          0 === request$jscomp$0.pendingRootTasks &&
-            null === request$jscomp$0.trackedPostpones &&
+              finishSuspenseListRow(request, row)),
+          0 === request.pendingRootTasks &&
+            null === request.trackedPostpones &&
             null !== boundary.contentPreamble &&
-            preparePreamble(request$jscomp$0);
+            preparePreamble(request);
       else {
         if (
           5 === boundary.status &&
           ((boundary = boundary.row), null !== boundary)
         ) {
-          if (null !== request$jscomp$0.trackedPostpones) {
-            row = request$jscomp$0.trackedPostpones;
+          if (null !== request.trackedPostpones) {
+            row = request.trackedPostpones;
             var postponedRow = boundary.next;
             if (
               null !== postponedRow &&
@@ -5750,43 +5878,12 @@ function finishedTask(request$jscomp$0, boundary, row, segment) {
                 postponedRow++
               ) {
                 var postponedBoundary = segment[postponedRow];
-                var request = request$jscomp$0,
-                  trackedPostpones = row;
-                postponedBoundary.status = 5;
-                postponedBoundary.rootSegmentID = request.nextSegmentId++;
-                request = postponedBoundary.trackedContentKeyPath;
-                if (null === request)
-                  throw Error(
-                    "It should not be possible to postpone at the root. This is a bug in React."
-                  );
-                var fallbackReplayNode = postponedBoundary.trackedFallbackNode,
-                  children = [],
-                  boundaryNode = trackedPostpones.workingMap.get(request);
-                void 0 === boundaryNode
-                  ? ((fallbackReplayNode = [
-                      request[1],
-                      request[2],
-                      children,
-                      null,
-                      fallbackReplayNode,
-                      postponedBoundary.rootSegmentID
-                    ]),
-                    trackedPostpones.workingMap.set(
-                      request,
-                      fallbackReplayNode
-                    ),
-                    addToReplayParent(
-                      fallbackReplayNode,
-                      request[0],
-                      trackedPostpones
-                    ))
-                  : ((boundaryNode[4] = fallbackReplayNode),
-                    (boundaryNode[5] = postponedBoundary.rootSegmentID));
-                finishedTask(request$jscomp$0, postponedBoundary, null, null);
+                trackPostponedBoundary(request, row, postponedBoundary);
+                finishedTask(request, postponedBoundary, null, null);
               }
           }
           0 === --boundary.pendingTasks &&
-            finishSuspenseListRow(request$jscomp$0, boundary);
+            finishSuspenseListRow(request, boundary);
         }
       }
     else
@@ -5796,12 +5893,12 @@ function finishedTask(request$jscomp$0, boundary, row, segment) {
         (queueCompletedSegment(boundary, segment),
         1 === boundary.completedSegments.length &&
           boundary.parentFlushed &&
-          request$jscomp$0.partialBoundaries.push(boundary)),
+          request.partialBoundaries.push(boundary)),
         (boundary = boundary.row),
         null !== boundary &&
           boundary.together &&
-          tryToResolveTogetherRow(request$jscomp$0, boundary);
-  0 === request$jscomp$0.allPendingTasks && completeAll(request$jscomp$0);
+          tryToResolveTogetherRow(request, boundary);
+  0 === request.allPendingTasks && completeAll(request);
 }
 function preparePreambleFromSubtree(
   request,
@@ -5928,6 +6025,7 @@ function flushSegment(request, destination, segment, hoistableState) {
   var boundary = segment.boundary;
   if (null === boundary)
     return flushSubtree(request, destination, segment, hoistableState);
+  segment.boundary = null;
   boundary.parentFlushed = !0;
   if (4 === boundary.status) {
     var row = boundary.row;
@@ -5955,8 +6053,10 @@ function flushSegment(request, destination, segment, hoistableState) {
       hoistableState && hoistHoistables(hoistableState, boundary.fallbackState),
       flushSubtree(request, destination, segment, hoistableState);
   else if (
+    !flushingPartialBoundaries &&
     isEligibleForOutlining(request, boundary) &&
-    flushedByteSize + boundary.byteSize > request.progressiveChunkSize
+    (flushedByteSize + boundary.byteSize > request.progressiveChunkSize ||
+      hasSuspenseyContent(boundary.contentState))
   )
     (boundary.rootSegmentID = request.nextSegmentId++),
       request.completedBoundaries.push(boundary),
@@ -6139,6 +6239,7 @@ function flushPartiallyCompletedSegment(
     : writeChunkAndReturn(destination, '"></template>');
   return destination;
 }
+var flushingPartialBoundaries = !1;
 function flushCompletedQueues(request, destination) {
   try {
     if (!(0 < request.pendingRootTasks)) {
@@ -6369,14 +6470,15 @@ function flushCompletedQueues(request, destination) {
           return;
         }
       completedBoundaries.splice(0, i);
+      flushingPartialBoundaries = !0;
       var partialBoundaries = request.partialBoundaries;
       for (i = 0; i < partialBoundaries.length; i++) {
-        var boundary$67 = partialBoundaries[i];
+        var boundary$70 = partialBoundaries[i];
         a: {
           clientRenderedBoundaries = request;
           boundary = destination;
-          flushedByteSize = boundary$67.byteSize;
-          var completedSegments = boundary$67.completedSegments;
+          flushedByteSize = boundary$70.byteSize;
+          var completedSegments = boundary$70.completedSegments;
           for (
             JSCompiler_inline_result = 0;
             JSCompiler_inline_result < completedSegments.length;
@@ -6386,7 +6488,7 @@ function flushCompletedQueues(request, destination) {
               !flushPartiallyCompletedSegment(
                 clientRenderedBoundaries,
                 boundary,
-                boundary$67,
+                boundary$70,
                 completedSegments[JSCompiler_inline_result]
               )
             ) {
@@ -6396,10 +6498,10 @@ function flushCompletedQueues(request, destination) {
               break a;
             }
           completedSegments.splice(0, JSCompiler_inline_result);
-          var row = boundary$67.row;
+          var row = boundary$70.row;
           null !== row &&
             row.together &&
-            1 === boundary$67.pendingTasks &&
+            1 === boundary$70.pendingTasks &&
             (1 === row.pendingTasks
               ? unblockSuspenseListRow(
                   clientRenderedBoundaries,
@@ -6409,7 +6511,7 @@ function flushCompletedQueues(request, destination) {
               : row.pendingTasks--);
           JSCompiler_inline_result$jscomp$0 = writeHoistablesForBoundary(
             boundary,
-            boundary$67.contentState,
+            boundary$70.contentState,
             clientRenderedBoundaries.renderState
           );
         }
@@ -6421,6 +6523,7 @@ function flushCompletedQueues(request, destination) {
         }
       }
       partialBoundaries.splice(0, i);
+      flushingPartialBoundaries = !1;
       var largeBoundaries = request.completedBoundaries;
       for (i = 0; i < largeBoundaries.length; i++)
         if (!flushCompletedBoundary(request, destination, largeBoundaries[i])) {
@@ -6432,16 +6535,17 @@ function flushCompletedQueues(request, destination) {
       largeBoundaries.splice(0, i);
     }
   } finally {
-    0 === request.allPendingTasks &&
-      0 === request.clientRenderedBoundaries.length &&
-      0 === request.completedBoundaries.length &&
-      ((request.flushScheduled = !1),
-      (i = request.resumableState),
-      i.hasBody && writeChunk(destination, endChunkForTag("body")),
-      i.hasHtml && writeChunk(destination, endChunkForTag("html")),
-      (request.status = 14),
-      (destination.done = !0),
-      (request.destination = null));
+    (flushingPartialBoundaries = !1),
+      0 === request.allPendingTasks &&
+        0 === request.clientRenderedBoundaries.length &&
+        0 === request.completedBoundaries.length &&
+        ((request.flushScheduled = !1),
+        (i = request.resumableState),
+        i.hasBody && writeChunk(destination, endChunkForTag("body")),
+        i.hasHtml && writeChunk(destination, endChunkForTag("html")),
+        (request.status = 14),
+        (destination.done = !0),
+        (request.destination = null));
   }
 }
 function enqueueFlush(request) {
@@ -6471,8 +6575,8 @@ function abort(request, reason) {
     }
     null !== request.destination &&
       flushCompletedQueues(request, request.destination);
-  } catch (error$69) {
-    logRecoverableError(request, error$69, {}), fatalError(request, error$69);
+  } catch (error$72) {
+    logRecoverableError(request, error$72, {}), fatalError(request, error$72);
   }
 }
 function addToReplayParent(node, parentKeyPath, trackedPostpones) {
@@ -6635,7 +6739,24 @@ exports.renderNextChunk = function (stream) {
                   : 12 === request.status
                     ? request.fatalError
                     : thrownValue;
-              if (
+              if (12 === request.status && null !== request.trackedPostpones) {
+                var trackedPostpones = request.trackedPostpones,
+                  thrownInfo = getThrownInfo(task$jscomp$0.componentStack);
+                task$jscomp$0.abortSet.delete(task$jscomp$0);
+                logRecoverableError(request, x$jscomp$0, thrownInfo);
+                trackPostpone(
+                  request,
+                  trackedPostpones,
+                  task$jscomp$0,
+                  segment$jscomp$0
+                );
+                finishedTask(
+                  request,
+                  task$jscomp$0.blockedBoundary,
+                  task$jscomp$0.row,
+                  segment$jscomp$0
+                );
+              } else if (
                 "object" === typeof x$jscomp$0 &&
                 null !== x$jscomp$0 &&
                 "function" === typeof x$jscomp$0.then
