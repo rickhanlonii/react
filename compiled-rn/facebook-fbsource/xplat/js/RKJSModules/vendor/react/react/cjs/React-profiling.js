@@ -7,7 +7,7 @@
  * @noflow
  * @nolint
  * @preventMunge
- * @generated SignedSource<<214981845f21cbe06efa38b290e825ca>>
+ * @generated SignedSource<<da8124da60782d88e3ec891ba038e3a3>>
  */
 
 "use strict";
@@ -310,36 +310,40 @@ function lazyInitializer(payload) {
 function useMemoCache(size) {
   return ReactSharedInternals.H.useMemoCache(size);
 }
+function useEffectEvent(callback) {
+  return ReactSharedInternals.H.useEffectEvent(callback);
+}
 var reportGlobalError =
-    "function" === typeof reportError
-      ? reportError
-      : function (error) {
-          if (
-            "object" === typeof window &&
-            "function" === typeof window.ErrorEvent
-          ) {
-            var event = new window.ErrorEvent("error", {
-              bubbles: !0,
-              cancelable: !0,
-              message:
-                "object" === typeof error &&
-                null !== error &&
-                "string" === typeof error.message
-                  ? String(error.message)
-                  : String(error),
-              error: error
-            });
-            if (!window.dispatchEvent(event)) return;
-          } else if (
-            "object" === typeof process &&
-            "function" === typeof process.emit
-          ) {
-            process.emit("uncaughtException", error);
-            return;
-          }
-          console.error(error);
-        },
-  ReactCompilerRuntime = { __proto__: null, c: useMemoCache },
+  "function" === typeof reportError
+    ? reportError
+    : function (error) {
+        if (
+          "object" === typeof window &&
+          "function" === typeof window.ErrorEvent
+        ) {
+          var event = new window.ErrorEvent("error", {
+            bubbles: !0,
+            cancelable: !0,
+            message:
+              "object" === typeof error &&
+              null !== error &&
+              "string" === typeof error.message
+                ? String(error.message)
+                : String(error),
+            error: error
+          });
+          if (!window.dispatchEvent(event)) return;
+        } else if (
+          "object" === typeof process &&
+          "function" === typeof process.emit
+        ) {
+          process.emit("uncaughtException", error);
+          return;
+        }
+        console.error(error);
+      };
+function addTransitionType() {}
+var ReactCompilerRuntime = { __proto__: null, c: useMemoCache },
   Children = {
     map: mapChildren,
     forEach: function (children, forEachFunc, forEachContext) {
@@ -381,12 +385,14 @@ exports.Profiler = REACT_PROFILER_TYPE;
 exports.PureComponent = PureComponent;
 exports.StrictMode = REACT_STRICT_MODE_TYPE;
 exports.Suspense = REACT_SUSPENSE_TYPE;
+exports.ViewTransition = REACT_VIEW_TRANSITION_TYPE;
 exports.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE =
   ReactSharedInternals;
 exports.__COMPILER_RUNTIME = ReactCompilerRuntime;
 exports.act = function () {
   throw Error("act(...) is not supported in production builds of React.");
 };
+exports.addTransitionType = addTransitionType;
 exports.c = useMemoCache;
 exports.cache = function (fn) {
   return function () {
@@ -464,9 +470,7 @@ exports.createElement = function (type, config, children) {
 exports.createRef = function () {
   return { current: null };
 };
-exports.experimental_useEffectEvent = function (callback) {
-  return ReactSharedInternals.H.useEffectEvent(callback);
-};
+exports.experimental_useEffectEvent = useEffectEvent;
 exports.forwardRef = function (render) {
   return { $$typeof: REACT_FORWARD_REF_TYPE, render: render };
 };
@@ -516,7 +520,7 @@ exports.unstable_Scope = REACT_SCOPE_TYPE;
 exports.unstable_SuspenseList = REACT_SUSPENSE_LIST_TYPE;
 exports.unstable_TracingMarker = REACT_TRACING_MARKER_TYPE;
 exports.unstable_ViewTransition = REACT_VIEW_TRANSITION_TYPE;
-exports.unstable_addTransitionType = function () {};
+exports.unstable_addTransitionType = addTransitionType;
 exports.unstable_getCacheForType = function (resourceType) {
   var dispatcher = ReactSharedInternals.A;
   return dispatcher ? dispatcher.getCacheForType(resourceType) : resourceType();
@@ -544,6 +548,7 @@ exports.useDeferredValue = function (value, initialValue) {
 exports.useEffect = function (create, deps) {
   return ReactSharedInternals.H.useEffect(create, deps);
 };
+exports.useEffectEvent = useEffectEvent;
 exports.useId = function () {
   return ReactSharedInternals.H.useId();
 };
@@ -585,7 +590,7 @@ exports.useSyncExternalStore = function (
 exports.useTransition = function () {
   return ReactSharedInternals.H.useTransition();
 };
-exports.version = "19.2.0-native-fb-a51f9252-20250916";
+exports.version = "19.3.0-native-fb-71b3a03c-20251021";
 "undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ &&
   "function" ===
     typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStop &&

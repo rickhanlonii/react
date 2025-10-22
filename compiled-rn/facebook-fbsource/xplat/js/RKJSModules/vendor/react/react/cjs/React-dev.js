@@ -7,7 +7,7 @@
  * @noflow
  * @nolint
  * @preventMunge
- * @generated SignedSource<<7a2d14bf9f20545feb6bf14720868972>>
+ * @generated SignedSource<<65f9b36156b48de52802a0c541358372>>
  */
 
 "use strict";
@@ -532,19 +532,12 @@ __DEV__ &&
     }
     function lazyInitializer(payload) {
       if (-1 === payload._status) {
-        var ctor = payload._result,
-          thenable = ctor();
-        thenable.then(
+        var ctor = payload._result;
+        ctor = ctor();
+        ctor.then(
           function (moduleObject) {
-            if (0 === payload._status || -1 === payload._status) {
-              payload._status = 1;
-              payload._result = moduleObject;
-              var _ioInfo = payload._ioInfo;
-              null != _ioInfo && (_ioInfo.end = performance.now());
-              void 0 === thenable.status &&
-                ((thenable.status = "fulfilled"),
-                (thenable.value = moduleObject));
-            }
+            if (0 === payload._status || -1 === payload._status)
+              (payload._status = 1), (payload._result = moduleObject);
           },
           function (error) {
             if (0 === payload._status || -1 === payload._status)
@@ -552,7 +545,7 @@ __DEV__ &&
           }
         );
         -1 === payload._status &&
-          ((payload._status = 0), (payload._result = thenable));
+          ((payload._status = 0), (payload._result = ctor));
       }
       if (1 === payload._status)
         return (
@@ -582,9 +575,13 @@ __DEV__ &&
     function useMemoCache(size) {
       return resolveDispatcher().useMemoCache(size);
     }
+    function useEffectEvent(callback) {
+      return resolveDispatcher().useEffectEvent(callback);
+    }
     function releaseAsyncTransition() {
       ReactSharedInternals.asyncTransitions--;
     }
+    function addTransitionType() {}
     function enqueueTask(task) {
       if (null === enqueueTaskImpl)
         try {
@@ -872,6 +869,7 @@ __DEV__ &&
     exports.PureComponent = PureComponent;
     exports.StrictMode = REACT_STRICT_MODE_TYPE;
     exports.Suspense = REACT_SUSPENSE_TYPE;
+    exports.ViewTransition = REACT_VIEW_TRANSITION_TYPE;
     exports.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE =
       ReactSharedInternals;
     exports.__COMPILER_RUNTIME = fnName;
@@ -996,6 +994,7 @@ __DEV__ &&
         }
       };
     };
+    exports.addTransitionType = addTransitionType;
     exports.c = useMemoCache;
     exports.cache = function (fn) {
       return function () {
@@ -1083,6 +1082,7 @@ __DEV__ &&
     exports.createElement = function (type, config, children) {
       for (var i = 2; i < arguments.length; i++)
         validateChildKeys(arguments[i]);
+      var propName;
       i = {};
       var key = null;
       if (null != config)
@@ -1123,13 +1123,18 @@ __DEV__ &&
             ? type.displayName || type.name || "Unknown"
             : type
         );
-      var propName = 1e4 > ReactSharedInternals.recentlyCreatedOwnerStacks++;
+      (propName = 1e4 > ReactSharedInternals.recentlyCreatedOwnerStacks++)
+        ? ((childArray = Error.stackTraceLimit),
+          (Error.stackTraceLimit = 10),
+          (childrenLength = Error("react-stack-top-frame")),
+          (Error.stackTraceLimit = childArray))
+        : (childrenLength = unknownOwnerDebugStack);
       return ReactElement(
         type,
         key,
         i,
         getOwner(),
-        propName ? Error("react-stack-top-frame") : unknownOwnerDebugStack,
+        childrenLength,
         propName ? createTask(getTaskName(type)) : unknownOwnerDebugTask
       );
     };
@@ -1138,9 +1143,7 @@ __DEV__ &&
       Object.seal(refObject);
       return refObject;
     };
-    exports.experimental_useEffectEvent = function (callback) {
-      return resolveDispatcher().useEffectEvent(callback);
-    };
+    exports.experimental_useEffectEvent = useEffectEvent;
     exports.forwardRef = function (render) {
       null != render && render.$$typeof === REACT_MEMO_TYPE
         ? console.error(
@@ -1186,42 +1189,54 @@ __DEV__ &&
     exports.jsx = function (type, config, maybeKey) {
       var trackActualOwner =
         1e4 > ReactSharedInternals.recentlyCreatedOwnerStacks++;
+      if (trackActualOwner) {
+        var previousStackTraceLimit = Error.stackTraceLimit;
+        Error.stackTraceLimit = 10;
+        var debugStackDEV = Error("react-stack-top-frame");
+        Error.stackTraceLimit = previousStackTraceLimit;
+      } else debugStackDEV = unknownOwnerDebugStack;
       return jsxDEVImpl(
         type,
         config,
         maybeKey,
         !1,
-        trackActualOwner
-          ? Error("react-stack-top-frame")
-          : unknownOwnerDebugStack,
+        debugStackDEV,
         trackActualOwner ? createTask(getTaskName(type)) : unknownOwnerDebugTask
       );
     };
     exports.jsxDEV = function (type, config, maybeKey, isStaticChildren) {
       var trackActualOwner =
         1e4 > ReactSharedInternals.recentlyCreatedOwnerStacks++;
+      if (trackActualOwner) {
+        var previousStackTraceLimit = Error.stackTraceLimit;
+        Error.stackTraceLimit = 10;
+        var debugStackDEV = Error("react-stack-top-frame");
+        Error.stackTraceLimit = previousStackTraceLimit;
+      } else debugStackDEV = unknownOwnerDebugStack;
       return jsxDEVImpl(
         type,
         config,
         maybeKey,
         isStaticChildren,
-        trackActualOwner
-          ? Error("react-stack-top-frame")
-          : unknownOwnerDebugStack,
+        debugStackDEV,
         trackActualOwner ? createTask(getTaskName(type)) : unknownOwnerDebugTask
       );
     };
     exports.jsxs = function (type, config, maybeKey) {
       var trackActualOwner =
         1e4 > ReactSharedInternals.recentlyCreatedOwnerStacks++;
+      if (trackActualOwner) {
+        var previousStackTraceLimit = Error.stackTraceLimit;
+        Error.stackTraceLimit = 10;
+        var debugStackDEV = Error("react-stack-top-frame");
+        Error.stackTraceLimit = previousStackTraceLimit;
+      } else debugStackDEV = unknownOwnerDebugStack;
       return jsxDEVImpl(
         type,
         config,
         maybeKey,
         !0,
-        trackActualOwner
-          ? Error("react-stack-top-frame")
-          : unknownOwnerDebugStack,
+        debugStackDEV,
         trackActualOwner ? createTask(getTaskName(type)) : unknownOwnerDebugTask
       );
     };
@@ -1304,7 +1319,7 @@ __DEV__ &&
     exports.unstable_SuspenseList = REACT_SUSPENSE_LIST_TYPE;
     exports.unstable_TracingMarker = REACT_TRACING_MARKER_TYPE;
     exports.unstable_ViewTransition = REACT_VIEW_TRANSITION_TYPE;
-    exports.unstable_addTransitionType = function () {};
+    exports.unstable_addTransitionType = addTransitionType;
     exports.unstable_getCacheForType = function (resourceType) {
       var dispatcher = ReactSharedInternals.A;
       return dispatcher
@@ -1349,6 +1364,7 @@ __DEV__ &&
         );
       return resolveDispatcher().useEffect(create, deps);
     };
+    exports.useEffectEvent = useEffectEvent;
     exports.useId = function () {
       return resolveDispatcher().useId();
     };
@@ -1398,7 +1414,7 @@ __DEV__ &&
     exports.useTransition = function () {
       return resolveDispatcher().useTransition();
     };
-    exports.version = "19.2.0-native-fb-a51f9252-20250916";
+    exports.version = "19.3.0-native-fb-71b3a03c-20251021";
     "undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ &&
       "function" ===
         typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStop &&
