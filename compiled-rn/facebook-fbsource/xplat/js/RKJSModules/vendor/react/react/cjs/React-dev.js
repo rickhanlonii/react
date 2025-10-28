@@ -7,7 +7,7 @@
  * @noflow
  * @nolint
  * @preventMunge
- * @generated SignedSource<<65f9b36156b48de52802a0c541358372>>
+ * @generated SignedSource<<f02eb1f475afdb3bc0db5c0168e3bfc4>>
  */
 
 "use strict";
@@ -874,30 +874,20 @@ __DEV__ &&
       ReactSharedInternals;
     exports.__COMPILER_RUNTIME = fnName;
     exports.act = function (callback) {
-      var prevIsBatchingLegacy = ReactSharedInternals.isBatchingLegacy,
-        prevActQueue = ReactSharedInternals.actQueue,
+      var prevActQueue = ReactSharedInternals.actQueue,
         prevActScopeDepth = actScopeDepth;
       actScopeDepth++;
       var queue = (ReactSharedInternals.actQueue =
-        null !== prevActQueue ? prevActQueue : []);
-      ReactSharedInternals.isBatchingLegacy = !0;
-      var didAwaitActCall = !1;
+          null !== prevActQueue ? prevActQueue : []),
+        didAwaitActCall = !1;
       try {
-        ReactSharedInternals.didScheduleLegacyUpdate = !1;
         var result = callback();
-        var didScheduleLegacyUpdate =
-          ReactSharedInternals.didScheduleLegacyUpdate;
-        !prevIsBatchingLegacy &&
-          didScheduleLegacyUpdate &&
-          flushActQueue(queue);
-        ReactSharedInternals.isBatchingLegacy = prevIsBatchingLegacy;
       } catch (error) {
         ReactSharedInternals.thrownErrors.push(error);
       }
       if (0 < ReactSharedInternals.thrownErrors.length)
         throw (
-          ((ReactSharedInternals.isBatchingLegacy = prevIsBatchingLegacy),
-          popActScope(prevActQueue, prevActScopeDepth),
+          (popActScope(prevActQueue, prevActScopeDepth),
           (callback = aggregateErrors(ReactSharedInternals.thrownErrors)),
           (ReactSharedInternals.thrownErrors.length = 0),
           callback)
@@ -1414,7 +1404,7 @@ __DEV__ &&
     exports.useTransition = function () {
       return resolveDispatcher().useTransition();
     };
-    exports.version = "19.3.0-native-fb-71b3a03c-20251021";
+    exports.version = "19.3.0-native-fb-b4455a6e-20251027";
     "undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ &&
       "function" ===
         typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStop &&
