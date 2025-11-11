@@ -76,6 +76,7 @@ export const enableFragmentRefsScrollIntoView: boolean = false;
 export const enableFragmentRefsInstanceHandles: boolean = false;
 
 export const enableInternalInstanceMap: boolean = false;
+export const disableSetStateInRenderOnMount: boolean = false;
 
 export const enableOptimisticKey: boolean = false;
 
