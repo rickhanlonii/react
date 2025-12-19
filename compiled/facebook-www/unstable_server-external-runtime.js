@@ -76,6 +76,10 @@
           (classAttributeName.viewTransitionClass = className),
         (element = element.getAttribute("vt-name")) ||
           (element = "_T_" + autoNameIdx++ + "_"),
+        (element =
+          CSS.escape(element) !== element
+            ? "r-" + btoa(element).replace(/=/g, "")
+            : element),
         (classAttributeName.viewTransitionName = element),
         (shouldStartViewTransition = !0));
     }
@@ -443,22 +447,12 @@
         "javascript:throw new Error('React form unexpectedly submitted.')" ===
           action &&
           (event.preventDefault(),
-          formDataSubmitter
-            ? ((event = document.createElement("input")),
-              (event.name = formDataSubmitter.name),
-              (event.value = formDataSubmitter.value),
-              formDataSubmitter.parentNode.insertBefore(
-                event,
-                formDataSubmitter
-              ),
-              (formDataSubmitter = new FormData(form)),
-              event.parentNode.removeChild(event))
-            : (formDataSubmitter = new FormData(form)),
-          (event = form.ownerDocument || form),
-          (event.$$reactFormReplay = event.$$reactFormReplay || []).push(
+          (event = new FormData(form, formDataSubmitter)),
+          (action = form.ownerDocument || form),
+          (action.$$reactFormReplay = action.$$reactFormReplay || []).push(
             form,
             submitter,
-            formDataSubmitter
+            event
           ));
       }
     });
