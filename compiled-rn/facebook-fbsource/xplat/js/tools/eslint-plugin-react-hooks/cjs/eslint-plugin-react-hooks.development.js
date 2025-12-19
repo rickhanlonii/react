@@ -12,7 +12,7 @@
  * @lightSyntaxTransform
  * @preventMunge
  * @oncall react_core
- * @generated SignedSource<<e5dc5d589a514d01f676ec1db6311f30>>
+ * @generated SignedSource<<01a322ebd457fb967ee79a8db5a50847>>
  */
 
 'use strict';
@@ -17823,6 +17823,22 @@ class CompilerErrorDetail {
     }
 }
 class CompilerError extends Error {
+    static simpleInvariant(condition, options) {
+        var _a;
+        if (!condition) {
+            const errors = new CompilerError();
+            errors.pushDiagnostic(CompilerDiagnostic.create({
+                reason: options.reason,
+                description: (_a = options.description) !== null && _a !== void 0 ? _a : null,
+                category: ErrorCategory.Invariant,
+            }).withDetails({
+                kind: 'error',
+                loc: options.loc,
+                message: options.reason,
+            }));
+            throw errors;
+        }
+    }
     static invariant(condition, options) {
         if (!condition) {
             const errors = new CompilerError();
@@ -18023,7 +18039,9 @@ function printErrorSummary(category, message) {
         case ErrorCategory.Suppression:
         case ErrorCategory.Syntax:
         case ErrorCategory.UseMemo:
-        case ErrorCategory.VoidUseMemo: {
+        case ErrorCategory.VoidUseMemo:
+        case ErrorCategory.MemoDependencies:
+        case ErrorCategory.EffectExhaustiveDependencies: {
             heading = 'Error';
             break;
         }
@@ -18057,11 +18075,13 @@ var ErrorCategory;
     ErrorCategory["VoidUseMemo"] = "VoidUseMemo";
     ErrorCategory["Factories"] = "Factories";
     ErrorCategory["PreserveManualMemo"] = "PreserveManualMemo";
+    ErrorCategory["MemoDependencies"] = "MemoDependencies";
     ErrorCategory["IncompatibleLibrary"] = "IncompatibleLibrary";
     ErrorCategory["Immutability"] = "Immutability";
     ErrorCategory["Globals"] = "Globals";
     ErrorCategory["Refs"] = "Refs";
     ErrorCategory["EffectDependencies"] = "EffectDependencies";
+    ErrorCategory["EffectExhaustiveDependencies"] = "EffectExhaustiveDependencies";
     ErrorCategory["EffectSetState"] = "EffectSetState";
     ErrorCategory["EffectDerivationsOfState"] = "EffectDerivationsOfState";
     ErrorCategory["ErrorBoundaries"] = "ErrorBoundaries";
@@ -18128,6 +18148,15 @@ function getRuleForCategoryImpl(category) {
                 preset: LintRulePreset.Off,
             };
         }
+        case ErrorCategory.EffectExhaustiveDependencies: {
+            return {
+                category,
+                severity: ErrorSeverity.Error,
+                name: 'exhaustive-effect-dependencies',
+                description: 'Validates that effect dependencies are exhaustive and without extraneous values',
+                preset: LintRulePreset.Off,
+            };
+        }
         case ErrorCategory.EffectDerivationsOfState: {
             return {
                 category,
@@ -18142,7 +18171,9 @@ function getRuleForCategoryImpl(category) {
                 category,
                 severity: ErrorSeverity.Error,
                 name: 'set-state-in-effect',
-                description: 'Validates against calling setState synchronously in an effect, which can lead to re-renders that degrade performance',
+                description: 'Validates against calling setState synchronously in an effect. ' +
+                    'This can indicate non-local derived data, a derived event pattern, or ' +
+                    'improper external data synchronization.',
                 preset: LintRulePreset.Recommended,
             };
         }
@@ -18328,6 +18359,15 @@ function getRuleForCategoryImpl(category) {
                 name: 'void-use-memo',
                 description: 'Validates that useMemos always return a value and that the result of the useMemo is used by the component/hook. See [`useMemo()` docs](https://react.dev/reference/react/useMemo) for more information.',
                 preset: LintRulePreset.RecommendedLatest,
+            };
+        }
+        case ErrorCategory.MemoDependencies: {
+            return {
+                category,
+                severity: ErrorSeverity.Error,
+                name: 'memo-dependencies',
+                description: 'Validates that useMemo() and useCallback() specify comprehensive dependencies without extraneous values. See [`useMemo()` docs](https://react.dev/reference/react/useMemo) for more information.',
+                preset: LintRulePreset.Off,
             };
         }
         case ErrorCategory.IncompatibleLibrary: {
@@ -18838,6 +18878,15 @@ function areEqualPaths(a, b) {
     return (a.length === b.length &&
         a.every((item, ix) => item.property === b[ix].property && item.optional === b[ix].optional));
 }
+function isSubPath(subpath, path) {
+    return (subpath.length <= path.length &&
+        subpath.every((item, ix) => item.property === path[ix].property &&
+            item.optional === path[ix].optional));
+}
+function isSubPathIgnoringOptionals(subpath, path) {
+    return (subpath.length <= path.length &&
+        subpath.every((item, ix) => item.property === path[ix].property));
+}
 function getPlaceScope(id, place) {
     const scope = place.identifier.scope;
     if (scope !== null && isScopeActive(scope, id)) {
@@ -18929,6 +18978,9 @@ function isObjectMethodType(id) {
 function isPrimitiveType(id) {
     return id.type.kind === 'Primitive';
 }
+function isPlainObjectType(id) {
+    return id.type.kind === 'Object' && id.type.shapeId === 'BuiltInObject';
+}
 function isArrayType(id) {
     return id.type.kind === 'Object' && id.type.shapeId === 'BuiltInArray';
 }
@@ -18964,8 +19016,17 @@ function isRefOrRefLikeMutableType(type) {
 function isSetStateType(id) {
     return id.type.kind === 'Function' && id.type.shapeId === 'BuiltInSetState';
 }
+function isUseActionStateType(id) {
+    return (id.type.kind === 'Object' && id.type.shapeId === 'BuiltInUseActionState');
+}
 function isStartTransitionType(id) {
     return (id.type.kind === 'Function' && id.type.shapeId === 'BuiltInStartTransition');
+}
+function isUseOptimisticType(id) {
+    return (id.type.kind === 'Object' && id.type.shapeId === 'BuiltInUseOptimistic');
+}
+function isSetOptimisticType(id) {
+    return (id.type.kind === 'Function' && id.type.shapeId === 'BuiltInSetOptimistic');
 }
 function isSetActionStateType(id) {
     return (id.type.kind === 'Function' && id.type.shapeId === 'BuiltInSetActionState');
@@ -18988,7 +19049,8 @@ function isStableType(id) {
         isSetActionStateType(id) ||
         isDispatcherType(id) ||
         isUseRefType(id) ||
-        isStartTransitionType(id));
+        isStartTransitionType(id) ||
+        isSetOptimisticType(id));
 }
 function isStableTypeContainer(id) {
     const type_ = id.type;
@@ -18996,8 +19058,9 @@ function isStableTypeContainer(id) {
         return false;
     }
     return (isUseStateType(id) ||
-        type_.shapeId === 'BuiltInUseActionState' ||
+        isUseActionStateType(id) ||
         isUseReducerType(id) ||
+        isUseOptimisticType(id) ||
         type_.shapeId === 'BuiltInUseTransition');
 }
 function evaluatesToStableTypeOrContainer(env, { value }) {
@@ -19010,6 +19073,7 @@ function evaluatesToStableTypeOrContainer(env, { value }) {
             case 'useActionState':
             case 'useRef':
             case 'useTransition':
+            case 'useOptimistic':
                 return true;
         }
     }
@@ -19025,6 +19089,9 @@ function isUseLayoutEffectHookType(id) {
 function isUseInsertionEffectHookType(id) {
     return (id.type.kind === 'Function' &&
         id.type.shapeId === 'BuiltInUseInsertionEffectHook');
+}
+function isUseEffectEventType(id) {
+    return (id.type.kind === 'Function' && id.type.shapeId === 'BuiltInUseEffectEvent');
 }
 function isUseContextHookType(id) {
     return (id.type.kind === 'Function' && id.type.shapeId === 'BuiltInUseContextHook');
@@ -19594,7 +19661,7 @@ function printInstructionValue(instrValue) {
             break;
         }
         case 'StartMemoize': {
-            value = `StartMemoize deps=${(_e = (_d = instrValue.deps) === null || _d === void 0 ? void 0 : _d.map(dep => printManualMemoDependency(dep, false))) !== null && _e !== void 0 ? _e : '(none)'}`;
+            value = `StartMemoize deps=${(_e = (_d = instrValue.deps) === null || _d === void 0 ? void 0 : _d.map(dep => printManualMemoDependency$1(dep, false))) !== null && _e !== void 0 ? _e : '(none)'}`;
             break;
         }
         case 'FinishMemoize': {
@@ -19682,7 +19749,7 @@ function printName(name) {
 function printScope(scope) {
     return `${scope !== null ? `_@${scope.id}` : ''}`;
 }
-function printManualMemoDependency(val, nameOnly) {
+function printManualMemoDependency$1(val, nameOnly) {
     var _a;
     let rootStr;
     if (val.root.kind === 'Global') {
@@ -19857,6 +19924,29 @@ function* eachInstructionLValue(instr) {
         yield instr.lvalue;
     }
     yield* eachInstructionValueLValue(instr.value);
+}
+function* eachInstructionLValueWithKind(instr) {
+    switch (instr.value.kind) {
+        case 'DeclareContext':
+        case 'StoreContext':
+        case 'DeclareLocal':
+        case 'StoreLocal': {
+            yield [instr.value.lvalue.place, instr.value.lvalue.kind];
+            break;
+        }
+        case 'Destructure': {
+            const kind = instr.value.lvalue.kind;
+            for (const place of eachPatternOperand(instr.value.lvalue.pattern)) {
+                yield [place, kind];
+            }
+            break;
+        }
+        case 'PostfixUpdate':
+        case 'PrefixUpdate': {
+            yield [instr.value.lvalue, InstructionKind.Reassign];
+            break;
+        }
+    }
 }
 function* eachInstructionValueLValue(value) {
     switch (value.kind) {
@@ -22088,12 +22178,15 @@ const BuiltInUseReducerId = 'BuiltInUseReducer';
 const BuiltInDispatchId = 'BuiltInDispatch';
 const BuiltInUseContextHookId = 'BuiltInUseContextHook';
 const BuiltInUseTransitionId = 'BuiltInUseTransition';
+const BuiltInUseOptimisticId = 'BuiltInUseOptimistic';
+const BuiltInSetOptimisticId = 'BuiltInSetOptimistic';
 const BuiltInStartTransitionId = 'BuiltInStartTransition';
 const BuiltInFireId = 'BuiltInFire';
 const BuiltInFireFunctionId = 'BuiltInFireFunction';
 const BuiltInUseEffectEventId = 'BuiltInUseEffectEvent';
-const BuiltinEffectEventId = 'BuiltInEffectEventFunction';
+const BuiltInEffectEventId = 'BuiltInEffectEventFunction';
 const BuiltInAutodepsId = 'BuiltInAutoDepsId';
+const BuiltInEventHandlerId = 'BuiltInEventHandlerId';
 const ReanimatedSharedValueId = 'ReanimatedSharedValueId';
 const BUILTIN_SHAPES = new Map();
 addObject(BUILTIN_SHAPES, BuiltInPropsId, [
@@ -22701,6 +22794,19 @@ addObject(BUILTIN_SHAPES, BuiltInUseTransitionId, [
         }, BuiltInStartTransitionId),
     ],
 ]);
+addObject(BUILTIN_SHAPES, BuiltInUseOptimisticId, [
+    ['0', { kind: 'Poly' }],
+    [
+        '1',
+        addFunction(BUILTIN_SHAPES, [], {
+            positionalParams: [],
+            restParam: Effect.Freeze,
+            returnType: PRIMITIVE_TYPE,
+            calleeEffect: Effect.Read,
+            returnValueKind: ValueKind.Primitive,
+        }, BuiltInSetOptimisticId),
+    ],
+]);
 addObject(BUILTIN_SHAPES, BuiltInUseActionStateId, [
     ['0', { kind: 'Poly' }],
     [
@@ -22740,7 +22846,14 @@ addFunction(BUILTIN_SHAPES, [], {
     returnType: { kind: 'Poly' },
     calleeEffect: Effect.ConditionallyMutate,
     returnValueKind: ValueKind.Mutable,
-}, BuiltinEffectEventId);
+}, BuiltInEffectEventId);
+addFunction(BUILTIN_SHAPES, [], {
+    positionalParams: [],
+    restParam: Effect.ConditionallyMutate,
+    returnType: { kind: 'Poly' },
+    calleeEffect: Effect.ConditionallyMutate,
+    returnValueKind: ValueKind.Mutable,
+}, BuiltInEventHandlerId);
 addObject(BUILTIN_SHAPES, BuiltInMixedReadonlyId, [
     [
         'toString',
@@ -26042,7 +26155,7 @@ function lowerIdentifierForAssignment(builder, loc, kind, path) {
     return place;
 }
 function lowerAssignment(builder, loc, kind, lvaluePath, value, assignmentKind) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _0, _1, _2;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _0, _1, _2, _3, _4;
     const lvalueNode = lvaluePath.node;
     switch (lvalueNode.type) {
         case 'Identifier': {
@@ -26275,13 +26388,14 @@ function lowerAssignment(builder, loc, kind, lvaluePath, value, assignmentKind) 
                     pattern: {
                         kind: 'ArrayPattern',
                         items,
+                        loc: (_p = lvalue.node.loc) !== null && _p !== void 0 ? _p : GeneratedSource,
                     },
                 },
                 value,
                 loc,
             });
             for (const { place, path } of followups) {
-                lowerAssignment(builder, (_p = path.node.loc) !== null && _p !== void 0 ? _p : loc, kind, path, place, assignmentKind);
+                lowerAssignment(builder, (_q = path.node.loc) !== null && _q !== void 0 ? _q : loc, kind, path, place, assignmentKind);
             }
             return { kind: 'LoadLocal', place: temporary, loc: value.loc };
         }
@@ -26303,14 +26417,14 @@ function lowerAssignment(builder, loc, kind, lvaluePath, value, assignmentKind) 
                         builder.errors.push({
                             reason: `(BuildHIR::lowerAssignment) Handle ${argument.node.type} rest element in ObjectPattern`,
                             category: ErrorCategory.Todo,
-                            loc: (_q = argument.node.loc) !== null && _q !== void 0 ? _q : null,
+                            loc: (_r = argument.node.loc) !== null && _r !== void 0 ? _r : null,
                             suggestions: null,
                         });
                         continue;
                     }
                     if (forceTemporaries ||
                         getStoreKind(builder, argument) === 'StoreContext') {
-                        const temp = buildTemporaryPlace(builder, (_r = property.node.loc) !== null && _r !== void 0 ? _r : GeneratedSource);
+                        const temp = buildTemporaryPlace(builder, (_s = property.node.loc) !== null && _s !== void 0 ? _s : GeneratedSource);
                         promoteTemporary(temp.identifier);
                         properties.push({
                             kind: 'Spread',
@@ -26319,7 +26433,7 @@ function lowerAssignment(builder, loc, kind, lvaluePath, value, assignmentKind) 
                         followups.push({ place: temp, path: argument });
                     }
                     else {
-                        const identifier = lowerIdentifierForAssignment(builder, (_s = property.node.loc) !== null && _s !== void 0 ? _s : GeneratedSource, kind, argument);
+                        const identifier = lowerIdentifierForAssignment(builder, (_t = property.node.loc) !== null && _t !== void 0 ? _t : GeneratedSource, kind, argument);
                         if (identifier === null) {
                             continue;
                         }
@@ -26327,7 +26441,7 @@ function lowerAssignment(builder, loc, kind, lvaluePath, value, assignmentKind) 
                             builder.errors.push({
                                 category: ErrorCategory.Todo,
                                 reason: 'Expected reassignment of globals to enable forceTemporaries',
-                                loc: (_t = property.node.loc) !== null && _t !== void 0 ? _t : GeneratedSource,
+                                loc: (_u = property.node.loc) !== null && _u !== void 0 ? _u : GeneratedSource,
                             });
                             continue;
                         }
@@ -26342,7 +26456,7 @@ function lowerAssignment(builder, loc, kind, lvaluePath, value, assignmentKind) 
                         builder.errors.push({
                             reason: `(BuildHIR::lowerAssignment) Handle ${property.type} properties in ObjectPattern`,
                             category: ErrorCategory.Todo,
-                            loc: (_u = property.node.loc) !== null && _u !== void 0 ? _u : null,
+                            loc: (_v = property.node.loc) !== null && _v !== void 0 ? _v : null,
                             suggestions: null,
                         });
                         continue;
@@ -26351,7 +26465,7 @@ function lowerAssignment(builder, loc, kind, lvaluePath, value, assignmentKind) 
                         builder.errors.push({
                             reason: `(BuildHIR::lowerAssignment) Handle computed properties in ObjectPattern`,
                             category: ErrorCategory.Todo,
-                            loc: (_v = property.node.loc) !== null && _v !== void 0 ? _v : null,
+                            loc: (_w = property.node.loc) !== null && _w !== void 0 ? _w : null,
                             suggestions: null,
                         });
                         continue;
@@ -26365,7 +26479,7 @@ function lowerAssignment(builder, loc, kind, lvaluePath, value, assignmentKind) 
                         builder.errors.push({
                             reason: `(BuildHIR::lowerAssignment) Expected object property value to be an LVal, got: ${element.type}`,
                             category: ErrorCategory.Todo,
-                            loc: (_w = element.node.loc) !== null && _w !== void 0 ? _w : null,
+                            loc: (_x = element.node.loc) !== null && _x !== void 0 ? _x : null,
                             suggestions: null,
                         });
                         continue;
@@ -26374,7 +26488,7 @@ function lowerAssignment(builder, loc, kind, lvaluePath, value, assignmentKind) 
                         !forceTemporaries &&
                         (assignmentKind === 'Assignment' ||
                             getStoreKind(builder, element) === 'StoreLocal')) {
-                        const identifier = lowerIdentifierForAssignment(builder, (_x = element.node.loc) !== null && _x !== void 0 ? _x : GeneratedSource, kind, element);
+                        const identifier = lowerIdentifierForAssignment(builder, (_y = element.node.loc) !== null && _y !== void 0 ? _y : GeneratedSource, kind, element);
                         if (identifier === null) {
                             continue;
                         }
@@ -26382,7 +26496,7 @@ function lowerAssignment(builder, loc, kind, lvaluePath, value, assignmentKind) 
                             builder.errors.push({
                                 category: ErrorCategory.Todo,
                                 reason: 'Expected reassignment of globals to enable forceTemporaries',
-                                loc: (_y = element.node.loc) !== null && _y !== void 0 ? _y : GeneratedSource,
+                                loc: (_z = element.node.loc) !== null && _z !== void 0 ? _z : GeneratedSource,
                             });
                             continue;
                         }
@@ -26394,7 +26508,7 @@ function lowerAssignment(builder, loc, kind, lvaluePath, value, assignmentKind) 
                         });
                     }
                     else {
-                        const temp = buildTemporaryPlace(builder, (_z = element.node.loc) !== null && _z !== void 0 ? _z : GeneratedSource);
+                        const temp = buildTemporaryPlace(builder, (_0 = element.node.loc) !== null && _0 !== void 0 ? _0 : GeneratedSource);
                         promoteTemporary(temp.identifier);
                         properties.push({
                             kind: 'ObjectProperty',
@@ -26413,19 +26527,20 @@ function lowerAssignment(builder, loc, kind, lvaluePath, value, assignmentKind) 
                     pattern: {
                         kind: 'ObjectPattern',
                         properties,
+                        loc: (_1 = lvalue.node.loc) !== null && _1 !== void 0 ? _1 : GeneratedSource,
                     },
                 },
                 value,
                 loc,
             });
             for (const { place, path } of followups) {
-                lowerAssignment(builder, (_0 = path.node.loc) !== null && _0 !== void 0 ? _0 : loc, kind, path, place, assignmentKind);
+                lowerAssignment(builder, (_2 = path.node.loc) !== null && _2 !== void 0 ? _2 : loc, kind, path, place, assignmentKind);
             }
             return { kind: 'LoadLocal', place: temporary, loc: value.loc };
         }
         case 'AssignmentPattern': {
             const lvalue = lvaluePath;
-            const loc = (_1 = lvalue.node.loc) !== null && _1 !== void 0 ? _1 : GeneratedSource;
+            const loc = (_3 = lvalue.node.loc) !== null && _3 !== void 0 ? _3 : GeneratedSource;
             const temp = buildTemporaryPlace(builder, loc);
             const testBlock = builder.reserve('value');
             const continuationBlock = builder.reserve(builder.currentBlockKind());
@@ -26496,7 +26611,7 @@ function lowerAssignment(builder, loc, kind, lvaluePath, value, assignmentKind) 
             builder.errors.push({
                 reason: `(BuildHIR::lowerAssignment) Handle ${lvaluePath.type} assignments`,
                 category: ErrorCategory.Todo,
-                loc: (_2 = lvaluePath.node.loc) !== null && _2 !== void 0 ? _2 : null,
+                loc: (_4 = lvaluePath.node.loc) !== null && _4 !== void 0 ? _4 : null,
                 suggestions: null,
             });
             return { kind: 'UnsupportedNode', node: lvalueNode, loc };
@@ -31138,6 +31253,18 @@ const REACT_APIS = [
         }),
     ],
     [
+        'useOptimistic',
+        addHook(DEFAULT_SHAPES, {
+            positionalParams: [],
+            restParam: Effect.Freeze,
+            returnType: { kind: 'Object', shapeId: BuiltInUseOptimisticId },
+            calleeEffect: Effect.Read,
+            hookKind: 'useOptimistic',
+            returnValueKind: ValueKind.Frozen,
+            returnValueReason: ValueReason.State,
+        }),
+    ],
+    [
         'use',
         addFunction(DEFAULT_SHAPES, [], {
             positionalParams: [],
@@ -31170,7 +31297,7 @@ const REACT_APIS = [
             returnType: {
                 kind: 'Function',
                 return: { kind: 'Poly' },
-                shapeId: BuiltinEffectEventId,
+                shapeId: BuiltInEffectEventId,
                 isConstructor: false,
             },
             calleeEffect: Effect.Read,
@@ -32142,6 +32269,10 @@ const EnvironmentConfigSchema = v4.z.object({
     enableResetCacheOnSourceFileChanges: v4.z.nullable(v4.z.boolean()).default(null),
     enablePreserveExistingMemoizationGuarantees: v4.z.boolean().default(true),
     validatePreserveExistingMemoizationGuarantees: v4.z.boolean().default(true),
+    validateExhaustiveMemoizationDependencies: v4.z.boolean().default(true),
+    validateExhaustiveEffectDependencies: v4.z
+        .enum(['off', 'all', 'missing-only', 'extra-only'])
+        .default('off'),
     enablePreserveExistingManualUseMemo: v4.z.boolean().default(false),
     enableForest: v4.z.boolean().default(false),
     enableUseTypeAnnotations: v4.z.boolean().default(false),
@@ -32159,6 +32290,7 @@ const EnvironmentConfigSchema = v4.z.object({
     validateHooksUsage: v4.z.boolean().default(true),
     validateRefAccessDuringRender: v4.z.boolean().default(true),
     validateNoSetStateInRender: v4.z.boolean().default(true),
+    enableUseKeyedState: v4.z.boolean().default(false),
     validateNoSetStateInEffects: v4.z.boolean().default(false),
     validateNoDerivedComputationsInEffects: v4.z.boolean().default(false),
     validateNoDerivedComputationsInEffects_exp: v4.z.boolean().default(false),
@@ -32167,6 +32299,7 @@ const EnvironmentConfigSchema = v4.z.object({
     validateMemoizedEffectDependencies: v4.z.boolean().default(false),
     validateNoCapitalizedCalls: v4.z.nullable(v4.z.array(v4.z.string())).default(null),
     validateBlocklistedImports: v4.z.nullable(v4.z.array(v4.z.string())).default(null),
+    validateSourceLocations: v4.z.boolean().default(false),
     validateNoImpureFunctionsInRender: v4.z.boolean().default(false),
     validateNoFreezingKnownMutableFunctions: v4.z.boolean().default(false),
     enableAssumeHooksFollowRulesOfReact: v4.z.boolean().default(true),
@@ -32192,9 +32325,11 @@ const EnvironmentConfigSchema = v4.z.object({
     validateNoVoidUseMemo: v4.z.boolean().default(true),
     validateNoDynamicallyCreatedComponentsOrHooks: v4.z.boolean().default(false),
     enableAllowSetStateFromRefsInEffects: v4.z.boolean().default(true),
+    enableVerboseNoSetStateInEffect: v4.z.boolean().default(false),
+    enableInferEventHandlers: v4.z.boolean().default(false),
 });
 class Environment {
-    constructor(scope, fnType, compilerMode, config, contextIdentifiers, parentFunction, logger, filename, code, programContext) {
+    constructor(scope, fnType, outputMode, config, contextIdentifiers, parentFunction, logger, filename, code, programContext) {
         _Environment_instances.add(this);
         _Environment_globals.set(this, void 0);
         _Environment_shapes.set(this, void 0);
@@ -32210,7 +32345,7 @@ class Environment {
         _Environment_flowTypeEnvironment.set(this, void 0);
         __classPrivateFieldSet(this, _Environment_scope, scope, "f");
         this.fnType = fnType;
-        this.compilerMode = compilerMode;
+        this.outputMode = outputMode;
         this.config = config;
         this.filename = filename;
         this.code = code;
@@ -32294,8 +32429,52 @@ class Environment {
         });
         return __classPrivateFieldGet(this, _Environment_flowTypeEnvironment, "f");
     }
-    get isInferredMemoEnabled() {
-        return this.compilerMode !== 'no_inferred_memo';
+    get enableDropManualMemoization() {
+        switch (this.outputMode) {
+            case 'lint': {
+                return true;
+            }
+            case 'client':
+            case 'ssr': {
+                return true;
+            }
+            case 'client-no-memo': {
+                return false;
+            }
+            default: {
+                assertExhaustive$1(this.outputMode, `Unexpected output mode '${this.outputMode}'`);
+            }
+        }
+    }
+    get enableMemoization() {
+        switch (this.outputMode) {
+            case 'client':
+            case 'lint': {
+                return true;
+            }
+            case 'ssr':
+            case 'client-no-memo': {
+                return false;
+            }
+            default: {
+                assertExhaustive$1(this.outputMode, `Unexpected output mode '${this.outputMode}'`);
+            }
+        }
+    }
+    get enableValidations() {
+        switch (this.outputMode) {
+            case 'client':
+            case 'lint':
+            case 'ssr': {
+                return true;
+            }
+            case 'client-no-memo': {
+                return false;
+            }
+            default: {
+                assertExhaustive$1(this.outputMode, `Unexpected output mode '${this.outputMode}'`);
+            }
+        }
     }
     get nextIdentifierId() {
         var _a, _b;
@@ -33028,12 +33207,6 @@ function findDisjointMutableValues(fn) {
                 for (const operand of eachInstructionOperand(instr)) {
                     if (isMutable(instr, operand) &&
                         operand.identifier.mutableRange.start > 0) {
-                        if (instr.value.kind === 'FunctionExpression' ||
-                            instr.value.kind === 'ObjectMethod') {
-                            if (operand.identifier.type.kind === 'Primitive') {
-                                continue;
-                            }
-                        }
                         operands.push(operand.identifier);
                     }
                 }
@@ -34379,6 +34552,19 @@ function evaluateInstruction(constants, instr) {
             constantPropagationImpl(value.loweredFunc.func, constants);
             return null;
         }
+        case 'StartMemoize': {
+            if (value.deps != null) {
+                for (const dep of value.deps) {
+                    if (dep.root.kind === 'NamedLocal') {
+                        const placeValue = read(constants, dep.root.value);
+                        if (placeValue != null && placeValue.kind === 'Primitive') {
+                            dep.root.constant = true;
+                        }
+                    }
+                }
+            }
+            return null;
+        }
         default: {
             return null;
         }
@@ -34408,9 +34594,10 @@ function deadCodeElimination(fn) {
     retainWhere(fn.context, contextVar => state.isIdOrNameUsed(contextVar.identifier));
 }
 let State$2 = class State {
-    constructor() {
+    constructor(env) {
         this.named = new Set();
         this.identifiers = new Set();
+        this.env = env;
     }
     reference(identifier) {
         this.identifiers.add(identifier.id);
@@ -34432,7 +34619,7 @@ let State$2 = class State {
 function findReferencedIdentifiers(fn) {
     const hasLoop = hasBackEdge(fn);
     const reversedBlocks = [...fn.body.blocks.values()].reverse();
-    const state = new State$2();
+    const state = new State$2(fn.env);
     let size = state.count;
     do {
         size = state.count;
@@ -34579,12 +34766,25 @@ function pruneableValue(value, state) {
         case 'Debugger': {
             return false;
         }
-        case 'Await':
         case 'CallExpression':
+        case 'MethodCall': {
+            if (state.env.outputMode === 'ssr') {
+                const calleee = value.kind === 'CallExpression' ? value.callee : value.property;
+                const hookKind = getHookKind(state.env, calleee.identifier);
+                switch (hookKind) {
+                    case 'useState':
+                    case 'useReducer':
+                    case 'useRef': {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+        case 'Await':
         case 'ComputedDelete':
         case 'ComputedStore':
         case 'PropertyDelete':
-        case 'MethodCall':
         case 'PropertyStore':
         case 'StoreGlobal': {
             return false;
@@ -37379,7 +37579,7 @@ function codegenFunction(fn, { uniqueIdentifiers, fbtOperands, }) {
     }
     const compiled = compileResult.unwrap();
     const hookGuard = fn.env.config.enableEmitHookGuards;
-    if (hookGuard != null && fn.env.isInferredMemoEnabled) {
+    if (hookGuard != null && fn.env.outputMode === 'client') {
         compiled.body = libExports$1.blockStatement([
             createHookGuard(hookGuard, fn.env.programContext, compiled.body.body, GuardKind.PushHookGuard, GuardKind.PopHookGuard),
         ]);
@@ -37409,7 +37609,7 @@ function codegenFunction(fn, { uniqueIdentifiers, fbtOperands, }) {
     const emitInstrumentForget = fn.env.config.enableEmitInstrumentForget;
     if (emitInstrumentForget != null &&
         fn.id != null &&
-        fn.env.isInferredMemoEnabled) {
+        fn.env.outputMode === 'client') {
         const gating = emitInstrumentForget.gating != null
             ? libExports$1.identifier(fn.env.programContext.addImportSpecifier(emitInstrumentForget.gating).name)
             : null;
@@ -37647,7 +37847,8 @@ function codegenBlockNoReset(cx, block) {
     return libExports$1.blockStatement(statements);
 }
 function wrapCacheDep(cx, value) {
-    if (cx.env.config.enableEmitFreeze != null && cx.env.isInferredMemoEnabled) {
+    if (cx.env.config.enableEmitFreeze != null &&
+        cx.env.outputMode === 'client') {
         const emitFreezeIdentifier = cx.env.programContext.addImportSpecifier(cx.env.config.enableEmitFreeze).name;
         cx.env.programContext
             .assertGlobalBinding(EMIT_FREEZE_GLOBAL_GATING, cx.env.scope)
@@ -37705,7 +37906,7 @@ function codegenReactiveScope(cx, statements, scope, block) {
         const name = convertIdentifier(identifier);
         outputComments.push(name.name);
         if (!cx.hasDeclared(identifier)) {
-            statements.push(libExports$1.variableDeclaration('let', [libExports$1.variableDeclarator(name)]));
+            statements.push(libExports$1.variableDeclaration('let', [createVariableDeclarator(name, null)]));
         }
         cacheLoads.push({ name, index, value: wrapCacheDep(cx, name) });
         cx.declare(identifier);
@@ -38163,33 +38364,11 @@ function codegenInstructionNullable(cx, instr) {
         }
         else {
             lvalue = instr.value.lvalue.pattern;
-            let hasReassign = false;
-            let hasDeclaration = false;
             for (const place of eachPatternOperand(lvalue)) {
                 if (kind !== InstructionKind.Reassign &&
                     place.identifier.name === null) {
                     cx.temp.set(place.identifier.declarationId, null);
                 }
-                const isDeclared = cx.hasDeclared(place.identifier);
-                hasReassign || (hasReassign = isDeclared);
-                hasDeclaration || (hasDeclaration = !isDeclared);
-            }
-            if (hasReassign && hasDeclaration) {
-                CompilerError.invariant(false, {
-                    reason: 'Encountered a destructuring operation where some identifiers are already declared (reassignments) but others are not (declarations)',
-                    description: null,
-                    details: [
-                        {
-                            kind: 'error',
-                            loc: instr.loc,
-                            message: null,
-                        },
-                    ],
-                    suggestions: null,
-                });
-            }
-            else if (hasReassign) {
-                kind = InstructionKind.Reassign;
             }
             value = codegenPlaceToExpression(cx, instr.value.value);
         }
@@ -38208,7 +38387,7 @@ function codegenInstructionNullable(cx, instr) {
                     suggestions: null,
                 });
                 return createVariableDeclaration(instr.loc, 'const', [
-                    libExports$1.variableDeclarator(codegenLValue(cx, lvalue), value),
+                    createVariableDeclarator(codegenLValue(cx, lvalue), value),
                 ]);
             }
             case InstructionKind.Function: {
@@ -38265,7 +38444,7 @@ function codegenInstructionNullable(cx, instr) {
                     suggestions: null,
                 });
                 return createVariableDeclaration(instr.loc, 'let', [
-                    libExports$1.variableDeclarator(codegenLValue(cx, lvalue), value),
+                    createVariableDeclarator(codegenLValue(cx, lvalue), value),
                 ]);
             }
             case InstructionKind.Reassign: {
@@ -38473,6 +38652,9 @@ function withLoc(fn) {
         return node;
     };
 }
+const createIdentifier = withLoc(libExports$1.identifier);
+const createArrayPattern = withLoc(libExports$1.arrayPattern);
+const createObjectPattern = withLoc(libExports$1.objectPattern);
 const createBinaryExpression = withLoc(libExports$1.binaryExpression);
 const createExpressionStatement = withLoc(libExports$1.expressionStatement);
 const createVariableDeclaration = withLoc(libExports$1.variableDeclaration);
@@ -38502,6 +38684,19 @@ const createThrowStatement = withLoc(libExports$1.throwStatement);
 const createTryStatement = withLoc(libExports$1.tryStatement);
 const createBreakStatement = withLoc(libExports$1.breakStatement);
 const createContinueStatement = withLoc(libExports$1.continueStatement);
+function createVariableDeclarator(id, init) {
+    var _a, _b;
+    const node = libExports$1.variableDeclarator(id, init);
+    if (id.loc && (init === null || (init === null || init === void 0 ? void 0 : init.loc))) {
+        node.loc = {
+            start: id.loc.start,
+            end: (_b = (_a = init === null || init === void 0 ? void 0 : init.loc) === null || _a === void 0 ? void 0 : _a.end) !== null && _b !== void 0 ? _b : id.loc.end,
+            filename: id.loc.filename,
+            identifierName: undefined,
+        };
+    }
+    return node;
+}
 function createHookGuard(guard, context, stmts, before, after) {
     const guardFnName = context.addImportSpecifier(guard).name;
     function createHookGuardImpl(kind) {
@@ -38515,7 +38710,7 @@ function createCallExpression(env, callee, args, loc, isHook) {
         callExpr.loc = loc;
     }
     const hookGuard = env.config.enableEmitHookGuards;
-    if (hookGuard != null && isHook && env.isInferredMemoEnabled) {
+    if (hookGuard != null && isHook && env.outputMode === 'client') {
         const iife = libExports$1.functionExpression(null, [], libExports$1.blockStatement([
             createHookGuard(hookGuard, env.programContext, [libExports$1.returnStatement(callExpr)], GuardKind.AllowHook, GuardKind.DisallowHook),
         ]));
@@ -38546,7 +38741,7 @@ function codegenInstruction(cx, instr, value) {
         }
         else {
             return createVariableDeclaration(instr.loc, 'const', [
-                libExports$1.variableDeclarator(convertIdentifier(instr.lvalue.identifier), expressionValue),
+                createVariableDeclarator(convertIdentifier(instr.lvalue.identifier), expressionValue),
             ]);
         }
     }
@@ -39196,7 +39391,7 @@ function codegenObjectPropertyKey(cx, key) {
 function codegenArrayPattern(cx, pattern) {
     const hasHoles = !pattern.items.every(e => e.kind !== 'Hole');
     if (hasHoles) {
-        const result = libExports$1.arrayPattern([]);
+        const result = createArrayPattern(pattern.loc, []);
         for (const item of pattern.items) {
             if (item.kind === 'Hole') {
                 result.elements.push(null);
@@ -39208,7 +39403,7 @@ function codegenArrayPattern(cx, pattern) {
         return result;
     }
     else {
-        return libExports$1.arrayPattern(pattern.items.map(item => {
+        return createArrayPattern(pattern.loc, pattern.items.map(item => {
             if (item.kind === 'Hole') {
                 return null;
             }
@@ -39222,7 +39417,7 @@ function codegenLValue(cx, pattern) {
             return codegenArrayPattern(cx, pattern);
         }
         case 'ObjectPattern': {
-            return libExports$1.objectPattern(pattern.properties.map(property => {
+            return createObjectPattern(pattern.loc, pattern.properties.map(property => {
                 if (property.kind === 'ObjectProperty') {
                     const key = codegenObjectPropertyKey(cx, property.key);
                     const value = codegenLValue(cx, property.place);
@@ -39317,7 +39512,7 @@ function convertIdentifier(identifier) {
         description: `identifier ${identifier.id} is unnamed`,
         suggestions: null,
     });
-    return libExports$1.identifier(identifier.name.value);
+    return createIdentifier(identifier.loc, identifier.name.value);
 }
 function compareScopeDependency(a, b) {
     var _a, _b;
@@ -39393,10 +39588,13 @@ let Visitor$9 = class Visitor extends ReactiveFunctionTransform {
     }
     transformInstruction(instruction, state) {
         this.visitInstruction(instruction, state);
+        let instructionsToProcess = [instruction];
+        let result = { kind: 'keep' };
         if (instruction.value.kind === 'Destructure') {
             const transformed = transformDestructuring(state, instruction, instruction.value);
             if (transformed) {
-                return {
+                instructionsToProcess = transformed;
+                result = {
                     kind: 'replace-many',
                     value: transformed.map(instruction => ({
                         kind: 'instruction',
@@ -39405,7 +39603,14 @@ let Visitor$9 = class Visitor extends ReactiveFunctionTransform {
                 };
             }
         }
-        return { kind: 'keep' };
+        for (const instr of instructionsToProcess) {
+            for (const [place, kind] of eachInstructionLValueWithKind(instr)) {
+                if (kind !== InstructionKind.Reassign) {
+                    state.declared.add(place.identifier.declarationId);
+                }
+            }
+        }
+        return result;
     }
 };
 function transformDestructuring(state, instr, destructure) {
@@ -39416,9 +39621,12 @@ function transformDestructuring(state, instr, destructure) {
         if (isDeclared) {
             reassigned.add(place.identifier.id);
         }
-        hasDeclaration || (hasDeclaration = !isDeclared);
+        else {
+            hasDeclaration = true;
+        }
     }
-    if (reassigned.size === 0 || !hasDeclaration) {
+    if (!hasDeclaration) {
+        destructure.lvalue.kind = InstructionKind.Reassign;
         return null;
     }
     const instructions = [];
@@ -41100,6 +41308,7 @@ function applyEffect(context, state, _effect, initialized, effects) {
                 case ValueKind.Primitive: {
                     break;
                 }
+                case ValueKind.MaybeFrozen:
                 case ValueKind.Frozen: {
                     sourceType = 'frozen';
                     break;
@@ -42199,7 +42408,7 @@ function computeEffectsForLegacySignature(state, signature, lvalue, receiver, ar
             }),
         });
     }
-    if (signature.knownIncompatible != null && state.env.isInferredMemoEnabled) {
+    if (signature.knownIncompatible != null && state.env.enableValidations) {
         const errors = new CompilerError();
         errors.pushDiagnostic(CompilerDiagnostic.create({
             category: ErrorCategory.IncompatibleLibrary,
@@ -44489,6 +44698,7 @@ function collectMaybeMemoDependencies(value, maybeDeps, optional) {
                     identifierName: value.binding.name,
                 },
                 path: [],
+                loc: value.loc,
             };
         }
         case 'PropertyLoad': {
@@ -44497,6 +44707,7 @@ function collectMaybeMemoDependencies(value, maybeDeps, optional) {
                 return {
                     root: object.root,
                     path: [...object.path, { property: value.property, optional }],
+                    loc: value.loc,
                 };
             }
             break;
@@ -44513,8 +44724,10 @@ function collectMaybeMemoDependencies(value, maybeDeps, optional) {
                     root: {
                         kind: 'NamedLocal',
                         value: Object.assign({}, value.place),
+                        constant: false,
                     },
                     path: [],
+                    loc: value.place.loc,
                 };
             }
             break;
@@ -44568,7 +44781,10 @@ function collectTemporaries(instr, env, sidemap) {
         }
         case 'ArrayExpression': {
             if (value.elements.every(e => e.kind === 'Identifier')) {
-                sidemap.maybeDepsLists.set(instr.lvalue.identifier.id, value.elements);
+                sidemap.maybeDepsLists.set(instr.lvalue.identifier.id, {
+                    loc: value.loc,
+                    deps: value.elements,
+                });
             }
             break;
         }
@@ -44578,7 +44794,7 @@ function collectTemporaries(instr, env, sidemap) {
         sidemap.maybeDeps.set(lvalue.identifier.id, maybeDep);
     }
 }
-function makeManualMemoizationMarkers(fnExpr, env, depsList, memoDecl, manualMemoId) {
+function makeManualMemoizationMarkers(fnExpr, env, depsList, depsLoc, memoDecl, manualMemoId) {
     return [
         {
             id: makeInstructionId(0),
@@ -44587,6 +44803,7 @@ function makeManualMemoizationMarkers(fnExpr, env, depsList, memoDecl, manualMem
                 kind: 'StartMemoize',
                 manualMemoId,
                 deps: depsList,
+                depsLoc,
                 loc: fnExpr.loc,
             },
             effects: null,
@@ -44631,71 +44848,69 @@ function getManualMemoizationReplacement(fn, loc, kind) {
 }
 function extractManualMemoizationArgs(instr, kind, sidemap, errors) {
     const [fnPlace, depsListPlace] = instr.value.args;
-    if (fnPlace == null) {
+    if (fnPlace == null || fnPlace.kind !== 'Identifier') {
         errors.pushDiagnostic(CompilerDiagnostic.create({
             category: ErrorCategory.UseMemo,
             reason: `Expected a callback function to be passed to ${kind}`,
-            description: `Expected a callback function to be passed to ${kind}`,
+            description: kind === 'useCallback'
+                ? 'The first argument to useCallback() must be a function to cache'
+                : 'The first argument to useMemo() must be a function that calculates a result to cache',
             suggestions: null,
         }).withDetails({
             kind: 'error',
             loc: instr.value.loc,
-            message: `Expected a callback function to be passed to ${kind}`,
+            message: kind === 'useCallback'
+                ? `Expected a callback function`
+                : `Expected a memoization function`,
         }));
-        return { fnPlace: null, depsList: null };
+        return null;
     }
-    if (fnPlace.kind === 'Spread' || (depsListPlace === null || depsListPlace === void 0 ? void 0 : depsListPlace.kind) === 'Spread') {
+    if (depsListPlace == null) {
+        return {
+            fnPlace,
+            depsList: null,
+            depsLoc: null,
+        };
+    }
+    const maybeDepsList = depsListPlace.kind === 'Identifier'
+        ? sidemap.maybeDepsLists.get(depsListPlace.identifier.id)
+        : null;
+    if (maybeDepsList == null) {
         errors.pushDiagnostic(CompilerDiagnostic.create({
             category: ErrorCategory.UseMemo,
-            reason: `Unexpected spread argument to ${kind}`,
-            description: `Unexpected spread argument to ${kind}`,
+            reason: `Expected the dependency list for ${kind} to be an array literal`,
+            description: `Expected the dependency list for ${kind} to be an array literal`,
             suggestions: null,
         }).withDetails({
             kind: 'error',
-            loc: instr.value.loc,
-            message: `Unexpected spread argument to ${kind}`,
+            loc: (depsListPlace === null || depsListPlace === void 0 ? void 0 : depsListPlace.kind) === 'Identifier' ? depsListPlace.loc : instr.loc,
+            message: `Expected the dependency list for ${kind} to be an array literal`,
         }));
-        return { fnPlace: null, depsList: null };
+        return null;
     }
-    let depsList = null;
-    if (depsListPlace != null) {
-        const maybeDepsList = sidemap.maybeDepsLists.get(depsListPlace.identifier.id);
-        if (maybeDepsList == null) {
+    const depsList = [];
+    for (const dep of maybeDepsList.deps) {
+        const maybeDep = sidemap.maybeDeps.get(dep.identifier.id);
+        if (maybeDep == null) {
             errors.pushDiagnostic(CompilerDiagnostic.create({
                 category: ErrorCategory.UseMemo,
-                reason: `Expected the dependency list for ${kind} to be an array literal`,
-                description: `Expected the dependency list for ${kind} to be an array literal`,
+                reason: `Expected the dependency list to be an array of simple expressions (e.g. \`x\`, \`x.y.z\`, \`x?.y?.z\`)`,
+                description: `Expected the dependency list to be an array of simple expressions (e.g. \`x\`, \`x.y.z\`, \`x?.y?.z\`)`,
                 suggestions: null,
             }).withDetails({
                 kind: 'error',
-                loc: depsListPlace.loc,
-                message: `Expected the dependency list for ${kind} to be an array literal`,
+                loc: dep.loc,
+                message: `Expected the dependency list to be an array of simple expressions (e.g. \`x\`, \`x.y.z\`, \`x?.y?.z\`)`,
             }));
-            return { fnPlace, depsList: null };
         }
-        depsList = [];
-        for (const dep of maybeDepsList) {
-            const maybeDep = sidemap.maybeDeps.get(dep.identifier.id);
-            if (maybeDep == null) {
-                errors.pushDiagnostic(CompilerDiagnostic.create({
-                    category: ErrorCategory.UseMemo,
-                    reason: `Expected the dependency list to be an array of simple expressions (e.g. \`x\`, \`x.y.z\`, \`x?.y?.z\`)`,
-                    description: `Expected the dependency list to be an array of simple expressions (e.g. \`x\`, \`x.y.z\`, \`x?.y?.z\`)`,
-                    suggestions: null,
-                }).withDetails({
-                    kind: 'error',
-                    loc: dep.loc,
-                    message: `Expected the dependency list to be an array of simple expressions (e.g. \`x\`, \`x.y.z\`, \`x?.y?.z\`)`,
-                }));
-            }
-            else {
-                depsList.push(maybeDep);
-            }
+        else {
+            depsList.push(maybeDep);
         }
     }
     return {
         fnPlace,
         depsList,
+        depsLoc: maybeDepsList.loc,
     };
 }
 function dropManualMemoization(func) {
@@ -44703,7 +44918,7 @@ function dropManualMemoization(func) {
     const isValidationEnabled = func.env.config.validatePreserveExistingMemoizationGuarantees ||
         func.env.config.validateNoSetStateInRender ||
         func.env.config.enablePreserveExistingMemoizationGuarantees;
-    const optionals = findOptionalPlaces(func);
+    const optionals = findOptionalPlaces$1(func);
     const sidemap = {
         functions: new Map(),
         manualMemos: new Map(),
@@ -44724,10 +44939,11 @@ function dropManualMemoization(func) {
                     : instr.value.property.identifier.id;
                 const manualMemo = sidemap.manualMemos.get(id);
                 if (manualMemo != null) {
-                    const { fnPlace, depsList } = extractManualMemoizationArgs(instr, manualMemo.kind, sidemap, errors);
-                    if (fnPlace == null) {
+                    const memoDetails = extractManualMemoizationArgs(instr, manualMemo.kind, sidemap, errors);
+                    if (memoDetails == null) {
                         continue;
                     }
+                    const { fnPlace, depsList, depsLoc } = memoDetails;
                     instr.value = getManualMemoizationReplacement(fnPlace, instr.value.loc, manualMemo.kind);
                     if (isValidationEnabled) {
                         if (!sidemap.functions.has(fnPlace.identifier.id)) {
@@ -44752,7 +44968,7 @@ function dropManualMemoization(func) {
                                 reactive: false,
                                 loc: fnPlace.loc,
                             };
-                        const [startMarker, finishMarker] = makeManualMemoizationMarkers(fnPlace, func.env, depsList, memoDecl, nextManualMemoId++);
+                        const [startMarker, finishMarker] = makeManualMemoizationMarkers(fnPlace, func.env, depsList, depsLoc, memoDecl, nextManualMemoId++);
                         queuedInserts.set(manualMemo.loadInstr.id, startMarker);
                         queuedInserts.set(instr.id, finishMarker);
                     }
@@ -44790,7 +45006,7 @@ function dropManualMemoization(func) {
     }
     return errors.asResult();
 }
-function findOptionalPlaces(fn) {
+function findOptionalPlaces$1(fn) {
     const optionals = new Set();
     for (const [, block] of fn.body.blocks) {
         if (block.terminal.kind === 'optional' && block.terminal.optional) {
@@ -44838,6 +45054,85 @@ function findOptionalPlaces(fn) {
         }
     }
     return optionals;
+}
+
+function createControlDominators(fn, isControlVariable) {
+    const postDominators = computePostDominatorTree(fn, {
+        includeThrowsAsExitNode: false,
+    });
+    const postDominatorFrontierCache = new Map();
+    function isControlledBlock(id) {
+        let controlBlocks = postDominatorFrontierCache.get(id);
+        if (controlBlocks === undefined) {
+            controlBlocks = postDominatorFrontier(fn, postDominators, id);
+            postDominatorFrontierCache.set(id, controlBlocks);
+        }
+        for (const blockId of controlBlocks) {
+            const controlBlock = fn.body.blocks.get(blockId);
+            switch (controlBlock.terminal.kind) {
+                case 'if':
+                case 'branch': {
+                    if (isControlVariable(controlBlock.terminal.test)) {
+                        return true;
+                    }
+                    break;
+                }
+                case 'switch': {
+                    if (isControlVariable(controlBlock.terminal.test)) {
+                        return true;
+                    }
+                    for (const case_ of controlBlock.terminal.cases) {
+                        if (case_.test !== null && isControlVariable(case_.test)) {
+                            return true;
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+        return false;
+    }
+    return isControlledBlock;
+}
+function postDominatorFrontier(fn, postDominators, targetId) {
+    const visited = new Set();
+    const frontier = new Set();
+    const targetPostDominators = postDominatorsOf(fn, postDominators, targetId);
+    for (const blockId of [...targetPostDominators, targetId]) {
+        if (visited.has(blockId)) {
+            continue;
+        }
+        visited.add(blockId);
+        const block = fn.body.blocks.get(blockId);
+        for (const pred of block.preds) {
+            if (!targetPostDominators.has(pred)) {
+                frontier.add(pred);
+            }
+        }
+    }
+    return frontier;
+}
+function postDominatorsOf(fn, postDominators, targetId) {
+    var _a;
+    const result = new Set();
+    const visited = new Set();
+    const queue = [targetId];
+    while (queue.length) {
+        const currentId = queue.shift();
+        if (visited.has(currentId)) {
+            continue;
+        }
+        visited.add(currentId);
+        const current = fn.body.blocks.get(currentId);
+        for (const pred of current.preds) {
+            const predPostDominator = (_a = postDominators.get(pred)) !== null && _a !== void 0 ? _a : pred;
+            if (predPostDominator === targetId || result.has(predPostDominator)) {
+                result.add(pred);
+            }
+            queue.push(pred);
+        }
+    }
+    return result;
 }
 
 class StableSidemap {
@@ -44915,42 +45210,7 @@ function inferReactivePlaces(fn) {
         const place = param.kind === 'Identifier' ? param : param.place;
         reactiveIdentifiers.markReactive(place);
     }
-    const postDominators = computePostDominatorTree(fn, {
-        includeThrowsAsExitNode: false,
-    });
-    const postDominatorFrontierCache = new Map();
-    function isReactiveControlledBlock(id) {
-        let controlBlocks = postDominatorFrontierCache.get(id);
-        if (controlBlocks === undefined) {
-            controlBlocks = postDominatorFrontier(fn, postDominators, id);
-            postDominatorFrontierCache.set(id, controlBlocks);
-        }
-        for (const blockId of controlBlocks) {
-            const controlBlock = fn.body.blocks.get(blockId);
-            switch (controlBlock.terminal.kind) {
-                case 'if':
-                case 'branch': {
-                    if (reactiveIdentifiers.isReactive(controlBlock.terminal.test)) {
-                        return true;
-                    }
-                    break;
-                }
-                case 'switch': {
-                    if (reactiveIdentifiers.isReactive(controlBlock.terminal.test)) {
-                        return true;
-                    }
-                    for (const case_ of controlBlock.terminal.cases) {
-                        if (case_.test !== null &&
-                            reactiveIdentifiers.isReactive(case_.test)) {
-                            return true;
-                        }
-                    }
-                    break;
-                }
-            }
-        }
-        return false;
-    }
+    const isReactiveControlledBlock = createControlDominators(fn, place => reactiveIdentifiers.isReactive(place));
     do {
         for (const [, block] of fn.body.blocks) {
             let hasReactiveControl = isReactiveControlledBlock(block.id);
@@ -45067,46 +45327,6 @@ function inferReactivePlaces(fn) {
         }
     }
     propagateReactivityToInnerFunctions(fn, true);
-}
-function postDominatorFrontier(fn, postDominators, targetId) {
-    const visited = new Set();
-    const frontier = new Set();
-    const targetPostDominators = postDominatorsOf(fn, postDominators, targetId);
-    for (const blockId of [...targetPostDominators, targetId]) {
-        if (visited.has(blockId)) {
-            continue;
-        }
-        visited.add(blockId);
-        const block = fn.body.blocks.get(blockId);
-        for (const pred of block.preds) {
-            if (!targetPostDominators.has(pred)) {
-                frontier.add(pred);
-            }
-        }
-    }
-    return frontier;
-}
-function postDominatorsOf(fn, postDominators, targetId) {
-    var _a;
-    const result = new Set();
-    const visited = new Set();
-    const queue = [targetId];
-    while (queue.length) {
-        const currentId = queue.shift();
-        if (visited.has(currentId)) {
-            continue;
-        }
-        visited.add(currentId);
-        const current = fn.body.blocks.get(currentId);
-        for (const pred of current.preds) {
-            const predPostDominator = (_a = postDominators.get(pred)) !== null && _a !== void 0 ? _a : pred;
-            if (predPostDominator === targetId || result.has(predPostDominator)) {
-                result.add(pred);
-            }
-            queue.push(pred);
-        }
-    }
-    return result;
 }
 class ReactivityMap {
     constructor(aliasedIdentifiers) {
@@ -46159,7 +46379,7 @@ function propagateScopeDependenciesHIR(fn) {
     const temporaries = collectTemporariesSidemap$1(fn, usedOutsideDeclaringScope);
     const { temporariesReadInOptional, processedInstrsInOptional, hoistableObjects, } = collectOptionalChainSidemap(fn);
     const hoistablePropertyLoads = keyByScopeId(fn, collectHoistablePropertyLoads(fn, temporaries, hoistableObjects));
-    const scopeDeps = collectDependencies(fn, usedOutsideDeclaringScope, new Map([...temporaries, ...temporariesReadInOptional]), processedInstrsInOptional);
+    const scopeDeps = collectDependencies$1(fn, usedOutsideDeclaringScope, new Map([...temporaries, ...temporariesReadInOptional]), processedInstrsInOptional);
     for (const [scope, deps] of scopeDeps) {
         if (deps.length === 0) {
             continue;
@@ -46510,7 +46730,7 @@ function handleInstruction(instr, context) {
         }
     }
 }
-function collectDependencies(fn, usedOutsideDeclaringScope, temporaries, processedInstrsInOptional) {
+function collectDependencies$1(fn, usedOutsideDeclaringScope, temporaries, processedInstrsInOptional) {
     const context = new DependencyCollectionContext(usedOutsideDeclaringScope, temporaries, processedInstrsInOptional);
     for (const param of fn.params) {
         if (param.kind === 'Identifier') {
@@ -48354,6 +48574,25 @@ function* generateInstructionTypes(env, names, instr) {
                     }
                 }
             }
+            if (env.config.enableInferEventHandlers) {
+                if (value.kind === 'JsxExpression' &&
+                    value.tag.kind === 'BuiltinTag' &&
+                    !value.tag.name.includes('-')) {
+                    for (const prop of value.props) {
+                        if (prop.kind === 'JsxAttribute' &&
+                            prop.name.startsWith('on') &&
+                            prop.name.length > 2 &&
+                            prop.name[2] === prop.name[2].toUpperCase()) {
+                            yield equation(prop.place.identifier.type, {
+                                kind: 'Function',
+                                shapeId: BuiltInEventHandlerId,
+                                return: makeType(),
+                                isConstructor: false,
+                            });
+                        }
+                    }
+                }
+            }
             yield equation(left, { kind: 'Object', shapeId: BuiltInJsxId });
             break;
         }
@@ -49277,6 +49516,10 @@ function refTypeOfType(place) {
         return { kind: 'None' };
     }
 }
+function isEventHandlerType(identifier) {
+    const type = identifier.type;
+    return type.kind === 'Function' && type.shapeId === BuiltInEventHandlerId;
+}
 function tyEqual(a, b) {
     if (a.kind !== b.kind) {
         return false;
@@ -49563,8 +49806,10 @@ function validateNoRefAccessInRenderImpl(fn, env) {
                         }
                         if (!didError) {
                             const isRefLValue = isUseRefType(instr.lvalue.identifier);
+                            const isEventHandlerLValue = isEventHandlerType(instr.lvalue.identifier);
                             for (const operand of eachInstructionValueOperand(instr.value)) {
                                 if (isRefLValue ||
+                                    isEventHandlerLValue ||
                                     (hookKind != null &&
                                         hookKind !== 'useState' &&
                                         hookKind !== 'useReducer')) {
@@ -49932,16 +50177,35 @@ function validateNoSetStateInRenderImpl(fn, unconditionalSetStateFunctions) {
                             }));
                         }
                         else if (unconditionalBlocks.has(block.id)) {
-                            errors.pushDiagnostic(CompilerDiagnostic.create({
-                                category: ErrorCategory.RenderSetState,
-                                reason: 'Calling setState during render may trigger an infinite loop',
-                                description: 'Calling setState during render will trigger another render, and can lead to infinite loops. (https://react.dev/reference/react/useState)',
-                                suggestions: null,
-                            }).withDetails({
-                                kind: 'error',
-                                loc: callee.loc,
-                                message: 'Found setState() in render',
-                            }));
+                            const enableUseKeyedState = fn.env.config.enableUseKeyedState;
+                            if (enableUseKeyedState) {
+                                errors.pushDiagnostic(CompilerDiagnostic.create({
+                                    category: ErrorCategory.RenderSetState,
+                                    reason: 'Cannot call setState during render',
+                                    description: 'Calling setState during render may trigger an infinite loop.\n' +
+                                        '* To reset state when other state/props change, use `const [state, setState] = useKeyedState(initialState, key)` to reset `state` when `key` changes.\n' +
+                                        '* To derive data from other state/props, compute the derived data during render without using state',
+                                    suggestions: null,
+                                }).withDetails({
+                                    kind: 'error',
+                                    loc: callee.loc,
+                                    message: 'Found setState() in render',
+                                }));
+                            }
+                            else {
+                                errors.pushDiagnostic(CompilerDiagnostic.create({
+                                    category: ErrorCategory.RenderSetState,
+                                    reason: 'Cannot call setState during render',
+                                    description: 'Calling setState during render may trigger an infinite loop.\n' +
+                                        '* To reset state when other state/props change, store the previous value in state and update conditionally: https://react.dev/reference/react/useState#storing-information-from-previous-renders\n' +
+                                        '* To derive data from other state/props, compute the derived data during render without using state',
+                                    suggestions: null,
+                                }).withDetails({
+                                    kind: 'error',
+                                    loc: callee.loc,
+                                    message: 'Found setState() in render',
+                                }));
+                            }
                         }
                     }
                     break;
@@ -50044,6 +50308,7 @@ function validateInferredDep(dep, temporaries, declsWithinMemoBlock, validDepsIn
         normalizedDep = {
             root: maybeNormalizedRoot.root,
             path: [...maybeNormalizedRoot.path, ...dep.path],
+            loc: maybeNormalizedRoot.loc,
         };
     }
     else {
@@ -50069,8 +50334,10 @@ function validateInferredDep(dep, temporaries, declsWithinMemoBlock, validDepsIn
                     effect: Effect.Read,
                     reactive: false,
                 },
+                constant: false,
             },
             path: [...dep.path],
+            loc: GeneratedSource,
         };
     }
     for (const decl of declsWithinMemoBlock) {
@@ -50097,7 +50364,7 @@ function validateInferredDep(dep, temporaries, declsWithinMemoBlock, validDepsIn
             'The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. ',
             (dep.identifier.name != null && dep.identifier.name.kind === 'named')
                 ? `The inferred dependency was \`${prettyPrintScopeDependency(dep)}\`, but the source dependencies were [${validDepsInMemoBlock
-                    .map(dep => printManualMemoDependency(dep, true))
+                    .map(dep => printManualMemoDependency$1(dep, true))
                     .join(', ')}]. ${errorDiagnostic
                     ? getCompareDependencyResultDescription(errorDiagnostic)
                     : 'Inferred dependency not present in source'}`
@@ -50156,8 +50423,10 @@ class Visitor extends ReactiveFunctionVisitor {
                                 root: {
                                     kind: 'NamedLocal',
                                     value: storeTarget,
+                                    constant: false,
                                 },
                                 path: [],
+                                loc: storeTarget.loc,
                             });
                         }
                     }
@@ -50184,8 +50453,10 @@ class Visitor extends ReactiveFunctionVisitor {
                 root: {
                     kind: 'NamedLocal',
                     value: Object.assign({}, lvalue),
+                    constant: false,
                 },
                 path: [],
+                loc: lvalue.loc,
             });
         }
     }
@@ -50317,6 +50588,166 @@ class Visitor extends ReactiveFunctionVisitor {
 }
 function isUnmemoized(operand, scopes) {
     return operand.scope != null && !scopes.has(operand.scope.id);
+}
+
+const IMPORTANT_INSTRUMENTED_TYPES = new Set([
+    'ArrowFunctionExpression',
+    'AssignmentPattern',
+    'ObjectMethod',
+    'ExpressionStatement',
+    'BreakStatement',
+    'ContinueStatement',
+    'ReturnStatement',
+    'ThrowStatement',
+    'TryStatement',
+    'VariableDeclarator',
+    'IfStatement',
+    'ForStatement',
+    'ForInStatement',
+    'ForOfStatement',
+    'WhileStatement',
+    'DoWhileStatement',
+    'SwitchStatement',
+    'SwitchCase',
+    'WithStatement',
+    'FunctionDeclaration',
+    'FunctionExpression',
+    'LabeledStatement',
+    'ConditionalExpression',
+    'LogicalExpression',
+    'VariableDeclaration',
+    'Identifier',
+]);
+function isManualMemoization(node) {
+    if (libExports$1.isCallExpression(node)) {
+        const callee = node.callee;
+        if (libExports$1.isIdentifier(callee)) {
+            return callee.name === 'useMemo' || callee.name === 'useCallback';
+        }
+        if (libExports$1.isMemberExpression(callee) &&
+            libExports$1.isIdentifier(callee.property) &&
+            libExports$1.isIdentifier(callee.object)) {
+            return (callee.object.name === 'React' &&
+                (callee.property.name === 'useMemo' ||
+                    callee.property.name === 'useCallback'));
+        }
+    }
+    return false;
+}
+function locationKey(loc) {
+    return `${loc.start.line}:${loc.start.column}-${loc.end.line}:${loc.end.column}`;
+}
+function validateSourceLocations(func, generatedAst) {
+    const errors = new CompilerError();
+    const importantOriginalLocations = new Map();
+    func.traverse({
+        enter(path) {
+            const node = path.node;
+            if (!IMPORTANT_INSTRUMENTED_TYPES.has(node.type)) {
+                return;
+            }
+            if (isManualMemoization(node)) {
+                return;
+            }
+            if (node.loc) {
+                const key = locationKey(node.loc);
+                const existing = importantOriginalLocations.get(key);
+                if (existing) {
+                    existing.nodeTypes.add(node.type);
+                }
+                else {
+                    importantOriginalLocations.set(key, {
+                        loc: node.loc,
+                        nodeTypes: new Set([node.type]),
+                    });
+                }
+            }
+        },
+    });
+    const generatedLocations = new Map();
+    function collectGeneratedLocations(node) {
+        if (node.loc) {
+            const key = locationKey(node.loc);
+            const nodeTypes = generatedLocations.get(key);
+            if (nodeTypes) {
+                nodeTypes.add(node.type);
+            }
+            else {
+                generatedLocations.set(key, new Set([node.type]));
+            }
+        }
+        const keys = libExports$1.VISITOR_KEYS[node.type];
+        if (!keys) {
+            return;
+        }
+        for (const key of keys) {
+            const value = node[key];
+            if (Array.isArray(value)) {
+                for (const item of value) {
+                    if (libExports$1.isNode(item)) {
+                        collectGeneratedLocations(item);
+                    }
+                }
+            }
+            else if (libExports$1.isNode(value)) {
+                collectGeneratedLocations(value);
+            }
+        }
+    }
+    collectGeneratedLocations(generatedAst.body);
+    for (const outlined of generatedAst.outlined) {
+        collectGeneratedLocations(outlined.fn.body);
+    }
+    const strictNodeTypes = new Set([
+        'VariableDeclaration',
+        'VariableDeclarator',
+        'Identifier',
+    ]);
+    const reportMissingLocation = (loc, nodeType) => {
+        errors.pushDiagnostic(CompilerDiagnostic.create({
+            category: ErrorCategory.Todo,
+            reason: 'Important source location missing in generated code',
+            description: `Source location for ${nodeType} is missing in the generated output. This can cause coverage instrumentation ` +
+                `to fail to track this code properly, resulting in inaccurate coverage reports.`,
+        }).withDetails({
+            kind: 'error',
+            loc,
+            message: null,
+        }));
+    };
+    const reportWrongNodeType = (loc, expectedType, actualTypes) => {
+        errors.pushDiagnostic(CompilerDiagnostic.create({
+            category: ErrorCategory.Todo,
+            reason: 'Important source location has wrong node type in generated code',
+            description: `Source location for ${expectedType} exists in the generated output but with wrong node type(s): ${Array.from(actualTypes).join(', ')}. ` +
+                `This can cause coverage instrumentation to fail to track this code properly, resulting in inaccurate coverage reports.`,
+        }).withDetails({
+            kind: 'error',
+            loc,
+            message: null,
+        }));
+    };
+    for (const [key, { loc, nodeTypes }] of importantOriginalLocations) {
+        const generatedNodeTypes = generatedLocations.get(key);
+        if (!generatedNodeTypes) {
+            reportMissingLocation(loc, Array.from(nodeTypes).join(', '));
+        }
+        else {
+            for (const nodeType of nodeTypes) {
+                if (strictNodeTypes.has(nodeType) &&
+                    !generatedNodeTypes.has(nodeType)) {
+                    const hasValidNodeType = Array.from(generatedNodeTypes).some(genType => nodeTypes.has(genType));
+                    if (hasValidNodeType) {
+                        reportMissingLocation(loc, nodeType);
+                    }
+                    else {
+                        reportWrongNodeType(loc, nodeType, generatedNodeTypes);
+                    }
+                }
+            }
+        }
+    }
+    return errors.asResult();
 }
 
 function validateUseMemo(fn) {
@@ -50920,28 +51351,64 @@ function validateNoSetStateInEffects(fn, env) {
                     const callee = instr.value.kind === 'MethodCall'
                         ? instr.value.receiver
                         : instr.value.callee;
-                    if (isUseEffectHookType(callee.identifier) ||
+                    if (isUseEffectEventType(callee.identifier)) {
+                        const arg = instr.value.args[0];
+                        if (arg !== undefined && arg.kind === 'Identifier') {
+                            const setState = setStateFunctions.get(arg.identifier.id);
+                            if (setState !== undefined) {
+                                setStateFunctions.set(instr.lvalue.identifier.id, setState);
+                            }
+                        }
+                    }
+                    else if (isUseEffectHookType(callee.identifier) ||
                         isUseLayoutEffectHookType(callee.identifier) ||
                         isUseInsertionEffectHookType(callee.identifier)) {
                         const arg = instr.value.args[0];
                         if (arg !== undefined && arg.kind === 'Identifier') {
                             const setState = setStateFunctions.get(arg.identifier.id);
                             if (setState !== undefined) {
-                                errors.pushDiagnostic(CompilerDiagnostic.create({
-                                    category: ErrorCategory.EffectSetState,
-                                    reason: 'Calling setState synchronously within an effect can trigger cascading renders',
-                                    description: 'Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. ' +
-                                        'In general, the body of an effect should do one or both of the following:\n' +
-                                        '* Update external systems with the latest state from React.\n' +
-                                        '* Subscribe for updates from some external system, calling setState in a callback function when external state changes.\n\n' +
-                                        'Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. ' +
-                                        '(https://react.dev/learn/you-might-not-need-an-effect)',
-                                    suggestions: null,
-                                }).withDetails({
-                                    kind: 'error',
-                                    loc: setState.loc,
-                                    message: 'Avoid calling setState() directly within an effect',
-                                }));
+                                const enableVerbose = env.config.enableVerboseNoSetStateInEffect;
+                                if (enableVerbose) {
+                                    errors.pushDiagnostic(CompilerDiagnostic.create({
+                                        category: ErrorCategory.EffectSetState,
+                                        reason: 'Calling setState synchronously within an effect can trigger cascading renders',
+                                        description: 'Effects are intended to synchronize state between React and external systems. ' +
+                                            'Calling setState synchronously causes cascading renders that hurt performance.\n\n' +
+                                            'This pattern may indicate one of several issues:\n\n' +
+                                            '**1. Non-local derived data**: If the value being set could be computed from props/state ' +
+                                            'but requires data from a parent component, consider restructuring state ownership so the ' +
+                                            'derivation can happen during render in the component that owns the relevant state.\n\n' +
+                                            "**2. Derived event pattern**: If you're detecting when a prop changes (e.g., `isPlaying` " +
+                                            'transitioning from false to true), this often indicates the parent should provide an event ' +
+                                            'callback (like `onPlay`) instead of just the current state. Request access to the original event.\n\n' +
+                                            "**3. Force update / external sync**: If you're forcing a re-render to sync with an external " +
+                                            'data source (mutable values outside React), use `useSyncExternalStore` to properly subscribe ' +
+                                            'to external state changes.\n\n' +
+                                            'See: https://react.dev/learn/you-might-not-need-an-effect',
+                                        suggestions: null,
+                                    }).withDetails({
+                                        kind: 'error',
+                                        loc: setState.loc,
+                                        message: 'Avoid calling setState() directly within an effect',
+                                    }));
+                                }
+                                else {
+                                    errors.pushDiagnostic(CompilerDiagnostic.create({
+                                        category: ErrorCategory.EffectSetState,
+                                        reason: 'Calling setState synchronously within an effect can trigger cascading renders',
+                                        description: 'Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. ' +
+                                            'In general, the body of an effect should do one or both of the following:\n' +
+                                            '* Update external systems with the latest state from React.\n' +
+                                            '* Subscribe for updates from some external system, calling setState in a callback function when external state changes.\n\n' +
+                                            'Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. ' +
+                                            '(https://react.dev/learn/you-might-not-need-an-effect)',
+                                        suggestions: null,
+                                    }).withDetails({
+                                        kind: 'error',
+                                        loc: setState.loc,
+                                        message: 'Avoid calling setState() directly within an effect',
+                                    }));
+                                }
                             }
                         }
                     }
@@ -50953,19 +51420,83 @@ function validateNoSetStateInEffects(fn, env) {
     return errors.asResult();
 }
 function getSetStateCall(fn, setStateFunctions, env) {
+    const enableAllowSetStateFromRefsInEffects = env.config.enableAllowSetStateFromRefsInEffects;
     const refDerivedValues = new Set();
     const isDerivedFromRef = (place) => {
         return (refDerivedValues.has(place.identifier.id) ||
             isUseRefType(place.identifier) ||
             isRefValueType(place.identifier));
     };
+    const isRefControlledBlock = enableAllowSetStateFromRefsInEffects
+        ? createControlDominators(fn, place => isDerivedFromRef(place))
+        : () => false;
     for (const [, block] of fn.body.blocks) {
+        if (enableAllowSetStateFromRefsInEffects) {
+            for (const phi of block.phis) {
+                if (isDerivedFromRef(phi.place)) {
+                    continue;
+                }
+                let isPhiDerivedFromRef = false;
+                for (const [, operand] of phi.operands) {
+                    if (isDerivedFromRef(operand)) {
+                        isPhiDerivedFromRef = true;
+                        break;
+                    }
+                }
+                if (isPhiDerivedFromRef) {
+                    refDerivedValues.add(phi.place.identifier.id);
+                }
+                else {
+                    for (const [pred] of phi.operands) {
+                        if (isRefControlledBlock(pred)) {
+                            refDerivedValues.add(phi.place.identifier.id);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
         for (const instr of block.instructions) {
-            if (env.config.enableAllowSetStateFromRefsInEffects) {
+            if (enableAllowSetStateFromRefsInEffects) {
                 const hasRefOperand = Iterable_some(eachInstructionValueOperand(instr.value), isDerivedFromRef);
                 if (hasRefOperand) {
                     for (const lvalue of eachInstructionLValue(instr)) {
                         refDerivedValues.add(lvalue.identifier.id);
+                    }
+                    for (const operand of eachInstructionValueOperand(instr.value)) {
+                        switch (operand.effect) {
+                            case Effect.Capture:
+                            case Effect.Store:
+                            case Effect.ConditionallyMutate:
+                            case Effect.ConditionallyMutateIterator:
+                            case Effect.Mutate: {
+                                if (isMutable(instr, operand)) {
+                                    refDerivedValues.add(operand.identifier.id);
+                                }
+                                break;
+                            }
+                            case Effect.Freeze:
+                            case Effect.Read: {
+                                break;
+                            }
+                            case Effect.Unknown: {
+                                CompilerError.invariant(false, {
+                                    reason: 'Unexpected unknown effect',
+                                    description: null,
+                                    details: [
+                                        {
+                                            kind: 'error',
+                                            loc: operand.loc,
+                                            message: null,
+                                        },
+                                    ],
+                                    suggestions: null,
+                                });
+                            }
+                            default: {
+                                assertExhaustive$1(operand.effect, `Unexpected effect kind \`${operand.effect}\``);
+                            }
+                        }
                     }
                 }
                 if (instr.value.kind === 'PropertyLoad' &&
@@ -50993,12 +51524,15 @@ function getSetStateCall(fn, setStateFunctions, env) {
                     const callee = instr.value.callee;
                     if (isSetStateType(callee.identifier) ||
                         setStateFunctions.has(callee.identifier.id)) {
-                        if (env.config.enableAllowSetStateFromRefsInEffects) {
+                        if (enableAllowSetStateFromRefsInEffects) {
                             const arg = instr.value.args.at(0);
                             if (arg !== undefined &&
                                 arg.kind === 'Identifier' &&
                                 refDerivedValues.has(arg.identifier.id)) {
                                 return null;
+                            }
+                            else if (isRefControlledBlock(block.id)) {
+                                continue;
                             }
                         }
                         return callee;
@@ -51395,6 +51929,7 @@ function emitDestructureProps(env, propsObj, oldToNewProps) {
                 pattern: {
                     kind: 'ObjectPattern',
                     properties,
+                    loc: GeneratedSource,
                 },
                 kind: InstructionKind.Let,
             },
@@ -52227,47 +52762,67 @@ function validateEffect$1(effectFunction, effectDeps, errors) {
     }
 }
 
+const MAX_FIXPOINT_ITERATIONS = 100;
 class DerivationCache {
     constructor() {
         this.hasChanges = false;
         this.cache = new Map();
+        this.previousCache = null;
+    }
+    takeSnapshot() {
+        this.previousCache = new Map();
+        for (const [key, value] of this.cache.entries()) {
+            this.previousCache.set(key, {
+                place: value.place,
+                sourcesIds: new Set(value.sourcesIds),
+                typeOfValue: value.typeOfValue,
+                isStateSource: value.isStateSource,
+            });
+        }
+    }
+    checkForChanges() {
+        if (this.previousCache === null) {
+            this.hasChanges = true;
+            return;
+        }
+        for (const [key, value] of this.cache.entries()) {
+            const previousValue = this.previousCache.get(key);
+            if (previousValue === undefined ||
+                !this.isDerivationEqual(previousValue, value)) {
+                this.hasChanges = true;
+                return;
+            }
+        }
+        if (this.cache.size !== this.previousCache.size) {
+            this.hasChanges = true;
+            return;
+        }
+        this.hasChanges = false;
     }
     snapshot() {
         const hasChanges = this.hasChanges;
         this.hasChanges = false;
         return hasChanges;
     }
-    addDerivationEntry(derivedVar, sourcesIds, typeOfValue) {
-        var _a, _b;
-        let newValue = {
-            place: derivedVar,
-            sourcesIds: new Set(),
-            typeOfValue: typeOfValue !== null && typeOfValue !== void 0 ? typeOfValue : 'ignored',
-        };
-        if (sourcesIds !== undefined) {
-            for (const id of sourcesIds) {
-                const sourcePlace = (_a = this.cache.get(id)) === null || _a === void 0 ? void 0 : _a.place;
-                if (sourcePlace === undefined) {
-                    continue;
-                }
-                if (sourcePlace.identifier.name === null ||
-                    ((_b = sourcePlace.identifier.name) === null || _b === void 0 ? void 0 : _b.kind) === 'promoted') {
-                    newValue.sourcesIds.add(derivedVar.identifier.id);
-                }
-                else {
-                    newValue.sourcesIds.add(sourcePlace.identifier.id);
+    addDerivationEntry(derivedVar, sourcesIds, typeOfValue, isStateSource) {
+        var _a;
+        let finalIsSource = isStateSource;
+        if (!finalIsSource) {
+            for (const sourceId of sourcesIds) {
+                const sourceMetadata = this.cache.get(sourceId);
+                if ((sourceMetadata === null || sourceMetadata === void 0 ? void 0 : sourceMetadata.isStateSource) &&
+                    ((_a = sourceMetadata.place.identifier.name) === null || _a === void 0 ? void 0 : _a.kind) !== 'named') {
+                    finalIsSource = true;
+                    break;
                 }
             }
         }
-        if (newValue.sourcesIds.size === 0) {
-            newValue.sourcesIds.add(derivedVar.identifier.id);
-        }
-        const existingValue = this.cache.get(derivedVar.identifier.id);
-        if (existingValue === undefined ||
-            !this.isDerivationEqual(existingValue, newValue)) {
-            this.cache.set(derivedVar.identifier.id, newValue);
-            this.hasChanges = true;
-        }
+        this.cache.set(derivedVar.identifier.id, {
+            place: derivedVar,
+            sourcesIds: sourcesIds,
+            typeOfValue: typeOfValue !== null && typeOfValue !== void 0 ? typeOfValue : 'ignored',
+            isStateSource: finalIsSource,
+        });
     }
     isDerivationEqual(a, b) {
         if (a.typeOfValue !== b.typeOfValue) {
@@ -52284,30 +52839,35 @@ class DerivationCache {
         return true;
     }
 }
+function isNamedIdentifier(place) {
+    return (place.identifier.name !== null && place.identifier.name.kind === 'named');
+}
 function validateNoDerivedComputationsInEffects_exp(fn) {
     const functions = new Map();
+    const candidateDependencies = new Map();
     const derivationCache = new DerivationCache();
     const errors = new CompilerError();
-    const effects = new Set();
-    const setStateCache = new Map();
-    const effectSetStateCache = new Map();
+    const effectsCache = new Map();
+    const setStateLoads = new Map();
+    const setStateUsages = new Map();
     const context = {
         functions,
+        candidateDependencies,
         errors,
         derivationCache,
-        effects,
-        setStateCache,
-        effectSetStateCache,
+        effectsCache,
+        setStateLoads,
+        setStateUsages,
     };
     if (fn.fnType === 'Hook') {
         for (const param of fn.params) {
             if (param.kind === 'Identifier') {
                 context.derivationCache.cache.set(param.identifier.id, {
                     place: param,
-                    sourcesIds: new Set([param.identifier.id]),
+                    sourcesIds: new Set(),
                     typeOfValue: 'fromProps',
+                    isStateSource: true,
                 });
-                context.derivationCache.hasChanges = true;
             }
         }
     }
@@ -52316,28 +52876,39 @@ function validateNoDerivedComputationsInEffects_exp(fn) {
         if (props != null && props.kind === 'Identifier') {
             context.derivationCache.cache.set(props.identifier.id, {
                 place: props,
-                sourcesIds: new Set([props.identifier.id]),
+                sourcesIds: new Set(),
                 typeOfValue: 'fromProps',
+                isStateSource: true,
             });
-            context.derivationCache.hasChanges = true;
         }
     }
-    let isFirstPass = true;
+    let iterationCount = 0;
     do {
+        context.derivationCache.takeSnapshot();
         for (const block of fn.body.blocks.values()) {
             recordPhiDerivations(block, context);
             for (const instr of block.instructions) {
-                recordInstructionDerivations(instr, context, isFirstPass);
+                recordInstructionDerivations(instr, context);
             }
         }
-        isFirstPass = false;
+        context.derivationCache.checkForChanges();
+        iterationCount++;
+        CompilerError.invariant(iterationCount < MAX_FIXPOINT_ITERATIONS, {
+            reason: '[ValidateNoDerivedComputationsInEffects] Fixpoint iteration failed to converge.',
+            description: `Fixpoint iteration exceeded ${MAX_FIXPOINT_ITERATIONS} iterations while tracking derivations. This suggests a cyclic dependency in the derivation cache.`,
+            details: [
+                {
+                    kind: 'error',
+                    loc: fn.loc,
+                    message: `Exceeded ${MAX_FIXPOINT_ITERATIONS} iterations in ValidateNoDerivedComputationsInEffects`,
+                },
+            ],
+        });
     } while (context.derivationCache.snapshot());
-    for (const effect of effects) {
-        validateEffect(effect, context);
+    for (const [, effect] of effectsCache) {
+        validateEffect(effect.effect, effect.dependencies, context);
     }
-    if (errors.hasAnyErrors()) {
-        throw errors;
-    }
+    return errors.asResult();
 }
 function recordPhiDerivations(block, context) {
     for (const phi of block.phis) {
@@ -52352,7 +52923,7 @@ function recordPhiDerivations(block, context) {
             sourcesIds.add(operand.identifier.id);
         }
         if (typeOfValue !== 'ignored') {
-            context.derivationCache.addDerivationEntry(phi.place, sourcesIds, typeOfValue);
+            context.derivationCache.addDerivationEntry(phi.place, sourcesIds, typeOfValue, false);
         }
     }
 }
@@ -52365,15 +52936,50 @@ function joinValue(lvalueType, valueType) {
         return lvalueType;
     return 'fromPropsAndState';
 }
+function getRootSetState(key, loads, visited = new Set()) {
+    if (visited.has(key)) {
+        return null;
+    }
+    visited.add(key);
+    const parentId = loads.get(key);
+    if (parentId === undefined) {
+        return null;
+    }
+    if (parentId === null) {
+        return key;
+    }
+    return getRootSetState(parentId, loads, visited);
+}
+function maybeRecordSetState(instr, loads, usages) {
+    for (const operand of eachInstructionLValue(instr)) {
+        if (instr.value.kind === 'LoadLocal' &&
+            loads.has(instr.value.place.identifier.id)) {
+            loads.set(operand.identifier.id, instr.value.place.identifier.id);
+        }
+        else {
+            if (isSetStateType(operand.identifier)) {
+                loads.set(operand.identifier.id, null);
+            }
+        }
+        const rootSetState = getRootSetState(operand.identifier.id, loads);
+        if (rootSetState !== null && usages.get(rootSetState) === undefined) {
+            usages.set(rootSetState, new Set([operand.loc]));
+        }
+    }
+}
 function recordInstructionDerivations(instr, context, isFirstPass) {
+    var _a;
+    maybeRecordSetState(instr, context.setStateLoads, context.setStateUsages);
     let typeOfValue = 'ignored';
+    let isSource = false;
     const sources = new Set();
     const { lvalue, value } = instr;
     if (value.kind === 'FunctionExpression') {
         context.functions.set(lvalue.identifier.id, value);
         for (const [, block] of value.loweredFunc.func.body.blocks) {
+            recordPhiDerivations(block, context);
             for (const instr of block.instructions) {
-                recordInstructionDerivations(instr, context, isFirstPass);
+                recordInstructionDerivations(instr, context);
             }
         }
     }
@@ -52384,27 +52990,28 @@ function recordInstructionDerivations(instr, context, isFirstPass) {
             value.args[0].kind === 'Identifier' &&
             value.args[1].kind === 'Identifier') {
             const effectFunction = context.functions.get(value.args[0].identifier.id);
-            if (effectFunction != null) {
-                context.effects.add(effectFunction.loweredFunc.func);
+            const deps = context.candidateDependencies.get(value.args[1].identifier.id);
+            if (effectFunction != null && deps != null) {
+                context.effectsCache.set(value.args[0].identifier.id, {
+                    effect: effectFunction.loweredFunc.func,
+                    dependencies: deps,
+                });
             }
         }
-        else if (isUseStateType(lvalue.identifier) && value.args.length > 0) {
-            const stateValueSource = value.args[0];
-            if (stateValueSource.kind === 'Identifier') {
-                sources.add(stateValueSource.identifier.id);
-            }
-            typeOfValue = joinValue(typeOfValue, 'fromState');
+        else if (isUseStateType(lvalue.identifier)) {
+            typeOfValue = 'fromState';
+            context.derivationCache.addDerivationEntry(lvalue, new Set(), typeOfValue, true);
+            return;
         }
     }
+    else if (value.kind === 'ArrayExpression') {
+        context.candidateDependencies.set(lvalue.identifier.id, value);
+    }
     for (const operand of eachInstructionOperand(instr)) {
-        if (isSetStateType(operand.identifier) &&
-            operand.loc !== GeneratedSource &&
-            isFirstPass) {
-            if (context.setStateCache.has(operand.loc.identifierName)) {
-                context.setStateCache.get(operand.loc.identifierName).push(operand);
-            }
-            else {
-                context.setStateCache.set(operand.loc.identifierName, [operand]);
+        if (context.setStateLoads.has(operand.identifier.id)) {
+            const rootSetStateId = getRootSetState(operand.identifier.id, context.setStateLoads);
+            if (rootSetStateId !== null) {
+                (_a = context.setStateUsages.get(rootSetStateId)) === null || _a === void 0 ? void 0 : _a.add(operand.loc);
             }
         }
         const operandMetadata = context.derivationCache.cache.get(operand.identifier.id);
@@ -52412,15 +53019,16 @@ function recordInstructionDerivations(instr, context, isFirstPass) {
             continue;
         }
         typeOfValue = joinValue(typeOfValue, operandMetadata.typeOfValue);
-        for (const id of operandMetadata.sourcesIds) {
-            sources.add(id);
-        }
+        sources.add(operand.identifier.id);
     }
     if (typeOfValue === 'ignored') {
         return;
     }
     for (const lvalue of eachInstructionLValue(instr)) {
-        context.derivationCache.addDerivationEntry(lvalue, sources, typeOfValue);
+        context.derivationCache.addDerivationEntry(lvalue, sources, typeOfValue, isSource);
+    }
+    if (value.kind === 'FunctionExpression') {
+        return;
     }
     for (const operand of eachInstructionOperand(instr)) {
         switch (operand.effect) {
@@ -52430,7 +53038,15 @@ function recordInstructionDerivations(instr, context, isFirstPass) {
             case Effect.ConditionallyMutateIterator:
             case Effect.Mutate: {
                 if (isMutable(instr, operand)) {
-                    context.derivationCache.addDerivationEntry(operand, sources, typeOfValue);
+                    if (context.derivationCache.cache.has(operand.identifier.id)) {
+                        const operandMetadata = context.derivationCache.cache.get(operand.identifier.id);
+                        if (operandMetadata !== undefined) {
+                            operandMetadata.typeOfValue = joinValue(typeOfValue, operandMetadata.typeOfValue);
+                        }
+                    }
+                    else {
+                        context.derivationCache.addDerivationEntry(operand, sources, typeOfValue, false);
+                    }
                 }
                 break;
             }
@@ -52457,11 +53073,130 @@ function recordInstructionDerivations(instr, context, isFirstPass) {
         }
     }
 }
-function validateEffect(effectFunction, context) {
+function buildTreeNode(sourceId, context, visited = new Set()) {
+    const sourceMetadata = context.derivationCache.cache.get(sourceId);
+    if (!sourceMetadata) {
+        return [];
+    }
+    if (sourceMetadata.isStateSource && isNamedIdentifier(sourceMetadata.place)) {
+        return [
+            {
+                name: sourceMetadata.place.identifier.name.value,
+                typeOfValue: sourceMetadata.typeOfValue,
+                isSource: sourceMetadata.isStateSource,
+                children: [],
+            },
+        ];
+    }
+    const children = [];
+    const namedSiblings = new Set();
+    for (const childId of sourceMetadata.sourcesIds) {
+        CompilerError.invariant(childId !== sourceId, {
+            reason: 'Unexpected self-reference: a value should not have itself as a source',
+            description: null,
+            details: [
+                {
+                    kind: 'error',
+                    loc: sourceMetadata.place.loc,
+                    message: null,
+                },
+            ],
+        });
+        const childNodes = buildTreeNode(childId, context, new Set([
+            ...visited,
+            ...(isNamedIdentifier(sourceMetadata.place)
+                ? [sourceMetadata.place.identifier.name.value]
+                : []),
+        ]));
+        if (childNodes) {
+            for (const childNode of childNodes) {
+                if (!namedSiblings.has(childNode.name)) {
+                    children.push(childNode);
+                    namedSiblings.add(childNode.name);
+                }
+            }
+        }
+    }
+    if (isNamedIdentifier(sourceMetadata.place) &&
+        !visited.has(sourceMetadata.place.identifier.name.value)) {
+        return [
+            {
+                name: sourceMetadata.place.identifier.name.value,
+                typeOfValue: sourceMetadata.typeOfValue,
+                isSource: sourceMetadata.isStateSource,
+                children: children,
+            },
+        ];
+    }
+    return children;
+}
+function renderTree(node, indent = '', isLast = true, propsSet, stateSet) {
+    const prefix = indent + (isLast ? '└── ' : '├── ');
+    const childIndent = indent + (isLast ? '    ' : '│   ');
+    let result = `${prefix}${node.name}`;
+    if (node.isSource) {
+        let typeLabel;
+        if (node.typeOfValue === 'fromProps') {
+            propsSet.add(node.name);
+            typeLabel = 'Prop';
+        }
+        else if (node.typeOfValue === 'fromState') {
+            stateSet.add(node.name);
+            typeLabel = 'State';
+        }
+        else {
+            propsSet.add(node.name);
+            stateSet.add(node.name);
+            typeLabel = 'Prop and State';
+        }
+        result += ` (${typeLabel})`;
+    }
+    if (node.children.length > 0) {
+        result += '\n';
+        node.children.forEach((child, index) => {
+            const isLastChild = index === node.children.length - 1;
+            result += renderTree(child, childIndent, isLastChild, propsSet, stateSet);
+            if (index < node.children.length - 1) {
+                result += '\n';
+            }
+        });
+    }
+    return result;
+}
+function getFnLocalDeps(fn) {
+    if (!fn) {
+        return undefined;
+    }
+    const deps = new Set();
+    for (const [, block] of fn.loweredFunc.func.body.blocks) {
+        for (const instr of block.instructions) {
+            if (instr.value.kind === 'LoadLocal') {
+                deps.add(instr.value.place.identifier.id);
+            }
+        }
+    }
+    return deps;
+}
+function validateEffect(effectFunction, dependencies, context) {
+    var _a;
     const seenBlocks = new Set();
     const effectDerivedSetStateCalls = [];
+    const effectSetStateUsages = new Map();
+    for (const dep of dependencies.elements) {
+        if (dep.kind === 'Identifier') {
+            const root = getRootSetState(dep.identifier.id, context.setStateLoads);
+            if (root !== null) {
+                effectSetStateUsages.set(root, new Set([dep.loc]));
+            }
+        }
+    }
+    let cleanUpFunctionDeps;
     const globals = new Set();
     for (const block of effectFunction.body.blocks.values()) {
+        if (block.terminal.kind === 'return' &&
+            block.terminal.returnVariant === 'Explicit') {
+            cleanUpFunctionDeps = getFnLocalDeps(context.functions.get(block.terminal.value.identifier.id));
+        }
         for (const pred of block.preds) {
             if (!seenBlocks.has(pred)) {
                 return;
@@ -52471,18 +53206,12 @@ function validateEffect(effectFunction, context) {
             if (isUseRefType(instr.lvalue.identifier)) {
                 return;
             }
+            maybeRecordSetState(instr, context.setStateLoads, effectSetStateUsages);
             for (const operand of eachInstructionOperand(instr)) {
-                if (isSetStateType(operand.identifier) &&
-                    operand.loc !== GeneratedSource) {
-                    if (context.effectSetStateCache.has(operand.loc.identifierName)) {
-                        context.effectSetStateCache
-                            .get(operand.loc.identifierName)
-                            .push(operand);
-                    }
-                    else {
-                        context.effectSetStateCache.set(operand.loc.identifierName, [
-                            operand,
-                        ]);
+                if (context.setStateLoads.has(operand.identifier.id)) {
+                    const rootSetStateId = getRootSetState(operand.identifier.id, context.setStateLoads);
+                    if (rootSetStateId !== null) {
+                        (_a = effectSetStateUsages.get(rootSetStateId)) === null || _a === void 0 ? void 0 : _a.add(operand.loc);
                     }
                 }
             }
@@ -52490,11 +53219,15 @@ function validateEffect(effectFunction, context) {
                 isSetStateType(instr.value.callee.identifier) &&
                 instr.value.args.length === 1 &&
                 instr.value.args[0].kind === 'Identifier') {
+                const calleeMetadata = context.derivationCache.cache.get(instr.value.callee.identifier.id);
+                if ((calleeMetadata === null || calleeMetadata === void 0 ? void 0 : calleeMetadata.typeOfValue) != 'fromState') {
+                    continue;
+                }
                 const argMetadata = context.derivationCache.cache.get(instr.value.args[0].identifier.id);
                 if (argMetadata !== undefined) {
                     effectDerivedSetStateCalls.push({
                         value: instr.value,
-                        loc: instr.value.callee.loc,
+                        id: instr.value.callee.identifier.id,
                         sourceIds: argMetadata.sourcesIds,
                         typeOfValue: argMetadata.typeOfValue,
                     });
@@ -52521,34 +53254,53 @@ function validateEffect(effectFunction, context) {
         seenBlocks.add(block.id);
     }
     for (const derivedSetStateCall of effectDerivedSetStateCalls) {
-        if (derivedSetStateCall.loc !== GeneratedSource &&
-            context.effectSetStateCache.has(derivedSetStateCall.loc.identifierName) &&
-            context.setStateCache.has(derivedSetStateCall.loc.identifierName) &&
-            context.effectSetStateCache.get(derivedSetStateCall.loc.identifierName)
-                .length ===
-                context.setStateCache.get(derivedSetStateCall.loc.identifierName)
-                    .length -
-                    1) {
-            const derivedDepsStr = Array.from(derivedSetStateCall.sourceIds)
-                .map(sourceId => {
-                var _a;
-                const sourceMetadata = context.derivationCache.cache.get(sourceId);
-                return (_a = sourceMetadata === null || sourceMetadata === void 0 ? void 0 : sourceMetadata.place.identifier.name) === null || _a === void 0 ? void 0 : _a.value;
-            })
-                .filter(Boolean)
-                .join(', ');
-            let description;
-            if (derivedSetStateCall.typeOfValue === 'fromProps') {
-                description = `From props: [${derivedDepsStr}]`;
+        const rootSetStateCall = getRootSetState(derivedSetStateCall.id, context.setStateLoads);
+        if (rootSetStateCall !== null &&
+            effectSetStateUsages.has(rootSetStateCall) &&
+            context.setStateUsages.has(rootSetStateCall) &&
+            effectSetStateUsages.get(rootSetStateCall).size ===
+                context.setStateUsages.get(rootSetStateCall).size - 1) {
+            const propsSet = new Set();
+            const stateSet = new Set();
+            const rootNodesMap = new Map();
+            for (const id of derivedSetStateCall.sourceIds) {
+                const nodes = buildTreeNode(id, context);
+                for (const node of nodes) {
+                    if (!rootNodesMap.has(node.name)) {
+                        rootNodesMap.set(node.name, node);
+                    }
+                }
             }
-            else if (derivedSetStateCall.typeOfValue === 'fromState') {
-                description = `From local state: [${derivedDepsStr}]`;
+            const rootNodes = Array.from(rootNodesMap.values());
+            const trees = rootNodes.map((node, index) => renderTree(node, '', index === rootNodes.length - 1, propsSet, stateSet));
+            for (const dep of derivedSetStateCall.sourceIds) {
+                if (cleanUpFunctionDeps !== undefined && cleanUpFunctionDeps.has(dep)) {
+                    return;
+                }
             }
-            else {
-                description = `From props and local state: [${derivedDepsStr}]`;
+            const propsArr = Array.from(propsSet);
+            const stateArr = Array.from(stateSet);
+            let rootSources = '';
+            if (propsArr.length > 0) {
+                rootSources += `Props: [${propsArr.join(', ')}]`;
             }
+            if (stateArr.length > 0) {
+                if (rootSources)
+                    rootSources += '\n';
+                rootSources += `State: [${stateArr.join(', ')}]`;
+            }
+            const description = `Using an effect triggers an additional render which can hurt performance and user experience, potentially briefly showing stale values to the user
+
+This setState call is setting a derived value that depends on the following reactive sources:
+
+${rootSources}
+
+Data Flow Tree:
+${trees.join('\n')}
+
+See: https://react.dev/learn/you-might-not-need-an-effect#updating-state-based-on-props-or-state`;
             context.errors.pushDiagnostic(CompilerDiagnostic.create({
-                description: `Derived values (${description}) should be computed during render, rather than in effects. Using an effect triggers an additional render which can hurt performance and user experience, potentially briefly showing stale values to the user`,
+                description: description,
                 category: ErrorCategory.EffectDerivationsOfState,
                 reason: 'You might not need an effect. Derive values in render, not effects.',
             }).withDetails({
@@ -52696,6 +53448,936 @@ function nameAnonymousFunctionsImpl(fn) {
     return nodes;
 }
 
+function optimizeForSSR(fn) {
+    const inlinedState = new Map();
+    for (const block of fn.body.blocks.values()) {
+        for (const instr of block.instructions) {
+            const { value } = instr;
+            switch (value.kind) {
+                case 'Destructure': {
+                    if (inlinedState.has(value.value.identifier.id) &&
+                        value.lvalue.pattern.kind === 'ArrayPattern' &&
+                        value.lvalue.pattern.items.length >= 1 &&
+                        value.lvalue.pattern.items[0].kind === 'Identifier') {
+                        continue;
+                    }
+                    break;
+                }
+                case 'MethodCall':
+                case 'CallExpression': {
+                    const calleee = value.kind === 'CallExpression' ? value.callee : value.property;
+                    const hookKind = getHookKind(fn.env, calleee.identifier);
+                    switch (hookKind) {
+                        case 'useReducer': {
+                            if (value.args.length === 2 &&
+                                value.args[1].kind === 'Identifier') {
+                                const arg = value.args[1];
+                                const replace = {
+                                    kind: 'LoadLocal',
+                                    place: arg,
+                                    loc: arg.loc,
+                                };
+                                inlinedState.set(instr.lvalue.identifier.id, replace);
+                            }
+                            else if (value.args.length === 3 &&
+                                value.args[1].kind === 'Identifier' &&
+                                value.args[2].kind === 'Identifier') {
+                                const arg = value.args[1];
+                                const initializer = value.args[2];
+                                const replace = {
+                                    kind: 'CallExpression',
+                                    callee: initializer,
+                                    args: [arg],
+                                    loc: value.loc,
+                                };
+                                inlinedState.set(instr.lvalue.identifier.id, replace);
+                            }
+                            break;
+                        }
+                        case 'useState': {
+                            if (value.args.length === 1 &&
+                                value.args[0].kind === 'Identifier') {
+                                const arg = value.args[0];
+                                if (isPrimitiveType(arg.identifier) ||
+                                    isPlainObjectType(arg.identifier) ||
+                                    isArrayType(arg.identifier)) {
+                                    const replace = {
+                                        kind: 'LoadLocal',
+                                        place: arg,
+                                        loc: arg.loc,
+                                    };
+                                    inlinedState.set(instr.lvalue.identifier.id, replace);
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+            if (inlinedState.size !== 0) {
+                for (const operand of eachInstructionValueOperand(value)) {
+                    inlinedState.delete(operand.identifier.id);
+                }
+            }
+        }
+        if (inlinedState.size !== 0) {
+            for (const operand of eachTerminalOperand(block.terminal)) {
+                inlinedState.delete(operand.identifier.id);
+            }
+        }
+    }
+    for (const block of fn.body.blocks.values()) {
+        for (const instr of block.instructions) {
+            const { value } = instr;
+            switch (value.kind) {
+                case 'FunctionExpression': {
+                    if (hasKnownNonRenderCall(value.loweredFunc.func)) {
+                        instr.value = {
+                            kind: 'Primitive',
+                            value: undefined,
+                            loc: value.loc,
+                        };
+                    }
+                    break;
+                }
+                case 'JsxExpression': {
+                    if (value.tag.kind === 'BuiltinTag' &&
+                        value.tag.name.indexOf('-') === -1) {
+                        const tag = value.tag.name;
+                        retainWhere(value.props, prop => {
+                            return (prop.kind === 'JsxSpreadAttribute' ||
+                                (!isKnownEventHandler(tag, prop.name) && prop.name !== 'ref'));
+                        });
+                    }
+                    break;
+                }
+                case 'Destructure': {
+                    if (inlinedState.has(value.value.identifier.id)) {
+                        CompilerError.invariant(value.lvalue.pattern.kind === 'ArrayPattern' &&
+                            value.lvalue.pattern.items.length >= 1 &&
+                            value.lvalue.pattern.items[0].kind === 'Identifier', {
+                            reason: 'Expected a valid destructuring pattern for inlined state',
+                            description: null,
+                            details: [
+                                {
+                                    kind: 'error',
+                                    message: 'Expected a valid destructuring pattern',
+                                    loc: value.loc,
+                                },
+                            ],
+                        });
+                        const store = {
+                            kind: 'StoreLocal',
+                            loc: value.loc,
+                            type: null,
+                            lvalue: {
+                                kind: value.lvalue.kind,
+                                place: value.lvalue.pattern.items[0],
+                            },
+                            value: value.value,
+                        };
+                        instr.value = store;
+                    }
+                    break;
+                }
+                case 'MethodCall':
+                case 'CallExpression': {
+                    const calleee = value.kind === 'CallExpression' ? value.callee : value.property;
+                    const hookKind = getHookKind(fn.env, calleee.identifier);
+                    switch (hookKind) {
+                        case 'useEffectEvent': {
+                            if (value.args.length === 1 &&
+                                value.args[0].kind === 'Identifier') {
+                                const load = {
+                                    kind: 'LoadLocal',
+                                    place: value.args[0],
+                                    loc: value.loc,
+                                };
+                                instr.value = load;
+                            }
+                            break;
+                        }
+                        case 'useEffect':
+                        case 'useLayoutEffect':
+                        case 'useInsertionEffect': {
+                            instr.value = {
+                                kind: 'Primitive',
+                                value: undefined,
+                                loc: value.loc,
+                            };
+                            break;
+                        }
+                        case 'useReducer':
+                        case 'useState': {
+                            const replace = inlinedState.get(instr.lvalue.identifier.id);
+                            if (replace != null) {
+                                instr.value = replace;
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+function hasKnownNonRenderCall(fn) {
+    for (const block of fn.body.blocks.values()) {
+        for (const instr of block.instructions) {
+            if (instr.value.kind === 'CallExpression' &&
+                (isSetStateType(instr.value.callee.identifier) ||
+                    isStartTransitionType(instr.value.callee.identifier))) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+const EVENT_HANDLER_PATTERN = /^on[A-Z]/;
+function isKnownEventHandler(_tag, prop) {
+    return EVENT_HANDLER_PATTERN.test(prop);
+}
+
+function validateExhaustiveDependencies(fn) {
+    const env = fn.env;
+    const reactive = collectReactiveIdentifiersHIR(fn);
+    const temporaries = new Map();
+    for (const param of fn.params) {
+        const place = param.kind === 'Identifier' ? param : param.place;
+        temporaries.set(place.identifier.id, {
+            kind: 'Local',
+            identifier: place.identifier,
+            path: [],
+            context: false,
+            loc: place.loc,
+        });
+    }
+    const error = new CompilerError();
+    let startMemo = null;
+    function onStartMemoize(value, dependencies, locals) {
+        CompilerError.simpleInvariant(startMemo == null, {
+            reason: 'Unexpected nested memo calls',
+            loc: value.loc,
+        });
+        startMemo = value;
+        dependencies.clear();
+        locals.clear();
+    }
+    function onFinishMemoize(value, dependencies, locals) {
+        var _a;
+        CompilerError.simpleInvariant(startMemo != null && startMemo.manualMemoId === value.manualMemoId, {
+            reason: 'Found FinishMemoize without corresponding StartMemoize',
+            loc: value.loc,
+        });
+        if (env.config.validateExhaustiveMemoizationDependencies) {
+            visitCandidateDependency(value.decl, temporaries, dependencies, locals);
+            const inferred = Array.from(dependencies);
+            const diagnostic = validateDependencies(inferred, (_a = startMemo.deps) !== null && _a !== void 0 ? _a : [], reactive, startMemo.depsLoc, ErrorCategory.MemoDependencies, 'all');
+            if (diagnostic != null) {
+                error.pushDiagnostic(diagnostic);
+            }
+        }
+        dependencies.clear();
+        locals.clear();
+        startMemo = null;
+    }
+    collectDependencies(fn, temporaries, {
+        onStartMemoize,
+        onFinishMemoize,
+        onEffect: (inferred, manual, manualMemoLoc) => {
+            if (env.config.validateExhaustiveEffectDependencies === 'off') {
+                return;
+            }
+            const manualDeps = [];
+            for (const dep of manual) {
+                if (dep.kind === 'Local') {
+                    manualDeps.push({
+                        root: {
+                            kind: 'NamedLocal',
+                            constant: false,
+                            value: {
+                                effect: Effect.Read,
+                                identifier: dep.identifier,
+                                kind: 'Identifier',
+                                loc: dep.loc,
+                                reactive: reactive.has(dep.identifier.id),
+                            },
+                        },
+                        path: dep.path,
+                        loc: dep.loc,
+                    });
+                }
+                else {
+                    manualDeps.push({
+                        root: {
+                            kind: 'Global',
+                            identifierName: dep.binding.name,
+                        },
+                        path: [],
+                        loc: GeneratedSource,
+                    });
+                }
+            }
+            const effectReportMode = typeof env.config.validateExhaustiveEffectDependencies === 'string'
+                ? env.config.validateExhaustiveEffectDependencies
+                : 'all';
+            const diagnostic = validateDependencies(Array.from(inferred), manualDeps, reactive, manualMemoLoc, ErrorCategory.EffectExhaustiveDependencies, effectReportMode);
+            if (diagnostic != null) {
+                error.pushDiagnostic(diagnostic);
+            }
+        },
+    }, false);
+    return error.asResult();
+}
+function validateDependencies(inferred, manualDependencies, reactive, manualMemoLoc, category, exhaustiveDepsReportMode) {
+    var _a, _b, _c, _d;
+    inferred.sort((a, b) => {
+        var _a, _b;
+        if (a.kind === 'Global' && b.kind == 'Global') {
+            return a.binding.name.localeCompare(b.binding.name);
+        }
+        else if (a.kind == 'Local' && b.kind == 'Local') {
+            CompilerError.simpleInvariant(a.identifier.name != null &&
+                a.identifier.name.kind === 'named' &&
+                b.identifier.name != null &&
+                b.identifier.name.kind === 'named', {
+                reason: 'Expected dependencies to be named variables',
+                loc: a.loc,
+            });
+            if (a.identifier.id !== b.identifier.id) {
+                return a.identifier.name.value.localeCompare(b.identifier.name.value);
+            }
+            if (a.path.length !== b.path.length) {
+                return a.path.length - b.path.length;
+            }
+            for (let i = 0; i < a.path.length; i++) {
+                const aProperty = a.path[i];
+                const bProperty = b.path[i];
+                const aOptional = aProperty.optional ? 0 : 1;
+                const bOptional = bProperty.optional ? 0 : 1;
+                if (aOptional !== bOptional) {
+                    return aOptional - bOptional;
+                }
+                else if (aProperty.property !== bProperty.property) {
+                    return String(aProperty.property).localeCompare(String(bProperty.property));
+                }
+            }
+            return 0;
+        }
+        else {
+            const aName = a.kind === 'Global' ? a.binding.name : (_a = a.identifier.name) === null || _a === void 0 ? void 0 : _a.value;
+            const bName = b.kind === 'Global' ? b.binding.name : (_b = b.identifier.name) === null || _b === void 0 ? void 0 : _b.value;
+            if (aName != null && bName != null) {
+                return aName.localeCompare(bName);
+            }
+            return 0;
+        }
+    });
+    retainWhere(inferred, (dep, ix) => {
+        const match = inferred.findIndex(prevDep => {
+            return (isEqualTemporary(prevDep, dep) ||
+                (prevDep.kind === 'Local' &&
+                    dep.kind === 'Local' &&
+                    prevDep.identifier.id === dep.identifier.id &&
+                    isSubPath(prevDep.path, dep.path)));
+        });
+        return match === -1 || match >= ix;
+    });
+    const matched = new Set();
+    const missing = [];
+    const extra = [];
+    for (const inferredDependency of inferred) {
+        if (inferredDependency.kind === 'Global') {
+            for (const manualDependency of manualDependencies) {
+                if (manualDependency.root.kind === 'Global' &&
+                    manualDependency.root.identifierName ===
+                        inferredDependency.binding.name) {
+                    matched.add(manualDependency);
+                    extra.push(manualDependency);
+                }
+            }
+            continue;
+        }
+        CompilerError.simpleInvariant(inferredDependency.kind === 'Local', {
+            reason: 'Unexpected function dependency',
+            loc: inferredDependency.loc,
+        });
+        if (isEffectEventFunctionType(inferredDependency.identifier)) {
+            continue;
+        }
+        let hasMatchingManualDependency = false;
+        for (const manualDependency of manualDependencies) {
+            if (manualDependency.root.kind === 'NamedLocal' &&
+                manualDependency.root.value.identifier.id ===
+                    inferredDependency.identifier.id &&
+                (areEqualPaths(manualDependency.path, inferredDependency.path) ||
+                    isSubPathIgnoringOptionals(manualDependency.path, inferredDependency.path))) {
+                hasMatchingManualDependency = true;
+                matched.add(manualDependency);
+            }
+        }
+        if (hasMatchingManualDependency ||
+            isOptionalDependency(inferredDependency, reactive)) {
+            continue;
+        }
+        missing.push(inferredDependency);
+    }
+    for (const dep of manualDependencies) {
+        if (matched.has(dep)) {
+            continue;
+        }
+        if (dep.root.kind === 'NamedLocal' && dep.root.constant) {
+            CompilerError.simpleInvariant(!dep.root.value.reactive && isPrimitiveType(dep.root.value.identifier), {
+                reason: 'Expected constant-folded dependency to be non-reactive',
+                loc: dep.root.value.loc,
+            });
+            continue;
+        }
+        extra.push(dep);
+    }
+    const filteredMissing = exhaustiveDepsReportMode === 'extra-only' ? [] : missing;
+    const filteredExtra = exhaustiveDepsReportMode === 'missing-only' ? [] : extra;
+    if (filteredMissing.length !== 0 || filteredExtra.length !== 0) {
+        let suggestion = null;
+        if (manualMemoLoc != null &&
+            typeof manualMemoLoc !== 'symbol' &&
+            manualMemoLoc.start.index != null &&
+            manualMemoLoc.end.index != null) {
+            suggestion = {
+                description: 'Update dependencies',
+                range: [manualMemoLoc.start.index, manualMemoLoc.end.index],
+                op: CompilerSuggestionOperation.Replace,
+                text: `[${inferred
+                    .filter(dep => dep.kind === 'Local' &&
+                    !isOptionalDependency(dep, reactive) &&
+                    !isEffectEventFunctionType(dep.identifier))
+                    .map(printInferredDependency)
+                    .join(', ')}]`,
+            };
+        }
+        const diagnostic = createDiagnostic(category, filteredMissing, filteredExtra, suggestion);
+        for (const dep of filteredMissing) {
+            let reactiveStableValueHint = '';
+            if (isStableType(dep.identifier)) {
+                reactiveStableValueHint =
+                    '. Refs, setState functions, and other "stable" values generally do not need to be added ' +
+                        'as dependencies, but this variable may change over time to point to different values';
+            }
+            diagnostic.withDetails({
+                kind: 'error',
+                message: `Missing dependency \`${printInferredDependency(dep)}\`${reactiveStableValueHint}`,
+                loc: dep.loc,
+            });
+        }
+        for (const dep of filteredExtra) {
+            if (dep.root.kind === 'Global') {
+                diagnostic.withDetails({
+                    kind: 'error',
+                    message: `Unnecessary dependency \`${printManualMemoDependency(dep)}\`. ` +
+                        'Values declared outside of a component/hook should not be listed as ' +
+                        'dependencies as the component will not re-render if they change',
+                    loc: (_a = dep.loc) !== null && _a !== void 0 ? _a : manualMemoLoc,
+                });
+            }
+            else {
+                const root = dep.root.value;
+                const matchingInferred = inferred.find((inferredDep) => {
+                    return (inferredDep.kind === 'Local' &&
+                        inferredDep.identifier.id === root.identifier.id &&
+                        isSubPathIgnoringOptionals(inferredDep.path, dep.path));
+                });
+                if (matchingInferred != null &&
+                    isEffectEventFunctionType(matchingInferred.identifier)) {
+                    diagnostic.withDetails({
+                        kind: 'error',
+                        message: `Functions returned from \`useEffectEvent\` must not be included in the dependency array. ` +
+                            `Remove \`${printManualMemoDependency(dep)}\` from the dependencies.`,
+                        loc: (_b = dep.loc) !== null && _b !== void 0 ? _b : manualMemoLoc,
+                    });
+                }
+                else if (matchingInferred != null &&
+                    !isOptionalDependency(matchingInferred, reactive)) {
+                    diagnostic.withDetails({
+                        kind: 'error',
+                        message: `Overly precise dependency \`${printManualMemoDependency(dep)}\`, ` +
+                            `use \`${printInferredDependency(matchingInferred)}\` instead`,
+                        loc: (_c = dep.loc) !== null && _c !== void 0 ? _c : manualMemoLoc,
+                    });
+                }
+                else {
+                    diagnostic.withDetails({
+                        kind: 'error',
+                        message: `Unnecessary dependency \`${printManualMemoDependency(dep)}\``,
+                        loc: (_d = dep.loc) !== null && _d !== void 0 ? _d : manualMemoLoc,
+                    });
+                }
+            }
+        }
+        if (suggestion != null) {
+            diagnostic.withDetails({
+                kind: 'hint',
+                message: `Inferred dependencies: \`${suggestion.text}\``,
+            });
+        }
+        return diagnostic;
+    }
+    return null;
+}
+function addDependency(dep, dependencies, locals) {
+    if (dep.kind === 'Aggregate') {
+        for (const x of dep.dependencies) {
+            addDependency(x, dependencies, locals);
+        }
+    }
+    else if (dep.kind === 'Global') {
+        dependencies.add(dep);
+    }
+    else if (!locals.has(dep.identifier.id)) {
+        dependencies.add(dep);
+    }
+}
+function visitCandidateDependency(place, temporaries, dependencies, locals) {
+    const dep = temporaries.get(place.identifier.id);
+    if (dep != null) {
+        addDependency(dep, dependencies, locals);
+    }
+}
+function collectDependencies(fn, temporaries, callbacks, isFunctionExpression) {
+    var _a, _b;
+    const optionals = findOptionalPlaces(fn);
+    const locals = new Set();
+    if (isFunctionExpression) {
+        for (const param of fn.params) {
+            const place = param.kind === 'Identifier' ? param : param.place;
+            locals.add(place.identifier.id);
+        }
+    }
+    const dependencies = new Set();
+    function visit(place) {
+        visitCandidateDependency(place, temporaries, dependencies, locals);
+    }
+    for (const block of fn.body.blocks.values()) {
+        for (const phi of block.phis) {
+            const deps = [];
+            for (const operand of phi.operands.values()) {
+                const dep = temporaries.get(operand.identifier.id);
+                if (dep == null) {
+                    continue;
+                }
+                if (dep.kind === 'Aggregate') {
+                    deps.push(...dep.dependencies);
+                }
+                else {
+                    deps.push(dep);
+                }
+            }
+            if (deps.length === 0) {
+                continue;
+            }
+            else if (deps.length === 1) {
+                temporaries.set(phi.place.identifier.id, deps[0]);
+            }
+            else {
+                temporaries.set(phi.place.identifier.id, {
+                    kind: 'Aggregate',
+                    dependencies: new Set(deps),
+                });
+            }
+        }
+        for (const instr of block.instructions) {
+            const { lvalue, value } = instr;
+            switch (value.kind) {
+                case 'LoadGlobal': {
+                    temporaries.set(lvalue.identifier.id, {
+                        kind: 'Global',
+                        binding: value.binding,
+                    });
+                    break;
+                }
+                case 'LoadContext':
+                case 'LoadLocal': {
+                    const temp = temporaries.get(value.place.identifier.id);
+                    if (temp != null) {
+                        if (temp.kind === 'Local') {
+                            const local = Object.assign(Object.assign({}, temp), { loc: value.place.loc });
+                            temporaries.set(lvalue.identifier.id, local);
+                        }
+                        else {
+                            temporaries.set(lvalue.identifier.id, temp);
+                        }
+                        if (locals.has(value.place.identifier.id)) {
+                            locals.add(lvalue.identifier.id);
+                        }
+                    }
+                    break;
+                }
+                case 'DeclareLocal': {
+                    const local = {
+                        kind: 'Local',
+                        identifier: value.lvalue.place.identifier,
+                        path: [],
+                        context: false,
+                        loc: value.lvalue.place.loc,
+                    };
+                    temporaries.set(value.lvalue.place.identifier.id, local);
+                    locals.add(value.lvalue.place.identifier.id);
+                    break;
+                }
+                case 'StoreLocal': {
+                    if (value.lvalue.place.identifier.name == null) {
+                        const temp = temporaries.get(value.value.identifier.id);
+                        if (temp != null) {
+                            temporaries.set(value.lvalue.place.identifier.id, temp);
+                        }
+                        break;
+                    }
+                    visit(value.value);
+                    if (value.lvalue.kind !== InstructionKind.Reassign) {
+                        const local = {
+                            kind: 'Local',
+                            identifier: value.lvalue.place.identifier,
+                            path: [],
+                            context: false,
+                            loc: value.lvalue.place.loc,
+                        };
+                        temporaries.set(value.lvalue.place.identifier.id, local);
+                        locals.add(value.lvalue.place.identifier.id);
+                    }
+                    break;
+                }
+                case 'DeclareContext': {
+                    const local = {
+                        kind: 'Local',
+                        identifier: value.lvalue.place.identifier,
+                        path: [],
+                        context: true,
+                        loc: value.lvalue.place.loc,
+                    };
+                    temporaries.set(value.lvalue.place.identifier.id, local);
+                    break;
+                }
+                case 'StoreContext': {
+                    visit(value.value);
+                    if (value.lvalue.kind !== InstructionKind.Reassign) {
+                        const local = {
+                            kind: 'Local',
+                            identifier: value.lvalue.place.identifier,
+                            path: [],
+                            context: true,
+                            loc: value.lvalue.place.loc,
+                        };
+                        temporaries.set(value.lvalue.place.identifier.id, local);
+                        locals.add(value.lvalue.place.identifier.id);
+                    }
+                    break;
+                }
+                case 'Destructure': {
+                    visit(value.value);
+                    if (value.lvalue.kind !== InstructionKind.Reassign) {
+                        for (const lvalue of eachInstructionValueLValue(value)) {
+                            const local = {
+                                kind: 'Local',
+                                identifier: lvalue.identifier,
+                                path: [],
+                                context: false,
+                                loc: lvalue.loc,
+                            };
+                            temporaries.set(lvalue.identifier.id, local);
+                            locals.add(lvalue.identifier.id);
+                        }
+                    }
+                    break;
+                }
+                case 'PropertyLoad': {
+                    if (typeof value.property === 'number' ||
+                        (isUseRefType(value.object.identifier) &&
+                            value.property === 'current')) {
+                        visit(value.object);
+                        break;
+                    }
+                    const object = temporaries.get(value.object.identifier.id);
+                    if (object != null && object.kind === 'Local') {
+                        const optional = (_a = optionals.get(value.object.identifier.id)) !== null && _a !== void 0 ? _a : false;
+                        const local = {
+                            kind: 'Local',
+                            identifier: object.identifier,
+                            context: object.context,
+                            path: [
+                                ...object.path,
+                                {
+                                    optional,
+                                    property: value.property,
+                                },
+                            ],
+                            loc: value.loc,
+                        };
+                        temporaries.set(lvalue.identifier.id, local);
+                    }
+                    break;
+                }
+                case 'FunctionExpression':
+                case 'ObjectMethod': {
+                    const functionDeps = collectDependencies(value.loweredFunc.func, temporaries, null, true);
+                    temporaries.set(lvalue.identifier.id, functionDeps);
+                    addDependency(functionDeps, dependencies, locals);
+                    break;
+                }
+                case 'StartMemoize': {
+                    const onStartMemoize = callbacks === null || callbacks === void 0 ? void 0 : callbacks.onStartMemoize;
+                    if (onStartMemoize != null) {
+                        onStartMemoize(value, dependencies, locals);
+                    }
+                    break;
+                }
+                case 'FinishMemoize': {
+                    const onFinishMemoize = callbacks === null || callbacks === void 0 ? void 0 : callbacks.onFinishMemoize;
+                    if (onFinishMemoize != null) {
+                        onFinishMemoize(value, dependencies, locals);
+                    }
+                    break;
+                }
+                case 'ArrayExpression': {
+                    const arrayDeps = new Set();
+                    for (const item of value.elements) {
+                        if (item.kind === 'Hole') {
+                            continue;
+                        }
+                        const place = item.kind === 'Identifier' ? item : item.place;
+                        visitCandidateDependency(place, temporaries, arrayDeps, new Set());
+                        visit(place);
+                    }
+                    temporaries.set(lvalue.identifier.id, {
+                        kind: 'Aggregate',
+                        dependencies: arrayDeps,
+                        loc: value.loc,
+                    });
+                    break;
+                }
+                case 'CallExpression':
+                case 'MethodCall': {
+                    const receiver = value.kind === 'CallExpression' ? value.callee : value.property;
+                    const onEffect = callbacks === null || callbacks === void 0 ? void 0 : callbacks.onEffect;
+                    if (onEffect != null && isEffectHook(receiver.identifier)) {
+                        const [fn, deps] = value.args;
+                        if ((fn === null || fn === void 0 ? void 0 : fn.kind) === 'Identifier' && (deps === null || deps === void 0 ? void 0 : deps.kind) === 'Identifier') {
+                            const fnDeps = temporaries.get(fn.identifier.id);
+                            const manualDeps = temporaries.get(deps.identifier.id);
+                            if ((fnDeps === null || fnDeps === void 0 ? void 0 : fnDeps.kind) === 'Aggregate' &&
+                                (manualDeps === null || manualDeps === void 0 ? void 0 : manualDeps.kind) === 'Aggregate') {
+                                onEffect(fnDeps.dependencies, manualDeps.dependencies, (_b = manualDeps.loc) !== null && _b !== void 0 ? _b : null);
+                            }
+                        }
+                    }
+                    for (const operand of eachInstructionValueOperand(value)) {
+                        if (value.kind === 'MethodCall' &&
+                            operand.identifier.id === value.property.identifier.id) {
+                            continue;
+                        }
+                        visit(operand);
+                    }
+                    break;
+                }
+                default: {
+                    for (const operand of eachInstructionValueOperand(value)) {
+                        visit(operand);
+                    }
+                    for (const lvalue of eachInstructionLValue(instr)) {
+                        locals.add(lvalue.identifier.id);
+                    }
+                }
+            }
+        }
+        for (const operand of eachTerminalOperand(block.terminal)) {
+            if (optionals.has(operand.identifier.id)) {
+                continue;
+            }
+            visit(operand);
+        }
+    }
+    return { kind: 'Aggregate', dependencies };
+}
+function printInferredDependency(dep) {
+    switch (dep.kind) {
+        case 'Global': {
+            return dep.binding.name;
+        }
+        case 'Local': {
+            CompilerError.simpleInvariant(dep.identifier.name != null && dep.identifier.name.kind === 'named', {
+                reason: 'Expected dependencies to be named variables',
+                loc: dep.loc,
+            });
+            return `${dep.identifier.name.value}${dep.path.map(p => (p.optional ? '?' : '') + '.' + p.property).join('')}`;
+        }
+    }
+}
+function printManualMemoDependency(dep) {
+    let identifierName;
+    if (dep.root.kind === 'Global') {
+        identifierName = dep.root.identifierName;
+    }
+    else {
+        const name = dep.root.value.identifier.name;
+        CompilerError.simpleInvariant(name != null && name.kind === 'named', {
+            reason: 'Expected manual dependencies to be named variables',
+            loc: dep.root.value.loc,
+        });
+        identifierName = name.value;
+    }
+    return `${identifierName}${dep.path.map(p => (p.optional ? '?' : '') + '.' + p.property).join('')}`;
+}
+function isEqualTemporary(a, b) {
+    switch (a.kind) {
+        case 'Aggregate': {
+            return false;
+        }
+        case 'Global': {
+            return b.kind === 'Global' && a.binding.name === b.binding.name;
+        }
+        case 'Local': {
+            return (b.kind === 'Local' &&
+                a.identifier.id === b.identifier.id &&
+                areEqualPaths(a.path, b.path));
+        }
+    }
+}
+function collectReactiveIdentifiersHIR(fn) {
+    const reactive = new Set();
+    for (const block of fn.body.blocks.values()) {
+        for (const instr of block.instructions) {
+            for (const lvalue of eachInstructionLValue(instr)) {
+                if (lvalue.reactive) {
+                    reactive.add(lvalue.identifier.id);
+                }
+            }
+            for (const operand of eachInstructionValueOperand(instr.value)) {
+                if (operand.reactive) {
+                    reactive.add(operand.identifier.id);
+                }
+            }
+        }
+        for (const operand of eachTerminalOperand(block.terminal)) {
+            if (operand.reactive) {
+                reactive.add(operand.identifier.id);
+            }
+        }
+    }
+    return reactive;
+}
+function findOptionalPlaces(fn) {
+    const optionals = new Map();
+    const visited = new Set();
+    for (const [, block] of fn.body.blocks) {
+        if (visited.has(block.id)) {
+            continue;
+        }
+        if (block.terminal.kind === 'optional') {
+            visited.add(block.id);
+            const optionalTerminal = block.terminal;
+            let testBlock = fn.body.blocks.get(block.terminal.test);
+            const queue = [block.terminal.optional];
+            loop: while (true) {
+                visited.add(testBlock.id);
+                const terminal = testBlock.terminal;
+                switch (terminal.kind) {
+                    case 'branch': {
+                        const isOptional = queue.pop();
+                        CompilerError.simpleInvariant(isOptional !== undefined, {
+                            reason: 'Expected an optional value for each optional test condition',
+                            loc: terminal.test.loc,
+                        });
+                        if (isOptional != null) {
+                            optionals.set(terminal.test.identifier.id, isOptional);
+                        }
+                        if (terminal.fallthrough === optionalTerminal.fallthrough) {
+                            const consequent = fn.body.blocks.get(terminal.consequent);
+                            const last = consequent.instructions.at(-1);
+                            if (last !== undefined && last.value.kind === 'StoreLocal') {
+                                if (isOptional != null) {
+                                    optionals.set(last.value.value.identifier.id, isOptional);
+                                }
+                            }
+                            break loop;
+                        }
+                        else {
+                            testBlock = fn.body.blocks.get(terminal.fallthrough);
+                        }
+                        break;
+                    }
+                    case 'optional': {
+                        queue.push(terminal.optional);
+                        testBlock = fn.body.blocks.get(terminal.test);
+                        break;
+                    }
+                    case 'logical':
+                    case 'ternary': {
+                        queue.push(null);
+                        testBlock = fn.body.blocks.get(terminal.test);
+                        break;
+                    }
+                    case 'sequence': {
+                        testBlock = fn.body.blocks.get(terminal.block);
+                        break;
+                    }
+                    default: {
+                        CompilerError.simpleInvariant(false, {
+                            reason: `Unexpected terminal in optional`,
+                            loc: terminal.loc,
+                        });
+                    }
+                }
+            }
+            CompilerError.simpleInvariant(queue.length === 0, {
+                reason: 'Expected a matching number of conditional blocks and branch points',
+                loc: block.terminal.loc,
+            });
+        }
+    }
+    return optionals;
+}
+function isOptionalDependency(inferredDependency, reactive) {
+    return (!reactive.has(inferredDependency.identifier.id) &&
+        (isStableType(inferredDependency.identifier) ||
+            isPrimitiveType(inferredDependency.identifier)));
+}
+function createDiagnostic(category, missing, extra, suggestion) {
+    let reason;
+    let description;
+    function joinMissingExtraDetail(missingString, extraString, joinStr) {
+        return [
+            missing.length !== 0 ? missingString : null,
+            extra.length !== 0 ? extraString : null,
+        ]
+            .filter(Boolean)
+            .join(joinStr);
+    }
+    switch (category) {
+        case ErrorCategory.MemoDependencies: {
+            reason = `Found ${joinMissingExtraDetail('missing', 'extra', '/')} memoization dependencies`;
+            description = joinMissingExtraDetail('Missing dependencies can cause a value to update less often than it should, resulting in stale UI', 'Extra dependencies can cause a value to update more often than it should, resulting in performance' +
+                ' problems such as excessive renders or effects firing too often', '. ');
+            break;
+        }
+        case ErrorCategory.EffectExhaustiveDependencies: {
+            reason = `Found ${joinMissingExtraDetail('missing', 'extra', '/')} effect dependencies`;
+            description = joinMissingExtraDetail('Missing dependencies can cause an effect to fire less often than it should', 'Extra dependencies can cause an effect to fire more often than it should, resulting' +
+                ' in performance problems such as excessive renders and side effects', '. ');
+            break;
+        }
+        default: {
+            CompilerError.simpleInvariant(false, {
+                reason: `Unexpected error category: ${category}`,
+                loc: GeneratedSource,
+            });
+        }
+    }
+    return CompilerDiagnostic.create({
+        category,
+        reason,
+        description,
+        suggestions: suggestion != null ? [suggestion] : null,
+    });
+}
+
 function run(func, config, fnType, mode, programContext, logger, filename, code) {
     var _a, _b;
     const contextIdentifiers = findContextIdentifiers(func);
@@ -52718,7 +54400,7 @@ function runWithEnvironment(func, env) {
     log({ kind: 'hir', name: 'PruneMaybeThrows', value: hir });
     validateContextVariableLValues(hir);
     validateUseMemo(hir).unwrap();
-    if (env.isInferredMemoEnabled &&
+    if (env.enableDropManualMemoization &&
         !env.config.enablePreserveExistingManualUseMemo &&
         !env.config.disableMemoizationForDebugging &&
         !env.config.enableChangeDetectionForDebugging) {
@@ -52744,7 +54426,7 @@ function runWithEnvironment(func, env) {
     log({ kind: 'hir', name: 'ConstantPropagation', value: hir });
     inferTypes(hir);
     log({ kind: 'hir', name: 'InferTypes', value: hir });
-    if (env.isInferredMemoEnabled) {
+    if (env.enableValidations) {
         if (env.config.validateHooksUsage) {
             validateHooksUsage(hir).unwrap();
         }
@@ -52765,10 +54447,14 @@ function runWithEnvironment(func, env) {
     log({ kind: 'hir', name: 'AnalyseFunctions', value: hir });
     const mutabilityAliasingErrors = inferMutationAliasingEffects(hir);
     log({ kind: 'hir', name: 'InferMutationAliasingEffects', value: hir });
-    if (env.isInferredMemoEnabled) {
+    if (env.enableValidations) {
         if (mutabilityAliasingErrors.isErr()) {
             throw mutabilityAliasingErrors.unwrapErr();
         }
+    }
+    if (env.outputMode === 'ssr') {
+        optimizeForSSR(hir);
+        log({ kind: 'hir', name: 'OptimizeForSSR', value: hir });
     }
     deadCodeElimination(hir);
     log({ kind: 'hir', name: 'DeadCodeElimination', value: hir });
@@ -52782,13 +54468,13 @@ function runWithEnvironment(func, env) {
         isFunctionExpression: false,
     });
     log({ kind: 'hir', name: 'InferMutationAliasingRanges', value: hir });
-    if (env.isInferredMemoEnabled) {
+    if (env.enableValidations) {
         if (mutabilityAliasingRangeErrors.isErr()) {
             throw mutabilityAliasingRangeErrors.unwrapErr();
         }
         validateLocalsNotReassignedAfterRender(hir);
     }
-    if (env.isInferredMemoEnabled) {
+    if (env.enableValidations) {
         if (env.config.assertValidMutableRanges) {
             assertValidMutableRanges(hir);
         }
@@ -52798,16 +54484,17 @@ function runWithEnvironment(func, env) {
         if (env.config.validateNoSetStateInRender) {
             validateNoSetStateInRender(hir).unwrap();
         }
-        if (env.config.validateNoDerivedComputationsInEffects) {
+        if (env.config.validateNoDerivedComputationsInEffects_exp &&
+            env.outputMode === 'lint') {
+            env.logErrors(validateNoDerivedComputationsInEffects_exp(hir));
+        }
+        else if (env.config.validateNoDerivedComputationsInEffects) {
             validateNoDerivedComputationsInEffects(hir);
         }
-        if (env.config.validateNoDerivedComputationsInEffects_exp) {
-            validateNoDerivedComputationsInEffects_exp(hir);
-        }
-        if (env.config.validateNoSetStateInEffects) {
+        if (env.config.validateNoSetStateInEffects && env.outputMode === 'lint') {
             env.logErrors(validateNoSetStateInEffects(hir, env));
         }
-        if (env.config.validateNoJSXInTryStatements) {
+        if (env.config.validateNoJSXInTryStatements && env.outputMode === 'lint') {
             env.logErrors(validateNoJSXInTryStatement(hir));
         }
         if (env.config.validateNoImpureFunctionsInRender) {
@@ -52817,16 +54504,24 @@ function runWithEnvironment(func, env) {
     }
     inferReactivePlaces(hir);
     log({ kind: 'hir', name: 'InferReactivePlaces', value: hir });
+    if (env.enableValidations) {
+        if (env.config.validateExhaustiveMemoizationDependencies ||
+            env.config.validateExhaustiveEffectDependencies) {
+            validateExhaustiveDependencies(hir).unwrap();
+        }
+    }
     rewriteInstructionKindsBasedOnReassignment(hir);
     log({
         kind: 'hir',
         name: 'RewriteInstructionKindsBasedOnReassignment',
         value: hir,
     });
-    if (env.isInferredMemoEnabled) {
-        if (env.config.validateStaticComponents) {
-            env.logErrors(validateStaticComponents(hir));
-        }
+    if (env.enableValidations &&
+        env.config.validateStaticComponents &&
+        env.outputMode === 'lint') {
+        env.logErrors(validateStaticComponents(hir));
+    }
+    if (env.enableMemoization) {
         inferReactiveScopeVariables(hir);
         log({ kind: 'hir', name: 'InferReactiveScopeVariables', value: hir });
     }
@@ -53034,6 +54729,9 @@ function runWithEnvironment(func, env) {
     for (const outlined of ast.outlined) {
         log({ kind: 'ast', name: 'Codegen (outlined)', value: outlined.fn });
     }
+    if (env.config.validateSourceLocations) {
+        validateSourceLocations(func, ast).unwrap();
+    }
     if (env.config.throwUnknownException__testonly) {
         throw new Error('unexpected error');
     }
@@ -53075,7 +54773,7 @@ function findProgramSuppressions(programComments, ruleNames, flowSuppressions) {
     let disableNextLinePattern = null;
     let disablePattern = null;
     let enablePattern = null;
-    if (ruleNames.length !== 0) {
+    if (ruleNames != null && ruleNames.length !== 0) {
         const rulePattern = `(${ruleNames.join('|')})`;
         disableNextLinePattern = new RegExp(`eslint-disable-next-line ${rulePattern}`);
         disablePattern = new RegExp(`eslint-disable ${rulePattern}`);
@@ -53403,7 +55101,7 @@ function isFilePartOfSources(sources, filename) {
     return false;
 }
 function compileProgram(program, pass) {
-    var _a;
+    var _a, _b;
     if (shouldSkipCompilation(program, pass)) {
         return null;
     }
@@ -53412,7 +55110,10 @@ function compileProgram(program, pass) {
         handleError(restrictedImportsErr, pass, null);
         return null;
     }
-    const suppressions = findProgramSuppressions(pass.comments, (_a = pass.opts.eslintSuppressionRules) !== null && _a !== void 0 ? _a : DEFAULT_ESLINT_SUPPRESSIONS, pass.opts.flowSuppressions);
+    const suppressions = findProgramSuppressions(pass.comments, pass.opts.environment.validateExhaustiveMemoizationDependencies &&
+        pass.opts.environment.validateHooksUsage
+        ? null
+        : ((_a = pass.opts.eslintSuppressionRules) !== null && _a !== void 0 ? _a : DEFAULT_ESLINT_SUPPRESSIONS), pass.opts.flowSuppressions);
     const programContext = new ProgramContext({
         program: program,
         opts: pass.opts,
@@ -53424,9 +55125,10 @@ function compileProgram(program, pass) {
     });
     const queue = findFunctionsToCompile(program, pass, programContext);
     const compiledFns = [];
+    const outputMode = (_b = pass.opts.outputMode) !== null && _b !== void 0 ? _b : (pass.opts.noEmit ? 'lint' : 'client');
     while (queue.length !== 0) {
         const current = queue.shift();
-        const compiled = processFn(current.fn, current.fnType, programContext);
+        const compiled = processFn(current.fn, current.fnType, programContext, outputMode);
         if (compiled != null) {
             for (const outlined of compiled.outlined) {
                 CompilerError.invariant(outlined.fn.outlined.length === 0, {
@@ -53508,7 +55210,7 @@ function findFunctionsToCompile(program, pass, programContext) {
     }, Object.assign(Object.assign({}, pass), { opts: Object.assign(Object.assign({}, pass.opts), pass.opts), filename: (_a = pass.filename) !== null && _a !== void 0 ? _a : null }));
     return queue;
 }
-function processFn(fn, fnType, programContext) {
+function processFn(fn, fnType, programContext, outputMode) {
     var _a, _b, _c, _d, _e, _f, _g, _h;
     let directives;
     if (fn.node.body.type !== 'BlockStatement') {
@@ -53529,7 +55231,7 @@ function processFn(fn, fnType, programContext) {
         };
     }
     let compiledFn;
-    const compileResult = tryCompileFunction(fn, fnType, programContext);
+    const compileResult = tryCompileFunction(fn, fnType, programContext, outputMode);
     if (compileResult.kind === 'error') {
         if (directives.optOut != null) {
             logError(compileResult.error, programContext, (_b = fn.node.loc) !== null && _b !== void 0 ? _b : null);
@@ -53537,11 +55239,16 @@ function processFn(fn, fnType, programContext) {
         else {
             handleError(compileResult.error, programContext, (_c = fn.node.loc) !== null && _c !== void 0 ? _c : null);
         }
-        const retryResult = retryCompileFunction(fn, fnType, programContext);
-        if (retryResult == null) {
+        if (outputMode === 'client') {
+            const retryResult = retryCompileFunction(fn, fnType, programContext);
+            if (retryResult == null) {
+                return null;
+            }
+            compiledFn = retryResult;
+        }
+        else {
             return null;
         }
-        compiledFn = retryResult;
     }
     else {
         compiledFn = compileResult.compiledFn;
@@ -53569,7 +55276,7 @@ function processFn(fn, fnType, programContext) {
     if (programContext.hasModuleScopeOptOut) {
         return null;
     }
-    else if (programContext.opts.noEmit) {
+    else if (programContext.opts.outputMode === 'lint') {
         for (const loc of compiledFn.inferredEffectLocations) {
             if (loc !== GeneratedSource) {
                 programContext.inferredEffectLocations.add(loc);
@@ -53585,7 +55292,7 @@ function processFn(fn, fnType, programContext) {
         return compiledFn;
     }
 }
-function tryCompileFunction(fn, fnType, programContext) {
+function tryCompileFunction(fn, fnType, programContext, outputMode) {
     const suppressionsInFunction = filterSuppressionsThatAffectFunction(programContext.suppressions, fn);
     if (suppressionsInFunction.length > 0) {
         return {
@@ -53596,7 +55303,7 @@ function tryCompileFunction(fn, fnType, programContext) {
     try {
         return {
             kind: 'compile',
-            compiledFn: compileFn(fn, programContext.opts.environment, fnType, 'all_features', programContext, programContext.opts.logger, programContext.filename, programContext.code),
+            compiledFn: compileFn(fn, programContext.opts.environment, fnType, outputMode, programContext, programContext.opts.logger, programContext.filename, programContext.code),
         };
     }
     catch (err) {
@@ -53609,7 +55316,7 @@ function retryCompileFunction(fn, fnType, programContext) {
         return null;
     }
     try {
-        const retryResult = compileFn(fn, environment, fnType, 'no_inferred_memo', programContext, programContext.opts.logger, programContext.filename, programContext.code);
+        const retryResult = compileFn(fn, environment, fnType, 'client-no-memo', programContext, programContext.opts.logger, programContext.filename, programContext.code);
         if (!retryResult.hasFireRewrite && !retryResult.hasInferredEffect) {
             return null;
         }
@@ -54285,6 +55992,12 @@ v4.z.enum([
     'annotation',
     'all',
 ]);
+v4.z.enum([
+    'ssr',
+    'client',
+    'client-no-memo',
+    'lint',
+]);
 const defaultOptions = {
     compilationMode: 'infer',
     panicThreshold: 'none',
@@ -54292,6 +56005,7 @@ const defaultOptions = {
     logger: null,
     gating: null,
     noEmit: false,
+    outputMode: null,
     dynamicGating: null,
     eslintSuppressionRules: null,
     flowSuppressions: true,
@@ -54710,7 +56424,7 @@ function BabelPluginReactCompiler(_babel) {
 
 var _LRUCache_values, _LRUCache_headIdx;
 const COMPILER_OPTIONS = {
-    noEmit: true,
+    outputMode: 'lint',
     panicThreshold: 'none',
     flowSuppressions: false,
     environment: {
@@ -54725,6 +56439,9 @@ const COMPILER_OPTIONS = {
         validateNoCapitalizedCalls: [],
         validateHooksUsage: true,
         validateNoDerivedComputationsInEffects: true,
+        enableUseKeyedState: true,
+        enableVerboseNoSetStateInEffect: true,
+        validateExhaustiveEffectDependencies: 'extra-only',
     },
 };
 const FLOW_SUPPRESSION_REGEX = /\$FlowFixMe\[([^\]]*)\]/g;
@@ -54965,6 +56682,7 @@ function makeRule(rule) {
             docs: {
                 description: rule.description,
                 recommended: rule.preset === LintRulePreset.Recommended,
+                url: `https://react.dev/reference/eslint-plugin-react-hooks/lints/${rule.name}`,
             },
             fixable: 'code',
             hasSuggestions: true,
@@ -58258,6 +59976,12 @@ const rule = {
                 if (isInsideComponentOrHook(node)) {
                     recordAllUseEffectEventFunctions(getScope(node));
                 }
+            },
+            ComponentDeclaration(node) {
+                recordAllUseEffectEventFunctions(getScope(node));
+            },
+            HookDeclaration(node) {
+                recordAllUseEffectEventFunctions(getScope(node));
             },
         };
     },
