@@ -8234,7 +8234,9 @@ module.exports = function ($$$config) {
             (viewTransitionCancelableChildren = []),
           viewTransitionCancelableChildren.push(
             instance,
-            oldName,
+            0 === viewTransitionHostInstanceIdx
+              ? oldName
+              : oldName + "_" + viewTransitionHostInstanceIdx,
             child.memoizedProps
           ));
         viewTransitionHostInstanceIdx++;
@@ -11762,6 +11764,15 @@ module.exports = function ($$$config) {
         break;
       case 5:
         resetHooksOnUnwind(next);
+        var fiber = next;
+        supportsHydration &&
+          fiber === hydrationParentFiber &&
+          (isHydrating
+            ? (popToNextHostParent(fiber),
+              5 === fiber.tag &&
+                null != fiber.stateNode &&
+                (nextHydratableInstance = fiber.stateNode))
+            : (popToNextHostParent(fiber), (isHydrating = !0)));
       default:
         unwindInterruptedWork(current, next),
           (next = workInProgress =
@@ -14083,7 +14094,7 @@ module.exports = function ($$$config) {
       version: rendererVersion,
       rendererPackageName: rendererPackageName,
       currentDispatcherRef: ReactSharedInternals,
-      reconcilerVersion: "19.3.0-www-modern-65eec428-20251218"
+      reconcilerVersion: "19.3.0-www-modern-4a3d993e-20260114"
     };
     null !== extraDevToolsConfig &&
       (internals.rendererConfig = extraDevToolsConfig);

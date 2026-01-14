@@ -8478,7 +8478,9 @@ module.exports = function ($$$config) {
             (viewTransitionCancelableChildren = []),
           viewTransitionCancelableChildren.push(
             instance,
-            oldName,
+            0 === viewTransitionHostInstanceIdx
+              ? oldName
+              : oldName + "_" + viewTransitionHostInstanceIdx,
             child.memoizedProps
           ));
         viewTransitionHostInstanceIdx++;
@@ -12010,7 +12012,16 @@ module.exports = function ($$$config) {
         );
         break;
       case 5:
-        resetHooksOnUnwind(next);
+        resetHooksOnUnwind(next),
+          (Component = next),
+          supportsHydration &&
+            Component === hydrationParentFiber &&
+            (isHydrating
+              ? (popToNextHostParent(Component),
+                5 === Component.tag &&
+                  null != Component.stateNode &&
+                  (nextHydratableInstance = Component.stateNode))
+              : (popToNextHostParent(Component), (isHydrating = !0)));
       default:
         unwindInterruptedWork(current, next),
           (next = workInProgress =
@@ -14366,7 +14377,7 @@ module.exports = function ($$$config) {
       version: rendererVersion,
       rendererPackageName: rendererPackageName,
       currentDispatcherRef: ReactSharedInternals,
-      reconcilerVersion: "19.3.0-www-classic-65eec428-20251218"
+      reconcilerVersion: "19.3.0-www-classic-4a3d993e-20260114"
     };
     null !== extraDevToolsConfig &&
       (internals.rendererConfig = extraDevToolsConfig);
