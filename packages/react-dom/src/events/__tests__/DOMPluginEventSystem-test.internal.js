@@ -2532,6 +2532,979 @@ describe('DOMPluginEventSystem', () => {
           });
 
           // @gate www
+          it('beforeblur and afterblur are called after a focused element is hidden', async () => {
+            const log = [];
+            // We have to persist here because we want to read relatedTarget later.
+            const onAfterBlur = jest.fn(e => {
+              e.persist();
+              log.push(e.type);
+            });
+            const onBeforeBlur = jest.fn(e => log.push(e.type));
+            const innerRef = React.createRef();
+            const innerRef2 = React.createRef();
+            const setAfterBlurHandle =
+              ReactDOM.unstable_createEventHandle('afterblur');
+            const setBeforeBlurHandle =
+              ReactDOM.unstable_createEventHandle('beforeblur');
+
+            const Component = ({show}) => {
+              const ref = React.useRef(null);
+
+              React.useEffect(() => {
+                const clear1 = setAfterBlurHandle(document, onAfterBlur);
+                const clear2 = setBeforeBlurHandle(ref.current, onBeforeBlur);
+
+                return () => {
+                  clear1();
+                  clear2();
+                };
+              });
+
+              return (
+                <div ref={ref}>
+                  <React.Activity mode={show ? 'visible' : 'hidden'}>
+                    <input ref={innerRef} />
+                  </React.Activity>
+                  <div ref={innerRef2} />
+                </div>
+              );
+            };
+
+            const root = ReactDOMClient.createRoot(container);
+            await act(() => {
+              root.render(<Component show={true} />);
+            });
+
+            const inner = innerRef.current;
+            const target = createEventTarget(inner);
+            target.focus();
+            expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+            expect(onAfterBlur).toHaveBeenCalledTimes(0);
+
+            await act(() => {
+              root.render(<Component show={false} />);
+            });
+
+            if (gate('enableEventAPIActivityFix')) {
+              expect(onBeforeBlur).toHaveBeenCalledTimes(1);
+              expect(onAfterBlur).toHaveBeenCalledTimes(1);
+              expect(onAfterBlur).toHaveBeenCalledWith(
+                expect.objectContaining({relatedTarget: inner}),
+              );
+              expect(log).toEqual(['beforeblur', 'afterblur']);
+            } else {
+              expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+              expect(onAfterBlur).toHaveBeenCalledTimes(0);
+              expect(log).toEqual([]);
+            }
+          });
+
+          // @gate www
+          it('beforeblur and afterblur are called after a nested focused element is hidden', async () => {
+            const log = [];
+            // We have to persist here because we want to read relatedTarget later.
+            const onAfterBlur = jest.fn(e => {
+              e.persist();
+              log.push(e.type);
+            });
+            const onBeforeBlur = jest.fn(e => log.push(e.type));
+            const innerRef = React.createRef();
+            const innerRef2 = React.createRef();
+            const setAfterBlurHandle =
+              ReactDOM.unstable_createEventHandle('afterblur');
+            const setBeforeBlurHandle =
+              ReactDOM.unstable_createEventHandle('beforeblur');
+
+            const Component = ({show}) => {
+              const ref = React.useRef(null);
+
+              React.useEffect(() => {
+                const clear1 = setAfterBlurHandle(document, onAfterBlur);
+                const clear2 = setBeforeBlurHandle(ref.current, onBeforeBlur);
+
+                return () => {
+                  clear1();
+                  clear2();
+                };
+              });
+
+              return (
+                <div ref={ref}>
+                  <React.Activity mode={show ? 'visible' : 'hidden'}>
+                    <div>
+                      <input ref={innerRef} />
+                    </div>
+                  </React.Activity>
+                  <div ref={innerRef2} />
+                </div>
+              );
+            };
+
+            const root = ReactDOMClient.createRoot(container);
+            await act(() => {
+              root.render(<Component show={true} />);
+            });
+
+            const inner = innerRef.current;
+            const target = createEventTarget(inner);
+            target.focus();
+            expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+            expect(onAfterBlur).toHaveBeenCalledTimes(0);
+
+            await act(() => {
+              root.render(<Component show={false} />);
+            });
+
+            if (gate('enableEventAPIActivityFix')) {
+              expect(onBeforeBlur).toHaveBeenCalledTimes(1);
+              expect(onAfterBlur).toHaveBeenCalledTimes(1);
+              expect(onAfterBlur).toHaveBeenCalledWith(
+                expect.objectContaining({relatedTarget: inner}),
+              );
+              expect(log).toEqual(['beforeblur', 'afterblur']);
+            } else {
+              expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+              expect(onAfterBlur).toHaveBeenCalledTimes(0);
+              expect(log).toEqual([]);
+            }
+          });
+
+          // @gate www
+          it('beforeblur should skip handlers from a hidden subtree after the focused element is hidden via Activity', async () => {
+            const onBeforeBlur = jest.fn();
+            const innerRef = React.createRef();
+            const innerRef2 = React.createRef();
+            const setBeforeBlurHandle =
+              ReactDOM.unstable_createEventHandle('beforeblur');
+            const ref2 = React.createRef();
+
+            const Component = ({show}) => {
+              const ref = React.useRef(null);
+
+              React.useEffect(() => {
+                const clear1 = setBeforeBlurHandle(ref.current, onBeforeBlur);
+                let clear2;
+                if (ref2.current) {
+                  clear2 = setBeforeBlurHandle(ref2.current, onBeforeBlur);
+                }
+
+                return () => {
+                  clear1();
+                  if (clear2) {
+                    clear2();
+                  }
+                };
+              });
+
+              return (
+                <div ref={ref}>
+                  <React.Activity mode={show ? 'visible' : 'hidden'}>
+                    <div ref={ref2}>
+                      <input ref={innerRef} />
+                    </div>
+                  </React.Activity>
+                  <div ref={innerRef2} />
+                </div>
+              );
+            };
+
+            const root = ReactDOMClient.createRoot(container);
+            await act(() => {
+              root.render(<Component show={true} />);
+            });
+
+            const inner = innerRef.current;
+            const target = createEventTarget(inner);
+            target.focus();
+            expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+
+            await act(() => {
+              root.render(<Component show={false} />);
+            });
+
+            if (gate('enableEventAPIActivityFix')) {
+              // The handler on ref2 (inside Activity) should be skipped since it's being hidden
+              expect(onBeforeBlur).toHaveBeenCalledTimes(1);
+            } else {
+              // Without the fix, blur events aren't fired when Activity is hidden
+              expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+            }
+          });
+
+          // @gate www && enableLegacyHidden
+          it('beforeblur and afterblur are not called after a focused element is hidden inside LegacyHidden', async () => {
+            const log = [];
+            // We have to persist here because we want to read relatedTarget later.
+            const onAfterBlur = jest.fn(e => {
+              e.persist();
+              log.push(e.type);
+            });
+            const onBeforeBlur = jest.fn(e => log.push(e.type));
+            const innerRef = React.createRef();
+            const innerRef2 = React.createRef();
+            const setAfterBlurHandle =
+              ReactDOM.unstable_createEventHandle('afterblur');
+            const setBeforeBlurHandle =
+              ReactDOM.unstable_createEventHandle('beforeblur');
+            const LegacyHidden = React.unstable_LegacyHidden;
+
+            const Component = ({show}) => {
+              const ref = React.useRef(null);
+
+              React.useEffect(() => {
+                const clear1 = setAfterBlurHandle(document, onAfterBlur);
+                const clear2 = setBeforeBlurHandle(ref.current, onBeforeBlur);
+
+                return () => {
+                  clear1();
+                  clear2();
+                };
+              });
+
+              return (
+                <div ref={ref}>
+                  <LegacyHidden mode={show ? 'visible' : 'hidden'}>
+                    <input ref={innerRef} />
+                  </LegacyHidden>
+                  <div ref={innerRef2} />
+                </div>
+              );
+            };
+
+            const root = ReactDOMClient.createRoot(container);
+            await act(() => {
+              root.render(<Component show={true} />);
+            });
+
+            const inner = innerRef.current;
+            const target = createEventTarget(inner);
+            target.focus();
+            expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+            expect(onAfterBlur).toHaveBeenCalledTimes(0);
+
+            await act(() => {
+              root.render(<Component show={false} />);
+            });
+
+            // LegacyHidden does not trigger blur events when hiding
+            expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+            expect(onAfterBlur).toHaveBeenCalledTimes(0);
+            expect(log).toEqual([]);
+          });
+
+          // @gate www && enableLegacyHidden
+          it('beforeblur and afterblur are not called after a nested focused element is hidden inside LegacyHidden', async () => {
+            const log = [];
+            // We have to persist here because we want to read relatedTarget later.
+            const onAfterBlur = jest.fn(e => {
+              e.persist();
+              log.push(e.type);
+            });
+            const onBeforeBlur = jest.fn(e => log.push(e.type));
+            const innerRef = React.createRef();
+            const innerRef2 = React.createRef();
+            const setAfterBlurHandle =
+              ReactDOM.unstable_createEventHandle('afterblur');
+            const setBeforeBlurHandle =
+              ReactDOM.unstable_createEventHandle('beforeblur');
+            const LegacyHidden = React.unstable_LegacyHidden;
+
+            const Component = ({show}) => {
+              const ref = React.useRef(null);
+
+              React.useEffect(() => {
+                const clear1 = setAfterBlurHandle(document, onAfterBlur);
+                const clear2 = setBeforeBlurHandle(ref.current, onBeforeBlur);
+
+                return () => {
+                  clear1();
+                  clear2();
+                };
+              });
+
+              return (
+                <div ref={ref}>
+                  <LegacyHidden mode={show ? 'visible' : 'hidden'}>
+                    <div>
+                      <input ref={innerRef} />
+                    </div>
+                  </LegacyHidden>
+                  <div ref={innerRef2} />
+                </div>
+              );
+            };
+
+            const root = ReactDOMClient.createRoot(container);
+            await act(() => {
+              root.render(<Component show={true} />);
+            });
+
+            const inner = innerRef.current;
+            const target = createEventTarget(inner);
+            target.focus();
+            expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+            expect(onAfterBlur).toHaveBeenCalledTimes(0);
+
+            await act(() => {
+              root.render(<Component show={false} />);
+            });
+
+            // LegacyHidden does not trigger blur events when hiding
+            expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+            expect(onAfterBlur).toHaveBeenCalledTimes(0);
+            expect(log).toEqual([]);
+          });
+
+          // @gate www && enableLegacyHidden
+          it('beforeblur is not called after the focused element is hidden inside LegacyHidden', async () => {
+            const onBeforeBlur = jest.fn();
+            const innerRef = React.createRef();
+            const innerRef2 = React.createRef();
+            const setBeforeBlurHandle =
+              ReactDOM.unstable_createEventHandle('beforeblur');
+            const ref2 = React.createRef();
+            const LegacyHidden = React.unstable_LegacyHidden;
+
+            const Component = ({show}) => {
+              const ref = React.useRef(null);
+
+              React.useEffect(() => {
+                const clear1 = setBeforeBlurHandle(ref.current, onBeforeBlur);
+                let clear2;
+                if (ref2.current) {
+                  clear2 = setBeforeBlurHandle(ref2.current, onBeforeBlur);
+                }
+
+                return () => {
+                  clear1();
+                  if (clear2) {
+                    clear2();
+                  }
+                };
+              });
+
+              return (
+                <div ref={ref}>
+                  <LegacyHidden mode={show ? 'visible' : 'hidden'}>
+                    <div ref={ref2}>
+                      <input ref={innerRef} />
+                    </div>
+                  </LegacyHidden>
+                  <div ref={innerRef2} />
+                </div>
+              );
+            };
+
+            const root = ReactDOMClient.createRoot(container);
+            await act(() => {
+              root.render(<Component show={true} />);
+            });
+
+            const inner = innerRef.current;
+            const target = createEventTarget(inner);
+            target.focus();
+            expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+
+            await act(() => {
+              root.render(<Component show={false} />);
+            });
+
+            // LegacyHidden does not trigger blur events when hiding
+            expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+          });
+
+          // @gate www && enableLegacyHidden
+          it('beforeblur is called when Activity hides a focused element nested inside LegacyHidden', async () => {
+            // <Activity><LegacyHidden><input></LegacyHidden></Activity>
+            // Hiding Activity (outer) should trigger blur
+            const onBeforeBlur = jest.fn();
+            const innerRef = React.createRef();
+            const setBeforeBlurHandle =
+              ReactDOM.unstable_createEventHandle('beforeblur');
+            const LegacyHidden = React.unstable_LegacyHidden;
+
+            const Component = ({showActivity, showLegacyHidden}) => {
+              const ref = React.useRef(null);
+
+              React.useEffect(() => {
+                const clear = setBeforeBlurHandle(ref.current, onBeforeBlur);
+                return () => clear();
+              });
+
+              return (
+                <div ref={ref}>
+                  <React.Activity mode={showActivity ? 'visible' : 'hidden'}>
+                    <LegacyHidden
+                      mode={showLegacyHidden ? 'visible' : 'hidden'}>
+                      <input ref={innerRef} />
+                    </LegacyHidden>
+                  </React.Activity>
+                </div>
+              );
+            };
+
+            const root = ReactDOMClient.createRoot(container);
+            await act(() => {
+              root.render(
+                <Component showActivity={true} showLegacyHidden={true} />,
+              );
+            });
+
+            const inner = innerRef.current;
+            const target = createEventTarget(inner);
+            target.focus();
+            expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+
+            // Hide Activity (outer) - should trigger blur
+            await act(() => {
+              root.render(
+                <Component showActivity={false} showLegacyHidden={true} />,
+              );
+            });
+
+            if (gate('enableEventAPIActivityFix')) {
+              expect(onBeforeBlur).toHaveBeenCalledTimes(1);
+            } else {
+              expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+            }
+          });
+
+          // @gate www && enableLegacyHidden
+          it('beforeblur is not called when LegacyHidden hides a focused element nested inside Activity', async () => {
+            // <Activity><LegacyHidden><input></LegacyHidden></Activity>
+            // Hiding LegacyHidden (inner) should NOT trigger blur
+            const onBeforeBlur = jest.fn();
+            const innerRef = React.createRef();
+            const setBeforeBlurHandle =
+              ReactDOM.unstable_createEventHandle('beforeblur');
+            const LegacyHidden = React.unstable_LegacyHidden;
+
+            const Component = ({showActivity, showLegacyHidden}) => {
+              const ref = React.useRef(null);
+
+              React.useEffect(() => {
+                const clear = setBeforeBlurHandle(ref.current, onBeforeBlur);
+                return () => clear();
+              });
+
+              return (
+                <div ref={ref}>
+                  <React.Activity mode={showActivity ? 'visible' : 'hidden'}>
+                    <LegacyHidden
+                      mode={showLegacyHidden ? 'visible' : 'hidden'}>
+                      <input ref={innerRef} />
+                    </LegacyHidden>
+                  </React.Activity>
+                </div>
+              );
+            };
+
+            const root = ReactDOMClient.createRoot(container);
+            await act(() => {
+              root.render(
+                <Component showActivity={true} showLegacyHidden={true} />,
+              );
+            });
+
+            const inner = innerRef.current;
+            const target = createEventTarget(inner);
+            target.focus();
+            expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+
+            // Hide LegacyHidden (inner) - should NOT trigger blur
+            await act(() => {
+              root.render(
+                <Component showActivity={true} showLegacyHidden={false} />,
+              );
+            });
+
+            // LegacyHidden does not trigger blur events
+            expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+          });
+
+          // @gate www && enableLegacyHidden
+          it('beforeblur is called once when both Activity and LegacyHidden hide simultaneously (Activity outer)', async () => {
+            // <Activity><LegacyHidden><input></LegacyHidden></Activity>
+            // Hiding both at once - Activity should trigger blur
+            const onBeforeBlur = jest.fn();
+            const innerRef = React.createRef();
+            const setBeforeBlurHandle =
+              ReactDOM.unstable_createEventHandle('beforeblur');
+            const LegacyHidden = React.unstable_LegacyHidden;
+
+            const Component = ({showActivity, showLegacyHidden}) => {
+              const ref = React.useRef(null);
+
+              React.useEffect(() => {
+                const clear = setBeforeBlurHandle(ref.current, onBeforeBlur);
+                return () => clear();
+              });
+
+              return (
+                <div ref={ref}>
+                  <React.Activity mode={showActivity ? 'visible' : 'hidden'}>
+                    <LegacyHidden
+                      mode={showLegacyHidden ? 'visible' : 'hidden'}>
+                      <input ref={innerRef} />
+                    </LegacyHidden>
+                  </React.Activity>
+                </div>
+              );
+            };
+
+            const root = ReactDOMClient.createRoot(container);
+            await act(() => {
+              root.render(
+                <Component showActivity={true} showLegacyHidden={true} />,
+              );
+            });
+
+            const inner = innerRef.current;
+            const target = createEventTarget(inner);
+            target.focus();
+            expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+
+            // Hide both at once
+            await act(() => {
+              root.render(
+                <Component showActivity={false} showLegacyHidden={false} />,
+              );
+            });
+
+            if (gate('enableEventAPIActivityFix')) {
+              // Activity (outer) triggers blur, LegacyHidden does not
+              expect(onBeforeBlur).toHaveBeenCalledTimes(1);
+            } else {
+              expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+            }
+          });
+
+          // @gate www && enableLegacyHidden
+          it('beforeblur is called when Activity hides after LegacyHidden already hid (Activity outer)', async () => {
+            // <Activity><LegacyHidden><input></LegacyHidden></Activity>
+            // First hide LegacyHidden, then hide Activity
+            const onBeforeBlur = jest.fn();
+            const innerRef = React.createRef();
+            const setBeforeBlurHandle =
+              ReactDOM.unstable_createEventHandle('beforeblur');
+            const LegacyHidden = React.unstable_LegacyHidden;
+
+            const Component = ({showActivity, showLegacyHidden}) => {
+              const ref = React.useRef(null);
+
+              React.useEffect(() => {
+                const clear = setBeforeBlurHandle(ref.current, onBeforeBlur);
+                return () => clear();
+              });
+
+              return (
+                <div ref={ref}>
+                  <React.Activity mode={showActivity ? 'visible' : 'hidden'}>
+                    <LegacyHidden
+                      mode={showLegacyHidden ? 'visible' : 'hidden'}>
+                      <input ref={innerRef} />
+                    </LegacyHidden>
+                  </React.Activity>
+                </div>
+              );
+            };
+
+            const root = ReactDOMClient.createRoot(container);
+            await act(() => {
+              root.render(
+                <Component showActivity={true} showLegacyHidden={true} />,
+              );
+            });
+
+            const inner = innerRef.current;
+            const target = createEventTarget(inner);
+            target.focus();
+            expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+
+            // First hide LegacyHidden (inner) - should NOT trigger blur
+            await act(() => {
+              root.render(
+                <Component showActivity={true} showLegacyHidden={false} />,
+              );
+            });
+            expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+
+            // Then hide Activity (outer) - should trigger blur
+            await act(() => {
+              root.render(
+                <Component showActivity={false} showLegacyHidden={false} />,
+              );
+            });
+
+            if (gate('enableEventAPIActivityFix')) {
+              expect(onBeforeBlur).toHaveBeenCalledTimes(1);
+            } else {
+              expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+            }
+          });
+
+          // @gate www && enableLegacyHidden
+          it('beforeblur is not called when LegacyHidden hides after Activity already hid (Activity outer)', async () => {
+            // <Activity><LegacyHidden><input></LegacyHidden></Activity>
+            // First hide Activity, then hide LegacyHidden
+            const onBeforeBlur = jest.fn();
+            const innerRef = React.createRef();
+            const setBeforeBlurHandle =
+              ReactDOM.unstable_createEventHandle('beforeblur');
+            const LegacyHidden = React.unstable_LegacyHidden;
+
+            const Component = ({showActivity, showLegacyHidden}) => {
+              const ref = React.useRef(null);
+
+              React.useEffect(() => {
+                const clear = setBeforeBlurHandle(ref.current, onBeforeBlur);
+                return () => clear();
+              });
+
+              return (
+                <div ref={ref}>
+                  <React.Activity mode={showActivity ? 'visible' : 'hidden'}>
+                    <LegacyHidden
+                      mode={showLegacyHidden ? 'visible' : 'hidden'}>
+                      <input ref={innerRef} />
+                    </LegacyHidden>
+                  </React.Activity>
+                </div>
+              );
+            };
+
+            const root = ReactDOMClient.createRoot(container);
+            await act(() => {
+              root.render(
+                <Component showActivity={true} showLegacyHidden={true} />,
+              );
+            });
+
+            const inner = innerRef.current;
+            const target = createEventTarget(inner);
+            target.focus();
+            expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+
+            // First hide Activity (outer) - should trigger blur
+            await act(() => {
+              root.render(
+                <Component showActivity={false} showLegacyHidden={true} />,
+              );
+            });
+
+            if (gate('enableEventAPIActivityFix')) {
+              expect(onBeforeBlur).toHaveBeenCalledTimes(1);
+            } else {
+              expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+            }
+
+            onBeforeBlur.mockClear();
+
+            // Then hide LegacyHidden (inner) - should NOT trigger another blur
+            await act(() => {
+              root.render(
+                <Component showActivity={false} showLegacyHidden={false} />,
+              );
+            });
+
+            // No additional blur event
+            expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+          });
+
+          // @gate www && enableLegacyHidden
+          it('beforeblur is not called when LegacyHidden (outer) hides a focused element nested inside Activity', async () => {
+            // <LegacyHidden><Activity><input></Activity></LegacyHidden>
+            // Hiding LegacyHidden (outer) should NOT trigger blur
+            const onBeforeBlur = jest.fn();
+            const innerRef = React.createRef();
+            const setBeforeBlurHandle =
+              ReactDOM.unstable_createEventHandle('beforeblur');
+            const LegacyHidden = React.unstable_LegacyHidden;
+
+            const Component = ({showActivity, showLegacyHidden}) => {
+              const ref = React.useRef(null);
+
+              React.useEffect(() => {
+                const clear = setBeforeBlurHandle(ref.current, onBeforeBlur);
+                return () => clear();
+              });
+
+              return (
+                <div ref={ref}>
+                  <LegacyHidden mode={showLegacyHidden ? 'visible' : 'hidden'}>
+                    <React.Activity mode={showActivity ? 'visible' : 'hidden'}>
+                      <input ref={innerRef} />
+                    </React.Activity>
+                  </LegacyHidden>
+                </div>
+              );
+            };
+
+            const root = ReactDOMClient.createRoot(container);
+            await act(() => {
+              root.render(
+                <Component showActivity={true} showLegacyHidden={true} />,
+              );
+            });
+
+            const inner = innerRef.current;
+            const target = createEventTarget(inner);
+            target.focus();
+            expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+
+            // Hide LegacyHidden (outer) - should NOT trigger blur
+            await act(() => {
+              root.render(
+                <Component showActivity={true} showLegacyHidden={false} />,
+              );
+            });
+
+            // LegacyHidden does not trigger blur events
+            expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+          });
+
+          // @gate www && enableLegacyHidden
+          it('beforeblur is called when Activity (inner) hides a focused element nested inside LegacyHidden', async () => {
+            // <LegacyHidden><Activity><input></Activity></LegacyHidden>
+            // Hiding Activity (inner) should trigger blur
+            const onBeforeBlur = jest.fn();
+            const innerRef = React.createRef();
+            const setBeforeBlurHandle =
+              ReactDOM.unstable_createEventHandle('beforeblur');
+            const LegacyHidden = React.unstable_LegacyHidden;
+
+            const Component = ({showActivity, showLegacyHidden}) => {
+              const ref = React.useRef(null);
+
+              React.useEffect(() => {
+                const clear = setBeforeBlurHandle(ref.current, onBeforeBlur);
+                return () => clear();
+              });
+
+              return (
+                <div ref={ref}>
+                  <LegacyHidden mode={showLegacyHidden ? 'visible' : 'hidden'}>
+                    <React.Activity mode={showActivity ? 'visible' : 'hidden'}>
+                      <input ref={innerRef} />
+                    </React.Activity>
+                  </LegacyHidden>
+                </div>
+              );
+            };
+
+            const root = ReactDOMClient.createRoot(container);
+            await act(() => {
+              root.render(
+                <Component showActivity={true} showLegacyHidden={true} />,
+              );
+            });
+
+            const inner = innerRef.current;
+            const target = createEventTarget(inner);
+            target.focus();
+            expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+
+            // Hide Activity (inner) - should trigger blur
+            await act(() => {
+              root.render(
+                <Component showActivity={false} showLegacyHidden={true} />,
+              );
+            });
+
+            if (gate('enableEventAPIActivityFix')) {
+              expect(onBeforeBlur).toHaveBeenCalledTimes(1);
+            } else {
+              expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+            }
+          });
+
+          // @gate www && enableLegacyHidden
+          it('beforeblur is called once when both Activity and LegacyHidden hide simultaneously (LegacyHidden outer)', async () => {
+            // <LegacyHidden><Activity><input></Activity></LegacyHidden>
+            // Hiding both at once - Activity should trigger blur
+            const onBeforeBlur = jest.fn();
+            const innerRef = React.createRef();
+            const setBeforeBlurHandle =
+              ReactDOM.unstable_createEventHandle('beforeblur');
+            const LegacyHidden = React.unstable_LegacyHidden;
+
+            const Component = ({showActivity, showLegacyHidden}) => {
+              const ref = React.useRef(null);
+
+              React.useEffect(() => {
+                const clear = setBeforeBlurHandle(ref.current, onBeforeBlur);
+                return () => clear();
+              });
+
+              return (
+                <div ref={ref}>
+                  <LegacyHidden mode={showLegacyHidden ? 'visible' : 'hidden'}>
+                    <React.Activity mode={showActivity ? 'visible' : 'hidden'}>
+                      <input ref={innerRef} />
+                    </React.Activity>
+                  </LegacyHidden>
+                </div>
+              );
+            };
+
+            const root = ReactDOMClient.createRoot(container);
+            await act(() => {
+              root.render(
+                <Component showActivity={true} showLegacyHidden={true} />,
+              );
+            });
+
+            const inner = innerRef.current;
+            const target = createEventTarget(inner);
+            target.focus();
+            expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+
+            // Hide both at once
+            await act(() => {
+              root.render(
+                <Component showActivity={false} showLegacyHidden={false} />,
+              );
+            });
+
+            if (gate('enableEventAPIActivityFix')) {
+              // Activity triggers blur, LegacyHidden does not
+              expect(onBeforeBlur).toHaveBeenCalledTimes(1);
+            } else {
+              expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+            }
+          });
+
+          // @gate www && enableLegacyHidden
+          it('beforeblur is called when Activity hides after LegacyHidden already hid (LegacyHidden outer)', async () => {
+            // <LegacyHidden><Activity><input></Activity></LegacyHidden>
+            // First hide LegacyHidden, then hide Activity
+            const onBeforeBlur = jest.fn();
+            const innerRef = React.createRef();
+            const setBeforeBlurHandle =
+              ReactDOM.unstable_createEventHandle('beforeblur');
+            const LegacyHidden = React.unstable_LegacyHidden;
+
+            const Component = ({showActivity, showLegacyHidden}) => {
+              const ref = React.useRef(null);
+
+              React.useEffect(() => {
+                const clear = setBeforeBlurHandle(ref.current, onBeforeBlur);
+                return () => clear();
+              });
+
+              return (
+                <div ref={ref}>
+                  <LegacyHidden mode={showLegacyHidden ? 'visible' : 'hidden'}>
+                    <React.Activity mode={showActivity ? 'visible' : 'hidden'}>
+                      <input ref={innerRef} />
+                    </React.Activity>
+                  </LegacyHidden>
+                </div>
+              );
+            };
+
+            const root = ReactDOMClient.createRoot(container);
+            await act(() => {
+              root.render(
+                <Component showActivity={true} showLegacyHidden={true} />,
+              );
+            });
+
+            const inner = innerRef.current;
+            const target = createEventTarget(inner);
+            target.focus();
+            expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+
+            // First hide LegacyHidden (outer) - should NOT trigger blur
+            await act(() => {
+              root.render(
+                <Component showActivity={true} showLegacyHidden={false} />,
+              );
+            });
+            expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+
+            // Then hide Activity (inner) - should trigger blur
+            await act(() => {
+              root.render(
+                <Component showActivity={false} showLegacyHidden={false} />,
+              );
+            });
+
+            if (gate('enableEventAPIActivityFix')) {
+              expect(onBeforeBlur).toHaveBeenCalledTimes(1);
+            } else {
+              expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+            }
+          });
+
+          // @gate www && enableLegacyHidden
+          it('beforeblur is not called when LegacyHidden hides after Activity already hid (LegacyHidden outer)', async () => {
+            // <LegacyHidden><Activity><input></Activity></LegacyHidden>
+            // First hide Activity, then hide LegacyHidden
+            const onBeforeBlur = jest.fn();
+            const innerRef = React.createRef();
+            const setBeforeBlurHandle =
+              ReactDOM.unstable_createEventHandle('beforeblur');
+            const LegacyHidden = React.unstable_LegacyHidden;
+
+            const Component = ({showActivity, showLegacyHidden}) => {
+              const ref = React.useRef(null);
+
+              React.useEffect(() => {
+                const clear = setBeforeBlurHandle(ref.current, onBeforeBlur);
+                return () => clear();
+              });
+
+              return (
+                <div ref={ref}>
+                  <LegacyHidden mode={showLegacyHidden ? 'visible' : 'hidden'}>
+                    <React.Activity mode={showActivity ? 'visible' : 'hidden'}>
+                      <input ref={innerRef} />
+                    </React.Activity>
+                  </LegacyHidden>
+                </div>
+              );
+            };
+
+            const root = ReactDOMClient.createRoot(container);
+            await act(() => {
+              root.render(
+                <Component showActivity={true} showLegacyHidden={true} />,
+              );
+            });
+
+            const inner = innerRef.current;
+            const target = createEventTarget(inner);
+            target.focus();
+            expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+
+            // First hide Activity (inner) - should trigger blur
+            await act(() => {
+              root.render(
+                <Component showActivity={false} showLegacyHidden={true} />,
+              );
+            });
+
+            if (gate('enableEventAPIActivityFix')) {
+              expect(onBeforeBlur).toHaveBeenCalledTimes(1);
+            } else {
+              expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+            }
+
+            onBeforeBlur.mockClear();
+
+            // Then hide LegacyHidden (outer) - should NOT trigger another blur
+            await act(() => {
+              root.render(
+                <Component showActivity={false} showLegacyHidden={false} />,
+              );
+            });
+
+            // No additional blur event
+            expect(onBeforeBlur).toHaveBeenCalledTimes(0);
+          });
+
+          // @gate www
           it('beforeblur and afterblur are called after a nested focused element is unmounted', async () => {
             const log = [];
             // We have to persist here because we want to read relatedTarget later.
