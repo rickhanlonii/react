@@ -21,7 +21,6 @@ export const enableNoCloningMemoCache: boolean = __VARIANT__;
 export const enableObjectFiber: boolean = __VARIANT__;
 export const enableRetryLaneExpiration: boolean = __VARIANT__;
 export const enableTransitionTracing: boolean = __VARIANT__;
-export const renameElementSymbol: boolean = __VARIANT__;
 export const retryLaneExpirationMs = 5000;
 export const syncLaneExpirationMs = 250;
 export const transitionLaneExpirationMs = 5000;
@@ -32,7 +31,6 @@ export const enableInfiniteRenderLoopDetection: boolean = __VARIANT__;
 
 export const enableFastAddPropertiesInDiffing: boolean = __VARIANT__;
 export const enableViewTransition: boolean = __VARIANT__;
-export const enableComponentPerformanceTrack: boolean = __VARIANT__;
 export const enableScrollEndPolyfill: boolean = __VARIANT__;
 export const enableFragmentRefs: boolean = __VARIANT__;
 export const enableFragmentRefsScrollIntoView: boolean = __VARIANT__;

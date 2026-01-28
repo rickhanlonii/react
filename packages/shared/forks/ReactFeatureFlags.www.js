@@ -26,12 +26,10 @@ export const {
   enableRetryLaneExpiration,
   enableTransitionTracing,
   enableTrustedTypesIntegration,
-  renameElementSymbol,
   retryLaneExpirationMs,
   syncLaneExpirationMs,
   transitionLaneExpirationMs,
   enableViewTransition,
-  enableComponentPerformanceTrack,
   enableScrollEndPolyfill,
   enableFragmentRefs,
   enableFragmentRefsScrollIntoView,
@@ -58,7 +56,7 @@ export const enableYieldingBeforePassive: boolean = false;
 
 export const enableThrottledScheduling: boolean = false;
 
-export const enableHydrationLaneScheduling: boolean = true;
+export const enableComponentPerformanceTrack: boolean = true;
 
 export const enablePerformanceIssueReporting: boolean = false;
 
