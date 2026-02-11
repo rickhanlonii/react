@@ -1,0 +1,510 @@
+'use strict';
+
+// react-dom-native Host Config (Persistent Mode)
+//
+// This module implements the react-reconciler host config interface for
+// react-dom-native. It operates in persistent mode (clone-on-write),
+// delegating native operations to the bridge via $$ globals.
+
+// ---------------------------------------------------------------------------
+// Event priority constants — provided by the bridge
+// ---------------------------------------------------------------------------
+const DefaultEventPriority = 32;
+const DiscreteEventPriority = 2;
+const ContinuousEventPriority = 8;
+
+// ---------------------------------------------------------------------------
+// Module-level state
+// ---------------------------------------------------------------------------
+let currentUpdatePriority = DefaultEventPriority;
+
+// ---------------------------------------------------------------------------
+// Text element set — elements that create a text context for children
+// ---------------------------------------------------------------------------
+const TEXT_CONTEXT_ELEMENTS = new Set([
+  'p',
+  'span',
+  'strong',
+  'em',
+  'b',
+  'i',
+  'u',
+  's',
+  'a',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'label',
+  'li',
+]);
+
+// ---------------------------------------------------------------------------
+// Reconciler Mode Flags
+// ---------------------------------------------------------------------------
+exports.supportsPersistence = true;
+exports.supportsMutation = false;
+exports.supportsHydration = false;
+exports.supportsMicrotasks = true;
+
+// ---------------------------------------------------------------------------
+// Renderer Metadata
+// ---------------------------------------------------------------------------
+exports.isPrimaryRenderer = true;
+exports.warnsIfNotActing = true;
+exports.rendererPackageName = 'react-dom-native';
+exports.rendererVersion = '0.0.1';
+exports.extraDevToolsConfig = null;
+
+// ---------------------------------------------------------------------------
+// Tier 1: Core — Instance Creation
+// ---------------------------------------------------------------------------
+
+exports.createInstance = function createInstance(
+  type,
+  props,
+  rootContainer,
+  hostContext,
+  internalHandle,
+) {
+  const nativeNode = $$createNode(
+    type,
+    rootContainer.surfaceId,
+    props,
+    hostContext.isInsideTextContext,
+    internalHandle,
+  );
+  return {
+    _nativeNode: nativeNode,
+    _nativeFamily: nativeNode._family || nativeNode,
+    _internalInstanceHandle: internalHandle,
+    type,
+    props,
+    children: [],
+  };
+};
+
+exports.createTextInstance = function createTextInstance(
+  text,
+  rootContainer,
+  hostContext,
+  internalHandle,
+) {
+  const nativeNode = $$createTextNode(
+    text,
+    rootContainer.surfaceId,
+    internalHandle,
+  );
+  return {
+    _nativeNode: nativeNode,
+    _nativeFamily: nativeNode._family || nativeNode,
+    _internalInstanceHandle: internalHandle,
+    text,
+  };
+};
+
+exports.appendInitialChild = function appendInitialChild(parentInstance, child) {
+  $$appendChild(parentInstance._nativeNode, child._nativeNode);
+  parentInstance.children.push(child);
+};
+
+exports.finalizeInitialChildren = function finalizeInitialChildren(
+  instance,
+  type,
+  props,
+  hostContext,
+) {
+  return false;
+};
+
+exports.shouldSetTextContent = function shouldSetTextContent(type, props) {
+  return false;
+};
+
+// ---------------------------------------------------------------------------
+// Tier 1: Core — Persistent Mode
+// ---------------------------------------------------------------------------
+
+exports.cloneInstance = function cloneInstance(
+  instance,
+  type,
+  oldProps,
+  newProps,
+  keepChildren,
+  recyclable,
+) {
+  let newNativeNode;
+  if (keepChildren) {
+    newNativeNode = $$cloneNodeWithNewProps(instance._nativeNode, newProps);
+  } else {
+    newNativeNode = $$cloneNodeWithNewChildrenAndProps(
+      instance._nativeNode,
+      undefined,
+      newProps,
+    );
+  }
+  return {
+    _nativeNode: newNativeNode,
+    _nativeFamily: instance._nativeFamily,
+    _internalInstanceHandle: instance._internalInstanceHandle,
+    type,
+    props: newProps,
+    children: keepChildren ? instance.children : [],
+  };
+};
+
+exports.cloneHiddenInstance = function cloneHiddenInstance(instance, type, props, internalHandle) {
+  const hiddenProps = {...props, style: {...(props.style || {}), display: 'none'}};
+  const newNativeNode = $$cloneNodeWithNewProps(
+    instance._nativeNode,
+    hiddenProps,
+  );
+  return {
+    _nativeNode: newNativeNode,
+    _nativeFamily: instance._nativeFamily,
+    _internalInstanceHandle: internalHandle,
+    type,
+    props: hiddenProps,
+    children: instance.children,
+  };
+};
+
+exports.cloneHiddenTextInstance = function cloneHiddenTextInstance(instance, text, internalHandle) {
+  const newNativeNode = $$cloneNodeWithNewProps(instance._nativeNode, {
+    text: '',
+    hidden: true,
+  });
+  return {
+    _nativeNode: newNativeNode,
+    _nativeFamily: instance._nativeFamily,
+    _internalInstanceHandle: internalHandle,
+    text: '',
+  };
+};
+
+exports.createContainerChildSet = function createContainerChildSet() {
+  return [];
+};
+
+exports.appendChildToContainerChildSet = function appendChildToContainerChildSet(childSet, child) {
+  childSet.push(child);
+};
+
+exports.finalizeContainerChildren = function finalizeContainerChildren(container, newChildren) {
+  // No-op — preparation happens in replaceContainerChildren
+};
+
+exports.replaceContainerChildren = function replaceContainerChildren(container, newChildren) {
+  const childNodes = newChildren.map(c => c._nativeNode);
+  $$completeRoot(container.surfaceId, childNodes);
+  container.currentTree = container.pendingTree;
+  container.pendingTree = null;
+};
+
+// ---------------------------------------------------------------------------
+// Tier 1: Core — Context
+// ---------------------------------------------------------------------------
+
+exports.getRootHostContext = function getRootHostContext() {
+  return {isInsideTextContext: false};
+};
+
+exports.getChildHostContext = function getChildHostContext(parentContext, type) {
+  if (TEXT_CONTEXT_ELEMENTS.has(type)) {
+    if (parentContext.isInsideTextContext) {
+      return parentContext;
+    }
+    return {isInsideTextContext: true};
+  }
+  if (parentContext.isInsideTextContext) {
+    return {isInsideTextContext: false};
+  }
+  return parentContext;
+};
+
+exports.getPublicInstance = function getPublicInstance(instance) {
+  return instance;
+};
+
+// ---------------------------------------------------------------------------
+// Tier 2: Simple Logic
+// ---------------------------------------------------------------------------
+
+exports.prepareForCommit = function prepareForCommit() {
+  return null;
+};
+
+exports.resetAfterCommit = function resetAfterCommit() {};
+
+exports.commitMount = function commitMount() {};
+
+exports.resetTextContent = function resetTextContent() {};
+
+exports.setCurrentUpdatePriority = function setCurrentUpdatePriority(priority) {
+  currentUpdatePriority = priority;
+};
+
+exports.getCurrentUpdatePriority = function getCurrentUpdatePriority() {
+  return currentUpdatePriority;
+};
+
+exports.resolveUpdatePriority = function resolveUpdatePriority() {
+  if (currentUpdatePriority !== DefaultEventPriority) {
+    return currentUpdatePriority;
+  }
+  return DefaultEventPriority;
+};
+
+exports.scheduleTimeout = setTimeout;
+exports.cancelTimeout = clearTimeout;
+exports.noTimeout = -1;
+
+exports.requestPostPaintCallback = function requestPostPaintCallback(callback) {
+  callback(Date.now());
+};
+
+// HostTransitionContext — React context object for form/transition status
+exports.HostTransitionContext = {
+  $$typeof: Symbol.for('react.context'),
+  Provider: null,
+  Consumer: null,
+  _currentValue: null,
+  _currentValue2: null,
+  _threadCount: 0,
+};
+
+exports.NotPendingTransition = null;
+
+exports.scheduleMicrotask = queueMicrotask;
+
+exports.resetFormInstance = function resetFormInstance() {};
+
+exports.bindToConsole = function bindToConsole(methodName, args) {
+  return Function.prototype.bind.apply(console[methodName], [
+    console,
+    ...args,
+  ]);
+};
+
+// ---------------------------------------------------------------------------
+// Tier 3: Stubs / No-ops
+// ---------------------------------------------------------------------------
+
+exports.trackSchedulerEvent = function trackSchedulerEvent() {};
+exports.resolveEventType = function resolveEventType() { return null; };
+exports.resolveEventTimeStamp = function resolveEventTimeStamp() { return -1.1; };
+exports.shouldAttemptEagerTransition = function shouldAttemptEagerTransition() { return false; };
+
+exports.getInstanceFromNode = function getInstanceFromNode() {
+  throw new Error('getInstanceFromNode: Not yet implemented');
+};
+
+exports.beforeActiveInstanceBlur = function beforeActiveInstanceBlur() {};
+exports.afterActiveInstanceBlur = function afterActiveInstanceBlur() {};
+exports.preparePortalMount = function preparePortalMount() {};
+exports.prepareScopeUpdate = function prepareScopeUpdate() {};
+
+exports.getInstanceFromScope = function getInstanceFromScope() {
+  throw new Error('getInstanceFromScope: Not yet implemented');
+};
+
+exports.detachDeletedInstance = function detachDeletedInstance() {};
+
+// Fragment instances
+exports.createFragmentInstance = function createFragmentInstance() { return null; };
+exports.updateFragmentInstanceFiber = function updateFragmentInstanceFiber() {};
+exports.commitNewChildToFragmentInstance = function commitNewChildToFragmentInstance() {};
+exports.deleteChildFromFragmentInstance = function deleteChildFromFragmentInstance() {};
+
+// Mutable clones (not needed)
+exports.cloneMutableInstance = function cloneMutableInstance() {
+  throw new Error('cloneMutableInstance: Not yet implemented');
+};
+exports.cloneMutableTextInstance = function cloneMutableTextInstance() {
+  throw new Error('cloneMutableTextInstance: Not yet implemented');
+};
+
+// Suspense commit
+exports.maySuspendCommit = function maySuspendCommit() { return false; };
+exports.maySuspendCommitOnUpdate = function maySuspendCommitOnUpdate() { return false; };
+exports.maySuspendCommitInSyncRender = function maySuspendCommitInSyncRender() { return false; };
+exports.preloadInstance = function preloadInstance() { return true; };
+exports.startSuspendingCommit = function startSuspendingCommit() { return null; };
+exports.suspendInstance = function suspendInstance() {};
+exports.suspendOnActiveViewTransition = function suspendOnActiveViewTransition() {};
+exports.waitForCommitToBeReady = function waitForCommitToBeReady() { return null; };
+exports.getSuspendedCommitReason = function getSuspendedCommitReason() { return null; };
+
+// View transitions
+exports.applyViewTransitionName = function applyViewTransitionName() {};
+exports.restoreViewTransitionName = function restoreViewTransitionName() {};
+exports.cancelViewTransitionName = function cancelViewTransitionName() {};
+exports.cancelRootViewTransitionName = function cancelRootViewTransitionName() {};
+exports.restoreRootViewTransitionName = function restoreRootViewTransitionName() {};
+
+exports.cloneRootViewTransitionContainer = function cloneRootViewTransitionContainer() {
+  throw new Error('cloneRootViewTransitionContainer: Not implemented');
+};
+exports.removeRootViewTransitionClone = function removeRootViewTransitionClone() {
+  throw new Error('removeRootViewTransitionClone: Not implemented');
+};
+
+exports.measureInstance = function measureInstance() { return null; };
+exports.measureClonedInstance = function measureClonedInstance() { return null; };
+exports.wasInstanceInViewport = function wasInstanceInViewport() { return true; };
+exports.hasInstanceChanged = function hasInstanceChanged() { return false; };
+exports.hasInstanceAffectedParent = function hasInstanceAffectedParent() { return false; };
+
+exports.startViewTransition = function startViewTransition(
+  rootContainer,
+  transitionTypes,
+  mutationCallback,
+  layoutCallback,
+  afterMutationCallback,
+  spawnedCallback,
+) {
+  mutationCallback();
+  layoutCallback();
+  if (afterMutationCallback) afterMutationCallback();
+  if (spawnedCallback) spawnedCallback();
+  return null;
+};
+
+exports.startGestureTransition = function startGestureTransition() { return null; };
+exports.stopViewTransition = function stopViewTransition() {};
+exports.addViewTransitionFinishedListener = function addViewTransitionFinishedListener(transition, callback) { callback(); };
+exports.createViewTransitionInstance = function createViewTransitionInstance() { return null; };
+exports.getCurrentGestureOffset = function getCurrentGestureOffset() { return 0; };
+
+// ---------------------------------------------------------------------------
+// Tier 4: Feature Shims — Hydration (WithNoHydration)
+// ---------------------------------------------------------------------------
+
+exports.isSuspenseInstancePending = function() { return false; };
+exports.isSuspenseInstanceFallback = function() { return false; };
+exports.getSuspenseInstanceFallbackErrorDetails = function() { return null; };
+exports.registerSuspenseInstanceRetry = function() {};
+exports.canHydrateFormStateMarker = function() { return false; };
+exports.isFormStateMarkerMatching = function() { return false; };
+exports.getNextHydratableSibling = function() { return null; };
+exports.getNextHydratableSiblingAfterSingleton = function() { return null; };
+exports.getFirstHydratableChild = function() { return null; };
+exports.getFirstHydratableChildWithinContainer = function() { return null; };
+exports.getFirstHydratableChildWithinActivityInstance = function() { return null; };
+exports.getFirstHydratableChildWithinSuspenseInstance = function() { return null; };
+exports.getFirstHydratableChildWithinSingleton = function() { return null; };
+exports.canHydrateInstance = function() { return null; };
+exports.canHydrateTextInstance = function() { return null; };
+exports.canHydrateActivityInstance = function() { return null; };
+exports.canHydrateSuspenseInstance = function() { return null; };
+exports.hydrateInstance = function() { return null; };
+exports.hydrateTextInstance = function() { return false; };
+exports.hydrateActivityInstance = function() {};
+exports.hydrateSuspenseInstance = function() {};
+exports.getNextHydratableInstanceAfterActivityInstance = function() { return null; };
+exports.getNextHydratableInstanceAfterSuspenseInstance = function() { return null; };
+exports.finalizeHydratedChildren = function() { return false; };
+exports.commitHydratedInstance = function() {};
+exports.commitHydratedContainer = function() {};
+exports.commitHydratedActivityInstance = function() {};
+exports.commitHydratedSuspenseInstance = function() {};
+exports.flushHydrationEvents = function() {};
+exports.clearActivityBoundary = function() {};
+exports.clearSuspenseBoundary = function() {};
+exports.clearActivityBoundaryFromContainer = function() {};
+exports.clearSuspenseBoundaryFromContainer = function() {};
+exports.hideDehydratedBoundary = function() {};
+exports.unhideDehydratedBoundary = function() {};
+exports.shouldDeleteUnhydratedTailInstances = function() { return false; };
+exports.diffHydratedPropsForDevWarnings = function() { return null; };
+exports.diffHydratedTextForDevWarnings = function() { return null; };
+exports.describeHydratableInstanceForDevWarnings = function() { return ''; };
+exports.validateHydratableInstance = function() {};
+exports.validateHydratableTextInstance = function() {};
+
+// ---------------------------------------------------------------------------
+// Tier 4: Feature Shims — Mutation (WithNoMutation)
+// ---------------------------------------------------------------------------
+
+exports.appendChild = function appendChild() {
+  throw new Error('appendChild: Mutation mode not supported');
+};
+exports.appendChildToContainer = function appendChildToContainer() {
+  throw new Error('appendChildToContainer: Mutation mode not supported');
+};
+exports.insertBefore = function insertBefore() {
+  throw new Error('insertBefore: Mutation mode not supported');
+};
+exports.insertInContainerBefore = function insertInContainerBefore() {
+  throw new Error('insertInContainerBefore: Mutation mode not supported');
+};
+exports.removeChild = function removeChild() {
+  throw new Error('removeChild: Mutation mode not supported');
+};
+exports.removeChildFromContainer = function removeChildFromContainer() {
+  throw new Error('removeChildFromContainer: Mutation mode not supported');
+};
+exports.commitUpdate = function commitUpdate() {
+  throw new Error('commitUpdate: Mutation mode not supported');
+};
+exports.commitTextUpdate = function commitTextUpdate() {
+  throw new Error('commitTextUpdate: Mutation mode not supported');
+};
+exports.clearContainer = function clearContainer() {
+  throw new Error('clearContainer: Mutation mode not supported');
+};
+exports.hideInstance = function hideInstance() {
+  throw new Error('hideInstance: Mutation mode not supported');
+};
+exports.hideTextInstance = function hideTextInstance() {
+  throw new Error('hideTextInstance: Mutation mode not supported');
+};
+exports.unhideInstance = function unhideInstance() {
+  throw new Error('unhideInstance: Mutation mode not supported');
+};
+exports.unhideTextInstance = function unhideTextInstance() {
+  throw new Error('unhideTextInstance: Mutation mode not supported');
+};
+
+// ---------------------------------------------------------------------------
+// Tier 4: Feature Shims — Resources (WithNoResources)
+// ---------------------------------------------------------------------------
+
+exports.isHostHoistableType = function() { return false; };
+exports.getHoistableRoot = function() { return null; };
+exports.getResource = function() { return null; };
+exports.acquireResource = function() { return null; };
+exports.releaseResource = function() {};
+exports.hydrateHoistable = function() {};
+exports.mountHoistable = function() {};
+exports.unmountHoistable = function() {};
+exports.createHoistableInstance = function() { return null; };
+exports.prepareToCommitHoistables = function() {};
+exports.mayResourceSuspendCommit = function() { return false; };
+exports.preloadResource = function() {};
+exports.suspendResource = function() {};
+
+// ---------------------------------------------------------------------------
+// Tier 4: Feature Shims — Singletons (WithNoSingletons)
+// ---------------------------------------------------------------------------
+
+exports.resolveSingletonInstance = function() { return null; };
+exports.acquireSingletonInstance = function() {};
+exports.releaseSingletonInstance = function() {};
+exports.isHostSingletonType = function() { return false; };
+exports.isSingletonScope = function() { return false; };
+
+// ---------------------------------------------------------------------------
+// Tier 4: Feature Shims — Test Selectors (WithNoTestSelectors)
+// ---------------------------------------------------------------------------
+
+exports.supportsTestSelectors = false;
+exports.findFiberRoot = function() { return null; };
+exports.getBoundingRect = function() { return null; };
+exports.getTextContent = function() { return ''; };
+exports.isHiddenSubtree = function() { return false; };
+exports.matchAccessibilityRole = function() { return false; };
+exports.setFocusIfFocusable = function() {};
+exports.setupIntersectionObserver = function() { return null; };

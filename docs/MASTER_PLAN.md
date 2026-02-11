@@ -35,7 +35,7 @@
 
 ## Phase 3: Core Implementation
 
-- [ ] React reconciler host config (`/impl-renderer` → `packages/renderer/`)
+- [x] React reconciler host config (`/impl-renderer` → `packages/renderer/`)
 - [ ] JS ↔ Swift bridge (`/impl-js-bridge` → `packages/bridge/`)
 - [ ] Yoga layout integration (`/impl-yoga-layout` → `packages/yoga-layout/`)
 - [ ] Xcode project + native app (`/impl-xcode-project` → `ios/`)
