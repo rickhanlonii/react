@@ -31,7 +31,7 @@
 
 ## Phase 2.5: Dependencies
 
-- [ ] Install all dependencies (`/install-dependencies`)
+- [x] Install all dependencies (`/install-dependencies`)
 
 ## Phase 3: Core Implementation
 

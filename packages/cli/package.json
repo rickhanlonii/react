@@ -1,0 +1,11 @@
+{
+  "name": "@react-dom-native/cli",
+  "version": "0.0.1",
+  "private": true,
+  "main": "src/index.js",
+  "dependencies": {
+    "chokidar": "^4.0.0",
+    "esbuild": "^0.25.0",
+    "ws": "^8.18.0"
+  }
+}

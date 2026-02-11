@@ -1,0 +1,6 @@
+{
+  "name": "@react-dom-native/yoga-layout",
+  "version": "0.0.1",
+  "private": true,
+  "main": "src/index.js"
+}

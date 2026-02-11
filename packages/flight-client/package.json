@@ -1,0 +1,9 @@
+{
+  "name": "@react-dom-native/flight-client",
+  "version": "0.0.1",
+  "private": true,
+  "main": "src/index.js",
+  "dependencies": {
+    "react": "^19.1.0"
+  }
+}
