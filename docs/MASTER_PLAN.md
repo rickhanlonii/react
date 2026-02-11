@@ -58,12 +58,13 @@
 
 ## Phase 5b: Flight Integration Testing
 
-- [ ] `renderToFlightString()` — synchronous Flight encoder (`packages/fantom/src/index.js`)
-- [ ] `createFromFlight()` — Flight payload parser (`packages/fantom/src/index.js`)
-- [ ] Flight integration tests (`tests/integration/rsc-*-flight-itest.js`)
+- [x] `renderToFlightString()` — synchronous Flight encoder (`packages/fantom/src/index.js`)
+- [x] `createFromFlight()` — Flight payload parser (`packages/fantom/src/index.js`)
+- [x] Flight integration tests (`tests/integration/rsc-*-flight-itest.js`)
 
-## Phase 6: App & Server
+## Phase 6: Example App
 
-- [ ] Example app (`example/`)
-- [ ] Next.js server setup (`server/`)
-- [ ] End-to-end smoke test — server → native rendering (`/test-e2e`)
+- [x] Express RSC server (`server/`)
+- [x] Client components — Counter, TextInput (`example/components/`)
+- [x] Entry point integration — module map, auto-boot (`packages/entry/`)
+- [ ] End-to-end verification — server → Flight → native rendering
