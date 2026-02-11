@@ -5,6 +5,17 @@ description: Run end-to-end test — start Next.js server, build iOS app, verify
 
 # End-to-End Test
 
+## Dependencies
+
+This skill requires packages installed by `/install-dependencies`.
+If not already run, run `/install-dependencies` first.
+
+## Prerequisites
+
+- `/install-dependencies` must be run
+- `/impl-xcode-project` must be run (ios/ must have Package.swift and Swift sources)
+- All impl skills must be complete
+
 ## Instructions
 
 1. **Start Next.js server**:

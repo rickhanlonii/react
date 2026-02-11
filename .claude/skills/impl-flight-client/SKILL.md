@@ -9,8 +9,14 @@ description: Implement the RSC Flight client for native. Depends on renderer and
 
 Build a Flight client that consumes Next.js RSC streams and feeds the resulting React element tree into our custom renderer.
 
+## Dependencies
+
+This skill requires packages installed by `/install-dependencies`.
+If not already run, run `/install-dependencies` first.
+
 ## Prerequisites
 
+- `/install-dependencies` must be run
 - `docs/specs/flight-client.md` must exist
 - `docs/research/flight-protocol.md` and `docs/research/nextjs-flight.md` must exist
 - `packages/renderer/` must be implemented

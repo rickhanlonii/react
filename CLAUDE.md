@@ -4,12 +4,22 @@ A React framework that uses HTML elements (`<div>`, `<span>`, `<p>`, etc.) as th
 
 ## Architecture
 
-- **Renderer**: Custom React reconciler (mutation mode) using `react-reconciler`
-- **Layout**: Yoga with web-like defaults — `<div>` = column/block, `<span>` = inline
+- **Renderer**: Custom React reconciler (mutation mode) using `react-reconciler`, calling into C++ shadow tree via JSI
+- **Shadow Tree**: C++ shadow nodes with embedded Yoga nodes, inspired by Fabric but simplified for fixed HTML elements
+- **Layout**: Yoga with web-like defaults — `<div>` = column/block, `<span>` = virtual text (no UIView)
 - **Server**: Next.js handles RSC rendering, Flight wire protocol, streaming
 - **Client**: Native iOS app receives Flight stream, deserializes with `react-client/flight`, feeds custom renderer
 - **Target**: iOS only (UIKit)
-- **JS Engine**: TBD (Hermes vs JavaScriptCore — decided by `/research-js-engine`)
+- **JS Engine**: JavaScriptCore (native Swift API, zero bundle size)
+- **Bundler**: esbuild (fastest, simplest config)
+
+## Key Design Decisions
+
+- **No NativeComponentRegistry**: `<div>` passed as raw string over bridge, created in C++
+- **No reactTag**: Node identity via InstanceHandle (JSI object refs) and ShadowNode pointers
+- **No ViewConfig**: Fixed HTML element set with known props/events, no runtime validation
+- **Discrete events on main thread**: Click/press dispatch synchronously
+- **Fixed DOM event set**: onClick, onChange, onScroll, etc. — no dynamic registration
 
 ## Data Flow
 
@@ -42,10 +52,10 @@ Next.js (RSC server) → Flight stream (HTTP) → Native iOS client
 - `packages/renderer/` — Custom React reconciler host config
 - `packages/components/` — HTML element → native view mappings
 - `packages/yoga-layout/` — Yoga integration with web defaults
-- `packages/bridge/` — JS ↔ Swift communication
+- `packages/bridge/` — JS ↔ C++ communication (JSI bindings)
 - `packages/flight-client/` — RSC Flight client for native
 - `packages/cli/` — Build tools and dev server
-- `ios/` — Native Swift code (UIKit views, app delegate)
+- `ios/` — Native code: C++ shadow tree/scheduler, Swift UIKit views, app delegate
 - `server/` — Next.js RSC server
 - `example/` — Example app
 
@@ -54,18 +64,26 @@ Next.js (RSC server) → Flight stream (HTTP) → Native iOS client
 Run `/check-status` to see overall progress. Run `/resume-work` to pick up where the last session left off.
 
 ### Research (run first — all parallelizable)
-`/research-reconciler`, `/research-flight-protocol`, `/research-nextjs-flight`, `/research-yoga-ios`, `/research-js-engine`, `/research-html-mapping`, `/research-ios-uikit`
+`/research-reconciler`, `/research-flight-protocol`, `/research-nextjs-flight`, `/research-yoga-ios`, `/research-js-engine`, `/research-html-mapping`, `/research-ios-uikit`, `/research-bundler`
+
+### Architecture Research (run after initial research)
+First 4 parallelizable: `/research-cpp-shadow-tree`, `/research-node-identity`, `/research-event-system`, `/research-no-viewconfig`
+Then 2 with dependencies: `/research-mounting-scheduling` (after cpp-shadow-tree), `/research-element-dispatch` (after event-system + no-viewconfig)
 
 ### Specs (run after all research)
 `/generate-specs`
 
-### Implementation (run after specs, in dependency order)
+### Dependencies (run after specs, before impl)
+`/install-dependencies` — installs all npm and native dependencies upfront
+
+### Implementation (run after dependencies, in dependency order)
 1. `/impl-renderer` (first — no impl dependencies)
 2. `/impl-js-bridge` + `/impl-yoga-layout` (parallel, no cross-dependency)
-3. `/impl-html-components` (depends on renderer + yoga)
-4. `/impl-flight-client` (depends on renderer + bridge)
-5. `/impl-build-system` (depends on bridge)
-6. `/impl-devtools` (depends on build-system)
+3. `/impl-xcode-project` (depends on bridge)
+4. `/impl-html-components` (depends on renderer + yoga)
+5. `/impl-flight-client` (depends on renderer + bridge)
+6. `/impl-build-system` (depends on bridge)
+7. `/impl-devtools` (depends on build-system)
 
 ### Testing
 `/test-unit`, `/test-e2e`

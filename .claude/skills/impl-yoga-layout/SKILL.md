@@ -9,8 +9,14 @@ description: Implement Yoga layout integration with web-like defaults. Can run i
 
 Integrate the Yoga layout engine with web-like defaults so that `<div>` behaves like CSS flexbox column, `<span>` like inline, etc.
 
+## Dependencies
+
+This skill requires packages installed by `/install-dependencies`.
+If not already run, run `/install-dependencies` first.
+
 ## Prerequisites
 
+- `/install-dependencies` must be run
 - `docs/specs/yoga-defaults.md` must exist
 - `docs/research/yoga-ios.md` must exist
 

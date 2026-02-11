@@ -9,8 +9,14 @@ description: Implement the HTML element registry and component definitions. Depe
 
 Build the component registry that maps HTML element types (`div`, `span`, `p`, etc.) to native view configurations — UIKit class, Yoga defaults, prop mappings.
 
+## Dependencies
+
+This skill requires packages installed by `/install-dependencies`.
+If not already run, run `/install-dependencies` first.
+
 ## Prerequisites
 
+- `/install-dependencies` must be run
 - `docs/specs/html-element-registry.md` must exist
 - `docs/research/html-mapping.md` must exist
 - `packages/renderer/` must be implemented

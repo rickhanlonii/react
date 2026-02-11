@@ -9,8 +9,14 @@ description: Implement developer tools — hot reload, error display, and debugg
 
 Build developer experience tools: hot reload during development, error overlay display on the native app, and debugging support.
 
+## Dependencies
+
+This skill requires packages installed by `/install-dependencies`.
+If not already run, run `/install-dependencies` first.
+
 ## Prerequisites
 
+- `/install-dependencies` must be run
 - `packages/cli/` build system must exist
 - Build scripts must work
 
