@@ -42,8 +42,8 @@
 
 ## Phase 4: Components & RSC
 
-- [ ] HTML element registry + components (`/impl-html-components` → `packages/components/`)
-- [ ] Flight client for native (`/impl-flight-client` → `packages/flight-client/`)
+- [x] HTML element registry + components (`/impl-html-components` → `packages/components/`)
+- [x] Flight client for native (`/impl-flight-client` → `packages/flight-client/`)
 
 ## Phase 5: Polish
 
