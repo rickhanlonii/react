@@ -1,0 +1,14 @@
+{
+  "name": "react-dom-native",
+  "version": "0.0.1",
+  "private": true,
+  "description": "React framework mapping HTML elements to native iOS views",
+  "workspaces": [
+    "packages/*",
+    "server"
+  ],
+  "scripts": {
+    "dev:server": "cd server && npm run dev"
+  },
+  "license": "MIT"
+}
