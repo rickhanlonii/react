@@ -48,7 +48,7 @@
 ## Phase 5: Polish
 
 - [x] JS build system (`/impl-build-system` → `packages/cli/`, `scripts/`)
-- [ ] Developer tools — hot reload, error display (`/impl-devtools` → `packages/cli/`)
+- [x] Developer tools — hot reload, error display (`/impl-devtools` → `packages/cli/`)
 - [ ] Example app (`example/`)
 - [ ] Next.js server setup (`server/`)
 - [ ] End-to-end test — server → native rendering (`/test-e2e`)
