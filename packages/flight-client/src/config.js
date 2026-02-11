@@ -39,8 +39,19 @@ function readFinalStringChunk(decoder, buffer) {
  * @returns {{ module: any, name: string } | null}
  */
 function resolveClientReference(bundlerConfig, metadata) {
-  var moduleId = metadata[0];
-  var exportName = metadata[2] || 'default';
+  var moduleId;
+  var exportName;
+
+  // Handle webpack object format: {id, chunks, name}
+  if (metadata !== null && typeof metadata === 'object' && !Array.isArray(metadata)) {
+    moduleId = metadata.id;
+    exportName = metadata.name || 'default';
+  } else {
+    // Handle array format: [moduleId, chunks, exportName]
+    moduleId = metadata[0];
+    exportName = metadata[2] || 'default';
+  }
+
   var entry = bundlerConfig.modules[moduleId];
   if (!entry) {
     if (typeof __DEV__ !== 'undefined' && __DEV__) {
@@ -86,7 +97,7 @@ function preloadModule(clientRef) {
 function requireModule(clientRef) {
   if (!clientRef) return null;
   var mod = clientRef.module;
-  if (clientRef.name === 'default' || clientRef.name === '') {
+  if (clientRef.name === 'default' || clientRef.name === '' || clientRef.name === '*') {
     return mod.default || mod;
   }
   return mod[clientRef.name];

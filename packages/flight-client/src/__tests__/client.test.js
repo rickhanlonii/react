@@ -164,6 +164,37 @@ describe('Flight Client Config', function () {
     });
   });
 
+  describe('resolveClientReference — webpack object format', function () {
+    it('resolves metadata as {id, chunks, name} object', function () {
+      var bundlerConfig = {
+        modules: {
+          Counter: {default: function Counter() {}},
+        },
+      };
+      var metadata = {id: 'Counter', chunks: [], name: 'default'};
+      var ref = config.resolveClientReference(bundlerConfig, metadata);
+      expect(ref).not.toBeNull();
+      expect(ref.module).toBe(bundlerConfig.modules.Counter);
+      expect(ref.name).toBe('default');
+    });
+
+    it('returns null for unknown module in object format', function () {
+      var bundlerConfig = {modules: {}};
+      var metadata = {id: 'Unknown', chunks: [], name: 'default'};
+      var ref = config.resolveClientReference(bundlerConfig, metadata);
+      expect(ref).toBeNull();
+    });
+  });
+
+  describe('requireModule — wildcard export', function () {
+    it('handles name "*" by returning default export', function () {
+      var mod = {default: function MyComponent() {}};
+      var ref = {module: mod, name: '*'};
+      var result = config.requireModule(ref);
+      expect(result).toBe(mod.default);
+    });
+  });
+
   describe('preloadModule', function () {
     it('returns null (no-op)', function () {
       expect(config.preloadModule({module: {}, name: 'default'})).toBeNull();
