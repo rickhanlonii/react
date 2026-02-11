@@ -47,7 +47,7 @@
 
 ## Phase 5: Polish
 
-- [ ] JS build system (`/impl-build-system` → `packages/cli/`, `scripts/`)
+- [x] JS build system (`/impl-build-system` → `packages/cli/`, `scripts/`)
 - [ ] Developer tools — hot reload, error display (`/impl-devtools` → `packages/cli/`)
 - [ ] Example app (`example/`)
 - [ ] Next.js server setup (`server/`)

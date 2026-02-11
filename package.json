@@ -8,6 +8,9 @@
     "server"
   ],
   "scripts": {
+    "build": "node scripts/build-js.js",
+    "build:prod": "node scripts/build-js.js --production",
+    "dev": "bash scripts/dev.sh",
     "dev:server": "cd server && npm run dev",
     "test": "jest"
   },
