@@ -5,10 +5,24 @@ const HostConfig = require('./HostConfig');
 
 const reconciler = Reconciler(HostConfig);
 
+// Register the event handler that maps native events to React props.
+// When a native event arrives (e.g. type='click'), the handler looks up
+// the corresponding React prop (e.g. 'onClick') on the fiber's props
+// and calls it with the event payload.
+$$registerEventHandler(function (instanceHandle, eventType, payload) {
+  const propName = 'on' + eventType.charAt(0).toUpperCase() + eventType.slice(1);
+  const fiber = instanceHandle;
+  if (fiber && fiber.memoizedProps && typeof fiber.memoizedProps[propName] === 'function') {
+    fiber.memoizedProps[propName](payload);
+  }
+});
+
 let nextSurfaceId = 1;
 
 function createRoot(nativeRootView) {
-  const surfaceId = nextSurfaceId++;
+  const surfaceId = nativeRootView.surfaceId != null
+    ? nativeRootView.surfaceId
+    : nextSurfaceId++;
   const container = {
     surfaceId,
     rootView: nativeRootView,

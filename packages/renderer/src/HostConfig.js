@@ -69,10 +69,13 @@ exports.createInstance = function createInstance(
   hostContext,
   internalHandle,
 ) {
+  // Strip children from props — child nodes are managed by the reconciler
+  // via appendInitialChild, not stored as props on the native node.
+  const {children, ...nativeProps} = props;
   const nativeNode = $$createNode(
     type,
     rootContainer.surfaceId,
-    props,
+    nativeProps,
     hostContext.isInsideTextContext,
     internalHandle,
   );
@@ -135,14 +138,15 @@ exports.cloneInstance = function cloneInstance(
   keepChildren,
   recyclable,
 ) {
+  const {children, ...nativeNewProps} = newProps;
   let newNativeNode;
   if (keepChildren) {
-    newNativeNode = $$cloneNodeWithNewProps(instance._nativeNode, newProps);
+    newNativeNode = $$cloneNodeWithNewProps(instance._nativeNode, nativeNewProps);
   } else {
     newNativeNode = $$cloneNodeWithNewChildrenAndProps(
       instance._nativeNode,
       undefined,
-      newProps,
+      nativeNewProps,
     );
   }
   return {

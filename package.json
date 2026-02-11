@@ -12,7 +12,10 @@
     "build:prod": "node scripts/build-js.js --production",
     "dev": "bash scripts/dev.sh",
     "dev:server": "cd server && npm run dev",
-    "test": "jest"
+    "test": "jest --selectProjects unit",
+    "test:fantom": "jest --selectProjects fantom",
+    "test:all": "jest",
+    "build:fantom": "bash scripts/build-fantom.sh"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
