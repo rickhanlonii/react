@@ -9,24 +9,25 @@ echo "Starting JS bundle watcher..."
 node "$SCRIPT_DIR/build-js.js" --watch &
 JS_PID=$!
 
-# Start Next.js dev server
-echo "Starting Next.js dev server..."
+# Start RSC server
+echo "Starting RSC server..."
 cd "$PROJECT_ROOT/server"
-npm run dev &
-NEXT_PID=$!
+node --conditions react-server server.js &
+RSC_PID=$!
+cd "$PROJECT_ROOT"
 
 # Cleanup on exit
 cleanup() {
   echo "Shutting down..."
   kill $JS_PID 2>/dev/null || true
-  kill $NEXT_PID 2>/dev/null || true
+  kill $RSC_PID 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
 
 echo ""
 echo "Development servers running:"
 echo "  JS watcher: PID $JS_PID"
-echo "  Next.js:    PID $NEXT_PID (http://localhost:3000)"
+echo "  RSC server: PID $RSC_PID (http://localhost:3001)"
 echo ""
 echo "Press Ctrl+C to stop."
 

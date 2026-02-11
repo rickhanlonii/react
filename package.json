@@ -4,14 +4,13 @@
   "private": true,
   "description": "React framework mapping HTML elements to native iOS views",
   "workspaces": [
-    "packages/*",
-    "server"
+    "packages/*"
   ],
   "scripts": {
     "build": "node scripts/build-js.js",
     "build:prod": "node scripts/build-js.js --production",
     "dev": "bash scripts/dev.sh",
-    "dev:server": "cd server && npm run dev",
+    "dev:server": "cd server && node --conditions react-server server.js",
     "test": "jest --selectProjects unit",
     "test:fantom": "jest --selectProjects fantom",
     "test:all": "jest",
