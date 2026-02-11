@@ -4,12 +4,13 @@
 require('@babel/register')({
   babelrc: false,
   ignore: [/node_modules/],
-  only: [/server\/src/, /example\/components/],
+  only: [/server\/src/],
   presets: ['@babel/preset-react'],
+  targets: {node: 'current'},
 });
 
 // Intercepts require() for 'use client' files — creates client reference proxies
-require('react-server-dom-webpack/node-register');
+require('react-server-dom-webpack/node-register')();
 
 var express = require('express');
 var React = require('react');
