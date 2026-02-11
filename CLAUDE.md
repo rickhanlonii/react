@@ -84,6 +84,7 @@ Then 2 with dependencies: `/research-mounting-scheduling` (after cpp-shadow-tree
 5. `/impl-flight-client` (depends on renderer + bridge)
 6. `/impl-build-system` (depends on bridge)
 7. `/impl-devtools` (depends on build-system)
+8. `/impl-fantom` (depends on renderer + bridge — integration testing framework)
 
 ### Testing
 `/test-unit`, `/test-e2e`

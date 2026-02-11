@@ -45,10 +45,19 @@
 - [x] HTML element registry + components (`/impl-html-components` → `packages/components/`)
 - [x] Flight client for native (`/impl-flight-client` → `packages/flight-client/`)
 
-## Phase 5: Polish
+## Phase 5: Integration Testing
 
 - [x] JS build system (`/impl-build-system` → `packages/cli/`, `scripts/`)
 - [x] Developer tools — hot reload, error display (`/impl-devtools` → `packages/cli/`)
+- [ ] Extract shared ShadowTree Swift module (no UIKit, shared by app + tester)
+- [ ] Build FantomTester headless Swift binary (macOS, JavaScriptCore, StubView)
+- [ ] JS test runtime (describe/it/expect running inside JSC)
+- [ ] JS test API (createRoot, runTask, getRenderedOutput)
+- [ ] Custom Jest runner (esbuild bundle + spawn tester + JSON IPC)
+- [ ] Integration tests (`-itest.js` files)
+
+## Phase 6: App & Server
+
 - [ ] Example app (`example/`)
 - [ ] Next.js server setup (`server/`)
-- [ ] End-to-end test — server → native rendering (`/test-e2e`)
+- [ ] End-to-end smoke test — server → native rendering (`/test-e2e`)
