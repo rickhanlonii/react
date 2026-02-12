@@ -19,13 +19,12 @@ If not already run, run `/install-dependencies` first.
 - `/install-dependencies` must be run
 - `docs/specs/html-element-registry.md` must exist
 - `docs/research/html-mapping.md` must exist
-- `packages/renderer/` must be implemented
+- `packages/react-dom-native/src/renderer/` must be implemented
 
 ## Instructions
 
 1. Read the HTML element registry spec and mapping research
-2. Initialize `packages/components/`:
-   - `package.json`
+2. Initialize `packages/react-dom-native/src/components/`:
    - `src/registry.js` — component registration and lookup
    - `src/elements/` — one file per element category
 3. Implement registry:
@@ -43,14 +42,13 @@ If not already run, run `/install-dependencies` first.
 
 ## Output
 
-- `packages/components/package.json`
-- `packages/components/src/registry.js`
-- `packages/components/src/elements/layout.js` (div, span, section, etc.)
-- `packages/components/src/elements/text.js` (p, h1-h6, strong, em, a)
-- `packages/components/src/elements/media.js` (img, video)
-- `packages/components/src/elements/input.js` (input, button, textarea, select)
-- `packages/components/src/index.js`
-- `packages/components/src/__tests__/registry.test.js`
+- `packages/react-dom-native/src/components/registry.js`
+- `packages/react-dom-native/src/components/elements/layout.js` (div, span, section, etc.)
+- `packages/react-dom-native/src/components/elements/text.js` (p, h1-h6, strong, em, a)
+- `packages/react-dom-native/src/components/elements/media.js` (img, video)
+- `packages/react-dom-native/src/components/elements/input.js` (input, button, textarea, select)
+- `packages/react-dom-native/src/components/index.js`
+- `packages/react-dom-native/src/components/__tests__/registry.test.js`
 
 ## After Completion
 

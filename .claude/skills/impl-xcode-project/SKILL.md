@@ -17,31 +17,38 @@ If not already run, run `/install-dependencies` first.
 ## Prerequisites
 
 - `/install-dependencies` must be run
-- `packages/bridge/` Swift files must exist (from impl-js-bridge)
+- `packages/react-dom-native/src/bridge/` and `packages/react-dom-native/ios/Sources/ReactDomNativeKit/Bridge/` Swift files must exist (from impl-js-bridge)
 - JS engine decision made (`docs/specs/adr/001-js-engine.md`)
 
 ## Instructions
 
 ### Step 1: Create Swift Package structure
 
+The library Swift Package lives at `packages/react-dom-native/ios/`. The example app Xcode project lives at `example/Falcon/`.
+
 ```
-ios/
+packages/react-dom-native/ios/
 ├── Package.swift
 ├── Sources/
-│   └── ReactDomNative/
-│       ├── App.swift              # @main entry point
-│       ├── AppDelegate.swift      # UIApplicationDelegate
-│       ├── SceneDelegate.swift    # UIWindowSceneDelegate
-│       ├── RootViewController.swift
+│   └── ReactDomNativeKit/
 │       ├── JSRuntime.swift        # JavaScriptCore setup
-│       └── Bridge/                # Symlink or copy from packages/bridge ios/
+│       └── Bridge/                # Bridge Swift code
 ├── Resources/
 │   └── bundle.js                  # JS bundle (built by build scripts)
 └── Tests/
     └── ReactDomNativeTests/
+
+example/Falcon/
+├── Falcon.xcodeproj
+├── App.swift              # @main entry point
+├── AppDelegate.swift      # UIApplicationDelegate
+├── SceneDelegate.swift    # UIWindowSceneDelegate
+└── RootViewController.swift
 ```
 
 ### Step 2: Create Package.swift
+
+Create at `packages/react-dom-native/ios/Package.swift`:
 
 ```swift
 // swift-tools-version:5.9
@@ -51,22 +58,22 @@ let package = Package(
     name: "ReactDomNative",
     platforms: [.iOS(.v15)],
     products: [
-        .executable(name: "ReactDomNative", targets: ["ReactDomNative"])
+        .library(name: "ReactDomNativeKit", targets: ["ReactDomNativeKit"])
     ],
     dependencies: [
         .package(url: "https://github.com/nicklockwood/SwiftYogaKit.git", from: "1.0.0")
         // Or compile Yoga from source
     ],
     targets: [
-        .executableTarget(
-            name: "ReactDomNative",
+        .target(
+            name: "ReactDomNativeKit",
             dependencies: ["SwiftYogaKit"],
-            path: "Sources/ReactDomNative",
+            path: "Sources/ReactDomNativeKit",
             resources: [.copy("Resources")]
         ),
         .testTarget(
             name: "ReactDomNativeTests",
-            dependencies: ["ReactDomNative"]
+            dependencies: ["ReactDomNativeKit"]
         )
     ]
 )
@@ -74,7 +81,7 @@ let package = Package(
 
 ### Step 3: Create App entry point
 
-`App.swift`:
+`example/Falcon/App.swift`:
 ```swift
 import SwiftUI
 
@@ -92,7 +99,7 @@ struct ReactDomNativeApp: App {
 
 ### Step 4: Create JSRuntime
 
-`JSRuntime.swift`:
+`packages/react-dom-native/ios/Sources/ReactDomNativeKit/JSRuntime.swift`:
 ```swift
 import JavaScriptCore
 
@@ -123,43 +130,44 @@ class JSRuntime {
 ### Step 5: Build and run
 
 ```bash
-# Build with SPM
-cd /Users/rickhanlonii/oss/falcon/ios
+# Build the library with SPM
+cd /Users/rickhanlonii/oss/falcon/packages/react-dom-native/ios
 swift build
 
-# Or open in Xcode
-open Package.swift
+# Open the example Falcon app in Xcode
+open /Users/rickhanlonii/oss/falcon/example/Falcon/Falcon.xcodeproj
 # Then: Product → Run (Cmd+R)
 ```
 
 ### Step 6: Create convenience scripts
 
-Create `scripts/build-ios.sh`:
+Create `example/scripts/build-ios.sh`:
 ```bash
 #!/bin/bash
 set -e
-cd "$(dirname "$0")/../ios"
+cd "$(dirname "$0")/../../packages/react-dom-native/ios"
 swift build -c release
 ```
 
-Create `scripts/run-ios.sh`:
+Create `example/scripts/run-ios.sh`:
 ```bash
 #!/bin/bash
 set -e
-cd "$(dirname "$0")/../ios"
-swift run
+cd "$(dirname "$0")/../Falcon"
+xcodebuild -scheme Falcon -destination 'platform=iOS Simulator,name=iPhone 15'
 ```
 
 ## Output
 
-- `ios/Package.swift`
-- `ios/Sources/ReactDomNative/App.swift`
-- `ios/Sources/ReactDomNative/AppDelegate.swift`
-- `ios/Sources/ReactDomNative/SceneDelegate.swift`
-- `ios/Sources/ReactDomNative/RootViewController.swift`
-- `ios/Sources/ReactDomNative/JSRuntime.swift`
-- `scripts/build-ios.sh`
-- `scripts/run-ios.sh`
+- `packages/react-dom-native/ios/Package.swift`
+- `packages/react-dom-native/ios/Sources/ReactDomNativeKit/JSRuntime.swift`
+- `example/Falcon/Falcon.xcodeproj`
+- `example/Falcon/App.swift`
+- `example/Falcon/AppDelegate.swift`
+- `example/Falcon/SceneDelegate.swift`
+- `example/Falcon/RootViewController.swift`
+- `example/scripts/build-ios.sh`
+- `example/scripts/run-ios.sh`
 
 ## After Completion
 

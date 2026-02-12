@@ -23,8 +23,7 @@ If not already run, run `/install-dependencies` first.
 ## Instructions
 
 1. Read the Yoga defaults spec and iOS research
-2. Initialize `packages/yoga-layout/`:
-   - `package.json`
+2. Initialize `packages/react-dom-native/src/yoga-layout/`:
    - Swift/C bridge or JS-based Yoga bindings (based on bridge spec)
 3. Implement:
    - `createYogaNode(elementType)` — creates a YGNode with web-like defaults for that element
@@ -43,11 +42,10 @@ If not already run, run `/install-dependencies` first.
 
 ## Output
 
-- `packages/yoga-layout/package.json`
-- `packages/yoga-layout/src/node.js`
-- `packages/yoga-layout/src/defaults.js`
-- `packages/yoga-layout/src/index.js`
-- `packages/yoga-layout/src/__tests__/layout.test.js`
+- `packages/react-dom-native/src/yoga-layout/node.js`
+- `packages/react-dom-native/src/yoga-layout/defaults.js`
+- `packages/react-dom-native/src/yoga-layout/index.js`
+- `packages/react-dom-native/src/yoga-layout/__tests__/layout.test.js`
 
 ## After Completion
 

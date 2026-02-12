@@ -17,7 +17,7 @@ If not already run, run `/install-dependencies` first.
 ## Prerequisites
 
 - `/install-dependencies` must be run
-- `packages/cli/` build system must exist
+- `example/scripts/` build system must exist
 - Build scripts must work
 
 ## Instructions
@@ -39,19 +39,17 @@ If not already run, run `/install-dependencies` first.
    - Console.log forwarding to Xcode console
    - React DevTools integration (if feasible)
 
-4. **CLI tool**:
-   - `packages/cli/` — wraps build scripts with a nice interface
-   - `npx react-dom-native dev` — starts dev server + hot reload
-   - `npx react-dom-native build` — production build
+4. **Dev scripts**:
+   - `example/scripts/` — wraps build and dev commands
+   - `npm run dev` — starts dev server + hot reload
+   - `npm run build` — production build
 
 ## Output
 
-- `packages/cli/package.json`
-- `packages/cli/src/dev.js`
-- `packages/cli/src/build.js`
-- `packages/cli/bin/cli.js`
-- `ios/DevTools/ErrorOverlay.swift`
-- `ios/DevTools/HotReload.swift`
+- `example/scripts/dev.js`
+- `example/scripts/build.js`
+- `packages/react-dom-native/ios/Sources/ReactDomNativeKit/DevTools/ErrorOverlay.swift`
+- `packages/react-dom-native/ios/Sources/ReactDomNativeKit/DevTools/HotReload.swift`
 
 ## After Completion
 

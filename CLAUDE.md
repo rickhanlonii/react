@@ -73,20 +73,10 @@ Next.js (RSC server) → Flight stream (HTTP) → Native iOS client
 
 Run `/check-status` to see overall progress. Run `/resume-work` to pick up where the last session left off.
 
-### Research (run first — all parallelizable)
-`/research-reconciler`, `/research-flight-protocol`, `/research-nextjs-flight`, `/research-yoga-ios`, `/research-js-engine`, `/research-html-mapping`, `/research-ios-uikit`, `/research-bundler`
-
-### Architecture Research (run after initial research)
-First 4 parallelizable: `/research-cpp-shadow-tree`, `/research-node-identity`, `/research-event-system`, `/research-no-viewconfig`
-Then 2 with dependencies: `/research-mounting-scheduling` (after cpp-shadow-tree), `/research-element-dispatch` (after event-system + no-viewconfig)
-
-### Specs (run after all research)
-`/generate-specs`
-
-### Dependencies (run after specs, before impl)
+### Dependencies
 `/install-dependencies` — installs all npm and native dependencies upfront
 
-### Implementation (run after dependencies, in dependency order)
+### Implementation (in dependency order)
 1. `/impl-renderer` (first — no impl dependencies)
 2. `/impl-js-bridge` + `/impl-yoga-layout` (parallel, no cross-dependency)
 3. `/impl-xcode-project` (depends on bridge)
@@ -101,4 +91,4 @@ Then 2 with dependencies: `/research-mounting-scheduling` (after cpp-shadow-tree
 
 ## Progress
 
-See `docs/MASTER_PLAN.md` for full progress tracker with checkboxes.
+See `docs/master-plan.md` for full progress tracker with checkboxes.

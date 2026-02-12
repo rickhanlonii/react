@@ -30,11 +30,10 @@ If not already run, run `/install-dependencies` first.
 ## Instructions
 
 1. Read the bridge protocol spec (`docs/specs/bridge-protocol.md`) and ADR 002
-2. Initialize `packages/bridge/`:
-   - `package.json` (JS side)
-   - `src/types.d.ts` — TypeScript declarations for all `$$` globals
-   - `src/index.js` — JS-side bridge utilities and event priority constants
-3. Create Swift bridge at `ios/Native/Bridge/NativeBridge.swift`:
+2. Initialize `packages/react-dom-native/src/bridge/`:
+   - `types.d.ts` — TypeScript declarations for all `$$` globals
+   - `index.js` — JS-side bridge utilities and event priority constants
+3. Create Swift bridge at `packages/react-dom-native/ios/Sources/ReactDomNativeKit/Bridge/NativeBridge.swift`:
    - Register all `$$` bridge functions on the `JSContext` using `context.setObject(_:forKeyedSubscript:)` with `@convention(block)` closures
    - Node creation:
      - `$$createNode(type, surfaceId, props, isInsideTextContext, instanceHandle) → ShadowNodeHandle`
@@ -60,15 +59,15 @@ If not already run, run `/install-dependencies` first.
      - `$$ContinuousEventPriority = 8`
    - Networking (for Flight client):
      - `$$fetch(url, headers, callback) → void` — async HTTP using URLSession
-4. Create `ios/Native/Bridge/ShadowNodeWrapper.swift`:
+4. Create `packages/react-dom-native/ios/Sources/ReactDomNativeKit/Bridge/ShadowNodeWrapper.swift`:
    - `ShadowNodeWrapper: NSObject` — wraps immutable `ShadowNode` and `ShadowNodeFamily`
    - Used as the opaque `ShadowNodeHandle` type passed between JS and Swift
    - `ShadowNodeFamily` provides stable identity across clones
-5. Create `ios/Native/Bridge/ViewRegistry.swift`:
+5. Create `packages/react-dom-native/ios/Sources/ReactDomNativeKit/Bridge/ViewRegistry.swift`:
    - `familyToView: [ObjectIdentifier: UIView]` — forward map for applying mutations
    - `viewToFamily: [ObjectIdentifier: ShadowNodeFamily]` — reverse map for event hit testing
    - Keyed by `ShadowNodeFamily` (not `ShadowNode`) because node handles change on every clone
-6. Implement the Differentiator in `ios/Native/Bridge/Differentiator.swift`:
+6. Implement the Differentiator in `packages/react-dom-native/ios/Sources/ReactDomNativeKit/Bridge/Differentiator.swift`:
    - Diff old tree vs new tree → generate mutation instructions (`Create`, `Delete`, `Insert`, `Remove`, `Update`)
    - Called during `$$completeRoot` after Yoga layout calculation
    - Mutations applied atomically within `CATransaction`
@@ -77,7 +76,7 @@ If not already run, run `/install-dependencies` first.
    - On UIKit events: hit test → look up `ShadowNodeFamily` via `ViewRegistry` → get `InstanceHandle` → call handler with `(instanceHandle, eventType, payload)`
    - Event payloads: click `{ locationX, locationY, ... }`, scroll `{ contentOffset, ... }`, change `{ text, ... }`
 8. Write tests:
-   - `packages/bridge/src/__tests__/bridge.test.js`
+   - `packages/react-dom-native/src/bridge/__tests__/bridge.test.js`
    - Test: `$$createNode` global is callable and returns a handle
    - Test: `$$cloneNodeWithNewProps` returns a new handle with same identity
    - Test: `$$completeRoot` triggers commit pipeline
@@ -86,14 +85,13 @@ If not already run, run `/install-dependencies` first.
 
 ## Output
 
-- `packages/bridge/package.json`
-- `packages/bridge/src/types.d.ts`
-- `packages/bridge/src/index.js`
-- `packages/bridge/src/__tests__/bridge.test.js`
-- `ios/Native/Bridge/NativeBridge.swift`
-- `ios/Native/Bridge/ShadowNodeWrapper.swift`
-- `ios/Native/Bridge/ViewRegistry.swift`
-- `ios/Native/Bridge/Differentiator.swift`
+- `packages/react-dom-native/src/bridge/types.d.ts`
+- `packages/react-dom-native/src/bridge/index.js`
+- `packages/react-dom-native/src/bridge/__tests__/bridge.test.js`
+- `packages/react-dom-native/ios/Sources/ReactDomNativeKit/Bridge/NativeBridge.swift`
+- `packages/react-dom-native/ios/Sources/ReactDomNativeKit/Bridge/ShadowNodeWrapper.swift`
+- `packages/react-dom-native/ios/Sources/ReactDomNativeKit/Bridge/ViewRegistry.swift`
+- `packages/react-dom-native/ios/Sources/ReactDomNativeKit/Bridge/Differentiator.swift`
 
 ## After Completion
 

@@ -29,11 +29,10 @@ If not already run, run `/install-dependencies` first.
 ## Instructions
 
 1. Read the renderer host config spec (`docs/specs/renderer-host-config.md`)
-2. Initialize `packages/renderer/`:
-   - `package.json` with `react-reconciler` dependency
-   - `src/HostConfig.js` — host config implementation (persistent mode)
-   - `src/renderer.js` — creates the reconciler instance, exports `createRoot()` function
-   - `src/index.js` — public API
+2. Initialize `packages/react-dom-native/src/renderer/`:
+   - `HostConfig.js` — host config implementation (persistent mode)
+   - `renderer.js` — creates the reconciler instance, exports `createRoot()` function
+   - `index.js` — public API
 3. Set reconciler mode flags:
    - `supportsPersistence: true`
    - `supportsMutation: false`
@@ -71,7 +70,7 @@ If not already run, run `/install-dependencies` first.
 8. Implement Tier 2 simple logic functions (see spec for full list)
 9. Stub out Tier 3 no-ops and Tier 4 feature shims (WithNoMutation, WithNoHydration, WithNoResources, etc.)
 10. Write tests:
-    - `src/__tests__/renderer.test.js`
+    - `__tests__/renderer.test.js`
     - Test: `createInstance` calls `$$createNode` and returns correct `Instance` shape
     - Test: `cloneInstance` with `keepChildren=true` calls `$$cloneNodeWithNewProps`, preserves `_nativeFamily`
     - Test: `cloneInstance` with `keepChildren=false` calls `$$cloneNodeWithNewChildrenAndProps`, returns empty children
@@ -82,11 +81,10 @@ If not already run, run `/install-dependencies` first.
 
 ## Output
 
-- `packages/renderer/package.json`
-- `packages/renderer/src/HostConfig.js`
-- `packages/renderer/src/renderer.js`
-- `packages/renderer/src/index.js`
-- `packages/renderer/src/__tests__/renderer.test.js`
+- `packages/react-dom-native/src/renderer/HostConfig.js`
+- `packages/react-dom-native/src/renderer/renderer.js`
+- `packages/react-dom-native/src/renderer/index.js`
+- `packages/react-dom-native/src/renderer/__tests__/renderer.test.js`
 
 ## After Completion
 

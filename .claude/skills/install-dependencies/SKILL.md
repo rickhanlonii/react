@@ -15,11 +15,11 @@ Install all project dependencies upfront. This skill prompts for approval before
 
 Ask user: "Ready to install npm dependencies? This will run npm install for:
 - Root: jest, @types/jest, typescript, @types/node
-- packages/renderer: react-reconciler, react
-- packages/yoga-layout: (JS bindings only — Yoga itself runs native-side via SPM)
-- packages/flight-client: react-client
-- packages/cli: [bundler from /research-bundler], chokidar, ws
-- server: next, react, react-dom (if not already installed)
+- packages/react-dom-native (renderer): react-reconciler, react
+- packages/react-dom-native (yoga-layout): (JS bindings only — Yoga itself runs native-side via SPM)
+- packages/react-dom-native (flight-client): react-client
+- example/scripts: [bundler from /research-bundler], chokidar, ws
+- example/server: express, react, react-dom, react-server-dom-esm (if not already installed)
 
 Proceed? [y/n]"
 
@@ -32,36 +32,20 @@ cd /Users/rickhanlonii/oss/falcon
 # Root dev dependencies
 npm install --save-dev jest @types/jest typescript @types/node
 
-# Create package dirs if needed
-mkdir -p packages/{renderer,yoga-layout,flight-client,cli,bridge,components}/src
+# Library package
+cd packages/react-dom-native && npm install && cd ../..
 
-# Renderer
-cd packages/renderer && npm init -y && npm install react-reconciler react && cd ../..
+# Example app
+cd example && npm install && cd ..
 
-# Yoga (JS bindings to call native Yoga — no npm yoga package needed)
-cd packages/yoga-layout && npm init -y && cd ../..
-
-# Flight client
-cd packages/flight-client && npm init -y && npm install react && cd ../..
-
-# Bridge
-cd packages/bridge && npm init -y && cd ../..
-
-# Components
-cd packages/components && npm init -y && npm install react && cd ../..
-
-# CLI / build tools (bundler determined by /research-bundler)
-cd packages/cli && npm init -y && npm install chokidar ws && cd ../..
-# Note: Install chosen bundler separately: npm install esbuild|swc|@react-native/metro-config
-
-# Server (if needed)
-cd server && npm install && cd ..
+# Fantom testing framework
+cd tools/fantom && npm install && cd ../..
 ```
 
 ### Step 3: Prompt for native dependency setup
 
 Ask user: "Ready to set up native iOS dependencies? This will:
-- Initialize Swift Package in ios/
+- Initialize Swift Package in packages/react-dom-native/ios/
 - Add Yoga C++ as SPM dependency (via SwiftYogaKit or compile from react-native source)
 - Configure JavaScriptCore.framework link (built into iOS)
 
@@ -72,11 +56,12 @@ Proceed? [y/n]"
 If approved, this creates the Package.swift scaffold. Full Xcode setup is done by `/impl-xcode-project`.
 
 ```bash
-mkdir -p /Users/rickhanlonii/oss/falcon/ios/Sources/ReactDomNative
-mkdir -p /Users/rickhanlonii/oss/falcon/ios/Tests/ReactDomNativeTests
+mkdir -p /Users/rickhanlonii/oss/falcon/packages/react-dom-native/ios/Sources/ReactDomNativeKit
+mkdir -p /Users/rickhanlonii/oss/falcon/packages/react-dom-native/ios/Sources/ShadowTree
+mkdir -p /Users/rickhanlonii/oss/falcon/tools/fantom/ios/Sources/FantomTester
 ```
 
-**Note:** Yoga layout calculations happen on the native side (Swift/C++). The JS `packages/yoga-layout/` package provides bindings to call native Yoga via the bridge, not a standalone JS implementation.
+**Note:** Yoga layout calculations happen on the native side (Swift/C++). The JS `packages/react-dom-native/src/yoga-layout/` package provides bindings to call native Yoga via the bridge, not a standalone JS implementation.
 
 ## After Completion
 

@@ -12,19 +12,19 @@ argument-hint: <package-name>
 
 ## Instructions
 
-1. Determine the package path: `packages/$ARGUMENTS/`
-2. Check that the package has tests: `packages/$ARGUMENTS/src/__tests__/`
+1. Determine the source path: `packages/react-dom-native/src/$ARGUMENTS/`
+2. Check that the package has tests: `packages/react-dom-native/src/$ARGUMENTS/__tests__/`
 3. Run the tests:
 
 ```bash
-cd /Users/rickhanlonii/oss/falcon/packages/$ARGUMENTS
-npm test
+cd /Users/rickhanlonii/oss/falcon
+npm test -- --testPathPattern="packages/react-dom-native/src/$ARGUMENTS"
 ```
 
-4. If no test script exists in the package's `package.json`, run with jest directly:
+4. If that doesn't work, run with jest directly:
 
 ```bash
-npx jest packages/$ARGUMENTS/src/__tests__/ --verbose
+npx jest packages/react-dom-native/src/$ARGUMENTS/__tests__/ --verbose
 ```
 
 5. Report results: number of tests passed/failed, any error output

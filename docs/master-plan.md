@@ -35,20 +35,20 @@
 
 ## Phase 3: Core Implementation
 
-- [x] React reconciler host config (`/impl-renderer` → `packages/renderer/`)
-- [x] JS ↔ Swift bridge (`/impl-js-bridge` → `packages/bridge/`)
-- [x] Yoga layout integration (`/impl-yoga-layout` → `packages/yoga-layout/`)
-- [x] Xcode project + native app (`/impl-xcode-project` → `ios/`)
+- [x] React reconciler host config (`/impl-renderer` → `packages/react-dom-native/src/renderer/`)
+- [x] JS ↔ Swift bridge (`/impl-js-bridge` → `packages/react-dom-native/src/bridge/`)
+- [x] Yoga layout integration (`/impl-yoga-layout` → `packages/react-dom-native/src/yoga-layout/`)
+- [x] Xcode project + native app (`/impl-xcode-project` → `packages/react-dom-native/ios/`, `example/Falcon/`)
 
 ## Phase 4: Components & RSC
 
-- [x] HTML element registry + components (`/impl-html-components` → `packages/components/`)
-- [x] Flight client for native (`/impl-flight-client` → `packages/flight-client/`)
+- [x] HTML element registry + components (`/impl-html-components` → `packages/react-dom-native/src/components/`)
+- [x] Flight client for native (`/impl-flight-client` → `packages/react-dom-native/src/flight-client/`)
 
 ## Phase 5: Integration Testing
 
-- [x] JS build system (`/impl-build-system` → `packages/cli/`, `scripts/`)
-- [x] Developer tools — hot reload, error display (`/impl-devtools` → `packages/cli/`)
+- [x] JS build system (`/impl-build-system` → `example/scripts/`)
+- [x] Developer tools — hot reload, error display (`/impl-devtools` → `packages/react-dom-native/ios/Sources/ReactDomNativeKit/DevTools/`)
 - [x] Extract shared ShadowTree Swift module (no UIKit, shared by app + tester)
 - [x] Build FantomTester headless Swift binary (macOS, JavaScriptCore, StubView)
 - [x] JS test runtime (describe/it/expect running inside JSC)
@@ -58,13 +58,13 @@
 
 ## Phase 5b: Flight Integration Testing
 
-- [x] `renderToFlightString()` — synchronous Flight encoder (`packages/fantom/src/index.js`)
-- [x] `createFromFlight()` — Flight payload parser (`packages/fantom/src/index.js`)
+- [x] `renderToFlightString()` — synchronous Flight encoder (`tools/fantom/src/index.js`)
+- [x] `createFromFlight()` — Flight payload parser (`tools/fantom/src/index.js`)
 - [x] Flight integration tests (`tests/integration/rsc-*-flight-itest.js`)
 
 ## Phase 6: Example App
 
-- [x] Express RSC server (`server/`)
+- [x] Express RSC server (`example/server/`)
 - [x] Client components — Counter, TextInput (`example/components/`)
-- [x] Entry point integration — module map, auto-boot (`packages/entry/`)
+- [x] Entry point integration — module map, auto-boot (`example/entry/`)
 - [ ] End-to-end verification — server → Flight → native rendering

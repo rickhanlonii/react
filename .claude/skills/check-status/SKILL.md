@@ -17,8 +17,10 @@ Phase 1b: Arch Research    — X/6 complete
 Phase 2: Specifications    — X/6 complete
 Phase 2.5: Dependencies    — X/1 complete
 Phase 3: Core Impl         — X/4 complete
-Phase 4: Components        — X/2 complete
-Phase 5: Polish            — X/5 complete
+Phase 4: Components & RSC  — X/2 complete
+Phase 5: Integration Testing — X/8 complete
+Phase 5b: Flight Integration — X/3 complete
+Phase 6: Example App       — X/4 complete
 ```
 
 4. Determine current phase (first phase with unchecked items)
@@ -35,6 +37,7 @@ Phase 5: Polish            — X/5 complete
    - `impl-flight-client` depends on renderer + bridge
    - `impl-build-system` depends on bridge
    - `impl-devtools` depends on build-system
+   - `impl-fantom` depends on renderer + bridge
 6. Suggest the next skill(s) to run
 
 7. Check for any research or spec documents that exist but aren't checked off in MASTER_PLAN.md (sync issue) and fix if found.
