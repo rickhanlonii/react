@@ -7,10 +7,10 @@ import ShadowTree
 // Maps ShadowNodeFamily (stable identity) to UIView and back. This two-way
 // mapping is essential because:
 //
-//   Forward (family → view): The Differentiator needs to find the UIView for
+//   Forward (family -> view): The Differentiator needs to find the UIView for
 //   a given shadow node identity to apply mutations (insert, remove, update).
 //
-//   Reverse (view → family): The event system needs to find the
+//   Reverse (view -> family): The event system needs to find the
 //   ShadowNodeFamily for a touched UIView so it can look up the
 //   InstanceHandle and dispatch events back to JS.
 //
@@ -19,21 +19,25 @@ import ShadowTree
 // family pointer remains stable across revisions.
 // ---------------------------------------------------------------------------
 
-class ViewRegistry {
+public class ViewRegistry {
 
     // MARK: - Storage
 
-    /// Forward map: family identity → UIView (for applying mutations)
+    /// Forward map: family identity -> UIView (for applying mutations)
     private var familyToView: [ObjectIdentifier: UIView] = [:]
 
-    /// Reverse map: view identity → ShadowNodeFamily (for event hit testing)
+    /// Reverse map: view identity -> ShadowNodeFamily (for event hit testing)
     private var viewToFamily: [ObjectIdentifier: ShadowNodeFamily] = [:]
+
+    // MARK: - Initialization
+
+    public init() {}
 
     // MARK: - Registration
 
     /// Associates a UIView with a ShadowNodeFamily. Overwrites any existing
     /// mapping for the same family or view.
-    func register(view: UIView, family: ShadowNodeFamily) {
+    public func register(view: UIView, family: ShadowNodeFamily) {
         let familyId = ObjectIdentifier(family)
         let viewId = ObjectIdentifier(view)
 
@@ -43,7 +47,7 @@ class ViewRegistry {
 
     /// Removes the mapping for the given family. Called when a node is deleted
     /// and its view is returned to the pool (or deallocated).
-    func unregister(family: ShadowNodeFamily) {
+    public func unregister(family: ShadowNodeFamily) {
         let familyId = ObjectIdentifier(family)
         if let view = familyToView.removeValue(forKey: familyId) {
             let viewId = ObjectIdentifier(view)
@@ -52,7 +56,7 @@ class ViewRegistry {
     }
 
     /// Removes the mapping for the given view.
-    func unregister(view: UIView) {
+    public func unregister(view: UIView) {
         let viewId = ObjectIdentifier(view)
         if let family = viewToFamily.removeValue(forKey: viewId) {
             let familyId = ObjectIdentifier(family)
@@ -63,13 +67,13 @@ class ViewRegistry {
     // MARK: - Lookup
 
     /// Returns the UIView associated with the given family, or nil if not found.
-    func view(for family: ShadowNodeFamily) -> UIView? {
+    public func view(for family: ShadowNodeFamily) -> UIView? {
         let familyId = ObjectIdentifier(family)
         return familyToView[familyId]
     }
 
     /// Returns the ShadowNodeFamily associated with the given view, or nil.
-    func family(for view: UIView) -> ShadowNodeFamily? {
+    public func family(for view: UIView) -> ShadowNodeFamily? {
         let viewId = ObjectIdentifier(view)
         return viewToFamily[viewId]
     }
@@ -77,12 +81,12 @@ class ViewRegistry {
     // MARK: - Utilities
 
     /// Number of registered view-family pairs.
-    var count: Int {
+    public var count: Int {
         return familyToView.count
     }
 
     /// Removes all mappings. Called on surface teardown.
-    func clear() {
+    public func clear() {
         familyToView.removeAll()
         viewToFamily.removeAll()
     }

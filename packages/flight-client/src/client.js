@@ -662,17 +662,27 @@ function createFromFetch(fetchPromise, options) {
   var response = createResponse(bundlerConfig, options);
   var streamState = createStreamState();
 
+  console.log('[Flight] createFromFetch called');
+
   fetchPromise.then(
     function onStream(stream) {
+      console.log('[Flight] Stream received');
+
       stream.onChunk(function (chunk) {
+        var chunkType = chunk instanceof Uint8Array ? 'Uint8Array' : typeof chunk;
+        var chunkLen = chunk ? chunk.length : 0;
+        console.log('[Flight] Chunk received, type: ' + chunkType + ', length: ' + chunkLen);
         if (chunk instanceof Uint8Array) {
           processBinaryChunk(response, streamState, chunk);
         } else if (typeof chunk === 'string') {
           processStringChunk(response, streamState, chunk);
         }
+        var chunkCount = Object.keys(response.chunks).length;
+        console.log('[Flight] After processing, chunks: ' + chunkCount);
       });
 
       stream.onDone(function () {
+        console.log('[Flight] Stream done');
         if (streamState._decoder) {
           var remaining = Config.readFinalStringChunk(
             streamState._decoder,
@@ -683,13 +693,17 @@ function createFromFetch(fetchPromise, options) {
           }
         }
         close(response);
+        var rootStatus = response.chunks[0] ? response.chunks[0].status : 'missing';
+        console.log('[Flight] Response closed, root chunk status: ' + rootStatus);
       });
 
       stream.onError(function (error) {
+        console.error('[Flight] Stream error:', error);
         reportGlobalError(response, error);
       });
     },
     function onError(error) {
+      console.error('[Flight] Fetch error:', error);
       reportGlobalError(response, error);
     },
   );

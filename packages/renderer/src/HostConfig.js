@@ -69,6 +69,7 @@ exports.createInstance = function createInstance(
   hostContext,
   internalHandle,
 ) {
+  console.log('[HostConfig] createInstance: ' + type);
   // Strip children from props — child nodes are managed by the reconciler
   // via appendInitialChild, not stored as props on the native node.
   const {children, ...nativeProps} = props;
@@ -79,6 +80,7 @@ exports.createInstance = function createInstance(
     hostContext.isInsideTextContext,
     internalHandle,
   );
+  console.log('[HostConfig] createInstance returned nativeNode: ' + (nativeNode ? 'yes' : 'no'));
   return {
     _nativeNode: nativeNode,
     _nativeFamily: nativeNode._family || nativeNode,
@@ -189,19 +191,24 @@ exports.cloneHiddenTextInstance = function cloneHiddenTextInstance(instance, tex
 };
 
 exports.createContainerChildSet = function createContainerChildSet() {
+  console.log('[HostConfig] createContainerChildSet');
   return [];
 };
 
 exports.appendChildToContainerChildSet = function appendChildToContainerChildSet(childSet, child) {
+  console.log('[HostConfig] appendChildToContainerChildSet, child type: ' + (child ? child.type : 'null'));
   childSet.push(child);
 };
 
 exports.finalizeContainerChildren = function finalizeContainerChildren(container, newChildren) {
+  console.log('[HostConfig] finalizeContainerChildren, count: ' + (newChildren ? newChildren.length : 0));
   // No-op — preparation happens in replaceContainerChildren
 };
 
 exports.replaceContainerChildren = function replaceContainerChildren(container, newChildren) {
+  console.log('[HostConfig] replaceContainerChildren, count: ' + (newChildren ? newChildren.length : 0));
   const childNodes = newChildren.map(c => c._nativeNode);
+  console.log('[HostConfig] calling $$completeRoot with ' + childNodes.length + ' children');
   $$completeRoot(container.surfaceId, childNodes);
   container.currentTree = container.pendingTree;
   container.pendingTree = null;

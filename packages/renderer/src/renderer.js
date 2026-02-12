@@ -20,6 +20,7 @@ $$registerEventHandler(function (instanceHandle, eventType, payload) {
 let nextSurfaceId = 1;
 
 function createRoot(nativeRootView) {
+  console.log('[Renderer] createRoot called with surfaceId: ' + (nativeRootView.surfaceId || 'auto'));
   const surfaceId = nativeRootView.surfaceId != null
     ? nativeRootView.surfaceId
     : nextSurfaceId++;
@@ -41,9 +42,12 @@ function createRoot(nativeRootView) {
     null,    // onUncaughtError
     null,    // onCaughtError
   );
+  console.log('[Renderer] Container created for surfaceId: ' + surfaceId);
   return {
     render(element) {
+      console.log('[Renderer] render called with element type: ' + (element ? (element.$$typeof ? String(element.$$typeof) : typeof element) : 'null'));
       reconciler.updateContainer(element, root, null, null);
+      console.log('[Renderer] updateContainer completed');
     },
     unmount() {
       reconciler.updateContainer(null, root, null, null);

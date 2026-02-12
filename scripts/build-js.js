@@ -17,7 +17,7 @@ const shared = {
     'process.env.NODE_ENV': '"development"',
   },
   sourcemap: true,
-  outfile: path.join(ROOT, 'ios/Sources/ReactDomNative/Resources/bundle.js'),
+  outfile: path.join(ROOT, 'Falcon/Falcon/Resources/bundle.js'),
   logLevel: 'info',
 };
 

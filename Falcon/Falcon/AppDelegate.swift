@@ -1,4 +1,5 @@
 import UIKit
+import ReactDomNativeKit
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     var jsRuntime: JSRuntime?

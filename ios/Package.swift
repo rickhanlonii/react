@@ -2,10 +2,10 @@
 import PackageDescription
 
 let package = Package(
-    name: "ReactDomNative",
+    name: "ReactDomNativeKit",
     platforms: [.iOS(.v15), .macOS(.v13)],
     products: [
-        .executable(name: "ReactDomNative", targets: ["ReactDomNative"]),
+        .library(name: "ReactDomNativeKit", targets: ["ReactDomNativeKit"]),
         .library(name: "ShadowTree", targets: ["ShadowTree"]),
         .executable(name: "FantomTester", targets: ["FantomTester"])
     ],
@@ -16,11 +16,10 @@ let package = Package(
             dependencies: [],
             path: "Sources/ShadowTree"
         ),
-        .executableTarget(
-            name: "ReactDomNative",
+        .target(
+            name: "ReactDomNativeKit",
             dependencies: ["ShadowTree"],
-            path: "Sources/ReactDomNative",
-            resources: [.copy("Resources")]
+            path: "Sources/ReactDomNativeKit"
         ),
         .executableTarget(
             name: "FantomTester",
@@ -29,7 +28,7 @@ let package = Package(
         ),
         .testTarget(
             name: "ReactDomNativeTests",
-            dependencies: ["ReactDomNative"],
+            dependencies: ["ReactDomNativeKit"],
             path: "Tests/ReactDomNativeTests"
         )
     ]

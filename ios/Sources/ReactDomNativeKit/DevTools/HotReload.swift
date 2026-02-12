@@ -1,20 +1,38 @@
 import Foundation
 import JavaScriptCore
 
-class HotReloadClient {
+public class HotReloadClient {
     private var webSocketTask: URLSessionWebSocketTask?
     private let session = URLSession(configuration: .default)
     private var serverURL: URL
-    private weak var jsRuntime: JSRuntime?
+    private weak var root: Root?
+    private var bundleURL: URL
     private var isConnected = false
     private var reconnectTimer: Timer?
 
-    init(host: String = "localhost", port: Int = 8082, runtime: JSRuntime) {
+    /// Creates a hot reload client connected to a Root.
+    ///
+    /// Example:
+    /// ```swift
+    /// let bundleURL = URL(string: "http://localhost:3000/bundle.js")!
+    /// let root = createRoot(view)
+    /// root.render(bundle: bundleURL) { error in ... }
+    /// let hotReload = HotReloadClient(root: root, bundleURL: bundleURL)
+    /// hotReload.connect()
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - host: WebSocket server host (default: "localhost")
+    ///   - port: WebSocket server port (default: 8082)
+    ///   - root: The React root to reload
+    ///   - bundleURL: URL to the bundle to reload from
+    public init(host: String = "localhost", port: Int = 8082, root: Root, bundleURL: URL) {
         self.serverURL = URL(string: "ws://\(host):\(port)")!
-        self.jsRuntime = runtime
+        self.root = root
+        self.bundleURL = bundleURL
     }
 
-    func connect() {
+    public func connect() {
         guard !isConnected else { return }
 
         let task = session.webSocketTask(with: serverURL)
@@ -26,7 +44,7 @@ class HotReloadClient {
         receiveMessage()
     }
 
-    func disconnect() {
+    public func disconnect() {
         reconnectTimer?.invalidate()
         reconnectTimer = nil
         webSocketTask?.cancel(with: .goingAway, reason: nil)
@@ -69,10 +87,15 @@ class HotReloadClient {
         }
 
         DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
             switch type {
             case "reload":
                 print("[HotReload] Reloading JS bundle...")
-                self?.jsRuntime?.reloadBundle()
+                self.root?.reload(bundle: self.bundleURL) { error in
+                    if let error = error {
+                        print("[HotReload] Reload failed: \(error)")
+                    }
+                }
 
             case "error":
                 let message = json["message"] as? String ?? "Unknown error"

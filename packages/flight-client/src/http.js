@@ -15,33 +15,55 @@
 /**
  * Creates a stream-like object that the Flight client can consume.
  * The stream provides onChunk/onDone/onError registration methods.
+ * Buffers events until listeners are registered to avoid race conditions.
  */
 function createStream() {
   var chunkCallbacks = [];
   var doneCallbacks = [];
   var errorCallbacks = [];
 
+  // Buffer for events that arrive before listeners are registered
+  var bufferedChunks = [];
+  var isDone = false;
+  var bufferedError = null;
+
   return {
     onChunk: function onChunk(cb) {
       chunkCallbacks.push(cb);
+      // Flush buffered chunks
+      for (var i = 0; i < bufferedChunks.length; i++) {
+        cb(bufferedChunks[i]);
+      }
     },
     onDone: function onDone(cb) {
       doneCallbacks.push(cb);
+      // If already done, call immediately
+      if (isDone) {
+        cb();
+      }
     },
     onError: function onError(cb) {
       errorCallbacks.push(cb);
+      // If already errored, call immediately
+      if (bufferedError !== null) {
+        cb(bufferedError);
+      }
     },
     _emitChunk: function _emitChunk(data) {
+      // Always buffer in case more listeners are added
+      bufferedChunks.push(data);
       for (var i = 0; i < chunkCallbacks.length; i++) {
         chunkCallbacks[i](data);
       }
     },
     _emitDone: function _emitDone() {
+      isDone = true;
       for (var i = 0; i < doneCallbacks.length; i++) {
         doneCallbacks[i]();
       }
     },
     _emitError: function _emitError(err) {
+      bufferedError = err;
       for (var i = 0; i < errorCallbacks.length; i++) {
         errorCallbacks[i](err);
       }

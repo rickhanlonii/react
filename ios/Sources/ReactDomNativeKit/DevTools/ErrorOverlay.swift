@@ -1,20 +1,20 @@
 import UIKit
 
-class ErrorOverlay {
+public class ErrorOverlay {
     private var overlayWindow: UIWindow?
     private var errorView: ErrorOverlayView?
 
-    static let shared = ErrorOverlay()
+    public static let shared = ErrorOverlay()
 
     private init() {}
 
-    func show(message: String, stack: String?, file: String?, line: Int?) {
+    public func show(message: String, stack: String?, file: String?, line: Int?) {
         DispatchQueue.main.async { [weak self] in
             self?.presentOverlay(message: message, stack: stack, file: file, line: line)
         }
     }
 
-    func dismiss() {
+    public func dismiss() {
         DispatchQueue.main.async { [weak self] in
             self?.overlayWindow?.isHidden = true
             self?.overlayWindow = nil
@@ -46,8 +46,8 @@ class ErrorOverlay {
     }
 }
 
-class ErrorOverlayView: UIView {
-    var onDismiss: (() -> Void)?
+public class ErrorOverlayView: UIView {
+    public var onDismiss: (() -> Void)?
 
     private let titleLabel = UILabel()
     private let messageLabel = UILabel()
@@ -56,17 +56,17 @@ class ErrorOverlayView: UIView {
     private let dismissButton = UIButton(type: .system)
     private let scrollView = UIScrollView()
 
-    override init(frame: CGRect) {
+    public override init(frame: CGRect) {
         super.init(frame: frame)
         setupUI()
     }
 
-    required init?(coder: NSCoder) {
+    public required init?(coder: NSCoder) {
         super.init(coder: coder)
         setupUI()
     }
 
-    func configure(message: String, stack: String?, file: String?, line: Int?) {
+    public func configure(message: String, stack: String?, file: String?, line: Int?) {
         messageLabel.text = message
 
         if let stack = stack {
