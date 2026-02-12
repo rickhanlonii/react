@@ -1,16 +1,18 @@
 {
-  "name": "react-dom-native",
+  "name": "react-dom-native-monorepo",
   "version": "0.0.1",
   "private": true,
   "description": "React framework mapping HTML elements to native iOS views",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "example",
+    "example/server",
+    "tools/*"
   ],
   "scripts": {
-    "build": "node scripts/build-js.js",
-    "build:prod": "node scripts/build-js.js --production",
-    "dev": "bash scripts/dev.sh",
-    "dev:server": "cd server && node --conditions react-server server.js",
+    "build": "cd example && npm run build",
+    "build:prod": "cd example && npm run build:prod",
+    "dev": "cd example && npm run dev",
     "test": "jest --selectProjects unit",
     "test:fantom": "jest --selectProjects fantom",
     "test:all": "jest",

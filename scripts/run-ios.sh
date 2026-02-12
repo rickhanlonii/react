@@ -10,7 +10,7 @@ echo "Building and running iOS app..."
 "$SCRIPT_DIR/build-js.sh"
 
 # Build and run
-cd "$PROJECT_ROOT/ios"
+cd "$PROJECT_ROOT/packages/react-dom-native/ios"
 swift run
 
 echo "Done."

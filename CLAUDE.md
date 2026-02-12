@@ -49,15 +49,25 @@ Next.js (RSC server) → Flight stream (HTTP) → Native iOS client
 
 ## Project Structure
 
-- `packages/renderer/` — Custom React reconciler host config
-- `packages/components/` — HTML element → native view mappings
-- `packages/yoga-layout/` — Yoga integration with web defaults
-- `packages/bridge/` — JS ↔ C++ communication (JSI bindings)
-- `packages/flight-client/` — RSC Flight client for native
-- `packages/cli/` — Build tools and dev server
-- `ios/` — Native code: C++ shadow tree/scheduler, Swift UIKit views, app delegate
-- `server/` — Next.js RSC server
+- `packages/react-dom-native/` — The library (single package)
+  - `src/renderer/` — Custom React reconciler host config
+  - `src/components/` — HTML element → native view mappings
+  - `src/yoga-layout/` — Yoga integration with web defaults
+  - `src/bridge/` — JS ↔ Swift communication protocol
+  - `src/flight-client/` — RSC Flight client for native
+  - `ios/` — Swift Package: ReactDomNativeKit + ShadowTree
 - `example/` — Example app
+  - `Falcon/` — iOS Xcode project
+  - `server/` — RSC server (Express)
+  - `components/` — Client components (Counter, TextInput)
+  - `entry/` — App entry point (bundled into Falcon)
+  - `scripts/` — Build scripts (esbuild, dev server, watcher)
+- `tools/fantom/` — Headless integration testing framework
+  - `src/` — JS test runner + Jest integration
+  - `ios/` — Swift FantomTester binary
+- `scripts/` — Root build scripts
+- `tests/` — Integration tests
+- `docs/` — Documentation
 
 ## Skills
 

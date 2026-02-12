@@ -1,0 +1,16 @@
+{
+  "name": "react-dom-native-example",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.js",
+    "build:prod": "node scripts/build.js --production",
+    "dev": "bash scripts/dev.sh",
+    "server": "cd server && node --conditions react-server server.js"
+  },
+  "dependencies": {
+    "chokidar": "^4.0.0",
+    "esbuild": "^0.25.0",
+    "ws": "^8.18.0"
+  }
+}
