@@ -1,5 +1,5 @@
 import Foundation
-import JavaScriptCore
+import JSEngine
 
 // ---------------------------------------------------------------------------
 // FantomTester — Headless test runner for react-dom-native
@@ -26,10 +26,14 @@ func main() -> Int32 {
         return 1
     }
 
-    // 2. Create JSContext
-    guard let context = JSContext() else {
-        fputs("Error: Could not create JSContext\n", stderr)
-        return 1
+    // 2. Create JS engine
+    let engine = JavaScriptCoreEngine()
+
+    engine.exceptionHandler = { message, stack in
+        fputs("[fantom] JS Error: \(message)\n", stderr)
+        if let stack = stack {
+            fputs("[fantom] Stack: \(stack)\n", stderr)
+        }
     }
 
     // 3. Set up console.log/warn/error — capture messages for test output.
@@ -38,13 +42,15 @@ func main() -> Int32 {
     //    so they can handle variadic arguments naturally.
     var consoleMessages: [[String: String]] = []
 
-    let captureConsole: @convention(block) (String, String) -> Void = {
-        level, message in
+    engine.setGlobalFunction("$$captureConsole") { [weak engine] args in
+        guard let engine = engine else { return nil }
+        let level = engine.toString(args[0]) ?? "log"
+        let message = engine.toString(args[1]) ?? ""
         consoleMessages.append(["level": level, "message": message])
+        return nil
     }
-    context.setObject(captureConsole, forKeyedSubscript: "$$captureConsole" as NSString)
 
-    context.evaluateScript("""
+    engine.evaluate("""
         (function() {
             function makeConsole(level) {
                 return function() {
@@ -66,20 +72,16 @@ func main() -> Int32 {
         })();
     """)
 
-    // Set up globalThis
-    context.setObject(context.globalObject, forKeyedSubscript: "globalThis" as NSString)
-
     // 4. Create TesterBridge (registers all $$-prefixed functions)
-    let bridge = TesterBridge(context: context)
+    let bridge = TesterBridge(engine: engine)
 
     // 5. Evaluate the bundle (this registers tests via describe/it and
     //    defines $$RunTests$$ via the injected setup.js)
-    context.evaluateScript(bundleSource, withSourceURL: URL(fileURLWithPath: bundlePath))
+    engine.evaluate(bundleSource, sourceURL: URL(fileURLWithPath: bundlePath))
 
     // 6. Call $$RunTests$$ to execute all registered tests
-    if let runTests = context.objectForKeyedSubscript("$$RunTests$$"),
-       !runTests.isUndefined {
-        runTests.call(withArguments: [])
+    if let runTests = engine.getGlobalProperty("$$RunTests$$") {
+        _ = engine.callFunction(runTests, args: [])
     } else {
         // If $$RunTests$$ is not defined, the bundle may have run tests inline
         fputs("Warning: $$RunTests$$ not found — tests may have run inline\n", stderr)

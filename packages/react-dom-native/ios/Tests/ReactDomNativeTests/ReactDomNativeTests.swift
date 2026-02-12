@@ -1,42 +1,40 @@
 import XCTest
-import JavaScriptCore
+import JSEngine
 
 final class ReactDomNativeTests: XCTestCase {
-    func testJSContextCreation() {
-        let context = JSContext()
-        XCTAssertNotNil(context, "JSContext should be created successfully")
+    func testEngineCreation() {
+        let engine = JavaScriptCoreEngine()
+        XCTAssertNotNil(engine, "JavaScriptCoreEngine should be created successfully")
     }
 
-    func testBridgeFunctionRegistration() {
-        let context = JSContext()!
-        let bridge = NativeBridge(context: context)
+    func testBindingFunctionRegistration() {
+        let engine = JavaScriptCoreEngine()
+        let bindings = Bindings(engine: engine)
 
         // Verify $$ globals are registered
-        let createNode = context.objectForKeyedSubscript("$$createNode")
-        XCTAssertNotNil(createNode)
-        XCTAssertFalse(createNode!.isUndefined, "$$createNode should be registered")
+        let createNode = engine.getGlobalProperty("$$createNode")
+        XCTAssertNotNil(createNode, "$$createNode should be registered")
 
-        let completeRoot = context.objectForKeyedSubscript("$$completeRoot")
-        XCTAssertNotNil(completeRoot)
-        XCTAssertFalse(completeRoot!.isUndefined, "$$completeRoot should be registered")
+        let completeRoot = engine.getGlobalProperty("$$completeRoot")
+        XCTAssertNotNil(completeRoot, "$$completeRoot should be registered")
 
-        _ = bridge // Keep reference alive
+        _ = bindings // Keep reference alive
     }
 
     func testJSBundleExecution() {
-        let context = JSContext()!
+        let engine = JavaScriptCoreEngine()
         var logOutput: String?
-        let log: @convention(block) (JSValue) -> Void = { value in
-            logOutput = value.toString()
+        engine.setGlobalFunction("$$log") { args in
+            logOutput = engine.toString(args[0])
+            return nil
         }
-        context.setObject(log, forKeyedSubscript: "$$log" as NSString)
 
         let script = """
         if (typeof $$log !== 'undefined') {
             $$log('test message');
         }
         """
-        context.evaluateScript(script)
+        engine.evaluate(script)
         XCTAssertEqual(logOutput, "test message")
     }
 }

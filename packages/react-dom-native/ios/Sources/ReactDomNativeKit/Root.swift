@@ -1,5 +1,5 @@
 import UIKit
-import JavaScriptCore
+import JSEngine
 
 // ---------------------------------------------------------------------------
 // Root
@@ -111,15 +111,13 @@ public class Root {
 
             // Set up error handler if provided
             if let onError = options.onUncaughtError {
-                runtime?.context.exceptionHandler = { _, exception in
-                    guard let error = exception else { return }
-                    let message = error.toString() ?? "Unknown error"
+                runtime?.engine.exceptionHandler = { message, _ in
                     onError(RootError.jsException(message))
                 }
             }
 
             // Register surface
-            runtime?.bridge.registerSurface(surfaceId: options.surfaceId, rootView: container)
+            runtime?.bindings.registerSurface(surfaceId: options.surfaceId, rootView: container)
 
             // Observe layout changes
             setupLayoutObserver()
@@ -153,7 +151,7 @@ public class Root {
         layoutObserver = nil
 
         // Unregister surface
-        runtime?.bridge.unregisterSurface(surfaceId: options.surfaceId)
+        runtime?.bindings.unregisterSurface(surfaceId: options.surfaceId)
 
         // Clear container
         container.subviews.forEach { $0.removeFromSuperview() }
@@ -251,7 +249,7 @@ public class Root {
     }
 
     private func executeBundle(source: String, sourceURL: URL) {
-        runtime?.context.evaluateScript(source, withSourceURL: sourceURL)
+        runtime?.engine.evaluate(source, sourceURL: sourceURL)
     }
 }
 

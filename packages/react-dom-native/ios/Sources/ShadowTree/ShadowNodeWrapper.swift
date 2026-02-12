@@ -1,18 +1,20 @@
 import Foundation
-import JavaScriptCore
+import CoreGraphics
+import Yoga
 
 // ---------------------------------------------------------------------------
 // ShadowNodeWrapper
 //
-// Wraps an immutable shadow node for passage between JS and Swift via JSC.
-// When registered as a JSValue on the JSContext, JSC retains the wrapper
-// and prevents it from being deallocated as long as JS holds a reference.
-// When the JS GC collects the value, the wrapper is released.
+// Immutable shadow node. Passed between JS and Swift as an integer ID
+// (managed by the Bindings layer's node registry). The ShadowTree module
+// has zero framework dependencies beyond Foundation, CoreGraphics, and Yoga.
 //
-// This is the opaque ShadowNodeHandle type referenced in the bridge protocol.
+// Each ShadowNodeWrapper owns a YGNodeRef for Yoga layout. The yogaNode
+// is created in init and freed in deinit. Clone methods create fresh
+// yogaNodes with style copied from the source.
 // ---------------------------------------------------------------------------
 
-@objc public class ShadowNodeWrapper: NSObject {
+public class ShadowNodeWrapper {
     /// The immutable props dictionary for this node revision.
     public let props: [String: Any]
 
@@ -25,9 +27,8 @@ import JavaScriptCore
     /// Text content (non-nil only for text nodes created via $$createTextNode).
     public let text: String?
 
-    // TODO: In a full implementation this would hold a pointer to the C++
-    // ShadowNode which embeds the YGNode for Yoga layout. For the initial
-    // Swift-only skeleton we store layout results directly.
+    /// Yoga layout node. Owned by this wrapper — freed in deinit.
+    public let yogaNode: YGNodeRef
 
     /// Computed layout frame (set during $$completeRoot after Yoga calculation).
     public var layoutFrame: CGRect = .zero
@@ -44,29 +45,57 @@ import JavaScriptCore
         self.children = children
         self.family = family
         self.text = text
-        super.init()
+        self.yogaNode = YGNodeNewWithConfig(YogaConfig.shared)
+    }
+
+    deinit {
+        // Clean up text measure context if set
+        YogaTextMeasure.cleanupMeasureContext(for: yogaNode)
+        // Remove from parent before freeing to avoid dangling pointers
+        if let owner = YGNodeGetOwner(yogaNode) {
+            YGNodeRemoveChild(owner, yogaNode)
+        }
+        YGNodeFree(yogaNode)
     }
 
     // MARK: - Cloning helpers
 
     /// Clone with new props, keeping existing children.
     public func cloneWithNewProps(_ newProps: [String: Any]) -> ShadowNodeWrapper {
-        return ShadowNodeWrapper(
+        let cloned = ShadowNodeWrapper(
             props: newProps,
             children: self.children,
             family: self.family,
             text: self.text
         )
+        YGNodeCopyStyle(cloned.yogaNode, self.yogaNode)
+        // Re-insert children's yogaNodes
+        for (index, child) in cloned.children.enumerated() {
+            if YGNodeGetOwner(child.yogaNode) != nil {
+                YGNodeRemoveChild(YGNodeGetOwner(child.yogaNode)!, child.yogaNode)
+            }
+            YGNodeInsertChild(cloned.yogaNode, child.yogaNode, index)
+        }
+        return cloned
     }
 
     /// Clone with new children, keeping existing props.
     public func cloneWithNewChildren(_ newChildren: [ShadowNodeWrapper]) -> ShadowNodeWrapper {
-        return ShadowNodeWrapper(
+        let cloned = ShadowNodeWrapper(
             props: self.props,
             children: newChildren,
             family: self.family,
             text: self.text
         )
+        YGNodeCopyStyle(cloned.yogaNode, self.yogaNode)
+        // Insert new children's yogaNodes
+        for (index, child) in newChildren.enumerated() {
+            if YGNodeGetOwner(child.yogaNode) != nil {
+                YGNodeRemoveChild(YGNodeGetOwner(child.yogaNode)!, child.yogaNode)
+            }
+            YGNodeInsertChild(cloned.yogaNode, child.yogaNode, index)
+        }
+        return cloned
     }
 
     /// Clone with both new children and new props.
@@ -74,21 +103,39 @@ import JavaScriptCore
         _ newChildren: [ShadowNodeWrapper],
         _ newProps: [String: Any]
     ) -> ShadowNodeWrapper {
-        return ShadowNodeWrapper(
+        let cloned = ShadowNodeWrapper(
             props: newProps,
             children: newChildren,
             family: self.family,
             text: self.text
         )
+        YGNodeCopyStyle(cloned.yogaNode, self.yogaNode)
+        // Insert new children's yogaNodes
+        for (index, child) in newChildren.enumerated() {
+            if YGNodeGetOwner(child.yogaNode) != nil {
+                YGNodeRemoveChild(YGNodeGetOwner(child.yogaNode)!, child.yogaNode)
+            }
+            YGNodeInsertChild(cloned.yogaNode, child.yogaNode, index)
+        }
+        return cloned
     }
 
     /// Clone preserving everything (shallow copy with same family).
     public func clone() -> ShadowNodeWrapper {
-        return ShadowNodeWrapper(
+        let cloned = ShadowNodeWrapper(
             props: self.props,
             children: self.children,
             family: self.family,
             text: self.text
         )
+        YGNodeCopyStyle(cloned.yogaNode, self.yogaNode)
+        // Re-insert children's yogaNodes
+        for (index, child) in cloned.children.enumerated() {
+            if YGNodeGetOwner(child.yogaNode) != nil {
+                YGNodeRemoveChild(YGNodeGetOwner(child.yogaNode)!, child.yogaNode)
+            }
+            YGNodeInsertChild(cloned.yogaNode, child.yogaNode, index)
+        }
+        return cloned
     }
 }

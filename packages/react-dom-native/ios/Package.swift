@@ -1,4 +1,4 @@
-// swift-tools-version:5.9
+// swift-tools-version:6.0
 import PackageDescription
 
 let package = Package(
@@ -7,17 +7,32 @@ let package = Package(
     products: [
         .library(name: "ReactDomNativeKit", targets: ["ReactDomNativeKit"]),
         .library(name: "ShadowTree", targets: ["ShadowTree"]),
+        .library(name: "JSEngine", targets: ["JSEngine"]),
+        .library(name: "Yoga", targets: ["Yoga"]),
     ],
     dependencies: [],
     targets: [
         .target(
+            name: "Yoga",
+            path: "Sources/Yoga",
+            publicHeadersPath: "include",
+            cxxSettings: [
+                .headerSearchPath("."),
+            ]
+        ),
+        .target(
             name: "ShadowTree",
-            dependencies: [],
+            dependencies: ["Yoga"],
             path: "Sources/ShadowTree"
         ),
         .target(
+            name: "JSEngine",
+            dependencies: [],
+            path: "Sources/JSEngine"
+        ),
+        .target(
             name: "ReactDomNativeKit",
-            dependencies: ["ShadowTree"],
+            dependencies: ["ShadowTree", "JSEngine", "Yoga"],
             path: "Sources/ReactDomNativeKit"
         ),
         .testTarget(
@@ -25,5 +40,7 @@ let package = Package(
             dependencies: ["ReactDomNativeKit"],
             path: "Tests/ReactDomNativeTests"
         )
-    ]
+    ],
+    swiftLanguageModes: [.v5],
+    cxxLanguageStandard: .cxx20
 )

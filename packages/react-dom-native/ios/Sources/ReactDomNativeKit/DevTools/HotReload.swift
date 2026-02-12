@@ -1,5 +1,4 @@
 import Foundation
-import JavaScriptCore
 
 public class HotReloadClient {
     private var webSocketTask: URLSessionWebSocketTask?

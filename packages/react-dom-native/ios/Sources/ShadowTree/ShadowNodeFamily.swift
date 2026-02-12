@@ -1,5 +1,4 @@
 import Foundation
-import JavaScriptCore
 
 // ---------------------------------------------------------------------------
 // ShadowNodeFamily
@@ -19,17 +18,14 @@ public class ShadowNodeFamily {
     public let surfaceId: Int
 
     /// React fiber reference used for event dispatch.
-    /// Stored as JSManagedValue to prevent GC from collecting the JS object
-    /// while we still need it, without creating a strong reference cycle.
-    public let instanceHandle: JSManagedValue?
+    /// Stored as an opaque ref. The engine's protect/unprotect mechanism
+    /// prevents GC while we need it. ARC keeps the ref alive as long as
+    /// this family is alive.
+    public let instanceHandle: AnyObject?
 
-    public init(elementType: String, surfaceId: Int, instanceHandle: JSValue?) {
+    public init(elementType: String, surfaceId: Int, instanceHandle: AnyObject?) {
         self.elementType = elementType
         self.surfaceId = surfaceId
-        if let handle = instanceHandle {
-            self.instanceHandle = JSManagedValue(value: handle)
-        } else {
-            self.instanceHandle = nil
-        }
+        self.instanceHandle = instanceHandle
     }
 }

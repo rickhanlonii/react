@@ -1,4 +1,4 @@
-// swift-tools-version:5.9
+// swift-tools-version:6.0
 import PackageDescription
 
 let package = Package(
@@ -8,15 +8,17 @@ let package = Package(
         .executable(name: "FantomTester", targets: ["FantomTester"])
     ],
     dependencies: [
-        .package(path: "../../packages/react-dom-native/ios")
+        .package(path: "../../../packages/react-dom-native/ios")
     ],
     targets: [
         .executableTarget(
             name: "FantomTester",
             dependencies: [
-                .product(name: "ShadowTree", package: "ReactDomNativeKit")
+                .product(name: "ShadowTree", package: "ios"),
+                .product(name: "JSEngine", package: "ios"),
             ],
             path: "Sources/FantomTester"
         )
-    ]
+    ],
+    swiftLanguageModes: [.v5]
 )

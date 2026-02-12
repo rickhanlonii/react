@@ -1,54 +1,57 @@
-import JavaScriptCore
 import UIKit
 import ShadowTree
+import JSEngine
 
 public class JSRuntime {
-    public let context: JSContext
-    public let bridge: NativeBridge
+    public let engine: JSEngine
+    public let bindings: Bindings
 
     // Timer management
     private var timers: [Int: DispatchWorkItem] = [:]
     private var nextTimerId = 1
 
     public init() {
-        guard let ctx = JSContext() else {
-            fatalError("Failed to create JSContext")
-        }
-        context = ctx
+        let eng = JavaScriptCoreEngine()
+        engine = eng
 
         // Set up exception handler
-        context.exceptionHandler = { _, exception in
-            guard let error = exception else { return }
-            print("[JSRuntime] JS Error: \(error)")
-            if let stack = error.objectForKeyedSubscript("stack") {
+        engine.exceptionHandler = { message, stack in
+            print("[JSRuntime] JS Error: \(message)")
+            if let stack = stack {
                 print("[JSRuntime] Stack: \(stack)")
             }
         }
 
         // Register console object with log, warn, error, info, debug
-        let consoleLog: @convention(block) (JSValue) -> Void = { message in
+        let consoleLog = eng.makeFunction { [weak eng] args in
+            let message = args.first.flatMap { eng?.toString($0) } ?? ""
             print("[JS] \(message)")
+            return nil
         }
-        let consoleWarn: @convention(block) (JSValue) -> Void = { message in
+        let consoleWarn = eng.makeFunction { [weak eng] args in
+            let message = args.first.flatMap { eng?.toString($0) } ?? ""
             print("[JS WARN] \(message)")
+            return nil
         }
-        let consoleError: @convention(block) (JSValue) -> Void = { message in
+        let consoleError = eng.makeFunction { [weak eng] args in
+            let message = args.first.flatMap { eng?.toString($0) } ?? ""
             print("[JS ERROR] \(message)")
+            return nil
         }
 
-        let consoleObj = JSValue(newObjectIn: context)!
-        consoleObj.setObject(consoleLog, forKeyedSubscript: "log" as NSString)
-        consoleObj.setObject(consoleWarn, forKeyedSubscript: "warn" as NSString)
-        consoleObj.setObject(consoleError, forKeyedSubscript: "error" as NSString)
-        consoleObj.setObject(consoleLog, forKeyedSubscript: "info" as NSString)
-        consoleObj.setObject(consoleLog, forKeyedSubscript: "debug" as NSString)
-        context.setObject(consoleObj, forKeyedSubscript: "console" as NSString)
+        let consoleObj = engine.makeObject()
+        engine.setProperty(consoleObj, "log", consoleLog)
+        engine.setProperty(consoleObj, "warn", consoleWarn)
+        engine.setProperty(consoleObj, "error", consoleError)
+        engine.setProperty(consoleObj, "info", consoleLog)
+        engine.setProperty(consoleObj, "debug", consoleLog)
+        engine.setGlobalProperty("console", consoleObj)
 
         // Legacy $$log for backwards compatibility
-        context.setObject(consoleLog, forKeyedSubscript: "$$log" as NSString)
+        engine.setGlobalProperty("$$log", consoleLog)
 
-        // Set up the native bridge (registers all $$ functions)
-        bridge = NativeBridge(context: context)
+        // Set up the bindings (registers all $$ functions)
+        bindings = Bindings(engine: engine)
 
         // Register timer functions (must be after all stored properties are initialized)
         setupTimerPolyfills()
@@ -56,63 +59,62 @@ public class JSRuntime {
 
     private func setupTimerPolyfills() {
         // setTimeout
-        let setTimeout: @convention(block) (JSValue, JSValue) -> Int = { [weak self] callback, delay in
-            guard let self = self else { return 0 }
+        engine.setGlobalFunction("setTimeout") { [weak self, weak engine] args in
+            guard let self = self, let engine = engine else { return nil }
+            let callback = args[0]
+            let delayMs = args.count > 1 && !engine.isUndefined(args[1])
+                ? engine.toInt(args[1]) ?? 0
+                : 0
+
             let timerId = self.nextTimerId
             self.nextTimerId += 1
+            engine.protect(callback)
 
-            let delayMs = delay.isUndefined ? 0 : delay.toInt32()
-            let workItem = DispatchWorkItem { [weak self] in
+            let workItem = DispatchWorkItem { [weak self, weak engine] in
                 self?.timers.removeValue(forKey: timerId)
-                callback.call(withArguments: [])
+                _ = engine?.callFunction(callback, args: [])
+                engine?.unprotect(callback)
             }
             self.timers[timerId] = workItem
             DispatchQueue.main.asyncAfter(
-                deadline: .now() + .milliseconds(Int(delayMs)),
+                deadline: .now() + .milliseconds(delayMs),
                 execute: workItem
             )
-            return timerId
+            return engine.makeNumber(Double(timerId))
         }
-        context.setObject(setTimeout, forKeyedSubscript: "setTimeout" as NSString)
 
-        // clearTimeout
-        let clearTimeout: @convention(block) (Int) -> Void = { [weak self] timerId in
-            if let workItem = self?.timers.removeValue(forKey: timerId) {
+        // clearTimeout / clearInterval
+        let clearTimerBody: ([JSValueRef]) -> JSValueRef? = { [weak self, weak engine] args in
+            guard let self = self, let engine = engine else { return nil }
+            let timerId = engine.toInt(args[0]) ?? 0
+            if let workItem = self.timers.removeValue(forKey: timerId) {
                 workItem.cancel()
             }
+            return nil
         }
-        context.setObject(clearTimeout, forKeyedSubscript: "clearTimeout" as NSString)
+        engine.setGlobalFunction("clearTimeout", clearTimerBody)
+        engine.setGlobalFunction("clearInterval", clearTimerBody)
 
         // setInterval
-        let setInterval: @convention(block) (JSValue, JSValue) -> Int = { [weak self] callback, delay in
-            guard let self = self else { return 0 }
+        engine.setGlobalFunction("setInterval") { [weak self, weak engine] args in
+            guard let self = self, let engine = engine else { return nil }
+            let callback = args[0]
+            let delayMs = args.count > 1 && !engine.isUndefined(args[1])
+                ? max(1, engine.toInt(args[1]) ?? 0)
+                : 1
             let timerId = self.nextTimerId
             self.nextTimerId += 1
+            engine.protect(callback)
 
-            let delayMs = delay.isUndefined ? 0 : max(1, delay.toInt32())
-
-            func scheduleNext() {
-                let workItem = DispatchWorkItem { [weak self] in
-                    guard self?.timers[timerId] != nil else { return }
-                    callback.call(withArguments: [])
-                    scheduleNext()
-                }
-                self.timers[timerId] = workItem
-                DispatchQueue.main.asyncAfter(
-                    deadline: .now() + .milliseconds(Int(delayMs)),
-                    execute: workItem
-                )
-            }
-            scheduleNext()
-            return timerId
+            self.scheduleInterval(
+                timerId: timerId, callback: callback,
+                delayMs: delayMs, engine: engine
+            )
+            return engine.makeNumber(Double(timerId))
         }
-        context.setObject(setInterval, forKeyedSubscript: "setInterval" as NSString)
-
-        // clearInterval (same as clearTimeout)
-        context.setObject(clearTimeout, forKeyedSubscript: "clearInterval" as NSString)
 
         // queueMicrotask - uses Promise.resolve().then() for microtask semantics
-        context.evaluateScript("""
+        engine.evaluate("""
             if (typeof queueMicrotask === 'undefined') {
                 globalThis.queueMicrotask = function(callback) {
                     Promise.resolve().then(callback);
@@ -121,7 +123,7 @@ public class JSRuntime {
         """)
 
         // TextEncoder/TextDecoder polyfills for UTF-8 encoding
-        context.evaluateScript("""
+        engine.evaluate("""
             if (typeof TextEncoder === 'undefined') {
                 globalThis.TextEncoder = function() {};
                 TextEncoder.prototype.encode = function(str) {
@@ -169,9 +171,31 @@ public class JSRuntime {
         """)
     }
 
+    /// Schedules recurring interval execution. Extracted as a method to avoid
+    /// retain cycles from nested closures capturing self strongly.
+    private func scheduleInterval(
+        timerId: Int, callback: JSValueRef,
+        delayMs: Int, engine: JSEngine
+    ) {
+        let workItem = DispatchWorkItem { [weak self, weak engine] in
+            guard let self = self, let engine = engine else { return }
+            guard self.timers[timerId] != nil else { return }
+            _ = engine.callFunction(callback, args: [])
+            self.scheduleInterval(
+                timerId: timerId, callback: callback,
+                delayMs: delayMs, engine: engine
+            )
+        }
+        self.timers[timerId] = workItem
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + .milliseconds(delayMs),
+            execute: workItem
+        )
+    }
+
     public func start(rootView: UIView) {
         // Register a surface for the root view
-        bridge.registerSurface(surfaceId: 1, rootView: rootView)
+        bindings.registerSurface(surfaceId: 1, rootView: rootView)
 
         // Load and execute the JS bundle
         loadBundle()
@@ -179,10 +203,11 @@ public class JSRuntime {
 
     public func updateViewportSize(width: CGFloat, height: CGFloat) {
         // Notify JS of viewport size changes for layout
-        let callback = context.objectForKeyedSubscript("$$onViewportResize")
-        if let cb = callback, !cb.isUndefined {
-            cb.call(withArguments: [width, height])
-        }
+        guard let callback = engine.getGlobalProperty("$$onViewportResize") else { return }
+        _ = engine.callFunction(callback, args: [
+            engine.makeNumber(Double(width)),
+            engine.makeNumber(Double(height))
+        ])
     }
 
     public func reloadBundle() {
@@ -203,7 +228,7 @@ public class JSRuntime {
 
         do {
             let source = try String(contentsOf: bundleURL, encoding: .utf8)
-            context.evaluateScript(source, withSourceURL: bundleURL)
+            engine.evaluate(source, sourceURL: bundleURL)
         } catch {
             print("[JSRuntime] Failed to load bundle.js: \(error)")
         }
