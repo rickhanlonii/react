@@ -8,9 +8,12 @@ import ShadowTree
 // the production equivalent of StubMutationApplier in the test harness.
 // ---------------------------------------------------------------------------
 
-public class UIKitMutationApplier {
+public typealias EventDispatcher = (UIView, String, [String: Any]) -> Void
+
+public class UIKitMutationApplier: NSObject {
 
     private let viewRegistry: ViewRegistry
+    public var dispatchEvent: EventDispatcher?
 
     public init(viewRegistry: ViewRegistry) {
         self.viewRegistry = viewRegistry
@@ -51,6 +54,10 @@ public class UIKitMutationApplier {
                       let childView = viewRegistry.view(for: child.family) else {
                     print("[MutationApplier]   SKIPPED - parent or child view not found")
                     continue
+                }
+                // Inherit font properties from parent text elements to #text children
+                if child.family.elementType == "#text", let childLabel = childView as? UILabel {
+                    applyInheritedTextStyle(to: childLabel, parentType: parent.family.elementType, parentProps: parent.props)
                 }
                 let clampedIndex = min(index, parentView.subviews.count)
                 parentView.insertSubview(childView, at: clampedIndex)
@@ -100,12 +107,14 @@ public class UIKitMutationApplier {
             let button = UIButton(type: .system)
             applyButtonProps(to: button, props: props)
             applyCommonProps(to: button, props: props)
+            button.addTarget(self, action: #selector(handleButtonTap(_:)), for: .touchUpInside)
             return button
 
         case "input":
             let textField = UITextField()
             applyInputProps(to: textField, props: props)
             applyCommonProps(to: textField, props: props)
+            textField.addTarget(self, action: #selector(handleTextFieldChanged(_:)), for: .editingChanged)
             return textField
 
         case "img":
@@ -163,14 +172,21 @@ public class UIKitMutationApplier {
 
     private func applyCommonProps(to view: UIView, props: [String: Any]) {
         // Background color from style
-        if let style = props["style"] as? [String: Any],
-           let bgColor = style["backgroundColor"] as? String {
-            view.backgroundColor = parseColor(bgColor)
-        }
-
-        // DEBUG: Add light background to see views
-        if view.backgroundColor == nil {
-            view.backgroundColor = UIColor.systemGray6
+        if let style = props["style"] as? [String: Any] {
+            if let bgColor = style["backgroundColor"] as? String {
+                view.backgroundColor = parseColor(bgColor)
+            }
+            // Border properties via CALayer
+            if let borderWidth = style["borderWidth"] as? NSNumber {
+                view.layer.borderWidth = CGFloat(borderWidth.doubleValue)
+            }
+            if let borderColor = style["borderColor"] as? String {
+                view.layer.borderColor = parseColor(borderColor).cgColor
+            }
+            if let borderRadius = style["borderRadius"] as? NSNumber {
+                view.layer.cornerRadius = CGFloat(borderRadius.doubleValue)
+                view.clipsToBounds = true
+            }
         }
     }
 
@@ -232,6 +248,55 @@ public class UIKitMutationApplier {
             }.resume()
         }
         imageView.contentMode = .scaleAspectFit
+    }
+
+    /// Applies inherited text styling from a parent text element to a #text child label.
+    /// In CSS, text nodes inherit font-size, font-weight, and color from their parent element.
+    private func applyInheritedTextStyle(to label: UILabel, parentType: String, parentProps: [String: Any]) {
+        // Heading defaults (bold + specific sizes)
+        switch parentType {
+        case "h1":
+            label.font = UIFont.boldSystemFont(ofSize: 32)
+        case "h2":
+            label.font = UIFont.boldSystemFont(ofSize: 24)
+        case "h3":
+            label.font = UIFont.boldSystemFont(ofSize: 20)
+        case "h4":
+            label.font = UIFont.boldSystemFont(ofSize: 16)
+        case "h5":
+            label.font = UIFont.boldSystemFont(ofSize: 13.3)
+        case "h6":
+            label.font = UIFont.boldSystemFont(ofSize: 10.7)
+        default:
+            break
+        }
+
+        // Style overrides from parent (fontSize, color)
+        if let style = parentProps["style"] as? [String: Any] {
+            if let fontSize = style["fontSize"] as? NSNumber {
+                let size = CGFloat(fontSize.doubleValue)
+                // Preserve bold if parent is a heading
+                switch parentType {
+                case "h1", "h2", "h3", "h4", "h5", "h6":
+                    label.font = UIFont.boldSystemFont(ofSize: size)
+                default:
+                    label.font = UIFont.systemFont(ofSize: size)
+                }
+            }
+            if let color = style["color"] as? String {
+                label.textColor = parseColor(color)
+            }
+        }
+    }
+
+    // MARK: - Event Handlers
+
+    @objc private func handleButtonTap(_ sender: UIButton) {
+        dispatchEvent?(sender, "click", [:])
+    }
+
+    @objc private func handleTextFieldChanged(_ sender: UITextField) {
+        dispatchEvent?(sender, "change", ["value": sender.text ?? ""])
     }
 
     // MARK: - Helpers

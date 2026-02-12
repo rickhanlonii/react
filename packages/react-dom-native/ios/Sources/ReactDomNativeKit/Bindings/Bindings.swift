@@ -78,6 +78,11 @@ public class Bindings {
 
         registerBindingFunctions()
         registerEventPriorityConstants()
+
+        // Wire event dispatcher after init to avoid capturing self before initialization
+        self.mutationApplier.dispatchEvent = { [weak self] view, eventType, payload in
+            self?.dispatchEvent(from: view, eventType: eventType, payload: payload)
+        }
     }
 
     // MARK: - Surface Management
@@ -253,6 +258,16 @@ public class Bindings {
                 YGNodeRemoveChild(owner, child.yogaNode)
             }
             YGNodeInsertChild(parent.yogaNode, child.yogaNode, index)
+
+            // If the child is a #text node, inherit fontSize from parent for
+            // accurate Yoga measurement. Without this, text nodes default to
+            // 16pt and get clipped inside larger elements (e.g. h1 at 32pt).
+            if child.family.elementType == "#text",
+               let style = parent.props["style"] as? [String: Any],
+               let fontSize = style["fontSize"] as? NSNumber {
+                YogaTextMeasure.cleanupMeasureContext(for: child.yogaNode)
+                YogaTextMeasure.setupMeasureFunc(on: child, fontSize: CGFloat(fontSize.doubleValue))
+            }
             return nil
         }
     }
