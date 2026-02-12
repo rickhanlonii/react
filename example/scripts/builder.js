@@ -11,7 +11,7 @@ function createBuilder(options) {
   const mode = options.mode || 'development';
 
   const config = {
-    entryPoints: [path.join(rootDir, 'entry/index.js')],
+    entryPoints: [path.join(rootDir, 'server/src/entry/index.js')],
     bundle: true,
     format: 'iife',
     target: ['es2020'],

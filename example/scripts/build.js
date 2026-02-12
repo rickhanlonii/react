@@ -6,7 +6,7 @@ const path = require('path');
 const EXAMPLE_ROOT = path.resolve(__dirname, '..');
 
 const shared = {
-  entryPoints: [path.join(EXAMPLE_ROOT, 'entry/index.js')],
+  entryPoints: [path.join(EXAMPLE_ROOT, 'server/src/entry/index.js')],
   bundle: true,
   format: 'iife',
   target: ['es2020'],

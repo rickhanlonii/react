@@ -22,8 +22,8 @@ function createWatcher(options) {
     const watchPaths = [
       path.join(libraryDir, 'src/**/*.js'),
       path.join(libraryDir, 'src/**/*.jsx'),
-      path.join(exampleDir, 'entry/**/*.js'),
-      path.join(exampleDir, 'components/**/*.js'),
+      path.join(exampleDir, 'server/src/**/*.js'),
+      path.join(exampleDir, 'server/src/**/*.jsx'),
     ];
 
     watcher = chokidar.watch(watchPaths, {

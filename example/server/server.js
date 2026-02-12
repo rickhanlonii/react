@@ -12,6 +12,7 @@ require('@babel/register')({
 // Intercepts require() for 'use client' files — creates client reference proxies
 require('react-server-dom-webpack/node-register')();
 
+var fs = require('fs');
 var express = require('express');
 var React = require('react');
 var path = require('path');
@@ -24,13 +25,13 @@ var PORT = 3001;
 // Maps file:// URLs (what node-register uses as $$id) to {id, chunks, name}.
 // The `id` field is what appears in Flight I rows and must match the native module map keys.
 function buildClientManifest() {
-  var componentsDir = path.resolve(__dirname, '../components');
+  var componentsDir = path.resolve(__dirname, 'src/components');
   var manifest = {};
   var components = ['Counter', 'TextInput'];
 
   for (var i = 0; i < components.length; i++) {
     var name = components[i];
-    var filePath = path.join(componentsDir, name + '.js');
+    var filePath = path.join(componentsDir, name + '.jsx');
     var fileURL = url.pathToFileURL(filePath).href;
 
     // node-register creates proxies with $$id = fileURL
@@ -58,7 +59,73 @@ function buildClientManifest() {
 
 var clientManifest = buildClientManifest();
 
+var BUNDLE_PATH = path.resolve(__dirname, '../Falcon/Falcon/Resources/bundle.js');
+var SERVER_SRC_DIR = path.resolve(__dirname, 'src');
+
+// Clear require cache for server source files so edits are picked up on next request.
+function clearServerSourceCache() {
+  Object.keys(require.cache).forEach(function (key) {
+    if (key.startsWith(SERVER_SRC_DIR)) {
+      delete require.cache[key];
+    }
+  });
+}
+
+// Get the latest mtime across the bundle and all server source files.
+// This lets the native app detect both client and server component changes.
+function getLatestVersion() {
+  var latest = 0;
+
+  // Check bundle mtime
+  try {
+    var bundleStat = fs.statSync(BUNDLE_PATH);
+    latest = Math.max(latest, bundleStat.mtimeMs);
+  } catch (err) {
+    // bundle doesn't exist yet
+  }
+
+  // Check server source files
+  function walkDir(dir) {
+    var entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (var i = 0; i < entries.length; i++) {
+      var entry = entries[i];
+      var fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walkDir(fullPath);
+      } else {
+        try {
+          var stat = fs.statSync(fullPath);
+          latest = Math.max(latest, stat.mtimeMs);
+        } catch (err) {
+          // ignore
+        }
+      }
+    }
+  }
+  walkDir(SERVER_SRC_DIR);
+
+  return latest;
+}
+
+app.get('/bundle.js', function (req, res) {
+  try {
+    var source = fs.readFileSync(BUNDLE_PATH, 'utf8');
+    res.setHeader('Content-Type', 'application/javascript');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.send(source);
+  } catch (err) {
+    res.status(404).send('bundle.js not found — run npm run build first');
+  }
+});
+
+app.get('/bundle-version', function (req, res) {
+  res.json({ version: getLatestVersion() });
+});
+
 app.get('/', function (req, res) {
+  // Clear require cache so edits to server components are picked up
+  clearServerSourceCache();
+
   // Dynamic import to ensure babel + node-register hooks are active
   var App = require('./src/App');
   // Handle both default export styles

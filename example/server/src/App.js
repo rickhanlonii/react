@@ -1,6 +1,6 @@
 var React = require('react');
-var Counter = require('../../components/Counter');
-var TextInput = require('../../components/TextInput');
+var Counter = require('./components/Counter');
+var TextInput = require('./components/TextInput');
 
 function App() {
   var timestamp = new Date().toLocaleTimeString();

@@ -89,6 +89,41 @@ Run `/check-status` to see overall progress. Run `/resume-work` to pick up where
 ### Testing
 `/test-unit`, `/test-e2e`
 
+## Development Workflow
+
+### Dev server
+
+Run `cd example && npm run dev` to start:
+- **esbuild watcher** — rebuilds `bundle.js` on JS file changes
+- **RSC server** on `http://localhost:3001` — serves Flight streams, the JS bundle, and a version endpoint
+
+The native app (debug builds) loads the bundle from `http://localhost:3001/bundle.js` instead of the app bundle, and polls `/bundle-version` every 2 seconds to auto-reload when files change. Press **Cmd+R** in the simulator to manually reload.
+
+Server component changes (e.g. `server/src/App.js`) are picked up automatically — the server clears Node's require cache on each request, and the version endpoint tracks source file mtimes.
+
+### Iterating on native layout
+
+To iterate on layout differences between web and native:
+
+1. Start the dev server: `cd example && npm run dev`
+2. Build and run the app in the simulator (via Xcode or `build_run_sim` MCP tool)
+3. Take a screenshot with the `screenshot` MCP tool (XcodeBuildMCP)
+4. Compare against web rendering (save web screenshot as `web.png`)
+5. Make changes to JS files (auto-reloads) or Swift files (requires rebuild via `build_run_sim`)
+6. Repeat from step 3
+
+**Key files for layout fixes:**
+- `packages/react-dom-native/src/yoga-layout/defaults.js` — element-type Yoga defaults (flexDirection, margins, fontSize)
+- `packages/react-dom-native/src/renderer/HostConfig.js` — `createInstance` merges element defaults with user styles before sending to native
+- `packages/react-dom-native/ios/Sources/ShadowTree/YogaStyleApplier.swift` — applies style dict to Yoga nodes (expects string enum values like `"column"`, not integers)
+- `packages/react-dom-native/ios/Sources/ReactDomNativeKit/Bindings/UIKitMutationApplier.swift` — creates UIKit views and applies visual props (font, color, etc.)
+
+**Known Yoga gotchas:**
+- `YGConfigSetUseWebDefaults(true)` makes Yoga default to `flexDirection: row` (CSS flex default). Block elements need explicit `flexDirection: 'column'` in their defaults.
+- The native `YogaStyleApplier` expects **string** values for enum properties (`"column"`, `"center"`), not integer constants. Don't use `applyStyles()` which converts to integers.
+- `#text` nodes are separate UILabels that need to inherit font/color from their parent element — handled in `applyInheritedTextStyle()` during the INSERT mutation.
+- Yoga flex layout doesn't collapse margins like CSS block layout. When parent uses `gap` and children have default margins, spacing will be larger than web.
+
 ## Progress
 
 See `docs/master-plan.md` for full progress tracker with checkboxes.

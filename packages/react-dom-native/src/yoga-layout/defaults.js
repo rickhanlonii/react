@@ -9,71 +9,65 @@ const {FlexDirection, Align, Justify, NodeType} = require('./YogaConstants');
  * shadow node is first created for the given element type.  These emulate CSS
  * browser defaults using Yoga's flexbox model.
  *
- * Properties that already match Yoga defaults (flexDirection: Column,
- * alignItems: Stretch, positionType: Relative, boxSizing: BorderBox,
- * flexShrink: 0, display: Flex) are omitted — the native side applies Yoga
- * defaults automatically.
+ * With useWebDefaults enabled, Yoga defaults flexDirection to 'row' (matching
+ * CSS flex default). Block-level HTML elements (div, p, h1, etc.) need
+ * flexDirection: 'column' to emulate CSS block layout.
  *
  * Non-layout properties like fontSize and fontWeight are included here because
  * the native side needs them to set up text measurement and rendering for
  * heading/paragraph elements.
  */
 
-// Block container elements — all match Yoga defaults, so no overrides needed.
-const BLOCK_DEFAULTS = Object.freeze({});
+// Block container elements — override Yoga web default (row) to column.
+const BLOCK_DEFAULTS = Object.freeze({
+  flexDirection: 'column',
+});
 
 // Paragraph
 const P_DEFAULTS = Object.freeze({
-  marginTop: 16,
-  marginBottom: 16,
+  flexDirection: 'column',
   fontSize: 16,
   nodeType: NodeType.Text,
 });
 
 // Headings
 const H1_DEFAULTS = Object.freeze({
-  marginTop: 21.4,
-  marginBottom: 21.4,
+  flexDirection: 'column',
   fontSize: 32,
   fontWeight: 700,
   nodeType: NodeType.Text,
 });
 
 const H2_DEFAULTS = Object.freeze({
-  marginTop: 19.9,
-  marginBottom: 19.9,
+  flexDirection: 'column',
   fontSize: 24,
   fontWeight: 700,
   nodeType: NodeType.Text,
 });
 
 const H3_DEFAULTS = Object.freeze({
-  marginTop: 18.7,
-  marginBottom: 18.7,
+  flexDirection: 'column',
   fontSize: 18.7,
   fontWeight: 700,
   nodeType: NodeType.Text,
 });
 
 const H4_DEFAULTS = Object.freeze({
-  marginTop: 21.3,
-  marginBottom: 21.3,
+  flexDirection: 'column',
   fontSize: 16,
   fontWeight: 700,
   nodeType: NodeType.Text,
 });
 
 const H5_DEFAULTS = Object.freeze({
-  marginTop: 22.2,
-  marginBottom: 22.2,
+  flexDirection: 'column',
   fontSize: 13.3,
   fontWeight: 700,
   nodeType: NodeType.Text,
 });
 
 const H6_DEFAULTS = Object.freeze({
-  marginTop: 24.9,
-  marginBottom: 24.9,
+  flexDirection: 'column',
   fontSize: 10.7,
   fontWeight: 700,
   nodeType: NodeType.Text,
@@ -89,15 +83,13 @@ const SPAN_DEFAULTS = Object.freeze({
 
 // Lists
 const UL_DEFAULTS = Object.freeze({
+  flexDirection: 'column',
   paddingLeft: 40,
-  marginTop: 16,
-  marginBottom: 16,
 });
 
 const OL_DEFAULTS = Object.freeze({
+  flexDirection: 'column',
   paddingLeft: 40,
-  marginTop: 16,
-  marginBottom: 16,
 });
 
 const LI_DEFAULTS = Object.freeze({

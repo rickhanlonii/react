@@ -182,11 +182,23 @@ public class Root {
             completion?(RootError.alreadyUnmounted)
             return
         }
-        guard runtime != nil else {
-            completion?(RootError.runtimeNotInitialized)
-            return
-        }
 
+        // Tear down existing runtime
+        runtime?.bindings.unregisterSurface(surfaceId: options.surfaceId)
+        container.subviews.forEach { $0.removeFromSuperview() }
+        runtime = nil
+
+        // Recreate runtime (same logic as render())
+        runtime = JSRuntime()
+        if let onError = options.onUncaughtError {
+            runtime?.engine.exceptionHandler = { message, _ in
+                onError(RootError.jsException(message))
+            }
+        }
+        runtime?.bindings.registerSurface(surfaceId: options.surfaceId, rootView: container)
+        updateViewportSize()
+
+        // Load and execute new bundle
         loadBundle(from: bundle) { [weak self] result in
             switch result {
             case .success(let source):
