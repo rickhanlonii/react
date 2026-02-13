@@ -16,15 +16,14 @@ import JSEngine
 //   // ReactDomNativeKit (Swift)
 //   import ReactDomNativeKit
 //   let root = ReactDomNativeKit.createRoot(container)
-//   root.render(bundle: bundleURL) { error in
+//   root.render(serverURL: "http://localhost:6000") { error in
 //       if let error = error { print("Failed: \(error)") }
 //   }
 //   root.unmount()
 //
-// The main difference is that in react-dom, you pass a React element to
-// render(). In ReactDomNativeKit, the React element comes from the JS bundle
-// which is loaded and executed by render(). The bundle URL is required and
-// supports both local (file://) and remote (http://, https://) URLs.
+// The render() method loads the framework JS bundle from the package's own
+// resources and then calls renderFromURL() on the JS side to fetch the RSC
+// stream from the server.
 // ---------------------------------------------------------------------------
 
 /// Options for configuring a Root.
@@ -55,6 +54,19 @@ public struct RootOptions {
 /// `ReactDomNativeKit.createRoot(_:options:)`.
 public class Root {
 
+    // MARK: - Static Configuration
+
+    /// Optional URL for loading the bundle from a dev server instead of
+    /// the package resource. Set this in DEBUG builds to enable hot reload.
+    ///
+    /// Example:
+    /// ```swift
+    /// #if DEBUG
+    /// Root.devBundleURL = URL(string: "http://localhost:6000/bundle.js")
+    /// #endif
+    /// ```
+    public static var devBundleURL: URL?
+
     // MARK: - Properties
 
     /// The container view this root renders into.
@@ -82,23 +94,23 @@ public class Root {
 
     // MARK: - Public API
 
-    /// Renders React content from the specified bundle.
+    /// Renders React content by loading the framework bundle from the package.
     ///
-    /// This loads and executes the JS bundle, which should call the renderer
-    /// to create the React tree. The bundle is expected to set up the React
-    /// app and render to the native surface.
+    /// This loads and executes the framework JS bundle (embedded in the
+    /// ReactDomNativeKit package), then calls `renderFromURL` on the JS side
+    /// to fetch and render the RSC stream from the server.
     ///
-    /// Unlike react-dom's `root.render(<App />)`, you don't pass a React
-    /// element because the element is defined in the JS bundle.
+    /// In DEBUG builds, if `Root.devBundleURL` is set, the bundle is loaded
+    /// from that URL instead (for hot reload support).
     ///
     /// - Parameters:
-    ///   - bundle: URL to the JS bundle. Supports:
-    ///     - `file://` URLs for local bundles
-    ///     - `http://` or `https://` URLs for remote bundles (downloaded first)
+    ///   - serverURL: URL of the RSC server (e.g. "http://localhost:6000").
+    ///     After the bundle is evaluated, Swift calls
+    ///     `globalThis.__REACT_DOM_NATIVE__.renderFromURL(serverURL, {surfaceId})`.
     ///   - completion: Called when rendering starts or fails.
     ///     - `nil` error means bundle loaded and executed successfully
     ///     - Non-nil error describes what went wrong
-    public func render(bundle: URL, completion: ((Error?) -> Void)? = nil) {
+    public func render(serverURL: String, completion: ((Error?) -> Void)? = nil) {
         guard !isUnmounted else {
             print("[ReactDomNativeKit] Warning: Cannot render to an unmounted root.")
             completion?(RootError.alreadyUnmounted)
@@ -123,11 +135,13 @@ public class Root {
             setupLayoutObserver()
         }
 
-        // Load and execute bundle
-        loadBundle(from: bundle) { [weak self] result in
+        // Load and execute bundle, then trigger renderFromURL
+        let bundleURL = resolveBundleURL()
+        loadBundle(from: bundleURL) { [weak self] result in
             switch result {
             case .success(let source):
-                self?.executeBundle(source: source, sourceURL: bundle)
+                self?.executeBundle(source: source, sourceURL: bundleURL)
+                self?.callRenderFromURL(serverURL: serverURL)
                 completion?(nil)
             case .failure(let error):
                 print("[ReactDomNativeKit] Failed to load bundle: \(error)")
@@ -175,9 +189,9 @@ public class Root {
     /// Reloads the JS bundle. Used for hot reload.
     ///
     /// - Parameters:
-    ///   - bundle: URL to the JS bundle to reload.
+    ///   - serverURL: URL of the RSC server.
     ///   - completion: Called when reload completes or fails.
-    public func reload(bundle: URL, completion: ((Error?) -> Void)? = nil) {
+    public func reload(serverURL: String, completion: ((Error?) -> Void)? = nil) {
         guard !isUnmounted else {
             completion?(RootError.alreadyUnmounted)
             return
@@ -198,11 +212,13 @@ public class Root {
         runtime?.bindings.registerSurface(surfaceId: options.surfaceId, rootView: container)
         updateViewportSize()
 
-        // Load and execute new bundle
-        loadBundle(from: bundle) { [weak self] result in
+        // Load and execute new bundle, then trigger renderFromURL
+        let bundleURL = resolveBundleURL()
+        loadBundle(from: bundleURL) { [weak self] result in
             switch result {
             case .success(let source):
-                self?.executeBundle(source: source, sourceURL: bundle)
+                self?.executeBundle(source: source, sourceURL: bundleURL)
+                self?.callRenderFromURL(serverURL: serverURL)
                 completion?(nil)
             case .failure(let error):
                 print("[ReactDomNativeKit] Failed to reload bundle: \(error)")
@@ -213,6 +229,24 @@ public class Root {
     }
 
     // MARK: - Private
+
+    /// Resolves the bundle URL: dev server override (DEBUG) or package resource.
+    private func resolveBundleURL() -> URL {
+        #if DEBUG
+        if let devURL = Root.devBundleURL {
+            print("[ReactDomNativeKit] DEBUG — loading bundle from \(devURL)")
+            return devURL
+        }
+        #endif
+
+        guard let resourceURL = Bundle.module.url(
+            forResource: "bundle",
+            withExtension: "js"
+        ) else {
+            fatalError("[ReactDomNativeKit] bundle.js not found in package resources. Run `npm run build` from the example directory.")
+        }
+        return resourceURL
+    }
 
     private func setupLayoutObserver() {
         // Observe bounds changes to update viewport size
@@ -262,6 +296,12 @@ public class Root {
 
     private func executeBundle(source: String, sourceURL: URL) {
         runtime?.engine.evaluate(source, sourceURL: sourceURL)
+    }
+
+    /// Calls the JS-side renderFromURL after the framework bundle has been evaluated.
+    private func callRenderFromURL(serverURL: String) {
+        let js = "globalThis.__REACT_DOM_NATIVE__.renderFromURL('\(serverURL)', {surfaceId: \(options.surfaceId)})"
+        runtime?.engine.evaluate(js)
     }
 }
 

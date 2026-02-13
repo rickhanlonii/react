@@ -30,11 +30,15 @@ class FalconRootViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .white
 
+        #if DEBUG
+        Root.devBundleURL = URL(string: "http://localhost:6000/bundle.js")
+        #endif
+
         // Create root (like react-dom's createRoot)
         root = createRoot(view)
 
-        // Render with bundle URL (like react-dom's root.render(<App />))
-        root?.render(bundle: bundleURL()) { [weak self] error in
+        // Render: load framework bundle, then fetch RSC stream from server
+        root?.render(serverURL: serverURL()) { [weak self] error in
             if let error = error {
                 print("[Falcon] Render failed: \(error)")
                 self?.showError(error)
@@ -58,7 +62,7 @@ class FalconRootViewController: UIViewController {
 
     @objc private func reloadBundle() {
         print("[Falcon] Manual reload (Cmd+R)...")
-        root?.reload(bundle: bundleURL()) { error in
+        root?.reload(serverURL: serverURL()) { error in
             if let error = error {
                 print("[Falcon] Reload failed: \(error)")
             } else {
@@ -68,7 +72,7 @@ class FalconRootViewController: UIViewController {
     }
 
     private func startDevReloadPolling() {
-        let versionURL = URL(string: "http://localhost:3001/bundle-version")!
+        let versionURL = URL(string: "http://localhost:6000/bundle-version")!
         // Fetch initial version
         fetchBundleVersion(from: versionURL) { [weak self] version in
             self?.lastBundleVersion = version
@@ -84,7 +88,7 @@ class FalconRootViewController: UIViewController {
             guard let self = self, version > 0, version != self.lastBundleVersion else { return }
             self.lastBundleVersion = version
             print("[Falcon] Bundle updated, reloading...")
-            self.root?.reload(bundle: self.bundleURL()) { error in
+            self.root?.reload(serverURL: self.serverURL()) { error in
                 if let error = error {
                     print("[Falcon] Reload failed: \(error)")
                 } else {
@@ -109,17 +113,12 @@ class FalconRootViewController: UIViewController {
     }
     #endif
 
-    private func bundleURL() -> URL {
+    private func serverURL() -> String {
         #if DEBUG
-        let url = URL(string: "http://localhost:3001/bundle.js")!
-        print("[Falcon] DEBUG build — loading bundle from \(url)")
-        return url
+        return "http://localhost:6000"
         #else
-        guard let url = Bundle.main.url(forResource: "bundle", withExtension: "js") else {
-            fatalError("[Falcon] bundle.js not found in app bundle")
-        }
-        print("[Falcon] RELEASE build — loading bundle from \(url)")
-        return url
+        // In release builds, the server URL should be configured for production
+        return "http://localhost:6000"
         #endif
     }
 

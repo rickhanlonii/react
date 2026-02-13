@@ -3,9 +3,9 @@ import Foundation
 public class HotReloadClient {
     private var webSocketTask: URLSessionWebSocketTask?
     private let session = URLSession(configuration: .default)
-    private var serverURL: URL
+    private var webSocketURL: URL
     private weak var root: Root?
-    private var bundleURL: URL
+    private var rscServerURL: String
     private var isConnected = false
     private var reconnectTimer: Timer?
 
@@ -13,10 +13,9 @@ public class HotReloadClient {
     ///
     /// Example:
     /// ```swift
-    /// let bundleURL = URL(string: "http://localhost:3000/bundle.js")!
     /// let root = createRoot(view)
-    /// root.render(bundle: bundleURL) { error in ... }
-    /// let hotReload = HotReloadClient(root: root, bundleURL: bundleURL)
+    /// root.render(serverURL: "http://localhost:6000") { error in ... }
+    /// let hotReload = HotReloadClient(root: root, serverURL: "http://localhost:6000")
     /// hotReload.connect()
     /// ```
     ///
@@ -24,22 +23,22 @@ public class HotReloadClient {
     ///   - host: WebSocket server host (default: "localhost")
     ///   - port: WebSocket server port (default: 8082)
     ///   - root: The React root to reload
-    ///   - bundleURL: URL to the bundle to reload from
-    public init(host: String = "localhost", port: Int = 8082, root: Root, bundleURL: URL) {
-        self.serverURL = URL(string: "ws://\(host):\(port)")!
+    ///   - serverURL: URL of the RSC server
+    public init(host: String = "localhost", port: Int = 8082, root: Root, serverURL: String) {
+        self.webSocketURL = URL(string: "ws://\(host):\(port)")!
         self.root = root
-        self.bundleURL = bundleURL
+        self.rscServerURL = serverURL
     }
 
     public func connect() {
         guard !isConnected else { return }
 
-        let task = session.webSocketTask(with: serverURL)
+        let task = session.webSocketTask(with: webSocketURL)
         self.webSocketTask = task
         task.resume()
         isConnected = true
 
-        print("[HotReload] Connected to \(serverURL)")
+        print("[HotReload] Connected to \(webSocketURL)")
         receiveMessage()
     }
 
@@ -90,7 +89,7 @@ public class HotReloadClient {
             switch type {
             case "reload":
                 print("[HotReload] Reloading JS bundle...")
-                self.root?.reload(bundle: self.bundleURL) { error in
+                self.root?.reload(serverURL: self.rscServerURL) { error in
                     if let error = error {
                         print("[HotReload] Reload failed: \(error)")
                     }

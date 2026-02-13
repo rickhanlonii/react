@@ -294,8 +294,8 @@ function processModelRow(response, id, json) {
 }
 
 /**
- * Processes an Import/Module row (I tag). Resolves the client reference
- * and stores the loaded module in the chunk.
+ * Processes an Import/Module row (I tag). Resolves the client reference,
+ * fetches the module on demand if needed, and stores it in the chunk.
  */
 function processModuleRow(response, id, json) {
   var metadata = JSON.parse(json);
@@ -304,14 +304,27 @@ function processModuleRow(response, id, json) {
     metadata,
   );
 
-  // Preload is a no-op for pre-bundled modules
-  Config.preloadModule(clientRef);
+  var preloaded = Config.preloadModule(clientRef);
 
-  // Synchronously require the module
-  var mod = Config.requireModule(clientRef);
-
-  var chunk = getOrCreateChunk(response, id);
-  resolveChunk(chunk, mod);
+  if (preloaded !== null && typeof preloaded === 'object' && typeof preloaded.then === 'function') {
+    // Module needs async loading — wait for preload, then resolve chunk
+    preloaded.then(
+      function() {
+        var mod = Config.requireModule(clientRef);
+        var chunk = getOrCreateChunk(response, id);
+        resolveChunk(chunk, mod);
+      },
+      function(error) {
+        var chunk = getOrCreateChunk(response, id);
+        rejectChunk(chunk, error);
+      }
+    );
+  } else {
+    // Module already loaded (synchronous)
+    var mod = Config.requireModule(clientRef);
+    var chunk = getOrCreateChunk(response, id);
+    resolveChunk(chunk, mod);
+  }
 }
 
 /**
@@ -402,13 +415,13 @@ function processRow(response, id, tag, data) {
 /**
  * Creates a new Flight response state object.
  *
- * @param {object} bundlerConfig - { modules: Record<string, any> }
+ * @param {string} bundlerConfig - Server base URL for on-demand module loading
  * @param {object} [options] - Additional options
  * @returns {object} Response state object
  */
 function createResponse(bundlerConfig, options) {
   return {
-    bundlerConfig: bundlerConfig || {modules: {}},
+    bundlerConfig: bundlerConfig || '',
     chunks: {},
     closed: false,
     options: options || {},
@@ -609,12 +622,12 @@ function reportGlobalError(response, error) {
  *
  * @param {object} stream - Stream with onChunk/onDone/onError
  * @param {object} [options] - Options
- * @param {object} [options.moduleMap] - Module map for client references
+ * @param {string} [options.serverURL] - Server base URL for on-demand module loading
  * @returns {Thenable} A thenable that resolves to the root element
  */
 function createFromStream(stream, options) {
   if (!options) options = {};
-  var bundlerConfig = {modules: options.moduleMap || {}};
+  var bundlerConfig = options.serverURL || '';
   var response = createResponse(bundlerConfig, options);
   var streamState = createStreamState();
 
@@ -653,12 +666,12 @@ function createFromStream(stream, options) {
  *
  * @param {Promise<Stream>} fetchPromise - Promise resolving to a stream
  * @param {object} [options] - Options
- * @param {object} [options.moduleMap] - Module map for client references
+ * @param {string} [options.serverURL] - Server base URL for on-demand module loading
  * @returns {Thenable} A thenable that resolves to the root element
  */
 function createFromFetch(fetchPromise, options) {
   if (!options) options = {};
-  var bundlerConfig = {modules: options.moduleMap || {}};
+  var bundlerConfig = options.serverURL || '';
   var response = createResponse(bundlerConfig, options);
   var streamState = createStreamState();
 

@@ -34,6 +34,7 @@ require('./elements/text');
 require('./elements/media');
 require('./elements/input');
 
+console.log('### HIT')
 module.exports = {
   // Registration (for extensions / custom elements)
   registerElement,

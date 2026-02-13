@@ -7,7 +7,7 @@
 //
 // Usage:
 //   const { createFromFetch, fetchRSC } = require('@react-dom-native/flight-client');
-//   const root = createFromFetch(fetchRSC('/page'), { moduleMap });
+//   const root = createFromFetch(fetchRSC('/page'), { serverURL });
 //   root.then(element => reactRoot.render(element));
 // ---------------------------------------------------------------------------
 

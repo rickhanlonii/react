@@ -187,7 +187,7 @@ function fetchWithBridge(url, options) {
  * @param {Array} args - Arguments to pass to the server action
  * @param {object} options - Options
  * @param {string} options.url - Current page URL
- * @param {object} [options.moduleMap] - Module map for resolving client refs
+ * @param {object} [options.serverURL] - Server URL for resolving client refs
  * @param {Array} [options.routerStateTree] - Next.js router state tree
  * @param {Function} [options.createFromStream] - Flight createFromStream function
  * @returns {Promise<any>} The server action result
@@ -209,7 +209,7 @@ function callServer(actionId, args, options) {
   }).then(function (stream) {
     if (options.createFromStream) {
       return options.createFromStream(stream, {
-        moduleMap: options.moduleMap,
+        serverURL: options.serverURL,
       });
     }
     return stream;

@@ -33,7 +33,8 @@ let package = Package(
         .target(
             name: "ReactDomNativeKit",
             dependencies: ["ShadowTree", "JSEngine", "Yoga"],
-            path: "Sources/ReactDomNativeKit"
+            path: "Sources/ReactDomNativeKit",
+            resources: [.copy("Resources/bundle.js")]
         ),
         .testTarget(
             name: "ReactDomNativeTests",

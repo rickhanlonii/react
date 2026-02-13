@@ -27,7 +27,7 @@ trap cleanup EXIT INT TERM
 echo ""
 echo "Development servers running:"
 echo "  JS watcher: PID $JS_PID"
-echo "  RSC server: PID $RSC_PID (http://localhost:3001)"
+echo "  RSC server: PID $RSC_PID (http://localhost:6000)"
 echo ""
 echo "Press Ctrl+C to stop."
 

@@ -95,9 +95,9 @@ Run `/check-status` to see overall progress. Run `/resume-work` to pick up where
 
 Run `cd example && npm run dev` to start:
 - **esbuild watcher** — rebuilds `bundle.js` on JS file changes
-- **RSC server** on `http://localhost:3001` — serves Flight streams, the JS bundle, and a version endpoint
+- **RSC server** on `http://localhost:6000` — serves Flight streams, the JS bundle, and a version endpoint
 
-The native app (debug builds) loads the bundle from `http://localhost:3001/bundle.js` instead of the app bundle, and polls `/bundle-version` every 2 seconds to auto-reload when files change. Press **Cmd+R** in the simulator to manually reload.
+The native app (debug builds) loads the bundle from `http://localhost:6000/bundle.js` instead of the app bundle, and polls `/bundle-version` every 2 seconds to auto-reload when files change. Press **Cmd+R** in the simulator to manually reload.
 
 Server component changes (e.g. `server/src/App.js`) are picked up automatically — the server clears Node's require cache on each request, and the version endpoint tracks source file mtimes.
 

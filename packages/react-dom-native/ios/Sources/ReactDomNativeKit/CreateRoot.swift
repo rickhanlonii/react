@@ -30,18 +30,11 @@ import UIKit
 ///     override func viewDidLoad() {
 ///         super.viewDidLoad()
 ///         root = createRoot(view)
-///
-///         // Local bundle
-///         let bundleURL = Bundle.main.url(forResource: "bundle", withExtension: "js")!
-///         root?.render(bundle: bundleURL) { error in
+///         root?.render(serverURL: "http://localhost:6000") { error in
 ///             if let error = error {
 ///                 print("Failed: \(error)")
 ///             }
 ///         }
-///
-///         // Or remote bundle (for OTA updates)
-///         // let remoteURL = URL(string: "https://example.com/bundle.js")!
-///         // root?.render(bundle: remoteURL) { error in ... }
 ///     }
 ///
 ///     deinit {
@@ -66,9 +59,7 @@ public func createRoot(_ container: UIView) -> Root {
 ///     }
 /// )
 /// let root = createRoot(view, options: options)
-///
-/// let bundleURL = URL(string: "http://localhost:3000/bundle.js")!
-/// root.render(bundle: bundleURL) { error in
+/// root.render(serverURL: "http://localhost:6000") { error in
 ///     if let error = error {
 ///         print("Render failed: \(error)")
 ///     }

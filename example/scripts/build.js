@@ -2,11 +2,14 @@
 
 const esbuild = require('esbuild');
 const path = require('path');
+const fs = require('fs');
 
 const EXAMPLE_ROOT = path.resolve(__dirname, '..');
+const REACT_SHIM = path.resolve(__dirname, 'react-shim.js');
 
-const shared = {
-  entryPoints: [path.join(EXAMPLE_ROOT, 'server/src/entry/index.js')],
+// Framework bundle config: builds react-dom-native's entry point
+const frameworkConfig = {
+  entryPoints: [path.resolve(EXAMPLE_ROOT, '../packages/react-dom-native/src/entry.js')],
   bundle: true,
   format: 'iife',
   target: ['es2020'],
@@ -17,16 +20,61 @@ const shared = {
     'process.env.NODE_ENV': '"development"',
   },
   sourcemap: true,
-  outfile: path.join(EXAMPLE_ROOT, 'Falcon/Falcon/Resources/bundle.js'),
+  outfile: path.resolve(EXAMPLE_ROOT, '../packages/react-dom-native/ios/Sources/ReactDomNativeKit/Resources/bundle.js'),
   logLevel: 'info',
 };
+
+// Discovers client components (files with 'use client' directive)
+function discoverClientComponents() {
+  var componentsDir = path.join(EXAMPLE_ROOT, 'server/src/components');
+  if (!fs.existsSync(componentsDir)) return [];
+
+  return fs.readdirSync(componentsDir)
+    .filter(function(f) { return f.endsWith('.jsx') || f.endsWith('.js'); })
+    .map(function(f) {
+      return {
+        name: f.replace(/\.(jsx|js)$/, ''),
+        entryPoint: path.join(componentsDir, f),
+      };
+    });
+}
+
+// Builds a single client component as a standalone IIFE
+async function buildComponentModule(component, mode) {
+  var outdir = path.join(EXAMPLE_ROOT, 'server/modules');
+  if (!fs.existsSync(outdir)) {
+    fs.mkdirSync(outdir, {recursive: true});
+  }
+
+  await esbuild.build({
+    entryPoints: [component.entryPoint],
+    bundle: true,
+    format: 'iife',
+    globalName: '__module',
+    target: ['es2020'],
+    platform: 'neutral',
+    mainFields: ['module', 'main'],
+    define: {
+      __DEV__: mode === 'development' ? 'true' : 'false',
+      'process.env.NODE_ENV': JSON.stringify(mode),
+    },
+    alias: {
+      'react': REACT_SHIM,
+    },
+    jsx: 'transform',
+    minify: mode === 'production',
+    sourcemap: false,
+    outfile: path.join(outdir, component.name + '.js'),
+    logLevel: 'warning',
+  });
+}
 
 async function build() {
   const mode = process.argv.includes('--production') ? 'production' : 'development';
   const isWatch = process.argv.includes('--watch');
 
   const config = {
-    ...shared,
+    ...frameworkConfig,
     define: {
       __DEV__: mode === 'development' ? 'true' : 'false',
       'process.env.NODE_ENV': JSON.stringify(mode),
@@ -35,16 +83,24 @@ async function build() {
     sourcemap: mode === 'development',
   };
 
+  // Build framework bundle
   if (isWatch) {
     const ctx = await esbuild.context(config);
     await ctx.watch();
-    console.log('Watching for changes...');
+    console.log('Watching for framework bundle changes...');
   } else {
     const result = await esbuild.build(config);
     if (result.errors.length > 0) {
-      console.error('Build failed');
+      console.error('Framework bundle build failed');
       process.exit(1);
     }
+  }
+
+  // Build component modules
+  const components = discoverClientComponents();
+  for (const component of components) {
+    await buildComponentModule(component, mode);
+    console.log('Built component module: ' + component.name + '.js');
   }
 }
 

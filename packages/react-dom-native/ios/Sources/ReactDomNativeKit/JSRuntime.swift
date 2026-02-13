@@ -216,13 +216,14 @@ public class JSRuntime {
     }
 
     private func loadBundle() {
-        // Look for bundle.js in the app bundle (not in a subdirectory)
-        guard let bundleURL = Bundle.main.url(
+        // Look for bundle.js in the package's own resources
+        guard let bundleURL = Bundle.module.url(
             forResource: "bundle",
-            withExtension: "js"
+            withExtension: "js",
+            subdirectory: "Resources"
         ) else {
-            print("[JSRuntime] Warning: bundle.js not found. " +
-                  "Run scripts/build-js.sh to create it.")
+            print("[JSRuntime] Warning: bundle.js not found in package resources. " +
+                  "Run `npm run build` from the example directory.")
             return
         }
 

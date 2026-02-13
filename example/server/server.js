@@ -14,12 +14,13 @@ require('react-server-dom-webpack/node-register')();
 
 var fs = require('fs');
 var express = require('express');
+var esbuild = require('esbuild');
 var React = require('react');
 var path = require('path');
 var url = require('url');
 
 var app = express();
-var PORT = 3001;
+var PORT = 6000;
 
 // Build client manifest programmatically.
 // Maps file:// URLs (what node-register uses as $$id) to {id, chunks, name}.
@@ -59,8 +60,23 @@ function buildClientManifest() {
 
 var clientManifest = buildClientManifest();
 
-var BUNDLE_PATH = path.resolve(__dirname, '../Falcon/Falcon/Resources/bundle.js');
 var SERVER_SRC_DIR = path.resolve(__dirname, 'src');
+var ENTRY_POINT = path.resolve(__dirname, '../../packages/react-dom-native/src/entry.js');
+
+var frameworkBuildConfig = {
+  entryPoints: [ENTRY_POINT],
+  bundle: true,
+  format: 'iife',
+  target: ['es2020'],
+  platform: 'neutral',
+  mainFields: ['module', 'main'],
+  define: {
+    __DEV__: 'true',
+    'process.env.NODE_ENV': '"development"',
+  },
+  sourcemap: 'inline',
+  write: false,
+};
 
 // Clear require cache for server source files so edits are picked up on next request.
 function clearServerSourceCache() {
@@ -71,18 +87,10 @@ function clearServerSourceCache() {
   });
 }
 
-// Get the latest mtime across the bundle and all server source files.
-// This lets the native app detect both client and server component changes.
+// Get the latest mtime across all server source files.
+// This lets the native app detect server component changes and refetch the RSC stream.
 function getLatestVersion() {
   var latest = 0;
-
-  // Check bundle mtime
-  try {
-    var bundleStat = fs.statSync(BUNDLE_PATH);
-    latest = Math.max(latest, bundleStat.mtimeMs);
-  } catch (err) {
-    // bundle doesn't exist yet
-  }
 
   // Check server source files
   function walkDir(dir) {
@@ -107,14 +115,29 @@ function getLatestVersion() {
   return latest;
 }
 
-app.get('/bundle.js', function (req, res) {
+// Serve framework bundle (built on-the-fly from source)
+app.get('/bundle.js', async function (req, res) {
   try {
-    var source = fs.readFileSync(BUNDLE_PATH, 'utf8');
+    var result = await esbuild.build(frameworkBuildConfig);
+    res.setHeader('Content-Type', 'application/javascript');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.send(result.outputFiles[0].text);
+  } catch (err) {
+    console.error('[server] Bundle build failed:', err);
+    res.status(500).send('// Bundle build failed: ' + err.message);
+  }
+});
+
+// Serve client component modules (on-demand loading)
+app.get('/modules/:file', function (req, res) {
+  var modulePath = path.join(__dirname, 'modules', req.params.file);
+  try {
+    var source = fs.readFileSync(modulePath, 'utf8');
     res.setHeader('Content-Type', 'application/javascript');
     res.setHeader('Cache-Control', 'no-cache');
     res.send(source);
   } catch (err) {
-    res.status(404).send('bundle.js not found — run npm run build first');
+    res.status(404).send('Module not found: ' + req.params.file);
   }
 });
 
