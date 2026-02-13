@@ -1,9 +1,9 @@
-var React = require('react');
-var Counter = require('./components/Counter');
-var TextInput = require('./components/TextInput');
+const React = require('react');
+const Counter = require('./components/Counter');
+const TextInput = require('./components/TextInput');
 
 function App() {
-  var timestamp = new Date().toLocaleTimeString();
+  const timestamp = new Date().toLocaleTimeString();
 
   return (
     <div style={{padding: 20, gap: 16}}>
@@ -16,12 +16,12 @@ function App() {
       </div>
 
       <div style={{gap: 12}}>
-        <h2>Text Input</h2>
-        <TextInput placeholder="Say hello..." />
+        <h2>Search</h2>
+        <TextInput placeholder="Search fruits..." />
       </div>
 
       <p style={{color: '#888', fontSize: 12}}>
-        {'Rendered at ' + timestamp}
+        {`Rendered at ${timestamp}`}
       </p>
     </div>
   );

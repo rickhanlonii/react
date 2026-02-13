@@ -2,9 +2,6 @@
 
 const esbuild = require('esbuild');
 const path = require('path');
-const fs = require('fs');
-
-const REACT_SHIM = path.resolve(__dirname, 'react-shim.js');
 
 function createBuilder(options) {
   const rootDir = options.rootDir;
@@ -31,60 +28,9 @@ function createBuilder(options) {
     logLevel: 'warning',
   };
 
-  // Discovers client components
-  function discoverClientComponents() {
-    var componentsDir = path.join(rootDir, 'server/src/components');
-    if (!fs.existsSync(componentsDir)) return [];
-
-    return fs.readdirSync(componentsDir)
-      .filter(function(f) { return f.endsWith('.jsx') || f.endsWith('.js'); })
-      .map(function(f) {
-        return {
-          name: f.replace(/\.(jsx|js)$/, ''),
-          entryPoint: path.join(componentsDir, f),
-        };
-      });
-  }
-
-  // Builds a single client component as a standalone IIFE
-  async function buildComponentModule(component) {
-    var outdir = path.join(rootDir, 'server/modules');
-    if (!fs.existsSync(outdir)) {
-      fs.mkdirSync(outdir, {recursive: true});
-    }
-
-    await esbuild.build({
-      entryPoints: [component.entryPoint],
-      bundle: true,
-      format: 'iife',
-      globalName: '__module',
-      target: ['es2020'],
-      platform: 'neutral',
-      mainFields: ['module', 'main'],
-      define: {
-        __DEV__: mode === 'development' ? 'true' : 'false',
-        'process.env.NODE_ENV': JSON.stringify(mode),
-      },
-      alias: {
-        'react': REACT_SHIM,
-      },
-      jsx: 'transform',
-      minify: false,
-      sourcemap: false,
-      outfile: path.join(outdir, component.name + '.js'),
-      logLevel: 'warning',
-    });
-  }
-
   async function build() {
-    // Build framework bundle
+    // Build framework bundle (component modules are built on-the-fly by the server)
     const result = await esbuild.build(config);
-
-    // Build component modules
-    const components = discoverClientComponents();
-    for (const component of components) {
-      await buildComponentModule(component);
-    }
 
     return {
       errors: result.errors,

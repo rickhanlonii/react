@@ -6,9 +6,6 @@
 // react-dom-native. It operates in persistent mode (clone-on-write),
 // delegating native operations to the bridge via $$ globals.
 
-const {getDefaultsForElement} = require('../yoga-layout/defaults');
-const {getElementConfig} = require('../components/registry');
-
 // ---------------------------------------------------------------------------
 // Event priority constants — provided by the bridge
 // ---------------------------------------------------------------------------
@@ -75,18 +72,9 @@ exports.createInstance = function createInstance(
   console.log('[HostConfig] createInstance: ' + type);
   // Strip children from props — child nodes are managed by the reconciler
   // via appendInitialChild, not stored as props on the native node.
-  // Merge element-type defaults (e.g. flexDirection: 'column' for div)
-  // with user-supplied styles so Yoga layout matches CSS block defaults.
-  const {children, style, ...otherProps} = props;
-  const defaults = getDefaultsForElement(type);
-  const elementConfig = getElementConfig(type);
-  const defaultStyles = elementConfig ? elementConfig.defaultStyles : {};
-  const mergedStyle = Object.keys(defaults).length > 0 || Object.keys(defaultStyles).length > 0
-    ? Object.assign({}, defaults, defaultStyles, style)
-    : style;
-  const nativeProps = mergedStyle
-    ? Object.assign({}, otherProps, {style: mergedStyle})
-    : otherProps;
+  // Element-type defaults (flexDirection, fontSize, etc.) are merged natively
+  // in $$createNode — no JS-side merging needed.
+  const {children, ...nativeProps} = props;
   const nativeNode = $$createNode(
     type,
     rootContainer.surfaceId,

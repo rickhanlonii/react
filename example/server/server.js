@@ -128,16 +128,46 @@ app.get('/bundle.js', async function (req, res) {
   }
 });
 
-// Serve client component modules (on-demand loading)
-app.get('/modules/:file', function (req, res) {
-  var modulePath = path.join(__dirname, 'modules', req.params.file);
+// Serve client component modules (built on-the-fly from JSX source)
+var COMPONENTS_DIR = path.resolve(__dirname, 'src/components');
+var REACT_SHIM = path.resolve(__dirname, '../scripts/react-shim.js');
+
+app.get('/modules/:file', async function (req, res) {
+  var name = req.params.file.replace(/\.js$/, '');
+  var sourcePath = path.join(COMPONENTS_DIR, name + '.jsx');
+  if (!fs.existsSync(sourcePath)) {
+    sourcePath = path.join(COMPONENTS_DIR, name + '.js');
+  }
+  if (!fs.existsSync(sourcePath)) {
+    res.status(404).send('Module not found: ' + req.params.file);
+    return;
+  }
   try {
-    var source = fs.readFileSync(modulePath, 'utf8');
+    var result = await esbuild.build({
+      entryPoints: [sourcePath],
+      bundle: true,
+      format: 'iife',
+      globalName: '__module',
+      target: ['es2020'],
+      platform: 'neutral',
+      mainFields: ['module', 'main'],
+      define: {
+        __DEV__: 'true',
+        'process.env.NODE_ENV': '"development"',
+      },
+      alias: {
+        'react': REACT_SHIM,
+      },
+      jsx: 'transform',
+      write: false,
+    });
+    var code = '"use client";\n' + result.outputFiles[0].text;
     res.setHeader('Content-Type', 'application/javascript');
     res.setHeader('Cache-Control', 'no-cache');
-    res.send(source);
+    res.send(code);
   } catch (err) {
-    res.status(404).send('Module not found: ' + req.params.file);
+    console.error('[server] Module build failed:', err);
+    res.status(500).send('// Module build failed: ' + err.message);
   }
 });
 

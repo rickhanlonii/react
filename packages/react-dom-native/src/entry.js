@@ -4,8 +4,8 @@
 // react-dom-native framework bundle entry point
 //
 // This is the framework entry point bundled into the native app. It contains
-// all framework code (renderer, flight client, bridge, component registration)
-// but NO app-specific code (no client components, no MODULE_MAP, no server URL).
+// all framework code (renderer, flight client, bridge) but NO app-specific
+// code (no client components, no MODULE_MAP, no server URL).
 //
 // After evaluating this bundle, the native side calls:
 //   globalThis.__REACT_DOM_NATIVE__.renderFromURL(serverURL, {surfaceId: N})
@@ -18,9 +18,6 @@ var flightClient = require('./flight-client/index');
 var createFromFetch = flightClient.createFromFetch;
 var http = require('./flight-client/http');
 var fetchWithBridge = http.fetchWithBridge;
-
-// Import components to trigger element registration (side effects)
-require('./components/index');
 
 // ---------------------------------------------------------------------------
 // Expose React globally so on-demand client component modules can use it.

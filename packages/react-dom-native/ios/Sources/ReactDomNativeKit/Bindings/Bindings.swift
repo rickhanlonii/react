@@ -129,9 +129,16 @@ public class Bindings {
 
             let type = engine.toString(args[0]) ?? "div"
             let surfaceId = engine.toInt(args[1]) ?? 0
-            let props = engine.toDictionary(args[2]) ?? [:]
+            var props = engine.toDictionary(args[2]) ?? [:]
             // args[3] = isInsideTextContext (unused for now)
             let instanceHandle = args[4]
+
+            // Merge element-type defaults with user-supplied style
+            let userStyle = props["style"] as? [String: Any]
+            let mergedStyle = ElementDefaults.mergedStyle(for: type, userStyle: userStyle)
+            if !mergedStyle.isEmpty {
+                props["style"] = mergedStyle
+            }
 
             let family = ShadowNodeFamily(
                 elementType: type,
@@ -149,7 +156,7 @@ public class Bindings {
                 text: nil
             )
 
-            // Apply style props to Yoga node
+            // Apply merged style props to Yoga node
             if let style = props["style"] as? [String: Any] {
                 YogaStyleApplier.apply(style, to: node.yogaNode)
             }
@@ -205,9 +212,16 @@ public class Bindings {
         engine.setGlobalFunction("$$cloneNodeWithNewProps") { [weak self, weak engine] args in
             guard let self = self, let engine = engine else { return nil }
             guard let node = self.lookupNode(args[0]) else { return nil }
-            let newProps = engine.toDictionary(args[1]) ?? [:]
+            var newProps = engine.toDictionary(args[1]) ?? [:]
+            // Merge element-type defaults with user-supplied style
+            let elementType = node.family.elementType
+            let userStyle = newProps["style"] as? [String: Any]
+            let mergedStyle = ElementDefaults.mergedStyle(for: elementType, userStyle: userStyle)
+            if !mergedStyle.isEmpty {
+                newProps["style"] = mergedStyle
+            }
             let cloned = node.cloneWithNewProps(newProps)
-            // Apply new style to the cloned yogaNode
+            // Apply merged style to the cloned yogaNode
             if let style = newProps["style"] as? [String: Any] {
                 YogaStyleApplier.apply(style, to: cloned.yogaNode)
             }
@@ -230,9 +244,16 @@ public class Bindings {
         engine.setGlobalFunction("$$cloneNodeWithNewChildrenAndProps") { [weak self, weak engine] args in
             guard let self = self, let engine = engine else { return nil }
             guard let node = self.lookupNode(args[0]) else { return nil }
-            let newProps = engine.toDictionary(args[2]) ?? [:]
+            var newProps = engine.toDictionary(args[2]) ?? [:]
+            // Merge element-type defaults with user-supplied style
+            let elementType = node.family.elementType
+            let userStyle = newProps["style"] as? [String: Any]
+            let mergedStyle = ElementDefaults.mergedStyle(for: elementType, userStyle: userStyle)
+            if !mergedStyle.isEmpty {
+                newProps["style"] = mergedStyle
+            }
             let cloned = node.cloneWithNewChildrenAndProps([], newProps)
-            // Apply new style to the cloned yogaNode
+            // Apply merged style to the cloned yogaNode
             if let style = newProps["style"] as? [String: Any] {
                 YogaStyleApplier.apply(style, to: cloned.yogaNode)
             }

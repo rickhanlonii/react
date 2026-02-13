@@ -192,6 +192,23 @@ public enum YogaStyleApplier {
             default: break
             }
         }
+
+        // borderWidth (all edges)
+        if let bw = toFloat(style["borderWidth"]) {
+            YGNodeStyleSetBorder(node, .all, bw)
+        }
+        if let btw = toFloat(style["borderTopWidth"]) {
+            YGNodeStyleSetBorder(node, .top, btw)
+        }
+        if let brw = toFloat(style["borderRightWidth"]) {
+            YGNodeStyleSetBorder(node, .right, brw)
+        }
+        if let bbw = toFloat(style["borderBottomWidth"]) {
+            YGNodeStyleSetBorder(node, .bottom, bbw)
+        }
+        if let blw = toFloat(style["borderLeftWidth"]) {
+            YGNodeStyleSetBorder(node, .left, blw)
+        }
     }
 
     // MARK: - Helpers

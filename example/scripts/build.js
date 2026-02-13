@@ -2,10 +2,8 @@
 
 const esbuild = require('esbuild');
 const path = require('path');
-const fs = require('fs');
 
 const EXAMPLE_ROOT = path.resolve(__dirname, '..');
-const REACT_SHIM = path.resolve(__dirname, 'react-shim.js');
 
 // Framework bundle config: builds react-dom-native's entry point
 const frameworkConfig = {
@@ -24,51 +22,6 @@ const frameworkConfig = {
   logLevel: 'info',
 };
 
-// Discovers client components (files with 'use client' directive)
-function discoverClientComponents() {
-  var componentsDir = path.join(EXAMPLE_ROOT, 'server/src/components');
-  if (!fs.existsSync(componentsDir)) return [];
-
-  return fs.readdirSync(componentsDir)
-    .filter(function(f) { return f.endsWith('.jsx') || f.endsWith('.js'); })
-    .map(function(f) {
-      return {
-        name: f.replace(/\.(jsx|js)$/, ''),
-        entryPoint: path.join(componentsDir, f),
-      };
-    });
-}
-
-// Builds a single client component as a standalone IIFE
-async function buildComponentModule(component, mode) {
-  var outdir = path.join(EXAMPLE_ROOT, 'server/modules');
-  if (!fs.existsSync(outdir)) {
-    fs.mkdirSync(outdir, {recursive: true});
-  }
-
-  await esbuild.build({
-    entryPoints: [component.entryPoint],
-    bundle: true,
-    format: 'iife',
-    globalName: '__module',
-    target: ['es2020'],
-    platform: 'neutral',
-    mainFields: ['module', 'main'],
-    define: {
-      __DEV__: mode === 'development' ? 'true' : 'false',
-      'process.env.NODE_ENV': JSON.stringify(mode),
-    },
-    alias: {
-      'react': REACT_SHIM,
-    },
-    jsx: 'transform',
-    minify: mode === 'production',
-    sourcemap: false,
-    outfile: path.join(outdir, component.name + '.js'),
-    logLevel: 'warning',
-  });
-}
-
 async function build() {
   const mode = process.argv.includes('--production') ? 'production' : 'development';
   const isWatch = process.argv.includes('--watch');
@@ -83,7 +36,7 @@ async function build() {
     sourcemap: mode === 'development',
   };
 
-  // Build framework bundle
+  // Build framework bundle (component modules are built on-the-fly by the server)
   if (isWatch) {
     const ctx = await esbuild.context(config);
     await ctx.watch();
@@ -94,13 +47,6 @@ async function build() {
       console.error('Framework bundle build failed');
       process.exit(1);
     }
-  }
-
-  // Build component modules
-  const components = discoverClientComponents();
-  for (const component of components) {
-    await buildComponentModule(component, mode);
-    console.log('Built component module: ' + component.name + '.js');
   }
 }
 
