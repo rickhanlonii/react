@@ -207,6 +207,19 @@ public enum YogaStyleApplier {
             }
         }
 
+        // overflow
+        if let overflow = style["overflow"] as? String {
+            switch overflow {
+            case "visible":
+                YGNodeStyleSetOverflow(node, .visible)
+            case "hidden":
+                YGNodeStyleSetOverflow(node, .hidden)
+            case "scroll", "auto":
+                YGNodeStyleSetOverflow(node, .scroll)
+            default: break
+            }
+        }
+
         // borderWidth (all edges)
         if let bw = toFloat(style["borderWidth"]) {
             YGNodeStyleSetBorder(node, .all, bw)

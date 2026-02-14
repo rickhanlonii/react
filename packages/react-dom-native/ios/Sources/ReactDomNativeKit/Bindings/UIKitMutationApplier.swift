@@ -77,6 +77,9 @@ public class UIKitMutationApplier: NSObject {
                 }
                 updateView(view, elementType: node.family.elementType, props: newProps)
                 view.frame = node.layoutFrame
+                if let scrollView = view as? UIScrollView, let contentSize = node.scrollContentSize {
+                    scrollView.contentSize = contentSize
+                }
             }
         }
 
@@ -92,6 +95,17 @@ public class UIKitMutationApplier: NSObject {
 
         switch elementType {
         case "div":
+            let style = props["style"] as? [String: Any] ?? [:]
+            let overflow = style["overflow"] as? String
+            if overflow == "scroll" || overflow == "auto" {
+                let scrollView = UIScrollView()
+                scrollView.clipsToBounds = true
+                if let contentSize = node.scrollContentSize {
+                    scrollView.contentSize = contentSize
+                }
+                applyCommonProps(to: scrollView, props: props)
+                return scrollView
+            }
             let view = UIView()
             applyCommonProps(to: view, props: props)
             return view
@@ -135,7 +149,18 @@ public class UIKitMutationApplier: NSObject {
             return label
 
         default:
-            // Fallback to a plain view
+            // Fallback to a plain view (or scroll view for overflow:scroll/auto)
+            let style = props["style"] as? [String: Any] ?? [:]
+            let overflow = style["overflow"] as? String
+            if overflow == "scroll" || overflow == "auto" {
+                let scrollView = UIScrollView()
+                scrollView.clipsToBounds = true
+                if let contentSize = node.scrollContentSize {
+                    scrollView.contentSize = contentSize
+                }
+                applyCommonProps(to: scrollView, props: props)
+                return scrollView
+            }
             let view = UIView()
             applyCommonProps(to: view, props: props)
             return view
@@ -201,6 +226,8 @@ public class UIKitMutationApplier: NSObject {
                     view.clipsToBounds = true
                 case "visible":
                     view.clipsToBounds = false
+                case "scroll", "auto":
+                    view.clipsToBounds = true
                 default: break
                 }
             }

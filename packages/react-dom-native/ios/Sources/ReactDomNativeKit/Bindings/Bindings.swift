@@ -90,12 +90,17 @@ public class Bindings {
     /// Registers a root UIView for a surface. Must be called before the
     /// renderer commits to this surface.
     public func registerSurface(surfaceId: Int, rootView: UIView) {
-        rootViews[surfaceId] = rootView
+        let scrollView = UIScrollView(frame: rootView.bounds)
+        scrollView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        scrollView.contentInsetAdjustmentBehavior = .automatic
+        rootView.addSubview(scrollView)
+        rootViews[surfaceId] = scrollView
         currentTrees[surfaceId] = []
     }
 
     /// Unregisters a surface and cleans up its tree and views.
     public func unregisterSurface(surfaceId: Int) {
+        rootViews[surfaceId]?.removeFromSuperview()
         rootViews.removeValue(forKey: surfaceId)
         currentTrees.removeValue(forKey: surfaceId)
     }
@@ -336,9 +341,10 @@ public class Bindings {
             print("[Bindings] Old children: \(oldChildren.count)")
 
             // 2. Calculate layout using Yoga
+            var contentSize: CGSize = .zero
             if let rootView = self.rootViews[surfaceId] {
                 let bounds = rootView.bounds
-                self.calculateYogaLayout(for: newChildren, in: bounds)
+                contentSize = self.calculateYogaLayout(for: newChildren, in: bounds)
             }
 
             // 3. Diff old tree vs new tree
@@ -367,10 +373,18 @@ public class Bindings {
                 print("[Bindings] Warning: No rootView for surfaceId \(surfaceId)")
             }
 
-            // 5. Promote new tree to current tree
+            // 5. Set scroll view content size for document-level scrolling
+            if let scrollView = self.rootViews[surfaceId] as? UIScrollView {
+                scrollView.contentSize = CGSize(
+                    width: scrollView.bounds.width,
+                    height: contentSize.height
+                )
+            }
+
+            // 6. Promote new tree to current tree
             self.currentTrees[surfaceId] = newChildren
 
-            // 6. Clean up stale nodes from registry
+            // 7. Clean up stale nodes from registry
             // Collect all node IDs still reachable from any current tree
             var liveNodes = Set<Int>()
             for (_, tree) in self.currentTrees {
@@ -405,8 +419,11 @@ public class Bindings {
     /// Creates a temporary root YGNode sized to the container, inserts
     /// top-level children, calculates layout, reads results into layoutFrame,
     /// then cleans up the temporary root.
-    private func calculateYogaLayout(for children: [ShadowNodeWrapper], in bounds: CGRect) {
-        guard !children.isEmpty else { return }
+    ///
+    /// Returns the natural content size (width × height) from Yoga layout.
+    @discardableResult
+    private func calculateYogaLayout(for children: [ShadowNodeWrapper], in bounds: CGRect) -> CGSize {
+        guard !children.isEmpty else { return .zero }
 
         // 1. Create temporary root node sized to container
         let rootNode = YGNodeNewWithConfig(YogaConfig.shared)!
@@ -441,9 +458,20 @@ public class Bindings {
             YGNodeCalculateLayout(rootNode, Float(bounds.width), .nan, .LTR)
         }
 
+        // Read content size from temp root (which has unbounded height)
+        let contentSize = CGSize(
+            width: CGFloat(YGNodeLayoutGetWidth(rootNode)),
+            height: CGFloat(YGNodeLayoutGetHeight(rootNode))
+        )
+
         // 4. Walk tree reading layout results into layoutFrame
         for child in children {
             readYogaLayout(from: child)
+        }
+
+        // 4b. Compute scroll content sizes for overflow:scroll/auto nodes
+        for child in children {
+            computeScrollContentSizes(for: child)
         }
 
         // 5. Remove children from temporary root (ownership stays with ShadowNodeWrappers)
@@ -451,6 +479,8 @@ public class Bindings {
 
         // 6. Free temporary root
         YGNodeFree(rootNode)
+
+        return contentSize
     }
 
     /// Recursively read Yoga layout results into each node's layoutFrame.
@@ -483,6 +513,65 @@ public class Bindings {
             }
         }
         return anyDirty
+    }
+
+    /// For nodes with overflow:scroll/auto, re-layout children with unbounded
+    /// height to compute the natural content size. Yoga's flex-shrink would
+    /// otherwise constrain children to the parent's height.
+    private func computeScrollContentSizes(for node: ShadowNodeWrapper) {
+        let style = node.props["style"] as? [String: Any] ?? [:]
+        let overflow = style["overflow"] as? String
+
+        if overflow == "scroll" || overflow == "auto" {
+            // Create temp root with same width but unbounded height
+            let tempRoot = YGNodeNewWithConfig(YogaConfig.shared)!
+            YGNodeStyleSetFlexDirection(tempRoot, YGNodeStyleGetFlexDirection(node.yogaNode))
+            YGNodeStyleSetWidth(tempRoot, Float(node.layoutFrame.width))
+
+            // Copy gap from original node
+            let gap = YGNodeStyleGetGap(node.yogaNode, .all)
+            if gap.unit == .point {
+                YGNodeStyleSetGap(tempRoot, .all, gap.value)
+            } else if gap.unit == .percent {
+                YGNodeStyleSetGapPercent(tempRoot, .all, gap.value)
+            }
+
+            // Reparent children to temp root
+            for (index, child) in node.children.enumerated() {
+                if let owner = YGNodeGetOwner(child.yogaNode) {
+                    YGNodeRemoveChild(owner, child.yogaNode)
+                }
+                YGNodeInsertChild(tempRoot, child.yogaNode, index)
+            }
+
+            // Layout with unbounded height
+            YGNodeCalculateLayout(tempRoot, Float(node.layoutFrame.width), .nan, .LTR)
+
+            // Read natural content size and update children's layoutFrames
+            var contentHeight: CGFloat = 0
+            for child in node.children {
+                let bottom = CGFloat(YGNodeLayoutGetTop(child.yogaNode))
+                           + CGFloat(YGNodeLayoutGetHeight(child.yogaNode))
+                contentHeight = max(contentHeight, bottom)
+                readYogaLayout(from: child)
+            }
+            node.scrollContentSize = CGSize(
+                width: node.layoutFrame.width,
+                height: contentHeight
+            )
+
+            // Restore children to original parent
+            YGNodeRemoveAllChildren(tempRoot)
+            for (index, child) in node.children.enumerated() {
+                YGNodeInsertChild(node.yogaNode, child.yogaNode, index)
+            }
+            YGNodeFree(tempRoot)
+        }
+
+        // Recurse (children may also be scroll containers)
+        for child in node.children {
+            computeScrollContentSizes(for: child)
+        }
     }
 
     // MARK: - Measurement

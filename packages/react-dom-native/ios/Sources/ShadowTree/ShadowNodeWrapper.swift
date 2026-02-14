@@ -33,6 +33,10 @@ public class ShadowNodeWrapper {
     /// Computed layout frame (set during $$completeRoot after Yoga calculation).
     public var layoutFrame: CGRect = .zero
 
+    /// Natural content size for scroll containers (overflow: scroll/auto).
+    /// Computed during layout by re-laying-out children with unbounded height.
+    public var scrollContentSize: CGSize? = nil
+
     // MARK: - Initializers
 
     public init(
