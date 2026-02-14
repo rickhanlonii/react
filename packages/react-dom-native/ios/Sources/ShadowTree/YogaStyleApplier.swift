@@ -182,6 +182,20 @@ public enum YogaStyleApplier {
             }
         }
 
+        // position offsets (top/left/right/bottom)
+        if let top = toFloat(style["top"]) {
+            YGNodeStyleSetPosition(node, .top, top)
+        }
+        if let left = toFloat(style["left"]) {
+            YGNodeStyleSetPosition(node, .left, left)
+        }
+        if let right = toFloat(style["right"]) {
+            YGNodeStyleSetPosition(node, .right, right)
+        }
+        if let bottom = toFloat(style["bottom"]) {
+            YGNodeStyleSetPosition(node, .bottom, bottom)
+        }
+
         // display
         if let display = style["display"] as? String {
             switch display {

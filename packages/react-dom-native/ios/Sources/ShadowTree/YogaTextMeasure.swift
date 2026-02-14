@@ -23,6 +23,7 @@ public enum YogaTextMeasure {
     fileprivate class TextMeasureContext {
         let text: String
         var fontSize: CGFloat
+        var lastMeasuredWidth: Float = 0
 
         init(text: String, fontSize: CGFloat) {
             self.text = text
@@ -56,6 +57,18 @@ public enum YogaTextMeasure {
             Unmanaged<TextMeasureContext>.fromOpaque(ptr).release()
             YGNodeSetContext(yogaNode, nil)
         }
+    }
+
+    /// Threshold for detecting meaningful width shrinkage (avoids float rounding false positives).
+    private static let remeasureEpsilon: Float = 0.5
+
+    /// Returns true if the text node was flex-shrunk narrower than its measured width,
+    /// meaning the height is wrong (computed at the wider width) and needs re-measurement.
+    public static func needsRemeasure(yogaNode: YGNodeRef) -> Bool {
+        guard let ptr = YGNodeGetContext(yogaNode) else { return false }
+        let context = Unmanaged<TextMeasureContext>.fromOpaque(ptr).takeUnretainedValue()
+        let layoutWidth = YGNodeLayoutGetWidth(yogaNode)
+        return context.lastMeasuredWidth - layoutWidth > remeasureEpsilon
     }
 }
 
@@ -121,5 +134,6 @@ private func textMeasureFunc(
         measuredHeight = Float(ceil(measuredRect.height))
     }
 
+    context.lastMeasuredWidth = measuredWidth
     return YGSize(width: measuredWidth, height: measuredHeight)
 }

@@ -410,8 +410,11 @@ public class Bindings {
 
         // 1. Create temporary root node sized to container
         let rootNode = YGNodeNewWithConfig(YogaConfig.shared)!
+        YGNodeStyleSetFlexDirection(rootNode, .column)    // Override web default (row → column)
         YGNodeStyleSetWidth(rootNode, Float(bounds.width))
-        YGNodeStyleSetHeight(rootNode, Float(bounds.height))
+        // Don't set height — let content determine its own height.
+        // On the web, the viewport scrolls when content overflows rather
+        // than shrinking children via flexShrink.
 
         // 2. Insert top-level children into temporary root
         for (index, child) in children.enumerated() {
@@ -421,8 +424,22 @@ public class Bindings {
             YGNodeInsertChild(rootNode, child.yogaNode, index)
         }
 
-        // 3. Calculate layout
-        YGNodeCalculateLayout(rootNode, Float(bounds.width), Float(bounds.height), .LTR)
+        // 3. Calculate layout (first pass)
+        YGNodeCalculateLayout(rootNode, Float(bounds.width), .nan, .LTR)
+
+        // 3b. Post-layout text re-measurement
+        // Yoga may flex-shrink text nodes narrower than their measured width.
+        // The height was computed at the wider width (single line), not the
+        // narrower layout width (multi-line). Mark dirty and re-layout.
+        var needsSecondPass = false
+        for child in children {
+            if markShrunkTextNodesDirty(child) {
+                needsSecondPass = true
+            }
+        }
+        if needsSecondPass {
+            YGNodeCalculateLayout(rootNode, Float(bounds.width), .nan, .LTR)
+        }
 
         // 4. Walk tree reading layout results into layoutFrame
         for child in children {
@@ -447,6 +464,25 @@ public class Bindings {
         for child in node.children {
             readYogaLayout(from: child)
         }
+    }
+
+    /// Recursively check for text nodes that were flex-shrunk narrower than their
+    /// measured width. Marks them dirty so Yoga re-measures at the correct width.
+    /// Returns true if any node was marked dirty.
+    private func markShrunkTextNodesDirty(_ node: ShadowNodeWrapper) -> Bool {
+        var anyDirty = false
+        if node.family.elementType == "#text" {
+            if YogaTextMeasure.needsRemeasure(yogaNode: node.yogaNode) {
+                YGNodeMarkDirty(node.yogaNode)
+                anyDirty = true
+            }
+        }
+        for child in node.children {
+            if markShrunkTextNodesDirty(child) {
+                anyDirty = true
+            }
+        }
+        return anyDirty
     }
 
     // MARK: - Measurement
