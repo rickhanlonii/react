@@ -32,6 +32,54 @@ describe('Element defaults', function () {
     expect(h1.props.style.flexWrap).toBe('wrap');
   });
 
+  it('p gets default vertical margins of 16px', function () {
+    var root = Fantom.createRoot();
+    Fantom.runTask(function () {
+      root.render(<p>text</p>);
+    });
+
+    var output = Fantom.getRenderedOutput();
+    var p = output.children[0];
+    expect(p.props.style.marginTop).toBe(16);
+    expect(p.props.style.marginBottom).toBe(16);
+  });
+
+  it('h1 gets default vertical margins of 21.4px', function () {
+    var root = Fantom.createRoot();
+    Fantom.runTask(function () {
+      root.render(<h1>Title</h1>);
+    });
+
+    var output = Fantom.getRenderedOutput();
+    var h1 = output.children[0];
+    expect(h1.props.style.marginTop).toBe(21.4);
+    expect(h1.props.style.marginBottom).toBe(21.4);
+  });
+
+  it('h2 gets default vertical margins of 19.9px', function () {
+    var root = Fantom.createRoot();
+    Fantom.runTask(function () {
+      root.render(<h2>Title</h2>);
+    });
+
+    var output = Fantom.getRenderedOutput();
+    var h2 = output.children[0];
+    expect(h2.props.style.marginTop).toBe(19.9);
+    expect(h2.props.style.marginBottom).toBe(19.9);
+  });
+
+  it('ul gets default vertical margins of 16px', function () {
+    var root = Fantom.createRoot();
+    Fantom.runTask(function () {
+      root.render(<ul><li>item</li></ul>);
+    });
+
+    var output = Fantom.getRenderedOutput();
+    var ul = output.children[0];
+    expect(ul.props.style.marginTop).toBe(16);
+    expect(ul.props.style.marginBottom).toBe(16);
+  });
+
   it('user style overrides defaults', function () {
     var root = Fantom.createRoot();
     Fantom.runTask(function () {
