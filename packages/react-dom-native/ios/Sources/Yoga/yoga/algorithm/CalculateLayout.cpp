@@ -1585,7 +1585,12 @@ static void calculateLayoutImpl(
   // Block layout: separate code path for CSS block formatting context.
   // Must be before childCount == 0 check so empty block containers
   // still stretch to fill available width.
-  if (node->style().display() == Display::Block) {
+  // When flexWrap is set (e.g. <p> with row-wrap for inline text), the element
+  // wants block-level behavior in its parent (margin collapsing, width stretch)
+  // but flex internal layout for its children. In that case, skip block layout
+  // and let the flex code path handle children.
+  if (node->style().display() == Display::Block &&
+      node->style().flexWrap() == Wrap::NoWrap) {
     calculateBlockLayout(
         node,
         availableWidth,

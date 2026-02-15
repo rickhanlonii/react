@@ -146,7 +146,7 @@ public enum ElementDefaults {
         case "canvas":
             return canvasDefaults
         case "embed", "object":
-            return blockDefaults
+            return spanDefaults
 
         // Unknown elements: block layout
         default:
@@ -229,18 +229,21 @@ public enum ElementDefaults {
     ]
 
     private static let legendDefaults: [String: Any] = [
+        "display": "block",
         "flexDirection": "row",
         "paddingLeft": 2,
         "paddingRight": 2
     ]
 
     private static let pDefaults: [String: Any] = [
+        "display": "block",
         "flexDirection": "row",
         "flexWrap": "wrap",
         "fontSize": 16
     ]
 
     private static let h1Defaults: [String: Any] = [
+        "display": "block",
         "flexDirection": "row",
         "flexWrap": "wrap",
         "fontSize": 32,
@@ -248,6 +251,7 @@ public enum ElementDefaults {
     ]
 
     private static let h2Defaults: [String: Any] = [
+        "display": "block",
         "flexDirection": "row",
         "flexWrap": "wrap",
         "fontSize": 24,
@@ -255,6 +259,7 @@ public enum ElementDefaults {
     ]
 
     private static let h3Defaults: [String: Any] = [
+        "display": "block",
         "flexDirection": "row",
         "flexWrap": "wrap",
         "fontSize": 18.7,
@@ -262,6 +267,7 @@ public enum ElementDefaults {
     ]
 
     private static let h4Defaults: [String: Any] = [
+        "display": "block",
         "flexDirection": "row",
         "flexWrap": "wrap",
         "fontSize": 16,
@@ -269,6 +275,7 @@ public enum ElementDefaults {
     ]
 
     private static let h5Defaults: [String: Any] = [
+        "display": "block",
         "flexDirection": "row",
         "flexWrap": "wrap",
         "fontSize": 13.3,
@@ -276,6 +283,7 @@ public enum ElementDefaults {
     ]
 
     private static let h6Defaults: [String: Any] = [
+        "display": "block",
         "flexDirection": "row",
         "flexWrap": "wrap",
         "fontSize": 10.7,
@@ -419,6 +427,7 @@ public enum ElementDefaults {
     ]
 
     private static let hrDefaults: [String: Any] = [
+        "display": "block",
         "height": 0,
         "marginTop": 8,
         "marginBottom": 8,

@@ -25,6 +25,7 @@ describe('Element defaults', function () {
     var output = Fantom.getRenderedOutput();
     var h1 = output.children[0];
     expect(h1.type).toBe('h1');
+    expect(h1.props.style.display).toBe('block');
     expect(h1.props.style.fontSize).toBe(32);
     expect(h1.props.style.fontWeight).toBe('bold');
     expect(h1.props.style.flexDirection).toBe('row');
