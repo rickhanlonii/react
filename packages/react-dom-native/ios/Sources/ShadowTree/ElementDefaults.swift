@@ -177,16 +177,16 @@ public enum ElementDefaults {
     // MARK: - Default Dictionaries
 
     private static let blockDefaults: [String: Any] = [
-        "flexDirection": "column"
+        "display": "block"
     ]
 
     private static let addressDefaults: [String: Any] = [
-        "flexDirection": "column",
+        "display": "block",
         "fontStyle": "italic"
     ]
 
     private static let blockquoteDefaults: [String: Any] = [
-        "flexDirection": "column",
+        "display": "block",
         "marginTop": 16,
         "marginBottom": 16,
         "marginLeft": 40,
@@ -194,7 +194,7 @@ public enum ElementDefaults {
     ]
 
     private static let preDefaults: [String: Any] = [
-        "flexDirection": "column",
+        "display": "block",
         "marginTop": 16,
         "marginBottom": 16,
         "fontFamily": "Menlo"
@@ -205,7 +205,7 @@ public enum ElementDefaults {
     ]
 
     private static let dialogDefaults: [String: Any] = [
-        "flexDirection": "column",
+        "display": "block",
         "paddingTop": 16,
         "paddingBottom": 16,
         "paddingLeft": 16,
@@ -216,7 +216,7 @@ public enum ElementDefaults {
     ]
 
     private static let fieldsetDefaults: [String: Any] = [
-        "flexDirection": "column",
+        "display": "block",
         "marginLeft": 2,
         "marginRight": 2,
         "paddingTop": 5.6,
@@ -235,42 +235,49 @@ public enum ElementDefaults {
     ]
 
     private static let pDefaults: [String: Any] = [
-        "flexDirection": "column",
+        "flexDirection": "row",
+        "flexWrap": "wrap",
         "fontSize": 16
     ]
 
     private static let h1Defaults: [String: Any] = [
-        "flexDirection": "column",
+        "flexDirection": "row",
+        "flexWrap": "wrap",
         "fontSize": 32,
         "fontWeight": "bold"
     ]
 
     private static let h2Defaults: [String: Any] = [
-        "flexDirection": "column",
+        "flexDirection": "row",
+        "flexWrap": "wrap",
         "fontSize": 24,
         "fontWeight": "bold"
     ]
 
     private static let h3Defaults: [String: Any] = [
-        "flexDirection": "column",
+        "flexDirection": "row",
+        "flexWrap": "wrap",
         "fontSize": 18.7,
         "fontWeight": "bold"
     ]
 
     private static let h4Defaults: [String: Any] = [
-        "flexDirection": "column",
+        "flexDirection": "row",
+        "flexWrap": "wrap",
         "fontSize": 16,
         "fontWeight": "bold"
     ]
 
     private static let h5Defaults: [String: Any] = [
-        "flexDirection": "column",
+        "flexDirection": "row",
+        "flexWrap": "wrap",
         "fontSize": 13.3,
         "fontWeight": "bold"
     ]
 
     private static let h6Defaults: [String: Any] = [
-        "flexDirection": "column",
+        "flexDirection": "row",
+        "flexWrap": "wrap",
         "fontSize": 10.7,
         "fontWeight": "bold"
     ]
@@ -281,7 +288,7 @@ public enum ElementDefaults {
     ]
 
     private static let listDefaults: [String: Any] = [
-        "flexDirection": "column",
+        "display": "block",
         "paddingLeft": 40
     ]
 
@@ -290,13 +297,13 @@ public enum ElementDefaults {
     ]
 
     private static let dlDefaults: [String: Any] = [
-        "flexDirection": "column",
+        "display": "block",
         "marginTop": 16,
         "marginBottom": 16
     ]
 
     private static let ddDefaults: [String: Any] = [
-        "flexDirection": "column",
+        "display": "block",
         "marginLeft": 40
     ]
 
@@ -305,7 +312,7 @@ public enum ElementDefaults {
     ]
 
     private static let thDefaults: [String: Any] = [
-        "flexDirection": "column",
+        "display": "block",
         "flex": 1,
         "paddingTop": 1,
         "paddingBottom": 1,
@@ -315,7 +322,7 @@ public enum ElementDefaults {
     ]
 
     private static let tdDefaults: [String: Any] = [
-        "flexDirection": "column",
+        "display": "block",
         "flex": 1,
         "paddingTop": 1,
         "paddingBottom": 1,
@@ -324,7 +331,7 @@ public enum ElementDefaults {
     ]
 
     private static let captionDefaults: [String: Any] = [
-        "flexDirection": "column",
+        "display": "block",
         "alignItems": "center"
     ]
 
