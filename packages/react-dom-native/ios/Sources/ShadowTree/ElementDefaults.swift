@@ -13,6 +13,14 @@ public enum ElementDefaults {
         // Block containers
         case "div", "main", "section", "article", "nav", "header", "footer", "aside", "form":
             return blockDefaults
+        case "address":
+            return addressDefaults
+        case "blockquote", "figure":
+            return blockquoteDefaults
+        case "figcaption":
+            return blockDefaults
+        case "pre":
+            return preDefaults
 
         // Text containers
         case "p":
@@ -57,6 +65,12 @@ public enum ElementDefaults {
             return listDefaults
         case "li":
             return liDefaults
+        case "dl":
+            return dlDefaults
+        case "dt":
+            return blockDefaults
+        case "dd":
+            return ddDefaults
 
         // Interactive
         case "button":
@@ -112,6 +126,26 @@ public enum ElementDefaults {
         "flexDirection": "column"
     ]
 
+    private static let addressDefaults: [String: Any] = [
+        "flexDirection": "column",
+        "fontStyle": "italic"
+    ]
+
+    private static let blockquoteDefaults: [String: Any] = [
+        "flexDirection": "column",
+        "marginTop": 16,
+        "marginBottom": 16,
+        "marginLeft": 40,
+        "marginRight": 40
+    ]
+
+    private static let preDefaults: [String: Any] = [
+        "flexDirection": "column",
+        "marginTop": 16,
+        "marginBottom": 16,
+        "fontFamily": "Menlo"
+    ]
+
     private static let pDefaults: [String: Any] = [
         "flexDirection": "column",
         "fontSize": 16
@@ -165,6 +199,17 @@ public enum ElementDefaults {
 
     private static let liDefaults: [String: Any] = [
         "flexDirection": "row"
+    ]
+
+    private static let dlDefaults: [String: Any] = [
+        "flexDirection": "column",
+        "marginTop": 16,
+        "marginBottom": 16
+    ]
+
+    private static let ddDefaults: [String: Any] = [
+        "flexDirection": "column",
+        "marginLeft": 40
     ]
 
     private static let buttonDefaults: [String: Any] = [

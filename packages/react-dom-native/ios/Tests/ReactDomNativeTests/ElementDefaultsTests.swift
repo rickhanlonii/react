@@ -115,6 +115,65 @@ final class ElementDefaultsTests: XCTestCase {
         XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
     }
 
+    // MARK: - Definition Lists
+
+    func testDlDefaults() {
+        let defaults = ElementDefaults.defaults(for: "dl")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "column")
+        XCTAssertEqual(defaults["marginTop"] as? Int, 16)
+        XCTAssertEqual(defaults["marginBottom"] as? Int, 16)
+    }
+
+    func testDtDefaults() {
+        let defaults = ElementDefaults.defaults(for: "dt")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "column")
+    }
+
+    func testDdDefaults() {
+        let defaults = ElementDefaults.defaults(for: "dd")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "column")
+        XCTAssertEqual(defaults["marginLeft"] as? Int, 40)
+    }
+
+    // MARK: - P1 Block Containers
+
+    func testAddressDefaults() {
+        let defaults = ElementDefaults.defaults(for: "address")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "column")
+        XCTAssertEqual(defaults["fontStyle"] as? String, "italic")
+    }
+
+    func testBlockquoteDefaults() {
+        let defaults = ElementDefaults.defaults(for: "blockquote")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "column")
+        XCTAssertEqual(defaults["marginTop"] as? Int, 16)
+        XCTAssertEqual(defaults["marginBottom"] as? Int, 16)
+        XCTAssertEqual(defaults["marginLeft"] as? Int, 40)
+        XCTAssertEqual(defaults["marginRight"] as? Int, 40)
+    }
+
+    func testFigureDefaults() {
+        let defaults = ElementDefaults.defaults(for: "figure")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "column")
+        XCTAssertEqual(defaults["marginTop"] as? Int, 16)
+        XCTAssertEqual(defaults["marginBottom"] as? Int, 16)
+        XCTAssertEqual(defaults["marginLeft"] as? Int, 40)
+        XCTAssertEqual(defaults["marginRight"] as? Int, 40)
+    }
+
+    func testFigcaptionDefaults() {
+        let defaults = ElementDefaults.defaults(for: "figcaption")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "column")
+    }
+
+    func testPreDefaults() {
+        let defaults = ElementDefaults.defaults(for: "pre")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "column")
+        XCTAssertEqual(defaults["marginTop"] as? Int, 16)
+        XCTAssertEqual(defaults["marginBottom"] as? Int, 16)
+        XCTAssertEqual(defaults["fontFamily"] as? String, "Menlo")
+    }
+
     // MARK: - P1 Inline Text
 
     func testBDefaults() {

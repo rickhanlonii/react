@@ -111,7 +111,8 @@ public class UIKitMutationApplier: NSObject {
             return view
 
         case "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
-             "b", "i", "u", "s", "del", "ins", "mark", "small", "code", "kbd", "samp":
+             "b", "i", "u", "s", "del", "ins", "mark", "small", "code", "kbd", "samp",
+             "pre":
             let label = UILabel()
             label.numberOfLines = 0
             applyTextProps(to: label, props: props, elementType: elementType)
@@ -174,7 +175,8 @@ public class UIKitMutationApplier: NSObject {
 
         switch elementType {
         case "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
-             "b", "i", "u", "s", "del", "ins", "mark", "small", "code", "kbd", "samp":
+             "b", "i", "u", "s", "del", "ins", "mark", "small", "code", "kbd", "samp",
+             "pre":
             if let label = view as? UILabel {
                 applyTextProps(to: label, props: props, elementType: elementType)
             }
