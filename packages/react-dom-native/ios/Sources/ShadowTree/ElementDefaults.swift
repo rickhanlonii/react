@@ -146,7 +146,7 @@ public enum ElementDefaults {
         case "canvas":
             return canvasDefaults
         case "embed", "object":
-            return spanDefaults
+            return inlineBlockDefaults
 
         // Unknown elements: block layout
         default:
@@ -295,6 +295,10 @@ public enum ElementDefaults {
         "flexShrink": 1
     ]
 
+    private static let inlineBlockDefaults: [String: Any] = [
+        "display": "inline-block"
+    ]
+
     private static let listDefaults: [String: Any] = [
         "display": "block",
         "paddingLeft": 40
@@ -344,6 +348,7 @@ public enum ElementDefaults {
     ]
 
     private static let buttonDefaults: [String: Any] = [
+        "display": "inline-block",
         "flexDirection": "row",
         "alignItems": "center",
         "justifyContent": "center",
@@ -359,6 +364,7 @@ public enum ElementDefaults {
     ]
 
     private static let inputDefaults: [String: Any] = [
+        "display": "inline-block",
         "height": 32,
         "paddingLeft": 4,
         "paddingRight": 4,
@@ -370,6 +376,7 @@ public enum ElementDefaults {
     ]
 
     private static let textareaDefaults: [String: Any] = [
+        "display": "inline-block",
         "minHeight": 48,
         "paddingTop": 4,
         "paddingBottom": 4,
@@ -383,6 +390,7 @@ public enum ElementDefaults {
     ]
 
     private static let selectDefaults: [String: Any] = [
+        "display": "inline-block",
         "flexDirection": "row",
         "alignItems": "center",
         "height": 32,
@@ -395,26 +403,31 @@ public enum ElementDefaults {
     ]
 
     private static let progressDefaults: [String: Any] = [
+        "display": "inline-block",
         "height": 4
     ]
 
     private static let imgDefaults: [String: Any] = [
+        "display": "inline-block",
         "objectFit": "fill"
     ]
 
     private static let videoDefaults: [String: Any] = [
+        "display": "inline-block",
         "width": 300,
         "height": 150,
         "backgroundColor": "#000000"
     ]
 
     private static let audioDefaults: [String: Any] = [
+        "display": "inline-block",
         "flexDirection": "row",
         "alignItems": "center",
         "height": 32
     ]
 
     private static let iframeDefaults: [String: Any] = [
+        "display": "inline-block",
         "width": 300,
         "height": 150,
         "borderWidth": 2,
@@ -422,6 +435,7 @@ public enum ElementDefaults {
     ]
 
     private static let canvasDefaults: [String: Any] = [
+        "display": "inline-block",
         "width": 300,
         "height": 150
     ]
