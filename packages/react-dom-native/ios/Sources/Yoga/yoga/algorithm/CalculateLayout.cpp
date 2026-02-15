@@ -1365,11 +1365,15 @@ static void calculateBlockLayout(
   const float contentHeight = currentY + paddingBottom + borderBottom;
   float containerWidth;
 
-  if (widthSizingMode == SizingMode::MaxContent ||
-      widthSizingMode == SizingMode::FitContent) {
-    containerWidth = maxChildWidth + paddingBorderRow;
-  } else {
+  if (widthSizingMode == SizingMode::StretchFit) {
     containerWidth = availableWidth - marginRow;
+  } else if (yoga::isDefined(availableWidth)) {
+    // Block elements stretch to fill available width even in MaxContent/
+    // FitContent modes (unlike flex items which shrink-wrap).
+    containerWidth = availableWidth - marginRow;
+  } else {
+    // Truly unconstrained: use content width
+    containerWidth = maxChildWidth + paddingBorderRow;
   }
 
   node->setLayoutMeasuredDimension(
@@ -1578,6 +1582,26 @@ static void calculateLayoutImpl(
     return;
   }
 
+  // Block layout: separate code path for CSS block formatting context.
+  // Must be before childCount == 0 check so empty block containers
+  // still stretch to fill available width.
+  if (node->style().display() == Display::Block) {
+    calculateBlockLayout(
+        node,
+        availableWidth,
+        availableHeight,
+        direction,
+        widthSizingMode,
+        heightSizingMode,
+        ownerWidth,
+        ownerHeight,
+        performLayout,
+        layoutMarkerData,
+        depth,
+        generationCount);
+    return;
+  }
+
   const auto childCount = node->getLayoutChildCount();
   if (childCount == 0) {
     measureNodeWithoutChildren(
@@ -1623,24 +1647,6 @@ static void calculateLayoutImpl(
   // Clean and update all display: contents nodes with a direct path to the
   // current node as they will not be traversed
   cleanupContentsNodesRecursively(node);
-
-  // Block layout: separate code path for CSS block formatting context
-  if (node->style().display() == Display::Block) {
-    calculateBlockLayout(
-        node,
-        availableWidth,
-        availableHeight,
-        direction,
-        widthSizingMode,
-        heightSizingMode,
-        ownerWidth,
-        ownerHeight,
-        performLayout,
-        layoutMarkerData,
-        depth,
-        generationCount);
-    return;
-  }
 
   // STEP 1: CALCULATE VALUES FOR REMAINDER OF ALGORITHM
   const FlexDirection mainAxis =
