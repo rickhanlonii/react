@@ -115,15 +115,18 @@ describe('Inline-block layout', function () {
     var root = Fantom.createRoot();
     Fantom.runTask(function () {
       root.render(
-        <div style={{width: 300}}>
-          <div style={{display: 'inline-block', width: 80, height: 60}} />
-          <div style={{display: 'inline-block', width: 80, height: 30}} />
+        <div>
+          <div style={{width: 300}}>
+            <div style={{display: 'inline-block', width: 80, height: 60}} />
+            <div style={{display: 'inline-block', width: 80, height: 30}} />
+          </div>
         </div>,
       );
     });
 
     var output = Fantom.getRenderedOutput();
-    var parent = output.children[0];
+    var wrapper = output.children[0];
+    var parent = wrapper.children[0];
     var child1 = parent.children[0];
     var child2 = parent.children[1];
     // Both start at same Y (top-aligned)

@@ -10,6 +10,7 @@
 #include <cfloat>
 #include <cmath>
 #include <cstring>
+#include <vector>
 
 #include <yoga/Yoga.h>
 
@@ -1225,6 +1226,54 @@ static void calculateBlockLayout(
   bool isFirstChild = true;
   float maxChildWidth = 0.0f;
 
+  // Inline line accumulator for inline-block children
+  struct InlineItem {
+    yoga::Node* node;
+    float width;
+    float height;
+    float marginLeft;
+    float marginRight;
+    float marginTop;
+    float marginBottom;
+  };
+  std::vector<InlineItem> currentLine;
+  float currentLineWidth = 0.0f;
+
+  // Helper: flush the current inline line — position items left-to-right,
+  // advance currentY by line height.
+  auto flushInlineLine = [&]() {
+    if (currentLine.empty()) return;
+
+    // Find tallest item (including margins) for line height
+    float lineHeight = 0.0f;
+    for (const auto& item : currentLine) {
+      float itemTotalHeight = item.marginTop + item.height + item.marginBottom;
+      lineHeight = yoga::maxOrDefined(lineHeight, itemTotalHeight);
+    }
+
+    if (performLayout) {
+      float lineX = paddingStart + borderStart;
+      for (const auto& item : currentLine) {
+        item.node->setLayoutPosition(currentY + item.marginTop, PhysicalEdge::Top);
+        item.node->setLayoutPosition(lineX + item.marginLeft, startEdge);
+        lineX += item.marginLeft + item.width + item.marginRight;
+      }
+    }
+
+    float totalLineWidth = 0.0f;
+    for (const auto& item : currentLine) {
+      totalLineWidth += item.marginLeft + item.width + item.marginRight;
+    }
+    maxChildWidth = yoga::maxOrDefined(maxChildWidth, totalLineWidth);
+
+    currentY += lineHeight;
+    currentLine.clear();
+    currentLineWidth = 0.0f;
+    // Reset margin collapsing state — inline-block lines don't collapse
+    prevMarginBottom = 0.0f;
+    isFirstChild = false;
+  };
+
   for (auto child : node->getLayoutChildren()) {
     child->processDimensions();
 
@@ -1254,110 +1303,193 @@ static void calculateBlockLayout(
     const float childMarginRight = child->style().computeInlineEndMargin(
         flexRow, direction, ownerWidth);
 
-    const bool leftMarginAuto =
-        child->style().flexStartMarginIsAuto(flexRow, direction);
-    const bool rightMarginAuto =
-        child->style().flexEndMarginIsAuto(flexRow, direction);
+    if (child->style().display() == Display::InlineBlock) {
+      // ── Inline-block: shrink-to-fit, horizontal line flow ──
 
-    // Block auto-width: child stretches to fill parent content width
-    float childWidth;
-    SizingMode childWidthMode;
-
-    if (child->hasDefiniteLength(Dimension::Width, availableInnerWidth)) {
-      // Child has explicit width
-      childWidth =
-          child->getResolvedDimension(
-              direction, Dimension::Width, availableInnerWidth, ownerWidth)
-              .unwrap() +
-          child->style().computeMarginForAxis(flexRow, ownerWidth);
-      childWidthMode = SizingMode::StretchFit;
-    } else {
-      // Auto width: fill available width
-      childWidth = availableInnerWidth +
-          child->style().computeMarginForAxis(flexRow, ownerWidth);
-      childWidthMode = SizingMode::StretchFit;
-    }
-
-    // Height is content-determined unless explicit
-    float childHeight = YGUndefined;
-    SizingMode childHeightMode = SizingMode::MaxContent;
-
-    if (child->hasDefiniteLength(Dimension::Height, availableInnerHeight)) {
-      childHeight =
-          child->getResolvedDimension(
-              direction, Dimension::Height, availableInnerHeight, ownerWidth)
-              .unwrap() +
-          child->style().computeMarginForAxis(FlexDirection::Column, ownerWidth);
-      childHeightMode = SizingMode::StretchFit;
-    }
-
-    // Constrain by max size
-    constrainMaxSizeForMode(
-        child, direction, FlexDirection::Row,
-        availableInnerWidth, ownerWidth, &childWidthMode, &childWidth);
-    constrainMaxSizeForMode(
-        child, direction, FlexDirection::Column,
-        availableInnerHeight, ownerWidth, &childHeightMode, &childHeight);
-
-    // Recursively lay out the child
-    calculateLayoutInternal(
-        child,
-        childWidth,
-        childHeight,
-        direction,
-        childWidthMode,
-        childHeightMode,
-        availableInnerWidth,
-        availableInnerHeight,
-        performLayout,
-        LayoutPassReason::kFlexLayout,
-        layoutMarkerData,
-        depth + 1,
-        generationCount);
-
-    // MARGIN COLLAPSING (sibling)
-    float effectiveMarginGap;
-    if (isFirstChild) {
-      effectiveMarginGap = childMarginTop;
-      isFirstChild = false;
-    } else {
-      effectiveMarginGap = collapseMargins(prevMarginBottom, childMarginTop);
-    }
-
-    if (performLayout) {
-      currentY += effectiveMarginGap;
-
-      // Horizontal positioning with auto-margin centering
-      const float childLayoutWidth =
-          child->getLayout().measuredDimension(Dimension::Width);
-      const float remainingWidth = availableInnerWidth - childLayoutWidth;
-      float childX;
-
-      if (leftMarginAuto && rightMarginAuto) {
-        childX = paddingStart + borderStart +
-            yoga::maxOrDefined(0.0f, remainingWidth / 2.0f);
-      } else if (leftMarginAuto) {
-        childX = paddingStart + borderStart +
-            yoga::maxOrDefined(0.0f, remainingWidth - childMarginRight);
-      } else {
-        childX = paddingStart + borderStart + childMarginLeft;
+      // Apply any pending bottom margin from preceding block child
+      // (no margin collapsing — inline-block breaks the collapsing context)
+      if (prevMarginBottom != 0.0f) {
+        currentY += prevMarginBottom;
+        prevMarginBottom = 0.0f;
       }
 
-      child->setLayoutPosition(currentY, PhysicalEdge::Top);
-      child->setLayoutPosition(childX, startEdge);
+      // Measure with shrink-to-fit width
+      float childWidth;
+      SizingMode childWidthMode;
+
+      if (child->hasDefiniteLength(Dimension::Width, availableInnerWidth)) {
+        childWidth =
+            child->getResolvedDimension(
+                direction, Dimension::Width, availableInnerWidth, ownerWidth)
+                .unwrap() +
+            child->style().computeMarginForAxis(flexRow, ownerWidth);
+        childWidthMode = SizingMode::StretchFit;
+      } else {
+        // Shrink-to-fit: use MaxContent to measure intrinsic width
+        childWidth = availableInnerWidth;
+        childWidthMode = SizingMode::MaxContent;
+      }
+
+      float childHeight = YGUndefined;
+      SizingMode childHeightMode = SizingMode::MaxContent;
+
+      if (child->hasDefiniteLength(Dimension::Height, availableInnerHeight)) {
+        childHeight =
+            child->getResolvedDimension(
+                direction, Dimension::Height, availableInnerHeight, ownerWidth)
+                .unwrap() +
+            child->style().computeMarginForAxis(FlexDirection::Column, ownerWidth);
+        childHeightMode = SizingMode::StretchFit;
+      }
+
+      constrainMaxSizeForMode(
+          child, direction, FlexDirection::Row,
+          availableInnerWidth, ownerWidth, &childWidthMode, &childWidth);
+      constrainMaxSizeForMode(
+          child, direction, FlexDirection::Column,
+          availableInnerHeight, ownerWidth, &childHeightMode, &childHeight);
+
+      calculateLayoutInternal(
+          child,
+          childWidth,
+          childHeight,
+          direction,
+          childWidthMode,
+          childHeightMode,
+          availableInnerWidth,
+          availableInnerHeight,
+          performLayout,
+          LayoutPassReason::kFlexLayout,
+          layoutMarkerData,
+          depth + 1,
+          generationCount);
+
+      const float measuredWidth =
+          child->getLayout().measuredDimension(Dimension::Width);
+      const float measuredHeight =
+          child->getLayout().measuredDimension(Dimension::Height);
+
+      const float itemTotalWidth = childMarginLeft + measuredWidth + childMarginRight;
+
+      // Check if item fits on current line
+      if (!currentLine.empty() &&
+          currentLineWidth + itemTotalWidth > availableInnerWidth) {
+        flushInlineLine();
+      }
+
+      currentLine.push_back({
+          child, measuredWidth, measuredHeight,
+          childMarginLeft, childMarginRight,
+          childMarginTop, childMarginBottom});
+      currentLineWidth += itemTotalWidth;
+
+    } else {
+      // ── Block child: existing behavior ──
+
+      // Flush any pending inline line before laying out block child
+      flushInlineLine();
+
+      const bool leftMarginAuto =
+          child->style().flexStartMarginIsAuto(flexRow, direction);
+      const bool rightMarginAuto =
+          child->style().flexEndMarginIsAuto(flexRow, direction);
+
+      float childWidth;
+      SizingMode childWidthMode;
+
+      if (child->hasDefiniteLength(Dimension::Width, availableInnerWidth)) {
+        childWidth =
+            child->getResolvedDimension(
+                direction, Dimension::Width, availableInnerWidth, ownerWidth)
+                .unwrap() +
+            child->style().computeMarginForAxis(flexRow, ownerWidth);
+        childWidthMode = SizingMode::StretchFit;
+      } else {
+        childWidth = availableInnerWidth +
+            child->style().computeMarginForAxis(flexRow, ownerWidth);
+        childWidthMode = SizingMode::StretchFit;
+      }
+
+      float childHeight = YGUndefined;
+      SizingMode childHeightMode = SizingMode::MaxContent;
+
+      if (child->hasDefiniteLength(Dimension::Height, availableInnerHeight)) {
+        childHeight =
+            child->getResolvedDimension(
+                direction, Dimension::Height, availableInnerHeight, ownerWidth)
+                .unwrap() +
+            child->style().computeMarginForAxis(FlexDirection::Column, ownerWidth);
+        childHeightMode = SizingMode::StretchFit;
+      }
+
+      constrainMaxSizeForMode(
+          child, direction, FlexDirection::Row,
+          availableInnerWidth, ownerWidth, &childWidthMode, &childWidth);
+      constrainMaxSizeForMode(
+          child, direction, FlexDirection::Column,
+          availableInnerHeight, ownerWidth, &childHeightMode, &childHeight);
+
+      calculateLayoutInternal(
+          child,
+          childWidth,
+          childHeight,
+          direction,
+          childWidthMode,
+          childHeightMode,
+          availableInnerWidth,
+          availableInnerHeight,
+          performLayout,
+          LayoutPassReason::kFlexLayout,
+          layoutMarkerData,
+          depth + 1,
+          generationCount);
+
+      // MARGIN COLLAPSING (sibling) — block children only
+      float effectiveMarginGap;
+      if (isFirstChild) {
+        effectiveMarginGap = childMarginTop;
+        isFirstChild = false;
+      } else {
+        effectiveMarginGap = collapseMargins(prevMarginBottom, childMarginTop);
+      }
+
+      if (performLayout) {
+        currentY += effectiveMarginGap;
+
+        const float childLayoutWidth =
+            child->getLayout().measuredDimension(Dimension::Width);
+        const float remainingWidth = availableInnerWidth - childLayoutWidth;
+        float childX;
+
+        if (leftMarginAuto && rightMarginAuto) {
+          childX = paddingStart + borderStart +
+              yoga::maxOrDefined(0.0f, remainingWidth / 2.0f);
+        } else if (leftMarginAuto) {
+          childX = paddingStart + borderStart +
+              yoga::maxOrDefined(0.0f, remainingWidth - childMarginRight);
+        } else {
+          childX = paddingStart + borderStart + childMarginLeft;
+        }
+
+        child->setLayoutPosition(currentY, PhysicalEdge::Top);
+        child->setLayoutPosition(childX, startEdge);
+      }
+
+      currentY += child->getLayout().measuredDimension(Dimension::Height);
+      prevMarginBottom = childMarginBottom;
+
+      maxChildWidth = yoga::maxOrDefined(
+          maxChildWidth,
+          child->getLayout().measuredDimension(Dimension::Width) +
+              childMarginLeft + childMarginRight);
     }
-
-    currentY += child->getLayout().measuredDimension(Dimension::Height);
-    prevMarginBottom = childMarginBottom;
-
-    maxChildWidth = yoga::maxOrDefined(
-        maxChildWidth,
-        child->getLayout().measuredDimension(Dimension::Width) +
-            childMarginLeft + childMarginRight);
   }
 
-  // Add last child's bottom margin
-  if (!isFirstChild) {
+  // Flush any remaining inline line
+  flushInlineLine();
+
+  // Add last block child's bottom margin
+  if (!isFirstChild && prevMarginBottom != 0.0f) {
     currentY += prevMarginBottom;
   }
 
