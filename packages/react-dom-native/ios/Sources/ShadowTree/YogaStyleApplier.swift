@@ -203,6 +203,8 @@ public enum YogaStyleApplier {
                 YGNodeStyleSetDisplay(node, .flex)
             case "none":
                 YGNodeStyleSetDisplay(node, .none)
+            case "block":
+                YGNodeStyleSetDisplay(node, .block)
             default: break
             }
         }
