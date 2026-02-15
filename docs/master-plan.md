@@ -68,3 +68,18 @@
 - [x] Client components — Counter, TextInput (`example/components/`)
 - [x] Entry point integration — module map, auto-boot (`example/entry/`)
 - [ ] End-to-end verification — server → Flight → native rendering
+
+## Phase 7: Element Expansion
+
+- [x] P1 inline text elements — b, i, u, s, del, ins, mark, small, code, kbd, samp
+- [x] P1 block containers — address, blockquote, figure, figcaption, pre
+- [x] P1 definition lists — dl, dt, dd
+- [x] P1 table elements — table, thead, tbody, tfoot, tr, th, td
+- [x] P1 label element
+- [x] P2 block containers — details, summary, dialog, fieldset, legend, search
+- [x] P2 inline text — cite, dfn, var, sub, sup, q, time, abbr, data
+- [x] P2 table caption
+- [x] P2 form controls — progress (UIProgressView)
+- [x] P2 media — video, audio (placeholder views, playback deferred)
+- [x] P2 remaining — picture, meter, iframe
+- [x] P3 elements — menu, hgroup, center, bdi, bdo, wbr, ruby, rt, rp, output, optgroup, canvas, embed, object
