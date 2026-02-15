@@ -291,6 +291,7 @@ public enum ElementDefaults {
     ]
 
     private static let spanDefaults: [String: Any] = [
+        "display": "inline-block",
         "flexDirection": "row",
         "flexShrink": 1
     ]
