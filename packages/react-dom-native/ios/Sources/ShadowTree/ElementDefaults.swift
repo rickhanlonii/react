@@ -21,6 +21,16 @@ public enum ElementDefaults {
             return blockDefaults
         case "pre":
             return preDefaults
+        case "details", "search":
+            return blockDefaults
+        case "summary":
+            return summaryDefaults
+        case "dialog":
+            return dialogDefaults
+        case "fieldset":
+            return fieldsetDefaults
+        case "legend":
+            return legendDefaults
 
         // Text containers
         case "p":
@@ -39,7 +49,7 @@ public enum ElementDefaults {
             return h6Defaults
 
         // Inline
-        case "span":
+        case "span", "label":
             return spanDefaults
 
         // Inline text (bold/italic/underline/strikethrough/etc.)
@@ -81,6 +91,16 @@ public enum ElementDefaults {
             return textareaDefaults
         case "select":
             return selectDefaults
+
+        // Table
+        case "table", "thead", "tbody", "tfoot":
+            return blockDefaults
+        case "tr":
+            return trDefaults
+        case "th":
+            return thDefaults
+        case "td":
+            return tdDefaults
 
         // Media
         case "img":
@@ -144,6 +164,40 @@ public enum ElementDefaults {
         "marginTop": 16,
         "marginBottom": 16,
         "fontFamily": "Menlo"
+    ]
+
+    private static let summaryDefaults: [String: Any] = [
+        "flexDirection": "row"
+    ]
+
+    private static let dialogDefaults: [String: Any] = [
+        "flexDirection": "column",
+        "paddingTop": 16,
+        "paddingBottom": 16,
+        "paddingLeft": 16,
+        "paddingRight": 16,
+        "borderWidth": 1,
+        "borderColor": "#000000",
+        "backgroundColor": "#FFFFFF"
+    ]
+
+    private static let fieldsetDefaults: [String: Any] = [
+        "flexDirection": "column",
+        "marginLeft": 2,
+        "marginRight": 2,
+        "paddingTop": 5.6,
+        "paddingBottom": 10,
+        "paddingLeft": 12,
+        "paddingRight": 12,
+        "borderWidth": 2,
+        "borderColor": "#C0C0C0",
+        "borderRadius": 4
+    ]
+
+    private static let legendDefaults: [String: Any] = [
+        "flexDirection": "row",
+        "paddingLeft": 2,
+        "paddingRight": 2
     ]
 
     private static let pDefaults: [String: Any] = [
@@ -210,6 +264,29 @@ public enum ElementDefaults {
     private static let ddDefaults: [String: Any] = [
         "flexDirection": "column",
         "marginLeft": 40
+    ]
+
+    private static let trDefaults: [String: Any] = [
+        "flexDirection": "row"
+    ]
+
+    private static let thDefaults: [String: Any] = [
+        "flexDirection": "column",
+        "flex": 1,
+        "paddingTop": 1,
+        "paddingBottom": 1,
+        "paddingLeft": 1,
+        "paddingRight": 1,
+        "fontWeight": "bold"
+    ]
+
+    private static let tdDefaults: [String: Any] = [
+        "flexDirection": "column",
+        "flex": 1,
+        "paddingTop": 1,
+        "paddingBottom": 1,
+        "paddingLeft": 1,
+        "paddingRight": 1
     ]
 
     private static let buttonDefaults: [String: Any] = [

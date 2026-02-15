@@ -115,6 +115,101 @@ final class ElementDefaultsTests: XCTestCase {
         XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
     }
 
+    // MARK: - P2 Block Containers
+
+    func testDetailsDefaults() {
+        let defaults = ElementDefaults.defaults(for: "details")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "column")
+    }
+
+    func testSummaryDefaults() {
+        let defaults = ElementDefaults.defaults(for: "summary")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+    }
+
+    func testDialogDefaults() {
+        let defaults = ElementDefaults.defaults(for: "dialog")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "column")
+        XCTAssertEqual(defaults["paddingTop"] as? Int, 16)
+        XCTAssertEqual(defaults["paddingBottom"] as? Int, 16)
+        XCTAssertEqual(defaults["paddingLeft"] as? Int, 16)
+        XCTAssertEqual(defaults["paddingRight"] as? Int, 16)
+        XCTAssertEqual(defaults["borderWidth"] as? Int, 1)
+        XCTAssertEqual(defaults["borderColor"] as? String, "#000000")
+        XCTAssertEqual(defaults["backgroundColor"] as? String, "#FFFFFF")
+    }
+
+    func testFieldsetDefaults() {
+        let defaults = ElementDefaults.defaults(for: "fieldset")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "column")
+        XCTAssertEqual(defaults["borderWidth"] as? Int, 2)
+        XCTAssertEqual(defaults["borderColor"] as? String, "#C0C0C0")
+        XCTAssertEqual(defaults["borderRadius"] as? Int, 4)
+    }
+
+    func testLegendDefaults() {
+        let defaults = ElementDefaults.defaults(for: "legend")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+        XCTAssertEqual(defaults["paddingLeft"] as? Int, 2)
+        XCTAssertEqual(defaults["paddingRight"] as? Int, 2)
+    }
+
+    func testSearchDefaults() {
+        let defaults = ElementDefaults.defaults(for: "search")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "column")
+    }
+
+    // MARK: - Label
+
+    func testLabelDefaults() {
+        let defaults = ElementDefaults.defaults(for: "label")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+        XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+    }
+
+    // MARK: - Table Elements
+
+    func testTableDefaults() {
+        let defaults = ElementDefaults.defaults(for: "table")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "column")
+    }
+
+    func testTheadDefaults() {
+        let defaults = ElementDefaults.defaults(for: "thead")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "column")
+    }
+
+    func testTbodyDefaults() {
+        let defaults = ElementDefaults.defaults(for: "tbody")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "column")
+    }
+
+    func testTrDefaults() {
+        let defaults = ElementDefaults.defaults(for: "tr")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+    }
+
+    func testThDefaults() {
+        let defaults = ElementDefaults.defaults(for: "th")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "column")
+        XCTAssertEqual(defaults["flex"] as? Int, 1)
+        XCTAssertEqual(defaults["paddingTop"] as? Int, 1)
+        XCTAssertEqual(defaults["paddingBottom"] as? Int, 1)
+        XCTAssertEqual(defaults["paddingLeft"] as? Int, 1)
+        XCTAssertEqual(defaults["paddingRight"] as? Int, 1)
+        XCTAssertEqual(defaults["fontWeight"] as? String, "bold")
+    }
+
+    func testTdDefaults() {
+        let defaults = ElementDefaults.defaults(for: "td")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "column")
+        XCTAssertEqual(defaults["flex"] as? Int, 1)
+        XCTAssertEqual(defaults["paddingTop"] as? Int, 1)
+        XCTAssertEqual(defaults["paddingBottom"] as? Int, 1)
+        XCTAssertEqual(defaults["paddingLeft"] as? Int, 1)
+        XCTAssertEqual(defaults["paddingRight"] as? Int, 1)
+    }
+
     // MARK: - Definition Lists
 
     func testDlDefaults() {
