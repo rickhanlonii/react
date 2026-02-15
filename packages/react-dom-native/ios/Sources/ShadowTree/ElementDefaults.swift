@@ -365,6 +365,7 @@ public enum ElementDefaults {
 
     private static let inputDefaults: [String: Any] = [
         "display": "inline-block",
+        "width": 139,
         "height": 32,
         "paddingLeft": 4,
         "paddingRight": 4,
@@ -377,6 +378,7 @@ public enum ElementDefaults {
 
     private static let textareaDefaults: [String: Any] = [
         "display": "inline-block",
+        "width": 139,
         "minHeight": 48,
         "paddingTop": 4,
         "paddingBottom": 4,
