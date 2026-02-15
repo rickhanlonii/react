@@ -34,6 +34,24 @@ public enum ElementDefaults {
         case "span":
             return spanDefaults
 
+        // Inline text (bold/italic/underline/strikethrough/etc.)
+        case "b":
+            return boldDefaults
+        case "i":
+            return italicDefaults
+        case "u":
+            return underlineDefaults
+        case "s", "del":
+            return strikethroughDefaults
+        case "ins":
+            return underlineDefaults
+        case "mark":
+            return markDefaults
+        case "small":
+            return smallDefaults
+        case "code", "kbd", "samp":
+            return monospaceDefaults
+
         // Lists
         case "ul", "ol":
             return listDefaults
@@ -217,5 +235,48 @@ public enum ElementDefaults {
         "flexShrink": 1,
         "color": "#007AFF",
         "textDecorationLine": "underline"
+    ]
+
+    private static let boldDefaults: [String: Any] = [
+        "flexDirection": "row",
+        "flexShrink": 1,
+        "fontWeight": "bold"
+    ]
+
+    private static let italicDefaults: [String: Any] = [
+        "flexDirection": "row",
+        "flexShrink": 1,
+        "fontStyle": "italic"
+    ]
+
+    private static let underlineDefaults: [String: Any] = [
+        "flexDirection": "row",
+        "flexShrink": 1,
+        "textDecorationLine": "underline"
+    ]
+
+    private static let strikethroughDefaults: [String: Any] = [
+        "flexDirection": "row",
+        "flexShrink": 1,
+        "textDecorationLine": "line-through"
+    ]
+
+    private static let markDefaults: [String: Any] = [
+        "flexDirection": "row",
+        "flexShrink": 1,
+        "backgroundColor": "#FFFF00",
+        "color": "#000000"
+    ]
+
+    private static let smallDefaults: [String: Any] = [
+        "flexDirection": "row",
+        "flexShrink": 1,
+        "fontSize": 13.28
+    ]
+
+    private static let monospaceDefaults: [String: Any] = [
+        "flexDirection": "row",
+        "flexShrink": 1,
+        "fontFamily": "Menlo"
     ]
 }

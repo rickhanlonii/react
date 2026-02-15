@@ -1,5 +1,6 @@
 import XCTest
 import JSEngine
+@testable import ReactDomNativeKit
 
 final class ReactDomNativeTests: XCTestCase {
     func testEngineCreation() {

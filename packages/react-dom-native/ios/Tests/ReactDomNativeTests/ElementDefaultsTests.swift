@@ -115,6 +115,72 @@ final class ElementDefaultsTests: XCTestCase {
         XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
     }
 
+    // MARK: - P1 Inline Text
+
+    func testBDefaults() {
+        let defaults = ElementDefaults.defaults(for: "b")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+        XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["fontWeight"] as? String, "bold")
+    }
+
+    func testIDefaults() {
+        let defaults = ElementDefaults.defaults(for: "i")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+        XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["fontStyle"] as? String, "italic")
+    }
+
+    func testUDefaults() {
+        let defaults = ElementDefaults.defaults(for: "u")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+        XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["textDecorationLine"] as? String, "underline")
+    }
+
+    func testSDefaults() {
+        let defaults = ElementDefaults.defaults(for: "s")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+        XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["textDecorationLine"] as? String, "line-through")
+    }
+
+    func testDelDefaults() {
+        let defaults = ElementDefaults.defaults(for: "del")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+        XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["textDecorationLine"] as? String, "line-through")
+    }
+
+    func testInsDefaults() {
+        let defaults = ElementDefaults.defaults(for: "ins")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+        XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["textDecorationLine"] as? String, "underline")
+    }
+
+    func testMarkDefaults() {
+        let defaults = ElementDefaults.defaults(for: "mark")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+        XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["backgroundColor"] as? String, "#FFFF00")
+        XCTAssertEqual(defaults["color"] as? String, "#000000")
+    }
+
+    func testSmallDefaults() {
+        let defaults = ElementDefaults.defaults(for: "small")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+        XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["fontSize"] as? Double, 13.28)
+    }
+
+    func testCodeDefaults() {
+        let defaults = ElementDefaults.defaults(for: "code")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+        XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["fontFamily"] as? String, "Menlo")
+    }
+
     // MARK: - defaults(for:) — Unknown element
 
     func testUnknownElementFallsBackToBlockDefaults() {

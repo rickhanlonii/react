@@ -110,7 +110,8 @@ public class UIKitMutationApplier: NSObject {
             applyCommonProps(to: view, props: props)
             return view
 
-        case "span", "p", "h1", "h2", "h3", "h4", "h5", "h6":
+        case "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
+             "b", "i", "u", "s", "del", "ins", "mark", "small", "code", "kbd", "samp":
             let label = UILabel()
             label.numberOfLines = 0
             applyTextProps(to: label, props: props, elementType: elementType)
@@ -172,7 +173,8 @@ public class UIKitMutationApplier: NSObject {
         applyCommonProps(to: view, props: props)
 
         switch elementType {
-        case "span", "p", "h1", "h2", "h3", "h4", "h5", "h6":
+        case "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
+             "b", "i", "u", "s", "del", "ins", "mark", "small", "code", "kbd", "samp":
             if let label = view as? UILabel {
                 applyTextProps(to: label, props: props, elementType: elementType)
             }
