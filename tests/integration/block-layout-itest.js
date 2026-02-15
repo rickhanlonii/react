@@ -96,4 +96,28 @@ describe('Block layout', function () {
     expect(nested1.frame.y).toBe(0);
     expect(nested2.frame.y).toBe(30);
   });
+
+  it('h2 and p default margins collapse correctly', function () {
+    var root = Fantom.createRoot();
+    Fantom.runTask(function () {
+      root.render(
+        <div>
+          <h2>Title</h2>
+          <p>Paragraph</p>
+        </div>,
+      );
+    });
+
+    var output = Fantom.getRenderedOutput();
+    var parent = output.children[0];
+    var h2 = parent.children[0];
+    var p = parent.children[1];
+    // h2: marginTop=19.9, content height = font-based, marginBottom=19.9
+    // p: marginTop=16, marginBottom=16
+    // Collapsed gap = max(19.9, 16) = 19.9
+    expect(Math.round(h2.frame.y)).toBe(Math.round(19.9));
+    // p.y = h2.y + h2.height + collapsed(h2.marginBottom=19.9, p.marginTop=16) = h2.y + h2.height + 19.9
+    var expectedPY = h2.frame.y + h2.frame.height + 19.9;
+    expect(Math.round(p.frame.y)).toBe(Math.round(expectedPY));
+  });
 });
