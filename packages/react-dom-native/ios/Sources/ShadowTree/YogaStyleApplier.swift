@@ -205,6 +205,8 @@ public enum YogaStyleApplier {
                 YGNodeStyleSetDisplay(node, .none)
             case "block":
                 YGNodeStyleSetDisplay(node, .block)
+            case "inline-block":
+                YGNodeStyleSetDisplay(node, .inlineBlock)
             default: break
             }
         }
