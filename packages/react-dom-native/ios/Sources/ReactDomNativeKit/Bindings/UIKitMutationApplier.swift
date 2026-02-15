@@ -407,7 +407,7 @@ public class UIKitMutationApplier: NSObject {
 
     /// Resolves a UIFont from style properties and element type.
     /// Supports fontSize, fontWeight (100-900, "bold", "normal"), and fontStyle ("italic").
-    private func resolveFont(style: [String: Any], elementType: String) -> UIFont {
+    func resolveFont(style: [String: Any], elementType: String) -> UIFont {
         // Determine base size from element type
         var size: CGFloat
         var isBold = false
@@ -447,7 +447,7 @@ public class UIKitMutationApplier: NSObject {
     }
 
     /// Parses a CSS font-weight string to UIFont.Weight.
-    private func parseFontWeight(_ value: String) -> UIFont.Weight {
+    func parseFontWeight(_ value: String) -> UIFont.Weight {
         switch value {
         case "100": return .ultraLight
         case "200": return .thin
@@ -463,7 +463,7 @@ public class UIKitMutationApplier: NSObject {
     }
 
     /// Parses a CSS text-align string to NSTextAlignment.
-    private func parseTextAlignment(_ value: String) -> NSTextAlignment {
+    func parseTextAlignment(_ value: String) -> NSTextAlignment {
         switch value {
         case "left": return .left
         case "center": return .center
@@ -531,7 +531,7 @@ public class UIKitMutationApplier: NSObject {
     // MARK: - Helpers
 
     /// Parses a rotation string like "45deg" or "1.5rad" to radians.
-    private func parseRotation(_ value: String) -> CGFloat {
+    func parseRotation(_ value: String) -> CGFloat {
         if value.hasSuffix("deg") {
             let num = value.dropLast(3)
             if let degrees = Double(num) {
@@ -550,7 +550,7 @@ public class UIKitMutationApplier: NSObject {
         return 0
     }
 
-    private func parseColor(_ color: String) -> UIColor {
+    func parseColor(_ color: String) -> UIColor {
         // Handle hex colors
         if color.hasPrefix("#") {
             var hex = color.dropFirst()

@@ -499,4 +499,88 @@ describe('HostConfig', () => {
       expect(childSet).toEqual([child]);
     });
   });
+
+  // -------------------------------------------------------------------
+  // No JS-side defaults merging
+  // -------------------------------------------------------------------
+  describe('no JS-side defaults merging', () => {
+    beforeEach(() => {
+      mockCreateNode.mockClear();
+      mockCloneNodeWithNewProps.mockClear();
+    });
+
+    it('passes style to $$createNode unchanged', () => {
+      const props = {style: {backgroundColor: 'red'}};
+      HostConfig.createInstance(
+        'div',
+        props,
+        rootContainer,
+        defaultContext,
+        internalHandle,
+      );
+
+      // The style dict should be passed through as-is — no flexDirection
+      // injected by JS. Native handles defaults merging.
+      const passedProps = mockCreateNode.mock.calls[0][2];
+      expect(passedProps.style).toEqual({backgroundColor: 'red'});
+      expect(passedProps.style.flexDirection).toBeUndefined();
+    });
+
+    it('strips children from props before passing to native', () => {
+      const props = {children: 'text content', style: {color: 'blue'}};
+      HostConfig.createInstance(
+        'p',
+        props,
+        rootContainer,
+        defaultContext,
+        internalHandle,
+      );
+
+      const passedProps = mockCreateNode.mock.calls[0][2];
+      expect(passedProps.children).toBeUndefined();
+      expect(passedProps.style).toEqual({color: 'blue'});
+    });
+
+    it('passes element type for native defaults resolution', () => {
+      HostConfig.createInstance(
+        'h1',
+        {style: {}},
+        rootContainer,
+        defaultContext,
+        internalHandle,
+      );
+
+      // First arg to $$createNode is the element type
+      expect(mockCreateNode.mock.calls[0][0]).toBe('h1');
+      // Style should not contain fontSize or fontWeight — native adds those
+      const passedProps = mockCreateNode.mock.calls[0][2];
+      expect(passedProps.style.fontSize).toBeUndefined();
+      expect(passedProps.style.fontWeight).toBeUndefined();
+    });
+
+    it('cloneInstance passes new props unchanged', () => {
+      const instance = HostConfig.createInstance(
+        'div',
+        {},
+        rootContainer,
+        defaultContext,
+        internalHandle,
+      );
+
+      const newProps = {style: {backgroundColor: 'blue'}};
+      HostConfig.cloneInstance(
+        instance,
+        'div',
+        {},
+        newProps,
+        true,
+        null,
+      );
+
+      // $$cloneNodeWithNewProps receives the props without JS-side merging
+      const passedProps = mockCloneNodeWithNewProps.mock.calls[0][1];
+      expect(passedProps.style).toEqual({backgroundColor: 'blue'});
+      expect(passedProps.style.flexDirection).toBeUndefined();
+    });
+  });
 });
