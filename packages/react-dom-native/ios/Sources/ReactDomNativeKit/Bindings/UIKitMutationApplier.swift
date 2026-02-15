@@ -148,6 +148,17 @@ public class UIKitMutationApplier: NSObject {
             applyCommonProps(to: progressView, props: props)
             return progressView
 
+        case "video":
+            let view = UIView()
+            view.backgroundColor = .black
+            applyCommonProps(to: view, props: props)
+            return view
+
+        case "audio":
+            let view = UIView()
+            applyCommonProps(to: view, props: props)
+            return view
+
         case "#text":
             // Text node - create a label with the text content
             let label = UILabel()

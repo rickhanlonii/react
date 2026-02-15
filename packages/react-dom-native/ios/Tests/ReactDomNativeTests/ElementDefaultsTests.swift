@@ -277,6 +277,66 @@ final class ElementDefaultsTests: XCTestCase {
         XCTAssertEqual(defaults["height"] as? Int, 4)
     }
 
+    // MARK: - Media Elements
+
+    func testVideoDefaults() {
+        let defaults = ElementDefaults.defaults(for: "video")
+        XCTAssertEqual(defaults["width"] as? Int, 300)
+        XCTAssertEqual(defaults["height"] as? Int, 150)
+        XCTAssertEqual(defaults["backgroundColor"] as? String, "#000000")
+    }
+
+    func testAudioDefaults() {
+        let defaults = ElementDefaults.defaults(for: "audio")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+        XCTAssertEqual(defaults["height"] as? Int, 32)
+    }
+
+    // MARK: - Remaining P2 Elements
+
+    func testPictureDefaults() {
+        let defaults = ElementDefaults.defaults(for: "picture")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "column")
+    }
+
+    func testMeterDefaults() {
+        let defaults = ElementDefaults.defaults(for: "meter")
+        XCTAssertEqual(defaults["height"] as? Int, 4)
+    }
+
+    func testIframeDefaults() {
+        let defaults = ElementDefaults.defaults(for: "iframe")
+        XCTAssertEqual(defaults["width"] as? Int, 300)
+        XCTAssertEqual(defaults["height"] as? Int, 150)
+        XCTAssertEqual(defaults["borderWidth"] as? Int, 2)
+        XCTAssertEqual(defaults["borderColor"] as? String, "#808080")
+    }
+
+    // MARK: - P3 Elements
+
+    func testMenuDefaults() {
+        let defaults = ElementDefaults.defaults(for: "menu")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "column")
+        XCTAssertEqual(defaults["paddingLeft"] as? Int, 40)
+    }
+
+    func testCanvasDefaults() {
+        let defaults = ElementDefaults.defaults(for: "canvas")
+        XCTAssertEqual(defaults["width"] as? Int, 300)
+        XCTAssertEqual(defaults["height"] as? Int, 150)
+    }
+
+    func testHgroupDefaults() {
+        let defaults = ElementDefaults.defaults(for: "hgroup")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "column")
+    }
+
+    func testBdiDefaults() {
+        let defaults = ElementDefaults.defaults(for: "bdi")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+        XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+    }
+
     // MARK: - Definition Lists
 
     func testDlDefaults() {

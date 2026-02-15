@@ -115,6 +115,16 @@ public enum ElementDefaults {
         // Media
         case "img":
             return imgDefaults
+        case "video":
+            return videoDefaults
+        case "audio":
+            return audioDefaults
+        case "picture":
+            return blockDefaults
+        case "meter":
+            return progressDefaults
+        case "iframe":
+            return iframeDefaults
 
         // Formatting
         case "hr":
@@ -123,6 +133,20 @@ public enum ElementDefaults {
         // Links
         case "a":
             return aDefaults
+
+        // P3 elements
+        case "menu":
+            return listDefaults
+        case "hgroup", "center":
+            return blockDefaults
+        case "bdi", "bdo", "wbr", "ruby", "rt", "rp", "output":
+            return spanDefaults
+        case "optgroup":
+            return blockDefaults
+        case "canvas":
+            return canvasDefaults
+        case "embed", "object":
+            return blockDefaults
 
         // Unknown elements: block layout
         default:
@@ -361,6 +385,30 @@ public enum ElementDefaults {
 
     private static let imgDefaults: [String: Any] = [
         "objectFit": "fill"
+    ]
+
+    private static let videoDefaults: [String: Any] = [
+        "width": 300,
+        "height": 150,
+        "backgroundColor": "#000000"
+    ]
+
+    private static let audioDefaults: [String: Any] = [
+        "flexDirection": "row",
+        "alignItems": "center",
+        "height": 32
+    ]
+
+    private static let iframeDefaults: [String: Any] = [
+        "width": 300,
+        "height": 150,
+        "borderWidth": 2,
+        "borderColor": "#808080"
+    ]
+
+    private static let canvasDefaults: [String: Any] = [
+        "width": 300,
+        "height": 150
     ]
 
     private static let hrDefaults: [String: Any] = [
