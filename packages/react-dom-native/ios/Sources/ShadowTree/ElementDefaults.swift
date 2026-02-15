@@ -316,7 +316,9 @@ public enum ElementDefaults {
 
     private static let listDefaults: [String: Any] = [
         "display": "block",
-        "paddingLeft": 40
+        "paddingLeft": 40,
+        "marginTop": 16,
+        "marginBottom": 16
     ]
 
     private static let liDefaults: [String: Any] = [
