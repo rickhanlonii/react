@@ -43,7 +43,7 @@ describe('Element defaults', function () {
     expect(div.props.style.flexDirection).toBe('row');
   });
 
-  it('button gets centered layout defaults', function () {
+  it('button gets display inline-block and centered layout defaults', function () {
     var root = Fantom.createRoot();
     Fantom.runTask(function () {
       root.render(<button>Click</button>);
@@ -52,9 +52,46 @@ describe('Element defaults', function () {
     var output = Fantom.getRenderedOutput();
     var button = output.children[0];
     expect(button.type).toBe('button');
+    expect(button.props.style.display).toBe('inline-block');
     expect(button.props.style.alignItems).toBe('center');
     expect(button.props.style.justifyContent).toBe('center');
     expect(button.props.style.flexDirection).toBe('row');
+  });
+
+  it('input gets display inline-block', function () {
+    var root = Fantom.createRoot();
+    Fantom.runTask(function () {
+      root.render(<input />);
+    });
+
+    var output = Fantom.getRenderedOutput();
+    var input = output.children[0];
+    expect(input.type).toBe('input');
+    expect(input.props.style.display).toBe('inline-block');
+  });
+
+  it('img gets display inline-block', function () {
+    var root = Fantom.createRoot();
+    Fantom.runTask(function () {
+      root.render(<img />);
+    });
+
+    var output = Fantom.getRenderedOutput();
+    var img = output.children[0];
+    expect(img.type).toBe('img');
+    expect(img.props.style.display).toBe('inline-block');
+  });
+
+  it('video gets display inline-block', function () {
+    var root = Fantom.createRoot();
+    Fantom.runTask(function () {
+      root.render(<video />);
+    });
+
+    var output = Fantom.getRenderedOutput();
+    var video = output.children[0];
+    expect(video.type).toBe('video');
+    expect(video.props.style.display).toBe('inline-block');
   });
 
   it('span gets flexDirection row and flexShrink 1', function () {
