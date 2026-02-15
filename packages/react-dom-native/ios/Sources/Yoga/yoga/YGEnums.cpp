@@ -75,6 +75,8 @@ const char* YGDisplayToString(const YGDisplay value) {
       return "contents";
     case YGDisplayBlock:
       return "block";
+    case YGDisplayInlineBlock:
+      return "inline-block";
   }
   return "unknown";
 }
