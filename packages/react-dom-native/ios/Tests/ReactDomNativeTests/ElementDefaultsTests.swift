@@ -115,6 +115,55 @@ final class ElementDefaultsTests: XCTestCase {
         XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
     }
 
+    // MARK: - P2 Inline Text
+
+    func testCiteDefaults() {
+        let defaults = ElementDefaults.defaults(for: "cite")
+        XCTAssertEqual(defaults["fontStyle"] as? String, "italic")
+    }
+
+    func testDfnDefaults() {
+        let defaults = ElementDefaults.defaults(for: "dfn")
+        XCTAssertEqual(defaults["fontStyle"] as? String, "italic")
+    }
+
+    func testVarDefaults() {
+        let defaults = ElementDefaults.defaults(for: "var")
+        XCTAssertEqual(defaults["fontStyle"] as? String, "italic")
+    }
+
+    func testSubDefaults() {
+        let defaults = ElementDefaults.defaults(for: "sub")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+        XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["fontSize"] as? Double, 13.28)
+    }
+
+    func testSupDefaults() {
+        let defaults = ElementDefaults.defaults(for: "sup")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+        XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["fontSize"] as? Double, 13.28)
+    }
+
+    func testQDefaults() {
+        let defaults = ElementDefaults.defaults(for: "q")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+        XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+    }
+
+    func testTimeDefaults() {
+        let defaults = ElementDefaults.defaults(for: "time")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+        XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+    }
+
+    func testAbbrDefaults() {
+        let defaults = ElementDefaults.defaults(for: "abbr")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+        XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+    }
+
     // MARK: - P2 Block Containers
 
     func testDetailsDefaults() {
@@ -208,6 +257,24 @@ final class ElementDefaultsTests: XCTestCase {
         XCTAssertEqual(defaults["paddingBottom"] as? Int, 1)
         XCTAssertEqual(defaults["paddingLeft"] as? Int, 1)
         XCTAssertEqual(defaults["paddingRight"] as? Int, 1)
+    }
+
+    func testTfootDefaults() {
+        let defaults = ElementDefaults.defaults(for: "tfoot")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "column")
+    }
+
+    func testCaptionDefaults() {
+        let defaults = ElementDefaults.defaults(for: "caption")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "column")
+        XCTAssertEqual(defaults["alignItems"] as? String, "center")
+    }
+
+    // MARK: - Form Controls
+
+    func testProgressDefaults() {
+        let defaults = ElementDefaults.defaults(for: "progress")
+        XCTAssertEqual(defaults["height"] as? Int, 4)
     }
 
     // MARK: - Definition Lists

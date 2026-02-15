@@ -112,7 +112,8 @@ public class UIKitMutationApplier: NSObject {
 
         case "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
              "b", "i", "u", "s", "del", "ins", "mark", "small", "code", "kbd", "samp",
-             "pre", "th", "td":
+             "pre", "th", "td",
+             "cite", "dfn", "var", "sub", "sup", "q", "time", "abbr", "data":
             let label = UILabel()
             label.numberOfLines = 0
             applyTextProps(to: label, props: props, elementType: elementType)
@@ -138,6 +139,14 @@ public class UIKitMutationApplier: NSObject {
             applyImageProps(to: imageView, props: props)
             applyCommonProps(to: imageView, props: props)
             return imageView
+
+        case "progress":
+            let progressView = UIProgressView(progressViewStyle: .default)
+            if let value = props["value"] as? Double, let max = props["max"] as? Double {
+                progressView.progress = Float(value / max)
+            }
+            applyCommonProps(to: progressView, props: props)
+            return progressView
 
         case "#text":
             // Text node - create a label with the text content
@@ -176,7 +185,8 @@ public class UIKitMutationApplier: NSObject {
         switch elementType {
         case "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
              "b", "i", "u", "s", "del", "ins", "mark", "small", "code", "kbd", "samp",
-             "pre", "th", "td":
+             "pre", "th", "td",
+             "cite", "dfn", "var", "sub", "sup", "q", "time", "abbr", "data":
             if let label = view as? UILabel {
                 applyTextProps(to: label, props: props, elementType: elementType)
             }
@@ -191,6 +201,13 @@ public class UIKitMutationApplier: NSObject {
         case "img":
             if let imageView = view as? UIImageView {
                 applyImageProps(to: imageView, props: props)
+            }
+        case "progress":
+            if let progressView = view as? UIProgressView {
+                if let value = props["value"] as? Double {
+                    let max = (props["max"] as? Double) ?? 1.0
+                    progressView.progress = Float(value / max)
+                }
             }
         default:
             break

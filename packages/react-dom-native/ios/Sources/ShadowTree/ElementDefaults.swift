@@ -69,6 +69,12 @@ public enum ElementDefaults {
             return smallDefaults
         case "code", "kbd", "samp":
             return monospaceDefaults
+        case "cite", "dfn", "var":
+            return italicDefaults
+        case "sub", "sup":
+            return smallDefaults
+        case "q", "time", "abbr", "data":
+            return spanDefaults
 
         // Lists
         case "ul", "ol":
@@ -91,6 +97,8 @@ public enum ElementDefaults {
             return textareaDefaults
         case "select":
             return selectDefaults
+        case "progress":
+            return progressDefaults
 
         // Table
         case "table", "thead", "tbody", "tfoot":
@@ -101,6 +109,8 @@ public enum ElementDefaults {
             return thDefaults
         case "td":
             return tdDefaults
+        case "caption":
+            return captionDefaults
 
         // Media
         case "img":
@@ -289,6 +299,11 @@ public enum ElementDefaults {
         "paddingRight": 1
     ]
 
+    private static let captionDefaults: [String: Any] = [
+        "flexDirection": "column",
+        "alignItems": "center"
+    ]
+
     private static let buttonDefaults: [String: Any] = [
         "flexDirection": "row",
         "alignItems": "center",
@@ -338,6 +353,10 @@ public enum ElementDefaults {
         "borderColor": "#767676",
         "borderRadius": 2,
         "backgroundColor": "#FFFFFF"
+    ]
+
+    private static let progressDefaults: [String: Any] = [
+        "height": 4
     ]
 
     private static let imgDefaults: [String: Any] = [
