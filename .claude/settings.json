@@ -11,5 +11,8 @@
       "Bash(mkdir:*)",
       "Bash(xcodebuild:*)"
     ]
+  },
+  "enabledPlugins": {
+    "swift-lsp@claude-plugins-official": true
   }
 }
