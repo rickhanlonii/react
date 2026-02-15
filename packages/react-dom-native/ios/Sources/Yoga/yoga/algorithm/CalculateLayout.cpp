@@ -1155,6 +1155,263 @@ static void justifyMainAxis(
   }
 }
 
+// CSS2.1 Section 8.3.1: Collapsing margins
+// Both positive: max(a, b)
+// Both negative: min(a, b) — most negative
+// Mixed signs: a + b — algebraic sum
+static float collapseMargins(float marginA, float marginB) {
+  if (marginA >= 0 && marginB >= 0) {
+    return yoga::maxOrDefined(marginA, marginB);
+  } else if (marginA < 0 && marginB < 0) {
+    return std::min(marginA, marginB);
+  } else {
+    return marginA + marginB;
+  }
+}
+
+static void calculateBlockLayout(
+    yoga::Node* const node,
+    const float availableWidth,
+    const float availableHeight,
+    const Direction direction,
+    const SizingMode widthSizingMode,
+    const SizingMode heightSizingMode,
+    const float ownerWidth,
+    const float ownerHeight,
+    const bool performLayout,
+    LayoutData& layoutMarkerData,
+    const uint32_t depth,
+    const uint32_t generationCount) {
+
+  const FlexDirection flexRow =
+      resolveDirection(FlexDirection::Row, direction);
+  const FlexDirection flexCol =
+      resolveDirection(FlexDirection::Column, direction);
+
+  const auto startEdge =
+      direction == Direction::LTR ? PhysicalEdge::Left : PhysicalEdge::Right;
+  const auto endEdge =
+      direction == Direction::LTR ? PhysicalEdge::Right : PhysicalEdge::Left;
+
+  const float paddingBorderRow =
+      paddingAndBorderForAxis(node, flexRow, direction, ownerWidth);
+  const float paddingBorderCol =
+      paddingAndBorderForAxis(node, flexCol, direction, ownerWidth);
+
+  const float marginRow =
+      node->getLayout().margin(PhysicalEdge::Left) +
+      node->getLayout().margin(PhysicalEdge::Right);
+  const float marginCol =
+      node->getLayout().margin(PhysicalEdge::Top) +
+      node->getLayout().margin(PhysicalEdge::Bottom);
+
+  // Available inner dimensions (content box)
+  const float availableInnerWidth = calculateAvailableInnerDimension(
+      node, direction, Dimension::Width,
+      availableWidth - marginRow, paddingBorderRow, ownerWidth, ownerWidth);
+  const float availableInnerHeight = calculateAvailableInnerDimension(
+      node, direction, Dimension::Height,
+      availableHeight - marginCol, paddingBorderCol, ownerHeight, ownerWidth);
+
+  const float paddingTop = node->getLayout().padding(PhysicalEdge::Top);
+  const float borderTop = node->getLayout().border(PhysicalEdge::Top);
+  const float paddingBottom = node->getLayout().padding(PhysicalEdge::Bottom);
+  const float borderBottom = node->getLayout().border(PhysicalEdge::Bottom);
+  const float paddingStart = node->getLayout().padding(startEdge);
+  const float borderStart = node->getLayout().border(startEdge);
+
+  float currentY = paddingTop + borderTop;
+  float prevMarginBottom = 0.0f;
+  bool isFirstChild = true;
+  float maxChildWidth = 0.0f;
+
+  for (auto child : node->getLayoutChildren()) {
+    child->processDimensions();
+
+    if (child->style().display() == Display::None) {
+      zeroOutLayoutRecursively(child);
+      child->setHasNewLayout(true);
+      child->setDirty(false);
+      continue;
+    }
+
+    if (child->style().positionType() == PositionType::Absolute) {
+      if (performLayout) {
+        const Direction childDirection = child->resolveDirection(direction);
+        child->setPosition(
+            childDirection, availableInnerWidth, availableInnerHeight);
+      }
+      continue;
+    }
+
+    // Resolve child margins
+    const float childMarginTop = child->style().computeFlexStartMargin(
+        FlexDirection::Column, direction, ownerWidth);
+    const float childMarginBottom = child->style().computeFlexEndMargin(
+        FlexDirection::Column, direction, ownerWidth);
+    const float childMarginLeft = child->style().computeInlineStartMargin(
+        flexRow, direction, ownerWidth);
+    const float childMarginRight = child->style().computeInlineEndMargin(
+        flexRow, direction, ownerWidth);
+
+    const bool leftMarginAuto =
+        child->style().flexStartMarginIsAuto(flexRow, direction);
+    const bool rightMarginAuto =
+        child->style().flexEndMarginIsAuto(flexRow, direction);
+
+    // Block auto-width: child stretches to fill parent content width
+    float childWidth;
+    SizingMode childWidthMode;
+
+    if (child->hasDefiniteLength(Dimension::Width, availableInnerWidth)) {
+      // Child has explicit width
+      childWidth =
+          child->getResolvedDimension(
+              direction, Dimension::Width, availableInnerWidth, ownerWidth)
+              .unwrap() +
+          child->style().computeMarginForAxis(flexRow, ownerWidth);
+      childWidthMode = SizingMode::StretchFit;
+    } else {
+      // Auto width: fill available width
+      childWidth = availableInnerWidth +
+          child->style().computeMarginForAxis(flexRow, ownerWidth);
+      childWidthMode = SizingMode::StretchFit;
+    }
+
+    // Height is content-determined unless explicit
+    float childHeight = YGUndefined;
+    SizingMode childHeightMode = SizingMode::MaxContent;
+
+    if (child->hasDefiniteLength(Dimension::Height, availableInnerHeight)) {
+      childHeight =
+          child->getResolvedDimension(
+              direction, Dimension::Height, availableInnerHeight, ownerWidth)
+              .unwrap() +
+          child->style().computeMarginForAxis(FlexDirection::Column, ownerWidth);
+      childHeightMode = SizingMode::StretchFit;
+    }
+
+    // Constrain by max size
+    constrainMaxSizeForMode(
+        child, direction, FlexDirection::Row,
+        availableInnerWidth, ownerWidth, &childWidthMode, &childWidth);
+    constrainMaxSizeForMode(
+        child, direction, FlexDirection::Column,
+        availableInnerHeight, ownerWidth, &childHeightMode, &childHeight);
+
+    // Recursively lay out the child
+    calculateLayoutInternal(
+        child,
+        childWidth,
+        childHeight,
+        direction,
+        childWidthMode,
+        childHeightMode,
+        availableInnerWidth,
+        availableInnerHeight,
+        performLayout,
+        LayoutPassReason::kFlexLayout,
+        layoutMarkerData,
+        depth + 1,
+        generationCount);
+
+    // MARGIN COLLAPSING (sibling)
+    float effectiveMarginGap;
+    if (isFirstChild) {
+      effectiveMarginGap = childMarginTop;
+      isFirstChild = false;
+    } else {
+      effectiveMarginGap = collapseMargins(prevMarginBottom, childMarginTop);
+    }
+
+    if (performLayout) {
+      currentY += effectiveMarginGap;
+
+      // Horizontal positioning with auto-margin centering
+      const float childLayoutWidth =
+          child->getLayout().measuredDimension(Dimension::Width);
+      const float remainingWidth = availableInnerWidth - childLayoutWidth;
+      float childX;
+
+      if (leftMarginAuto && rightMarginAuto) {
+        childX = paddingStart + borderStart +
+            yoga::maxOrDefined(0.0f, remainingWidth / 2.0f);
+      } else if (leftMarginAuto) {
+        childX = paddingStart + borderStart +
+            yoga::maxOrDefined(0.0f, remainingWidth - childMarginRight);
+      } else {
+        childX = paddingStart + borderStart + childMarginLeft;
+      }
+
+      child->setLayoutPosition(currentY, PhysicalEdge::Top);
+      child->setLayoutPosition(childX, startEdge);
+    }
+
+    currentY += child->getLayout().measuredDimension(Dimension::Height);
+    prevMarginBottom = childMarginBottom;
+
+    maxChildWidth = yoga::maxOrDefined(
+        maxChildWidth,
+        child->getLayout().measuredDimension(Dimension::Width) +
+            childMarginLeft + childMarginRight);
+  }
+
+  // Add last child's bottom margin
+  if (!isFirstChild) {
+    currentY += prevMarginBottom;
+  }
+
+  // Container dimensions
+  const float contentHeight = currentY + paddingBottom + borderBottom;
+  float containerWidth;
+
+  if (widthSizingMode == SizingMode::MaxContent ||
+      widthSizingMode == SizingMode::FitContent) {
+    containerWidth = maxChildWidth + paddingBorderRow;
+  } else {
+    containerWidth = availableWidth - marginRow;
+  }
+
+  node->setLayoutMeasuredDimension(
+      boundAxis(
+          node, FlexDirection::Row, direction,
+          containerWidth, ownerWidth, ownerWidth),
+      Dimension::Width);
+
+  if (heightSizingMode == SizingMode::StretchFit) {
+    node->setLayoutMeasuredDimension(
+        boundAxis(
+            node, FlexDirection::Column, direction,
+            availableHeight - marginCol, ownerHeight, ownerWidth),
+        Dimension::Height);
+  } else {
+    node->setLayoutMeasuredDimension(
+        boundAxis(
+            node, FlexDirection::Column, direction,
+            contentHeight, ownerHeight, ownerWidth),
+        Dimension::Height);
+  }
+
+  if (performLayout) {
+    // Absolute descendants
+    if (node->style().positionType() != PositionType::Static ||
+        node->alwaysFormsContainingBlock() || depth == 1) {
+      layoutAbsoluteDescendants(
+          node,
+          node,
+          widthSizingMode,
+          direction,
+          layoutMarkerData,
+          depth,
+          generationCount,
+          0.0f,
+          0.0f,
+          availableInnerWidth,
+          availableInnerHeight);
+    }
+  }
+}
+
 //
 // This is the main routine that implements a subset of the flexbox layout
 // algorithm described in the W3C CSS documentation:
@@ -1366,6 +1623,24 @@ static void calculateLayoutImpl(
   // Clean and update all display: contents nodes with a direct path to the
   // current node as they will not be traversed
   cleanupContentsNodesRecursively(node);
+
+  // Block layout: separate code path for CSS block formatting context
+  if (node->style().display() == Display::Block) {
+    calculateBlockLayout(
+        node,
+        availableWidth,
+        availableHeight,
+        direction,
+        widthSizingMode,
+        heightSizingMode,
+        ownerWidth,
+        ownerHeight,
+        performLayout,
+        layoutMarkerData,
+        depth,
+        generationCount);
+    return;
+  }
 
   // STEP 1: CALCULATE VALUES FOR REMAINDER OF ALGORITHM
   const FlexDirection mainAxis =
