@@ -4,7 +4,7 @@ var React = require('react');
 var Fantom = require('@react-dom-native/fantom');
 
 describe('Element defaults', function () {
-  it('div gets flexDirection column by default', function () {
+  it('div gets display block by default', function () {
     var root = Fantom.createRoot();
     Fantom.runTask(function () {
       root.render(<div />);
@@ -13,7 +13,7 @@ describe('Element defaults', function () {
     var output = Fantom.getRenderedOutput();
     var div = output.children[0];
     expect(div.type).toBe('div');
-    expect(div.props.style.flexDirection).toBe('column');
+    expect(div.props.style.display).toBe('block');
   });
 
   it('h1 gets fontSize 32 and fontWeight bold', function () {
@@ -27,7 +27,8 @@ describe('Element defaults', function () {
     expect(h1.type).toBe('h1');
     expect(h1.props.style.fontSize).toBe(32);
     expect(h1.props.style.fontWeight).toBe('bold');
-    expect(h1.props.style.flexDirection).toBe('column');
+    expect(h1.props.style.flexDirection).toBe('row');
+    expect(h1.props.style.flexWrap).toBe('wrap');
   });
 
   it('user style overrides defaults', function () {
