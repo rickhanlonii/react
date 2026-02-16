@@ -3,8 +3,13 @@
   "version": "0.0.1",
   "description": "React framework mapping HTML elements to native iOS views",
   "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./server": "./src/server/index.js"
+  },
   "dependencies": {
     "react": "^19.1.0",
-    "react-reconciler": "^0.32.0"
+    "react-reconciler": "^0.32.0",
+    "react-server": "file:./vendor/react-server"
   }
 }
