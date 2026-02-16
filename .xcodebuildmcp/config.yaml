@@ -1,0 +1,7 @@
+enabledWorkflows:
+  - session-management
+  - simulator
+  - ui-automation
+  - debugging
+  - logging
+  - device
