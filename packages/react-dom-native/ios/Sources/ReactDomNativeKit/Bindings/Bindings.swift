@@ -285,14 +285,29 @@ public class Bindings {
             }
             YGNodeInsertChild(parent.yogaNode, child.yogaNode, index)
 
-            // If the child is a #text node, inherit fontSize from parent for
+            // If the child is a #text node, inherit font properties from parent for
             // accurate Yoga measurement. Without this, text nodes default to
-            // 16pt and get clipped inside larger elements (e.g. h1 at 32pt).
-            if child.family.elementType == "#text",
-               let style = parent.props["style"] as? [String: Any],
-               let fontSize = style["fontSize"] as? NSNumber {
+            // 16pt regular and get clipped inside larger elements (e.g. h1 at 32pt bold).
+            if child.family.elementType == "#text" {
+                let style = parent.props["style"] as? [String: Any] ?? [:]
+                let fontSize: CGFloat
+                if let fs = style["fontSize"] as? NSNumber {
+                    fontSize = CGFloat(fs.doubleValue)
+                } else {
+                    fontSize = 16
+                }
+                let fontWeight = style["fontWeight"] as? String
+                let fontFamily = style["fontFamily"] as? String
+                let fontStyle = style["fontStyle"] as? String
+
                 YogaTextMeasure.cleanupMeasureContext(for: child.yogaNode)
-                YogaTextMeasure.setupMeasureFunc(on: child, fontSize: CGFloat(fontSize.doubleValue))
+                YogaTextMeasure.setupMeasureFunc(
+                    on: child,
+                    fontSize: fontSize,
+                    fontWeight: fontWeight,
+                    fontFamily: fontFamily,
+                    fontStyle: fontStyle
+                )
             }
             return nil
         }
@@ -334,11 +349,8 @@ public class Bindings {
                 return self.nodeRegistry[id]
             }
 
-            print("[Bindings] $$completeRoot called, surfaceId: \(surfaceId), children: \(newChildren.count)")
-
             // 1. Get old tree (empty on first commit)
             let oldChildren = self.currentTrees[surfaceId] ?? []
-            print("[Bindings] Old children: \(oldChildren.count)")
 
             // 2. Calculate layout using Yoga
             var contentSize: CGSize = .zero
@@ -353,24 +365,29 @@ public class Bindings {
                 newChildren: newChildren,
                 parent: nil
             )
-            print("[Bindings] Mutations: \(mutations.count)")
 
             // 4. Apply mutations to UIViews atomically
             if let rootView = self.rootViews[surfaceId] {
-                print("[Bindings] Applying mutations to rootView")
                 self.mutationApplier.applyMutations(mutations, rootView: rootView)
 
-                // 4b. Attach root-level children to the UIKit rootView
+                // 4b. Sync frames for ALL nodes in the tree.
+                // The Differentiator only emits UPDATE mutations for cloned
+                // nodes (oldChild !== newChild). But Yoga layout recalculates
+                // positions for the entire tree — reused sibling nodes may
+                // have new Y positions when a preceding sibling changed size.
+                // This pass ensures every UIView's frame matches Yoga layout.
+                self.syncAllFrames(newChildren)
+
+                // 4c. Attach root-level children to the UIKit rootView
                 for child in newChildren {
                     if let childView = self.viewRegistry.view(for: child.family) {
                         if childView.superview == nil {
-                            print("[Bindings] Attaching root child \(child.family.elementType) to rootView")
                             rootView.addSubview(childView)
                         }
                     }
                 }
             } else {
-                print("[Bindings] Warning: No rootView for surfaceId \(surfaceId)")
+                print("[react-dom-native] Warning: No rootView for surfaceId \(surfaceId)")
             }
 
             // 5. Set scroll view content size for document-level scrolling
@@ -396,7 +413,6 @@ public class Bindings {
                 self.nodeRegistry.removeValue(forKey: id)
             }
 
-            print("[Bindings] $$completeRoot done (registry: \(self.nodeRegistry.count) nodes)")
             return nil
         }
     }
@@ -409,6 +425,26 @@ public class Bindings {
                 ids.insert(id)
             }
             collectNodeIds(from: node.children, into: &ids)
+        }
+    }
+
+    /// Recursively syncs every UIView's frame to match its node's layoutFrame.
+    ///
+    /// The Differentiator only emits UPDATE mutations for cloned nodes, but
+    /// Yoga recalculates layout for the entire tree. Reused nodes (same
+    /// identity across old/new trees) may have new positions when a preceding
+    /// sibling changed size. This pass ensures all frames stay in sync.
+    private func syncAllFrames(_ nodes: [ShadowNodeWrapper]) {
+        for node in nodes {
+            if let view = viewRegistry.view(for: node.family) {
+                if view.frame != node.layoutFrame {
+                    view.frame = node.layoutFrame
+                }
+                if let scrollView = view as? UIScrollView, let contentSize = node.scrollContentSize {
+                    scrollView.contentSize = contentSize
+                }
+            }
+            syncAllFrames(node.children)
         }
     }
 
@@ -459,15 +495,24 @@ public class Bindings {
         }
 
         // Read content size from temp root (which has unbounded height)
-        let contentSize = CGSize(
-            width: CGFloat(YGNodeLayoutGetWidth(rootNode)),
-            height: CGFloat(YGNodeLayoutGetHeight(rootNode))
-        )
+        // Yoga's flex column layout may compute a height smaller than the
+        // actual child extent. This happens because the root <div> uses
+        // display:block, and Yoga doesn't fully account for block-level
+        // children's default vertical margins when computing the flex
+        // container height. We work around this by walking children after
+        // layout to find the true content bottom.
+        let yogaHeight = CGFloat(YGNodeLayoutGetHeight(rootNode))
 
         // 4. Walk tree reading layout results into layoutFrame
         for child in children {
             readYogaLayout(from: child)
         }
+
+        let actualHeight = computeActualContentHeight(for: children)
+        let contentSize = CGSize(
+            width: CGFloat(YGNodeLayoutGetWidth(rootNode)),
+            height: max(yogaHeight, actualHeight)
+        )
 
         // 4b. Compute scroll content sizes for overflow:scroll/auto nodes
         for child in children {
@@ -494,6 +539,26 @@ public class Bindings {
         for child in node.children {
             readYogaLayout(from: child)
         }
+    }
+
+    /// Compute the actual content height by finding the maximum bottom
+    /// coordinate of all children. This handles cases where Yoga's flex
+    /// column parent computes a height smaller than child positions require
+    /// (e.g. when block-display children have margins that extend beyond
+    /// the flex container's computed height).
+    private func computeActualContentHeight(for nodes: [ShadowNodeWrapper]) -> CGFloat {
+        var maxBottom: CGFloat = 0
+        for node in nodes {
+            let nodeBottom = node.layoutFrame.origin.y + node.layoutFrame.height
+            maxBottom = max(maxBottom, nodeBottom)
+            // Check children recursively — a node's children might extend
+            // beyond the node's own computed height
+            let childrenMaxBottom = computeActualContentHeight(for: node.children)
+            if childrenMaxBottom > node.layoutFrame.height {
+                maxBottom = max(maxBottom, node.layoutFrame.origin.y + childrenMaxBottom)
+            }
+        }
+        return maxBottom
     }
 
     /// Recursively check for text nodes that were flex-shrunk narrower than their
@@ -663,10 +728,7 @@ public class Bindings {
             let headersDict = engine.toDictionary(args[1]) ?? [:]
             let callback = args[2]
 
-            print("[Bindings] $$fetch called: \(urlString)")
-
             guard let url = URL(string: urlString) else {
-                print("[Bindings] Invalid URL: \(urlString)")
                 DispatchQueue.main.async { [weak engine] in
                     guard let engine = engine else { return }
                     _ = engine.callFunction(callback, args: [
@@ -692,7 +754,6 @@ public class Bindings {
                     guard let engine = engine else { return }
 
                     if let error = error {
-                        print("[Bindings] Fetch error: \(error.localizedDescription)")
                         _ = engine.callFunction(callback, args: [
                             engine.makeString("error"),
                             engine.makeString(error.localizedDescription)
@@ -701,12 +762,12 @@ public class Bindings {
                         return
                     }
 
-                    if let httpResponse = response as? HTTPURLResponse {
-                        print("[Bindings] Response status: \(httpResponse.statusCode)")
+                    if let httpResponse = response as? HTTPURLResponse,
+                       httpResponse.statusCode >= 400 {
+                        print("[react-dom-native] Fetch error: HTTP \(httpResponse.statusCode) for \(urlString)")
                     }
 
                     if let data = data, let text = String(data: data, encoding: .utf8) {
-                        print("[Bindings] Received \(data.count) bytes")
                         _ = engine.callFunction(callback, args: [
                             engine.makeString("data"),
                             engine.makeString(text)

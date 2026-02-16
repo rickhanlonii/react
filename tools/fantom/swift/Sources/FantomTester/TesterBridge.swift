@@ -293,6 +293,31 @@ class TesterBridge {
                 YGNodeRemoveChild(owner, child.yogaNode)
             }
             YGNodeInsertChild(parent.yogaNode, child.yogaNode, index)
+
+            // If the child is a #text node, inherit font properties from parent for
+            // accurate Yoga measurement.
+            if child.family.elementType == "#text" {
+                let style = parent.props["style"] as? [String: Any] ?? [:]
+                let fontSize: CGFloat
+                if let fs = style["fontSize"] as? NSNumber {
+                    fontSize = CGFloat(fs.doubleValue)
+                } else {
+                    fontSize = 16
+                }
+                let fontWeight = style["fontWeight"] as? String
+                let fontFamily = style["fontFamily"] as? String
+                let fontStyle = style["fontStyle"] as? String
+
+                YogaTextMeasure.cleanupMeasureContext(for: child.yogaNode)
+                YogaTextMeasure.setupMeasureFunc(
+                    on: child,
+                    fontSize: fontSize,
+                    fontWeight: fontWeight,
+                    fontFamily: fontFamily,
+                    fontStyle: fontStyle
+                )
+            }
+
             return nil
         }
     }

@@ -52,10 +52,10 @@ function search(query) {
 function SearchResults({query}) {
   const results = search(query);
   if (results.length === 0) {
-    return <p style={{color: '#888'}}>No results found.</p>;
+    return <p>No results found.</p>;
   }
   return (
-    <div style={{gap: 4}}>
+    <div>
       {results.map((item) => (
         <p key={item}>{item}</p>
       ))}
@@ -69,12 +69,12 @@ function TextInput({placeholder = 'Search fruits...'}) {
   const [isPending, startTransition] = useTransition();
 
   return (
-    <div style={{gap: 8}}>
+    <div>
       <input
         value={query}
         placeholder={placeholder}
         onChange={(e) => {
-          const value = e && e.value ? e.value : '';
+          const value = e?.target?.value ?? e?.value ?? '';
           setQuery(value);
           startTransition(() => {
             setSearchQuery(value);
@@ -82,7 +82,7 @@ function TextInput({placeholder = 'Search fruits...'}) {
         }}
       />
       <div style={{opacity: isPending ? 0.6 : 1}}>
-        <Suspense fallback={<p style={{color: '#888'}}>Searching...</p>}>
+        <Suspense fallback={<p>Searching...</p>}>
           <SearchResults query={searchQuery} />
         </Suspense>
       </div>

@@ -214,13 +214,32 @@ function createReviver(response) {
         }
         default: {
           // Check if it is a hex reference to another chunk (e.g. "$3", "$1a")
-          var refId = parseInt(value.slice(1), 16);
+          // or a path-based reference (e.g. "$0:props:children:0:props:style")
+          var colonIdx = value.indexOf(':', 1);
+          var idPart = colonIdx >= 0 ? value.slice(1, colonIdx) : value.slice(1);
+          var refId = parseInt(idPart, 16);
           if (!isNaN(refId)) {
             var refChunk = getOrCreateChunk(response, refId);
+            var pathSegments = colonIdx >= 0 ? value.slice(colonIdx + 1).split(':') : null;
             if (refChunk.status === RESOLVED) {
-              return refChunk.value;
+              var resolved = refChunk.value;
+              // Navigate path segments if present
+              if (pathSegments) {
+                for (var pi = 0; pi < pathSegments.length; pi++) {
+                  var seg = pathSegments[pi];
+                  if (resolved == null) break;
+                  var numSeg = parseInt(seg, 10);
+                  resolved = !isNaN(numSeg) && String(numSeg) === seg
+                    ? resolved[numSeg]
+                    : resolved[seg];
+                }
+              }
+              return resolved;
             }
             // Return a lazy wrapper for pending references
+            if (pathSegments) {
+              return createPathLazyWrapper(refChunk, pathSegments);
+            }
             return createLazyWrapper(refChunk);
           }
           break;
@@ -248,6 +267,38 @@ function createLazyWrapper(chunk) {
       }
       // Still pending — throw the thenable so Suspense can catch it
       throw payload;
+    },
+  };
+  return lazy;
+}
+
+/**
+ * Creates a path-aware lazy wrapper that navigates a path within a chunk's
+ * resolved value. Used for Flight protocol path-based references like
+ * "$0:props:children:0:props:style" which reference a value nested inside
+ * another chunk's model.
+ */
+function createPathLazyWrapper(chunk, pathSegments) {
+  var lazy = {
+    $$typeof: Symbol.for('react.lazy'),
+    _payload: {chunk: chunk, path: pathSegments},
+    _init: function _init(payload) {
+      if (payload.chunk.status === RESOLVED) {
+        var resolved = payload.chunk.value;
+        for (var i = 0; i < payload.path.length; i++) {
+          if (resolved == null) break;
+          var seg = payload.path[i];
+          var numSeg = parseInt(seg, 10);
+          resolved = !isNaN(numSeg) && String(numSeg) === seg
+            ? resolved[numSeg]
+            : resolved[seg];
+        }
+        return resolved;
+      }
+      if (payload.chunk.status === REJECTED) {
+        throw payload.chunk.reason;
+      }
+      throw payload.chunk;
     },
   };
   return lazy;

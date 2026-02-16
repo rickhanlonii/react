@@ -124,6 +124,24 @@ To iterate on layout differences between web and native:
 - `#text` nodes are separate UILabels that need to inherit font/color from their parent element — handled in `applyInheritedTextStyle()` during the INSERT mutation.
 - Yoga flex layout doesn't collapse margins like CSS block layout. When parent uses `gap` and children have default margins, spacing will be larger than web.
 
+## Adding a New HTML Element
+
+Every new element requires updating these files in lockstep:
+
+1. **`ElementDefaults.swift`** — add a static defaults dict + case in `defaults(for:)` switch
+2. **`UIKitMutationApplier.swift`** — add to `createView`/`updateView` case list (text elements go in the UILabel case, container elements fall through to the default UIView case)
+3. **`HostConfig.js`** — add to `TEXT_CONTEXT_ELEMENTS` Set if the element is inline text (virtual text inside a text container)
+4. **Swift tests** (`ElementDefaultsTests.swift`) — verify defaults dict values
+5. **JS integration tests** (`element-defaults-itest.js`) — verify end-to-end via Fantom
+
+Reference descriptors with exact values: `docs/research/html-elements/`
+
+## Session Hygiene
+
+- **Commit completed work** before ending a session. Don't leave uncommitted changes spanning multiple features.
+- **One concern per set of uncommitted changes.** If starting a new feature, commit or stash the current work first.
+- The `/resume-work` skill relies on clean git state to determine where to pick up.
+
 ## Progress
 
 See `docs/master-plan.md` for full progress tracker with checkboxes.

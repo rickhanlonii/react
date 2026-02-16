@@ -307,7 +307,8 @@ public enum ElementDefaults {
     private static let spanDefaults: [String: Any] = [
         "display": "inline-block",
         "flexDirection": "row",
-        "flexShrink": 1
+        "flexShrink": 1,
+        "alignItems": "center"
     ]
 
     private static let inlineBlockDefaults: [String: Any] = [
@@ -471,6 +472,7 @@ public enum ElementDefaults {
     private static let aDefaults: [String: Any] = [
         "flexDirection": "row",
         "flexShrink": 1,
+        "alignItems": "center",
         "color": "#007AFF",
         "textDecorationLine": "underline"
     ]
@@ -478,30 +480,35 @@ public enum ElementDefaults {
     private static let boldDefaults: [String: Any] = [
         "flexDirection": "row",
         "flexShrink": 1,
+        "alignItems": "center",
         "fontWeight": "bold"
     ]
 
     private static let italicDefaults: [String: Any] = [
         "flexDirection": "row",
         "flexShrink": 1,
+        "alignItems": "center",
         "fontStyle": "italic"
     ]
 
     private static let underlineDefaults: [String: Any] = [
         "flexDirection": "row",
         "flexShrink": 1,
+        "alignItems": "center",
         "textDecorationLine": "underline"
     ]
 
     private static let strikethroughDefaults: [String: Any] = [
         "flexDirection": "row",
         "flexShrink": 1,
+        "alignItems": "center",
         "textDecorationLine": "line-through"
     ]
 
     private static let markDefaults: [String: Any] = [
         "flexDirection": "row",
         "flexShrink": 1,
+        "alignItems": "center",
         "backgroundColor": "#FFFF00",
         "color": "#000000"
     ]
@@ -509,12 +516,14 @@ public enum ElementDefaults {
     private static let smallDefaults: [String: Any] = [
         "flexDirection": "row",
         "flexShrink": 1,
+        "alignItems": "center",
         "fontSize": 13.28
     ]
 
     private static let monospaceDefaults: [String: Any] = [
         "flexDirection": "row",
         "flexShrink": 1,
+        "alignItems": "center",
         "fontFamily": "Menlo"
     ]
 }

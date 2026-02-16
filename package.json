@@ -14,7 +14,7 @@
     "build:prod": "cd example && npm run build:prod",
     "dev": "cd example && npm run dev",
     "test": "jest --selectProjects unit",
-    "test:fantom": "jest --selectProjects fantom",
+    "test:fantom": "bash scripts/build-fantom.sh --if-needed && jest --selectProjects fantom",
     "test:all": "jest",
     "build:fantom": "bash scripts/build-fantom.sh"
   },

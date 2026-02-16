@@ -19,15 +19,21 @@ import AppKit
 public enum YogaTextMeasure {
 
     /// Context object stored on a text node's yogaNode via YGNodeSetContext.
-    /// Retains the text string and font size for measurement.
+    /// Retains the text string and font info for measurement.
     fileprivate class TextMeasureContext {
         let text: String
         var fontSize: CGFloat
+        var fontWeight: String?
+        var fontFamily: String?
+        var fontStyle: String?
         var lastMeasuredWidth: Float = 0
 
-        init(text: String, fontSize: CGFloat) {
+        init(text: String, fontSize: CGFloat, fontWeight: String? = nil, fontFamily: String? = nil, fontStyle: String? = nil) {
             self.text = text
             self.fontSize = fontSize
+            self.fontWeight = fontWeight
+            self.fontFamily = fontFamily
+            self.fontStyle = fontStyle
         }
     }
 
@@ -36,8 +42,23 @@ public enum YogaTextMeasure {
     /// - Parameters:
     ///   - node: The ShadowNodeWrapper for the text node.
     ///   - fontSize: Font size to use for measurement (default 16pt).
-    public static func setupMeasureFunc(on node: ShadowNodeWrapper, fontSize: CGFloat = 16) {
-        let context = TextMeasureContext(text: node.text ?? "", fontSize: fontSize)
+    ///   - fontWeight: CSS font weight string (e.g. "bold", "700").
+    ///   - fontFamily: Font family name (e.g. "Menlo").
+    ///   - fontStyle: CSS font style (e.g. "italic").
+    public static func setupMeasureFunc(
+        on node: ShadowNodeWrapper,
+        fontSize: CGFloat = 16,
+        fontWeight: String? = nil,
+        fontFamily: String? = nil,
+        fontStyle: String? = nil
+    ) {
+        let context = TextMeasureContext(
+            text: node.text ?? "",
+            fontSize: fontSize,
+            fontWeight: fontWeight,
+            fontFamily: fontFamily,
+            fontStyle: fontStyle
+        )
 
         // Store context as unmanaged retained pointer on the yogaNode
         let contextPtr = Unmanaged.passRetained(context).toOpaque()
@@ -61,6 +82,39 @@ public enum YogaTextMeasure {
 
     /// Threshold for detecting meaningful width shrinkage (avoids float rounding false positives).
     private static let remeasureEpsilon: Float = 0.5
+
+    #if canImport(UIKit)
+    /// Resolves a UIFont from style properties for text measurement.
+    static func resolveFont(size: CGFloat, weight: String?, family: String?, style: String?) -> UIFont {
+        let uiWeight: UIFont.Weight
+        switch weight {
+        case "100": uiWeight = .ultraLight
+        case "200": uiWeight = .thin
+        case "300": uiWeight = .light
+        case "normal", "400", nil: uiWeight = .regular
+        case "500": uiWeight = .medium
+        case "600": uiWeight = .semibold
+        case "bold", "700": uiWeight = .bold
+        case "800": uiWeight = .heavy
+        case "900": uiWeight = .black
+        default: uiWeight = .regular
+        }
+
+        var font: UIFont
+        if let family = family, let customFont = UIFont(name: family, size: size) {
+            font = customFont
+        } else {
+            font = UIFont.systemFont(ofSize: size, weight: uiWeight)
+        }
+
+        if style == "italic" {
+            let descriptor = font.fontDescriptor.withSymbolicTraits(.traitItalic) ?? font.fontDescriptor
+            font = UIFont(descriptor: descriptor, size: size)
+        }
+
+        return font
+    }
+    #endif
 
     /// Returns true if the text node was flex-shrunk narrower than its measured width,
     /// meaning the height is wrong (computed at the wider width) and needs re-measurement.
@@ -93,7 +147,7 @@ private func textMeasureFunc(
     let fontSize = context.fontSize
 
     #if canImport(UIKit)
-    let font = UIFont.systemFont(ofSize: fontSize)
+    let font = YogaTextMeasure.resolveFont(size: fontSize, weight: context.fontWeight, family: context.fontFamily, style: context.fontStyle)
     #elseif canImport(AppKit)
     let font = NSFont.systemFont(ofSize: fontSize)
     #else

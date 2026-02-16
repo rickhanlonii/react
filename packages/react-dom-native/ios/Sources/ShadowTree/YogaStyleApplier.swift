@@ -42,6 +42,25 @@ public enum YogaStyleApplier {
             }
         }
 
+        // alignSelf
+        if let as_ = style["alignSelf"] as? String {
+            switch as_ {
+            case "center":
+                YGNodeStyleSetAlignSelf(node, .center)
+            case "flex-start", "flexStart":
+                YGNodeStyleSetAlignSelf(node, .flexStart)
+            case "flex-end", "flexEnd":
+                YGNodeStyleSetAlignSelf(node, .flexEnd)
+            case "stretch":
+                YGNodeStyleSetAlignSelf(node, .stretch)
+            case "baseline":
+                YGNodeStyleSetAlignSelf(node, .baseline)
+            case "auto":
+                YGNodeStyleSetAlignSelf(node, .auto)
+            default: break
+            }
+        }
+
         // justifyContent
         if let jc = style["justifyContent"] as? String {
             switch jc {

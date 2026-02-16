@@ -9,7 +9,19 @@
       "Bash(ls:*)",
       "Bash(cat:*)",
       "Bash(mkdir:*)",
-      "Bash(xcodebuild:*)"
+      "Bash(swift build:*)",
+      "Bash(swift test:*)",
+      "Bash(test:*)",
+      "mcp__XcodeBuildMCP__*",
+      "WebSearch",
+      "WebFetch"
+    ],
+    "deny": [
+      "Bash(xcrun:*)",
+      "Bash(xcodebuild:*)",
+      "Bash(codesign:*)",
+      "Bash(plutil:*)",
+      "Bash(/usr/libexec/PlistBuddy:*)"
     ]
   },
   "enabledPlugins": {

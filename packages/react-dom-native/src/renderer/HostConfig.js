@@ -58,6 +58,55 @@ const TEXT_CONTEXT_ELEMENTS = new Set([
 ]);
 
 // ---------------------------------------------------------------------------
+// Style shorthand expansion — parse CSS shorthands before sending to native
+// ---------------------------------------------------------------------------
+
+function expandStyleShorthands(props) {
+  let style = props.style;
+
+  // Resolve Flight lazy references — the Flight protocol deduplicates shared
+  // objects by using path-based references (e.g. "$0:props:children:0:props:style")
+  // which arrive as lazy wrappers when the referenced chunk is self-referencing.
+  if (style != null && typeof style === 'object' && typeof style._init === 'function') {
+    style = style._init(style._payload);
+    props = {...props, style};
+  }
+
+  if (style == null || typeof style.border !== 'string') {
+    return props;
+  }
+
+  const border = style.border;
+  const expanded = {};
+
+  // Parse: "<width> <style> <color>"
+  // Color may contain spaces (e.g. "rgba(255, 0, 0, 0.4)"), so we parse
+  // width and style tokens from the front, then treat the rest as color.
+  const match = border.match(
+    /^(\d+(?:\.\d+)?(?:px|em|rem)?)\s+(\w+)\s+(.+)$/,
+  );
+  if (match) {
+    expanded.borderWidth = parseFloat(match[1]);
+    // match[2] is border-style (e.g. "solid") — ignored, CALayer is always solid
+    expanded.borderColor = match[3];
+  } else {
+    // Fallback: try width-only ("1px") or width+color ("1px red")
+    const simple = border.match(/^(\d+(?:\.\d+)?(?:px|em|rem)?)(?:\s+(.+))?$/);
+    if (simple) {
+      expanded.borderWidth = parseFloat(simple[1]);
+      if (simple[2]) {
+        expanded.borderColor = simple[2];
+      }
+    }
+  }
+
+  // User-specified individual props take precedence over shorthand
+  const {border: _removed, ...restStyle} = style;
+  const newStyle = {...expanded, ...restStyle};
+  return {...props, style: newStyle};
+}
+
+// ---------------------------------------------------------------------------
 // Reconciler Mode Flags
 // ---------------------------------------------------------------------------
 exports.supportsPersistence = true;
@@ -90,7 +139,7 @@ exports.createInstance = function createInstance(
   // via appendInitialChild, not stored as props on the native node.
   // Element-type defaults (flexDirection, fontSize, etc.) are merged natively
   // in $$createNode — no JS-side merging needed.
-  const {children, ...nativeProps} = props;
+  const {children, ...nativeProps} = expandStyleShorthands(props);
   const nativeNode = $$createNode(
     type,
     rootContainer.surfaceId,
@@ -158,7 +207,7 @@ exports.cloneInstance = function cloneInstance(
   keepChildren,
   recyclable,
 ) {
-  const {children, ...nativeNewProps} = newProps;
+  const {children, ...nativeNewProps} = expandStyleShorthands(newProps);
   let newNativeNode;
   if (keepChildren) {
     newNativeNode = $$cloneNodeWithNewProps(instance._nativeNode, nativeNewProps);
