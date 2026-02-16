@@ -120,6 +120,27 @@ public class Differentiator {
 
     // MARK: - Subtree helpers
 
+    /// Generates Create + Insert mutations for an entire tree from scratch.
+    /// Used by SSR to create the initial view tree without a previous tree.
+    ///
+    /// Unlike `diff(oldChildren:newChildren:parent:)`, this generates Insert
+    /// mutations for root-level nodes (using a virtual root parent).
+    public static func initialMutations(from rootChildren: [ShadowNodeWrapper]) -> [Mutation] {
+        var mutations: [Mutation] = []
+        let differ = Differentiator()
+
+        for (index, child) in rootChildren.enumerated() {
+            mutations.append(.create(node: child))
+            // Root-level children are inserted directly into the rootView,
+            // not into a parent ShadowNodeWrapper. UIKitMutationApplier
+            // handles the rootView insertion in its loop (CREATE sets frame).
+            let subtreeMutations = differ.createSubtree(node: child, parentIndex: index)
+            mutations.append(contentsOf: subtreeMutations)
+        }
+
+        return mutations
+    }
+
     /// Recursively generates Create + Insert mutations for every node in a
     /// newly inserted subtree.
     private func createSubtree(

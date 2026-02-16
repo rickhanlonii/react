@@ -1,5 +1,6 @@
 import UIKit
 import JSEngine
+import ShadowTree
 
 // ---------------------------------------------------------------------------
 // Root
@@ -225,6 +226,202 @@ public class Root {
                 self?.options.onRecoverableError?(error)
                 completion?(error)
             }
+        }
+    }
+
+    // MARK: - SSR Rendering
+
+    /// SSR coordinator (non-nil while SSR is active)
+    private var ssrParser: InstructionStreamParser?
+    private var ssrTreeBuilder: ShadowTreeBuilder?
+    private var ssrBoundaryManager: BoundaryManager?
+    private var ssrCoordinator: SSRCoordinator?
+    private var ssrDataTask: URLSessionDataTask?
+    private var ssrFlightDataBuffer: [String] = []
+    private var ssrViewRegistry: ViewRegistry?
+    private var ssrMutationApplier: UIKitMutationApplier?
+    private var ssrRevealHasOccurred: Bool = false
+
+    /// Renders using server-side rendering for instant display.
+    ///
+    /// Pipeline:
+    /// 1. Start URLSession data task for /ssr endpoint
+    /// 2. As data arrives, feed chunks to InstructionStreamParser
+    /// 3. Parser builds shadow tree and creates UIKit views (immediate display)
+    /// 4. In background: load JS bundle, boot React runtime
+    /// 5. React renders → $$completeRoot → atomic swap → interactive
+    ///
+    /// - Parameters:
+    ///   - serverURL: URL of the RSC server (e.g. "http://localhost:6000").
+    ///   - comp    d when SSR content is first displayed or an error occurs.
+    public func renderWithSSR(serverURL: String, completion: ((Error?) -> Void)? = nil) {
+        guard !isUnmounted else {
+            print("[ReactDomNativeKit] Warning: Cannot render to an unmounted root.")
+            completion?(RootError.alreadyUnmounted)
+            return
+        }
+
+        // Set up SSR infrastructure
+        let treeBuilder = ShadowTreeBuilder(
+            surfaceId: options.surfaceId,
+            viewportWidth: Float(container.bounds.width > 0 ? container.bounds.width : 390),
+            viewportHeight: Float(container.bounds.height > 0 ? container.bounds.height : 844)
+        )
+
+        let boundaryManager = BoundaryManager(treeBuilder: treeBuilder)
+        let parser = InstructionStreamParser()
+
+        // Set up the SSR coordinator as the delegate
+        let coordinator = SSRCoordinator(
+            treeBuilder: treeBuilder,
+            boundaryManager: boundaryManager,
+            rootView: container,
+            flightDataBuffer: ssrFlightDataBuffer
+        )
+        parser.delegate = coordinator
+
+        // Wire boundary reveal callback — when streaming content arrives
+        // and replaces fallback, rebuild all views from the updated tree.
+        coordinator.onViewsNeedUpdate = { [weak self] updatedRootChildren in
+            guard let self = self else { return }
+            self.ssrRevealHasOccurred = true
+            // Clear existing views and recreate from updated tree
+            self.container.subviews.forEach { $0.removeFromSuperview() }
+
+            let viewRegistry = ViewRegistry()
+            let applier = UIKitMutationApplier(viewRegistry: viewRegistry)
+            self.ssrViewRegistry = viewRegistry
+            self.ssrMutationApplier = applier
+
+            self.createViewsFromTree(updatedRootChildren, applier: applier, rootView: self.container)
+            print("[ReactDomNativeKit] Boundary revealed — views updated")
+        }
+
+        // Store references (coordinator must be retained — parser.delegate is weak)
+        self.ssrParser = parser
+        self.ssrTreeBuilder = treeBuilder
+        self.ssrBoundaryManager = boundaryManager
+        self.ssrCoordinator = coordinator
+
+        // Handle root completion — first paint
+        treeBuilder.onRootComplete = { [weak self] rootChildren in
+            guard let self = self else { return }
+            DispatchQueue.main.async {
+                // If a boundary reveal already ran synchronously before this
+                // async block, the views are already correct — skip to avoid
+                // overwriting with stale pre-reveal views.
+                guard !self.ssrRevealHasOccurred else {
+                    print("[ReactDomNativeKit] SSR root complete skipped — reveal already occurred")
+                    completion?(nil)
+                    return
+                }
+
+                // Create UIKit views from the shadow tree
+                let viewRegistry = ViewRegistry()
+                let applier = UIKitMutationApplier(viewRegistry: viewRegistry)
+                self.ssrViewRegistry = viewRegistry
+                self.ssrMutationApplier = applier
+
+                // Generate mutations from the shadow tree and apply them.
+                // For root-level nodes, we create + insert into the container.
+                self.createViewsFromTree(rootChildren, applier: applier, rootView: self.container)
+
+                print("[ReactDomNativeKit] SSR first paint complete (\(rootChildren.count) root children)")
+                completion?(nil)
+
+                // TODO: re-enable hydration after SSR content is verified
+                // self.startHydration(serverURL: serverURL)
+            }
+        }
+
+        // Start streaming SSR data
+        guard let ssrURL = URL(string: serverURL + "/ssr") else {
+            completion?(RootError.downloadFailed(NSError(domain: "ReactDomNativeKit", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid SSR URL"])))
+            return
+        }
+
+        let session = URLSession(
+            configuration: .default,
+            delegate: SSRStreamDelegate(parser: parser),
+            delegateQueue: .main
+        )
+        let task = session.dataTask(with: ssrURL)
+        self.ssrDataTask = task
+        task.resume()
+    }
+
+    /// Start JS runtime and hydrate after SSR content is displayed.
+    private func startHydration(serverURL: String) {
+        // Load the JS bundle and render normally
+        // React will diff against the SSR tree and attach event handlers
+        render(serverURL: serverURL) { [weak self] error in
+            if let error = error {
+                print("[ReactDomNativeKit] Hydration failed: \(error)")
+                self?.options.onRecoverableError?(error)
+            } else {
+                print("[ReactDomNativeKit] Hydration complete — app is interactive")
+                // Clean up SSR state
+                self?.ssrParser = nil
+                self?.ssrTreeBuilder = nil
+                self?.ssrBoundaryManager = nil
+                self?.ssrCoordinator = nil
+                self?.ssrFlightDataBuffer.removeAll()
+            }
+        }
+    }
+
+    /// Creates UIKit views from the SSR shadow tree and adds them to the root view.
+    private func createViewsFromTree(
+        _ nodes: [ShadowNodeWrapper],
+        applier: UIKitMutationApplier,
+        rootView: UIView
+    ) {
+        // Use the Differentiator to generate CREATE + INSERT mutations,
+        // then apply them via the mutation applier.
+        var mutations: [Mutation] = []
+
+        for node in nodes {
+            collectCreateMutations(node: node, mutations: &mutations)
+        }
+
+        applier.applyMutations(mutations, rootView: rootView)
+
+        // Create a scroll view wrapper (matching Bindings.registerSurface)
+        let scrollView = UIScrollView(frame: rootView.bounds)
+        scrollView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        scrollView.contentInsetAdjustmentBehavior = .automatic
+        rootView.addSubview(scrollView)
+
+        // Add root-level views as subviews of the scroll view
+        guard let registry = ssrViewRegistry else { return }
+        for node in nodes {
+            if let view = registry.view(for: node.family) {
+                scrollView.addSubview(view)
+            }
+        }
+
+        // Compute content height recursively (matching reconciler path).
+        // Yoga can undercompute parent height when block children have margins
+        // that extend beyond the flex container's computed height.
+        let contentHeight = ShadowTreeLayout.computeActualContentHeight(for: nodes)
+
+        // Set scroll content size for document-level scrolling
+        scrollView.contentSize = CGSize(
+            width: scrollView.bounds.width,
+            height: contentHeight
+        )
+    }
+
+    /// Recursively collects CREATE + INSERT mutations for a subtree.
+    private func collectCreateMutations(
+        node: ShadowNodeWrapper,
+        mutations: inout [Mutation]
+    ) {
+        mutations.append(.create(node: node))
+
+        for (index, child) in node.children.enumerated() {
+            collectCreateMutations(node: child, mutations: &mutations)
+            mutations.append(.insert(parent: node, child: child, index: index))
         }
     }
 

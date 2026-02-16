@@ -5,6 +5,15 @@
 // Instantiates React's Fizz renderer with NativeFizzConfig and provides
 // renderToPipeableStream(), the same API shape as ReactDOMServer.
 
+var React = require('react');
+
+// Fizz expects these internals to be initialized by the server renderer
+// before createRequest is called.
+var ReactSharedInternals =
+  React.__SERVER_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
+ReactSharedInternals.getCurrentStack = null;
+ReactSharedInternals.recentlyCreatedOwnerStacks = 0;
+
 var ReactServer = require('react-server');
 var NativeFizzConfig = require('./NativeFizzConfig');
 

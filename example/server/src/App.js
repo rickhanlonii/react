@@ -1,4 +1,5 @@
 const React = require('react');
+const { Suspense } = React;
 const Counter = require('./components/Counter');
 const TextInput = require('./components/TextInput');
 
@@ -7,6 +8,11 @@ const d = {
   border: '1px solid rgba(255, 0, 0, 0.4)',
   backgroundColor: 'rgba(255, 0, 0, 0.05)',
 };
+
+async function SlowSection({ delay, title, children }) {
+  await new Promise(resolve => setTimeout(resolve, delay));
+  return <div style={d}><h2 style={d}>{title}</h2>{children}</div>;
+}
 
 function App() {
   const timestamp = new Date().toLocaleTimeString();
@@ -59,47 +65,47 @@ function App() {
           H<sub>2</sub>O and E=mc<sup>2</sup> show subscript and superscript.
         </p>
       </div>
-
-      {/* ── Block Containers ── */}
+      
+      {/*/!* ── Block Containers ── *!/*/}
       <div style={d}>
         <h2 style={d}>Block Containers</h2>
-
+      
         <address style={d}>
           123 Main Street{'\n'}
           San Francisco, CA 94105
         </address>
-
+      
         <blockquote style={d}>
           <p style={d}>The best way to predict the future is to invent it.</p>
         </blockquote>
-
+      
         <figure style={d}>
           <div style={d}>
             <p style={d}>[Image placeholder]</p>
           </div>
           <figcaption style={d}>Figure 1: A placeholder image</figcaption>
         </figure>
-
+      
         <pre style={d}>
           {'function hello() {\n  return "world";\n}'}
         </pre>
-
+      
         <details style={d}>
           <summary style={d}>Click to expand</summary>
           <p style={d}>This is the expanded content inside details.</p>
         </details>
-
+      
         <dialog style={d}>
           <p style={d}>This is a dialog box with a border.</p>
         </dialog>
-
+      
         <fieldset style={d}>
           <legend style={d}>User Info</legend>
           <p style={d}>Name: Jane Doe</p>
           <p style={d}>Email: jane@example.com</p>
         </fieldset>
       </div>
-
+      
       {/* ── Definition Lists ── */}
       <div style={d}>
         <h2 style={d}>Definition Lists</h2>
@@ -112,45 +118,45 @@ function App() {
           <dd style={d}>A cross-platform layout engine implementing Flexbox.</dd>
         </dl>
       </div>
-
       {/* ── Tables ── */}
-      <div style={d}>
-        <h2 style={d}>Tables</h2>
-        <table style={d}>
-          <caption style={d}>Element Support Matrix</caption>
-          <thead style={d}>
-            <tr style={d}>
-              <th style={d}>Element</th>
-              <th style={d}>Category</th>
-              <th style={d}>Status</th>
-            </tr>
-          </thead>
-          <tbody style={d}>
-            <tr style={d}>
-              <td style={d}>div</td>
-              <td style={d}>Block</td>
-              <td style={d}>Supported</td>
-            </tr>
-            <tr style={d}>
-              <td style={d}>table</td>
-              <td style={d}>Table</td>
-              <td style={d}>Supported</td>
-            </tr>
-            <tr style={d}>
-              <td style={d}>video</td>
-              <td style={d}>Media</td>
-              <td style={d}>Placeholder</td>
-            </tr>
-          </tbody>
-          <tfoot style={d}>
-            <tr style={d}>
-              <td style={d}>Total</td>
-              <td style={d}>—</td>
-              <td style={d}>45+</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+      <Suspense fallback={<p style={d}>Loading tables...</p>}>
+        <SlowSection delay={1000} title="Tables (streamed)">
+          <table style={d}>
+            <caption style={d}>Element Support Matrix</caption>
+            <thead style={d}>
+              <tr style={d}>
+                <th style={d}>Element</th>
+                <th style={d}>Category</th>
+                <th style={d}>Status</th>
+              </tr>
+            </thead>
+            <tbody style={d}>
+              <tr style={d}>
+                <td style={d}>div</td>
+                <td style={d}>Block</td>
+                <td style={d}>Supported</td>
+              </tr>
+              <tr style={d}>
+                <td style={d}>table</td>
+                <td style={d}>Table</td>
+                <td style={d}>Supported</td>
+              </tr>
+              <tr style={d}>
+                <td style={d}>video</td>
+                <td style={d}>Media</td>
+                <td style={d}>Placeholder</td>
+              </tr>
+            </tbody>
+            <tfoot style={d}>
+              <tr style={d}>
+                <td style={d}>Total</td>
+                <td style={d}>—</td>
+                <td style={d}>45+</td>
+              </tr>
+            </tfoot>
+          </table>
+        </SlowSection>
+      </Suspense>
 
       {/* ── Form Controls ── */}
       <div style={d}>
@@ -163,15 +169,16 @@ function App() {
       </div>
 
       {/* ── Media Placeholders ── */}
-      <div style={d}>
-        <h2 style={d}>Media</h2>
-        <video style={d}>
-          <p style={d}>Video placeholder</p>
-        </video>
-        <audio style={d}>
-          <p style={d}>Audio player placeholder</p>
-        </audio>
-      </div>
+      <Suspense fallback={<p style={d}>Loading media...</p>}>
+        <SlowSection delay={2500} title="Media (streamed)">
+          <video style={d}>
+            <p style={d}>Video placeholder</p>
+          </video>
+          <audio style={d}>
+            <p style={d}>Audio player placeholder</p>
+          </audio>
+        </SlowSection>
+      </Suspense>
 
       <p style={d}>
         {`Rendered at ${timestamp}`}

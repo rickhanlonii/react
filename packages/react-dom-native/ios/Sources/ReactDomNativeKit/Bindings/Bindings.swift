@@ -134,37 +134,19 @@ public class Bindings {
 
             let type = engine.toString(args[0]) ?? "div"
             let surfaceId = engine.toInt(args[1]) ?? 0
-            var props = engine.toDictionary(args[2]) ?? [:]
+            let props = engine.toDictionary(args[2]) ?? [:]
             // args[3] = isInsideTextContext (unused for now)
             let instanceHandle = args[4]
-
-            // Merge element-type defaults with user-supplied style
-            let userStyle = props["style"] as? [String: Any]
-            let mergedStyle = ElementDefaults.mergedStyle(for: type, userStyle: userStyle)
-            if !mergedStyle.isEmpty {
-                props["style"] = mergedStyle
-            }
-
-            let family = ShadowNodeFamily(
-                elementType: type,
-                surfaceId: surfaceId,
-                instanceHandle: instanceHandle
-            )
 
             // Protect the instance handle from GC
             engine.protect(instanceHandle)
 
-            let node = ShadowNodeWrapper(
+            let node = ShadowNodeWrapper.createElementNode(
+                type: type,
                 props: props,
-                children: [],
-                family: family,
-                text: nil
+                surfaceId: surfaceId,
+                instanceHandle: instanceHandle
             )
-
-            // Apply merged style props to Yoga node
-            if let style = props["style"] as? [String: Any] {
-                YogaStyleApplier.apply(style, to: node.yogaNode)
-            }
 
             let nodeId = self.registerNode(node)
             return engine.makeNumber(Double(nodeId))
@@ -481,12 +463,9 @@ public class Bindings {
         YGNodeCalculateLayout(rootNode, Float(bounds.width), .nan, .LTR)
 
         // 3b. Post-layout text re-measurement
-        // Yoga may flex-shrink text nodes narrower than their measured width.
-        // The height was computed at the wider width (single line), not the
-        // narrower layout width (multi-line). Mark dirty and re-layout.
         var needsSecondPass = false
         for child in children {
-            if markShrunkTextNodesDirty(child) {
+            if ShadowTreeLayout.markTextNodesNeedingRemeasure(child) {
                 needsSecondPass = true
             }
         }
@@ -495,20 +474,14 @@ public class Bindings {
         }
 
         // Read content size from temp root (which has unbounded height)
-        // Yoga's flex column layout may compute a height smaller than the
-        // actual child extent. This happens because the root <div> uses
-        // display:block, and Yoga doesn't fully account for block-level
-        // children's default vertical margins when computing the flex
-        // container height. We work around this by walking children after
-        // layout to find the true content bottom.
         let yogaHeight = CGFloat(YGNodeLayoutGetHeight(rootNode))
 
         // 4. Walk tree reading layout results into layoutFrame
         for child in children {
-            readYogaLayout(from: child)
+            ShadowTreeLayout.readLayoutFrames(node: child)
         }
 
-        let actualHeight = computeActualContentHeight(for: children)
+        let actualHeight = ShadowTreeLayout.computeActualContentHeight(for: children)
         let contentSize = CGSize(
             width: CGFloat(YGNodeLayoutGetWidth(rootNode)),
             height: max(yogaHeight, actualHeight)
@@ -516,7 +489,7 @@ public class Bindings {
 
         // 4b. Compute scroll content sizes for overflow:scroll/auto nodes
         for child in children {
-            computeScrollContentSizes(for: child)
+            ShadowTreeLayout.computeScrollContentSizes(for: child)
         }
 
         // 5. Remove children from temporary root (ownership stays with ShadowNodeWrappers)
@@ -526,117 +499,6 @@ public class Bindings {
         YGNodeFree(rootNode)
 
         return contentSize
-    }
-
-    /// Recursively read Yoga layout results into each node's layoutFrame.
-    private func readYogaLayout(from node: ShadowNodeWrapper) {
-        node.layoutFrame = CGRect(
-            x: CGFloat(YGNodeLayoutGetLeft(node.yogaNode)),
-            y: CGFloat(YGNodeLayoutGetTop(node.yogaNode)),
-            width: CGFloat(YGNodeLayoutGetWidth(node.yogaNode)),
-            height: CGFloat(YGNodeLayoutGetHeight(node.yogaNode))
-        )
-        for child in node.children {
-            readYogaLayout(from: child)
-        }
-    }
-
-    /// Compute the actual content height by finding the maximum bottom
-    /// coordinate of all children. This handles cases where Yoga's flex
-    /// column parent computes a height smaller than child positions require
-    /// (e.g. when block-display children have margins that extend beyond
-    /// the flex container's computed height).
-    private func computeActualContentHeight(for nodes: [ShadowNodeWrapper]) -> CGFloat {
-        var maxBottom: CGFloat = 0
-        for node in nodes {
-            let nodeBottom = node.layoutFrame.origin.y + node.layoutFrame.height
-            maxBottom = max(maxBottom, nodeBottom)
-            // Check children recursively — a node's children might extend
-            // beyond the node's own computed height
-            let childrenMaxBottom = computeActualContentHeight(for: node.children)
-            if childrenMaxBottom > node.layoutFrame.height {
-                maxBottom = max(maxBottom, node.layoutFrame.origin.y + childrenMaxBottom)
-            }
-        }
-        return maxBottom
-    }
-
-    /// Recursively check for text nodes that were flex-shrunk narrower than their
-    /// measured width. Marks them dirty so Yoga re-measures at the correct width.
-    /// Returns true if any node was marked dirty.
-    private func markShrunkTextNodesDirty(_ node: ShadowNodeWrapper) -> Bool {
-        var anyDirty = false
-        if node.family.elementType == "#text" {
-            if YogaTextMeasure.needsRemeasure(yogaNode: node.yogaNode) {
-                YGNodeMarkDirty(node.yogaNode)
-                anyDirty = true
-            }
-        }
-        for child in node.children {
-            if markShrunkTextNodesDirty(child) {
-                anyDirty = true
-            }
-        }
-        return anyDirty
-    }
-
-    /// For nodes with overflow:scroll/auto, re-layout children with unbounded
-    /// height to compute the natural content size. Yoga's flex-shrink would
-    /// otherwise constrain children to the parent's height.
-    private func computeScrollContentSizes(for node: ShadowNodeWrapper) {
-        let style = node.props["style"] as? [String: Any] ?? [:]
-        let overflow = style["overflow"] as? String
-
-        if overflow == "scroll" || overflow == "auto" {
-            // Create temp root with same width but unbounded height
-            let tempRoot = YGNodeNewWithConfig(YogaConfig.shared)!
-            YGNodeStyleSetFlexDirection(tempRoot, YGNodeStyleGetFlexDirection(node.yogaNode))
-            YGNodeStyleSetWidth(tempRoot, Float(node.layoutFrame.width))
-
-            // Copy gap from original node
-            let gap = YGNodeStyleGetGap(node.yogaNode, .all)
-            if gap.unit == .point {
-                YGNodeStyleSetGap(tempRoot, .all, gap.value)
-            } else if gap.unit == .percent {
-                YGNodeStyleSetGapPercent(tempRoot, .all, gap.value)
-            }
-
-            // Reparent children to temp root
-            for (index, child) in node.children.enumerated() {
-                if let owner = YGNodeGetOwner(child.yogaNode) {
-                    YGNodeRemoveChild(owner, child.yogaNode)
-                }
-                YGNodeInsertChild(tempRoot, child.yogaNode, index)
-            }
-
-            // Layout with unbounded height
-            YGNodeCalculateLayout(tempRoot, Float(node.layoutFrame.width), .nan, .LTR)
-
-            // Read natural content size and update children's layoutFrames
-            var contentHeight: CGFloat = 0
-            for child in node.children {
-                let bottom = CGFloat(YGNodeLayoutGetTop(child.yogaNode))
-                           + CGFloat(YGNodeLayoutGetHeight(child.yogaNode))
-                contentHeight = max(contentHeight, bottom)
-                readYogaLayout(from: child)
-            }
-            node.scrollContentSize = CGSize(
-                width: node.layoutFrame.width,
-                height: contentHeight
-            )
-
-            // Restore children to original parent
-            YGNodeRemoveAllChildren(tempRoot)
-            for (index, child) in node.children.enumerated() {
-                YGNodeInsertChild(node.yogaNode, child.yogaNode, index)
-            }
-            YGNodeFree(tempRoot)
-        }
-
-        // Recurse (children may also be scroll containers)
-        for child in node.children {
-            computeScrollContentSizes(for: child)
-        }
     }
 
     // MARK: - Measurement

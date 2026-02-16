@@ -38,7 +38,7 @@ class FalconRootViewController: UIViewController {
         root = createRoot(view)
 
         // Render: load framework bundle, then fetch RSC stream from server
-        root?.render(serverURL: serverURL()) { [weak self] error in
+        root?.renderWithSSR(serverURL: serverURL()) { [weak self] error in
             if let error = error {
                 print("[Falcon] Render failed: \(error)")
                 self?.showError(error)
@@ -56,12 +56,12 @@ class FalconRootViewController: UIViewController {
 
     override var keyCommands: [UIKeyCommand]? {
         return [
-            UIKeyCommand(input: "r", modifierFlags: .command, action: #selector(reloadBundle))
+            UIKeyCommand(input: "r", modifierFlags: [.command, .shift], action: #selector(reloadBundle))
         ]
     }
 
     @objc private func reloadBundle() {
-        print("[Falcon] Manual reload (Cmd+R)...")
+        print("[Falcon] Manual reload (Cmd+Shift+R)...")
         root?.reload(serverURL: serverURL()) { error in
             if let error = error {
                 print("[Falcon] Reload failed: \(error)")

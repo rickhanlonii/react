@@ -18,6 +18,7 @@ var esbuild = require('esbuild');
 var React = require('react');
 var path = require('path');
 var url = require('url');
+var {PassThrough} = require('stream');
 
 var app = express();
 var PORT = 6000;
@@ -192,6 +193,92 @@ app.get('/', function (req, res) {
     require('react-server-dom-webpack/server').renderToPipeableStream;
   var stream = renderToPipeableStream(element, clientManifest);
   stream.pipe(res);
+});
+
+// ---------------------------------------------------------------------------
+// SSR endpoint — produces native instruction stream
+//
+// Pipeline: RSC components → Flight stream → Flight client (in-process)
+//           → React elements → Native SSR → instruction stream
+// ---------------------------------------------------------------------------
+
+// Build SSR module map: maps module IDs to actual component requires.
+// The Flight client uses this to resolve client references (I rows) to
+// real component functions during SSR.
+function buildSSRModuleMap() {
+  var moduleMap = {};
+  var components = ['Counter', 'TextInput'];
+
+  for (var i = 0; i < components.length; i++) {
+    var name = components[i];
+    // Map module ID (used in Flight I rows) to an object that
+    // has a '*' or 'default' export returning the component.
+    // For SSR, we require the actual JSX file directly.
+    moduleMap[name] = {
+      '*': {id: name, chunks: [], name: '*'},
+      'default': {id: name, chunks: [], name: 'default'},
+    };
+  }
+
+  return moduleMap;
+}
+
+var ssrModuleMap = buildSSRModuleMap();
+
+app.get('/ssr', function (req, res) {
+  clearServerSourceCache();
+
+  var App = require('./src/App');
+  var AppComponent = App.default || App;
+  var element = React.createElement(AppComponent);
+
+  // Step 1: Render RSC → Flight stream
+  var renderToFlightStream =
+    require('react-server-dom-webpack/server').renderToPipeableStream;
+  var flightStream = renderToFlightStream(element, clientManifest);
+
+  // Step 2: Feed Flight stream directly to Flight client (no buffering).
+  // The Flight client resolves chunks lazily — async server components
+  // remain as unresolved thenables until their Flight chunks arrive.
+  var passThrough = new PassThrough();
+  flightStream.pipe(passThrough);
+
+  var createFromNodeStream =
+    require('react-server-dom-webpack/client.node').createFromNodeStream;
+
+  var ssrManifest = {
+    moduleMap: ssrModuleMap,
+    moduleLoading: null,
+    serverModuleMap: null,
+  };
+
+  var rootPromise = createFromNodeStream(passThrough, ssrManifest);
+
+  // Step 3: Wait for root element, then render with Fizz.
+  // Fizz handles lazy/thenable resolution natively (suspends and retries).
+  Promise.resolve(rootPromise).then(function (rootElement) {
+    var nativeSSR = require('react-dom-native/server');
+
+    var renderToNativeStream = nativeSSR.renderToPipeableStream;
+    var nativeStream = renderToNativeStream(rootElement, {
+      onShellReady: function () {
+        res.setHeader('Content-Type', 'application/x-native-ssr');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Cache-Control', 'no-cache');
+        nativeStream.pipe(res);
+      },
+      onShellError: function (error) {
+        console.error('[SSR] Shell error:', error);
+        res.status(500).send('SSR shell error: ' + error.message);
+      },
+      onError: function (error) {
+        console.error('[SSR] Error:', error);
+      },
+    });
+  }).catch(function (error) {
+    console.error('[SSR] Flight client error:', error);
+    res.status(500).send('SSR error: ' + error.message);
+  });
 });
 
 app.listen(PORT, function () {

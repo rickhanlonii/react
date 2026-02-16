@@ -121,8 +121,8 @@ exports.pushStartInstance = function pushStartInstance(
   } else {
     writeInstruction(target, ['O', type]);
   }
-  // Return the child format context indicator (textEmbedded is used by Fizz)
-  return null;
+  // Return children for Fizz to render
+  return props.children;
 };
 
 exports.pushEndInstance = function pushEndInstance(
@@ -346,10 +346,9 @@ exports.writePlaceholder = function writePlaceholder(
 
 exports.writeCompletedSegmentInstruction = function writeCompletedSegmentInstruction(
   destination,
+  resumableState,
   renderState,
-  contentSegmentID,
-  boundaryID,
-  hoistableState,
+  segmentID,
 ) {
   // Segment content is already written inline via S/segment
   return true;
@@ -357,11 +356,10 @@ exports.writeCompletedSegmentInstruction = function writeCompletedSegmentInstruc
 
 exports.writeCompletedBoundaryInstruction = function writeCompletedBoundaryInstruction(
   destination,
+  resumableState,
   renderState,
   boundaryID,
-  contentSegmentID,
-  resources,
-  hoistableState,
+  contentState,
 ) {
   const line = JSON.stringify(['X', boundaryID]) + '\n';
   return destination.write(line);
@@ -369,6 +367,7 @@ exports.writeCompletedBoundaryInstruction = function writeCompletedBoundaryInstr
 
 exports.writeClientRenderBoundaryInstruction = function writeClientRenderBoundaryInstruction(
   destination,
+  resumableState,
   renderState,
   boundaryID,
   errorDigest,

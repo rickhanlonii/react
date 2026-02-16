@@ -62,6 +62,57 @@ public class ShadowNodeWrapper {
         YGNodeFree(yogaNode)
     }
 
+    // MARK: - Factory
+
+    /// Creates an element node with defaults merged and Yoga styles applied.
+    ///
+    /// Encapsulates the 4-step creation sequence shared by the reconciler
+    /// ($$createNode) and SSR (openElement) paths:
+    /// 1. Merge element defaults with user style
+    /// 2. Create ShadowNodeFamily
+    /// 3. Create ShadowNodeWrapper
+    /// 4. Apply Yoga styles
+    ///
+    /// Text node creation is NOT unified here — font inheritance timing
+    /// differs between paths.
+    public static func createElementNode(
+        type: String,
+        props: [String: Any],
+        surfaceId: Int,
+        instanceHandle: AnyObject? = nil
+    ) -> ShadowNodeWrapper {
+        // 1. Merge element-type defaults with user-supplied style
+        let userStyle = props["style"] as? [String: Any]
+        let mergedStyle = ElementDefaults.mergedStyle(for: type, userStyle: userStyle)
+
+        var nodeProps = props
+        if !mergedStyle.isEmpty {
+            nodeProps["style"] = mergedStyle
+        }
+
+        // 2. Create family
+        let family = ShadowNodeFamily(
+            elementType: type,
+            surfaceId: surfaceId,
+            instanceHandle: instanceHandle
+        )
+
+        // 3. Create node
+        let node = ShadowNodeWrapper(
+            props: nodeProps,
+            children: [],
+            family: family,
+            text: nil
+        )
+
+        // 4. Apply Yoga styles
+        if !mergedStyle.isEmpty {
+            YogaStyleApplier.apply(mergedStyle, to: node.yogaNode)
+        }
+
+        return node
+    }
+
     // MARK: - Cloning helpers
 
     /// Clone with new props, keeping existing children.

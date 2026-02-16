@@ -5292,7 +5292,7 @@
       prevGroupEnd;
     disabledLog.__reactDisabledLog = !0;
     var ReactSharedInternals =
-        React.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE,
+        React.__SERVER_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE,
       prefix,
       suffix,
       reentry = !1;
