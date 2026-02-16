@@ -521,6 +521,7 @@ public enum ElementDefaults {
     ]
 
     private static let monospaceDefaults: [String: Any] = [
+        "display": "inline-block",
         "flexDirection": "row",
         "flexShrink": 1,
         "alignItems": "center",

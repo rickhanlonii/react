@@ -85,6 +85,24 @@ be used when explicitly requested via slash command.
 
 ## Development Workflow
 
+### Running tests
+
+**JS unit tests** (renderer, components, yoga-layout, bridge, flight-client):
+```bash
+npm test
+```
+
+**Swift unit tests** (ElementDefaults, YogaStyleApplier, UIKitHelpers):
+```bash
+npm run test:swift
+```
+This runs `xcodebuild test` with the `ReactDomNativeKit-Package` scheme on the iOS Simulator. Don't use `swift test` (UIKit isn't available on macOS) or the MCP `test_sim` tool (the SPM package has no `.xcodeproj`).
+
+**Fantom integration tests** (JS ↔ Swift end-to-end via headless runner):
+```bash
+npm run test:fantom
+```
+
 ### Dev server
 
 Run `cd example && npm run dev` to start:

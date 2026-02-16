@@ -467,7 +467,13 @@ public class UIKitMutationApplier: NSObject {
         }
 
         // Build font
-        var font = UIFont.systemFont(ofSize: size, weight: weight)
+        var font: UIFont
+        if let family = style["fontFamily"] as? String,
+           let customFont = UIFont(name: family, size: size) {
+            font = customFont
+        } else {
+            font = UIFont.systemFont(ofSize: size, weight: weight)
+        }
 
         // Apply italic via font descriptor traits
         if let fontStyle = style["fontStyle"] as? String, fontStyle == "italic" {
