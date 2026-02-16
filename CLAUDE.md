@@ -4,8 +4,8 @@ A React framework that uses HTML elements (`<div>`, `<span>`, `<p>`, etc.) as th
 
 ## Architecture
 
-- **Renderer**: Custom React reconciler (mutation mode) using `react-reconciler`, calling into C++ shadow tree via JSI
-- **Shadow Tree**: C++ shadow nodes with embedded Yoga nodes, inspired by Fabric but simplified for fixed HTML elements
+- **Renderer**: Custom React reconciler (mutation mode) using `react-reconciler`, calling into Swift shadow tree via JavaScriptCore
+- **Shadow Tree**: Swift shadow nodes with Yoga layout, inspired by Fabric but simplified for fixed HTML elements
 - **Layout**: Yoga with web-like defaults — `<div>` = column/block, `<span>` = virtual text (no UIView)
 - **Server**: Next.js handles RSC rendering, Flight wire protocol, streaming
 - **Client**: Native iOS app receives Flight stream, deserializes with `react-client/flight`, feeds custom renderer
@@ -15,8 +15,8 @@ A React framework that uses HTML elements (`<div>`, `<span>`, `<p>`, etc.) as th
 
 ## Key Design Decisions
 
-- **No NativeComponentRegistry**: `<div>` passed as raw string over bridge, created in C++
-- **No reactTag**: Node identity via InstanceHandle (JSI object refs) and ShadowNode pointers
+- **No NativeComponentRegistry**: `<div>` passed as raw string over bridge, created in Swift
+- **No reactTag**: Node identity via InstanceHandle (object refs) and ShadowNode pointers
 - **No ViewConfig**: Fixed HTML element set with known props/events, no runtime validation
 - **Discrete events on main thread**: Click/press dispatch synchronously
 - **Fixed DOM event set**: onClick, onChange, onScroll, etc. — no dynamic registration
@@ -71,23 +71,17 @@ Next.js (RSC server) → Flight stream (HTTP) → Native iOS client
 
 ## Skills
 
-Run `/check-status` to see overall progress. Run `/resume-work` to pick up where the last session left off.
-
-### Dependencies
-`/install-dependencies` — installs all npm and native dependencies upfront
-
-### Implementation (in dependency order)
-1. `/impl-renderer` (first — no impl dependencies)
-2. `/impl-js-bridge` + `/impl-yoga-layout` (parallel, no cross-dependency)
-3. `/impl-xcode-project` (depends on bridge)
-4. `/impl-html-components` (depends on renderer + yoga)
-5. `/impl-flight-client` (depends on renderer + bridge)
-6. `/impl-build-system` (depends on bridge)
-7. `/impl-devtools` (depends on build-system)
-8. `/impl-fantom` (depends on renderer + bridge — integration testing framework)
-
-### Testing
 `/test-unit`, `/test-e2e`
+
+## Superpowers
+
+Only invoke these superpowers skills proactively:
+- `brainstorming` — before creative/design work
+- `writing-plans` — before multi-step implementation
+- `dispatching-parallel-agents` — when 2+ independent tasks exist
+
+All other superpowers skills (TDD, debugging, verification, etc.) should only
+be used when explicitly requested via slash command.
 
 ## Development Workflow
 
@@ -140,8 +134,3 @@ Reference descriptors with exact values: `docs/research/html-elements/`
 
 - **Commit completed work** before ending a session. Don't leave uncommitted changes spanning multiple features.
 - **One concern per set of uncommitted changes.** If starting a new feature, commit or stash the current work first.
-- The `/resume-work` skill relies on clean git state to determine where to pick up.
-
-## Progress
-
-See `docs/master-plan.md` for full progress tracker with checkboxes.

@@ -6,8 +6,6 @@
       "Bash(npx:*)",
       "Bash(node:*)",
       "Bash(git:*)",
-      "Bash(ls:*)",
-      "Bash(cat:*)",
       "Bash(mkdir:*)",
       "Bash(swift build:*)",
       "Bash(swift test:*)",

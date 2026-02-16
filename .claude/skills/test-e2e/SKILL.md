@@ -5,16 +5,11 @@ description: Run end-to-end test — start RSC server, build iOS app, verify nat
 
 # End-to-End Test
 
-## Dependencies
-
-This skill requires packages installed by `/install-dependencies`.
-If not already run, run `/install-dependencies` first.
-
 ## Prerequisites
 
-- `/install-dependencies` must be run
-- `/impl-xcode-project` must be run (example/Falcon/ must have Xcode project and Swift sources)
-- All impl skills must be complete
+- npm dependencies installed (`cd example && npm install`)
+- Xcode project exists at `example/Falcon/`
+- XcodeBuildMCP session defaults configured (scheme, simulator)
 
 ## Instructions
 
@@ -29,18 +24,18 @@ If not already run, run `/install-dependencies` first.
    cd /Users/rickhanlonii/oss/falcon && npm run build
    ```
 
-3. **Build iOS app** (simulator):
-   ```bash
-   cd /Users/rickhanlonii/oss/falcon/example/Falcon && xcodebuild -scheme Falcon -destination 'platform=iOS Simulator,name=iPhone 16'
-   ```
+3. **Build and run iOS app** (simulator):
+   Use the XcodeBuildMCP `build_run_sim` tool. If session defaults aren't set, first call `session_set_defaults` with the Falcon scheme and a simulator.
 
 4. **Verify**:
    - Check build succeeded
-   - If the app can be launched in simulator, verify it connects to the RSC server
-   - Check for any crash logs
+   - Use the `screenshot` tool to capture the simulator screen
+   - Use the `snapshot_ui` tool to inspect the view hierarchy
+   - Verify the app connects to the RSC server and renders content
 
 5. **Cleanup**:
    - Kill the RSC dev server
+   - Use `stop_app_sim` to stop the app
    - Report build results
 
 6. If anything fails, document the failure and suggest what needs to be fixed.
