@@ -85,6 +85,15 @@ public class ViewRegistry {
         return familyToView.count
     }
 
+    /// Copies all mappings from another registry into this one.
+    /// Used during hydration to transfer SSR view mappings to the runtime registry.
+    public func merge(from other: ViewRegistry) {
+        for (familyId, view) in other.familyToView {
+            familyToView[familyId] = view
+            viewToFamily[ObjectIdentifier(view)] = other.viewToFamily[ObjectIdentifier(view)]
+        }
+    }
+
     /// Removes all mappings. Called on surface teardown.
     public func clear() {
         familyToView.removeAll()

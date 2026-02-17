@@ -108,6 +108,36 @@ public class Bindings {
         currentTrees.removeValue(forKey: surfaceId)
     }
 
+    /// Registers a surface for hydration, reusing existing SSR views.
+    ///
+    /// Unlike `registerSurface`, this method:
+    /// 1. Moves existing SSR subviews from the container into the scroll view
+    /// 2. Pre-populates `currentTrees` with the SSR tree so the differentiator
+    ///    recognizes existing nodes (no duplicate CREATE mutations)
+    /// 3. Transfers SSR view registry entries so the mutation applier can find
+    ///    existing UIKit views
+    public func registerSurfaceForHydration(
+        surfaceId: Int,
+        rootView: UIView,
+        ssrTree: [ShadowNodeWrapper],
+        ssrViewRegistry: ViewRegistry
+    ) {
+        let scrollView = UIScrollView(frame: rootView.bounds)
+        scrollView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        scrollView.contentInsetAdjustmentBehavior = .automatic
+
+        // Move existing SSR views into the scroll view (avoids visual flash)
+        for subview in rootView.subviews {
+            subview.removeFromSuperview()
+            scrollView.addSubview(subview)
+        }
+        rootView.addSubview(scrollView)
+
+        rootViews[surfaceId] = scrollView
+        currentTrees[surfaceId] = ssrTree
+        viewRegistry.merge(from: ssrViewRegistry)
+    }
+
     /// Registers an SSR tree for hydration traversal.
     /// Called by Root.hydrateRoot() after SSR first paint completes.
     public func registerSSRTree(surfaceId: Int, rootChildren: [ShadowNodeWrapper]) {
@@ -744,6 +774,13 @@ public class Bindings {
         engine.setProperty(obj, "type", engine.makeString(node.family.elementType))
         if let text = node.text {
             engine.setProperty(obj, "text", engine.makeString(text))
+        }
+        // For #suspense nodes, expose pending/fallback state for hydration
+        if node.family.elementType == "#suspense" {
+            let pending = (node.props["pending"] as? Bool) ?? false
+            let fallback = (node.props["fallback"] as? Bool) ?? false
+            engine.setProperty(obj, "pending", engine.makeBool(pending))
+            engine.setProperty(obj, "fallback", engine.makeBool(fallback))
         }
         return obj
     }

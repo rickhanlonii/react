@@ -79,9 +79,18 @@ function hydrateRoot(nativeRootView, initialElement, options) {
     false,          // isStrictMode
     null,           // concurrentUpdatesByDefaultOverride
     '',             // identifierPrefix
-    options && options.onUncaughtError ? options.onUncaughtError : noop,
-    options && options.onCaughtError ? options.onCaughtError : noop,
-    options && options.onRecoverableError ? options.onRecoverableError : noop,
+    options && options.onUncaughtError ? options.onUncaughtError : function(error) {
+      console.log('[Hydration] Uncaught error: ' + error.message);
+      if (error.stack) console.log('[Hydration] Stack: ' + error.stack);
+    },
+    options && options.onCaughtError ? options.onCaughtError : function(error, errorInfo) {
+      console.log('[Hydration] Caught error: ' + error.message);
+      if (error.stack) console.log('[Hydration] Stack: ' + error.stack);
+    },
+    options && options.onRecoverableError ? options.onRecoverableError : function(error, errorInfo) {
+      console.log('[Hydration] Recoverable error: ' + error.message);
+      if (error.stack) console.log('[Hydration] Stack: ' + error.stack);
+    },
     noop,           // onDefaultTransitionIndicator
     null,           // transitionCallbacks
     null,           // formState

@@ -15,8 +15,8 @@ import Yoga
 // ---------------------------------------------------------------------------
 
 public class ShadowNodeWrapper {
-    /// The immutable props dictionary for this node revision.
-    public let props: [String: Any]
+    /// The props dictionary for this node revision.
+    public var props: [String: Any]
 
     /// Ordered children of this node (other ShadowNodeWrappers).
     public var children: [ShadowNodeWrapper]

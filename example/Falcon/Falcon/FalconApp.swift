@@ -42,6 +42,15 @@ class FalconRootViewController: UIViewController {
             if let error = error {
                 print("[Falcon] Render failed: \(error)")
                 self?.showError(error)
+            } else {
+                // SSR content is on screen — now hydrate to make it interactive
+                self?.root?.hydrateRoot(serverURL: self?.serverURL() ?? "") { error in
+                    if let error = error {
+                        print("[Falcon] Hydration failed: \(error)")
+                    } else {
+                        print("[Falcon] Hydration complete — app is interactive")
+                    }
+                }
             }
         }
 

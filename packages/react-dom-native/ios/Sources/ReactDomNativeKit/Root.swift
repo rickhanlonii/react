@@ -385,7 +385,15 @@ public class Root {
                 }
             }
 
-            runtime?.bindings.registerSurface(surfaceId: options.surfaceId, rootView: container)
+            // Use hydration-aware surface registration: moves SSR views into
+            // the scroll view and pre-populates the current tree so the
+            // differentiator won't create duplicate views.
+            runtime?.bindings.registerSurfaceForHydration(
+                surfaceId: options.surfaceId,
+                rootView: container,
+                ssrTree: treeBuilder.rootChildren,
+                ssrViewRegistry: ssrViewRegistry ?? ViewRegistry()
+            )
             setupLayoutObserver()
         }
 

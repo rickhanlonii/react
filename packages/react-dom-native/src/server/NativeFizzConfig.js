@@ -264,15 +264,17 @@ exports.writeStartCompletedSuspenseBoundary = function writeStartCompletedSuspen
   renderState,
   suspenseState,
 ) {
-  // Completed boundaries are inlined — no wrapper needed
-  return true;
+  // Emit a #suspense wrapper so hydration can match via canHydrateSuspenseInstance
+  const line = JSON.stringify(['O', '#suspense']) + '\n';
+  return destination.write(line);
 };
 
 exports.writeEndCompletedSuspenseBoundary = function writeEndCompletedSuspenseBoundary(
   destination,
   renderState,
 ) {
-  return true;
+  const line = JSON.stringify(['C']) + '\n';
+  return destination.write(line);
 };
 
 exports.writeStartPendingSuspenseBoundary = function writeStartPendingSuspenseBoundary(

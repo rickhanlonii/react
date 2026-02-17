@@ -27,15 +27,8 @@ class SSRCoordinator: InstructionStreamDelegate {
     /// Separate tree builders for segment content (one per boundary ID)
     private var segmentBuilders: [Int: ShadowTreeBuilder] = [:]
 
-    /// Tracks where in the main tree each boundary's fallback was inserted
-    private struct BoundaryPosition {
-        weak var parentNode: ShadowNodeWrapper?
-        let startChildIndex: Int
-    }
-    private var boundaryPositions: [Int: BoundaryPosition] = [:]
-
-    /// Fallback nodes captured from the main tree (for later removal)
-    private var boundaryFallbackNodes: [Int: [ShadowNodeWrapper]] = [:]
+    /// The #suspense wrapper node for each boundary ID
+    private var boundaryWrappers: [Int: ShadowNodeWrapper] = [:]
 
     /// Content nodes built by segment builders (for insertion on reveal)
     private var segmentContentNodes: [Int: [ShadowNodeWrapper]] = [:]
@@ -85,14 +78,12 @@ class SSRCoordinator: InstructionStreamDelegate {
     }
 
     func didReceiveBeginBoundary(id: Int) {
-        // Record where in the main tree this boundary starts so we can
-        // identify which nodes are the fallback content later.
-        let parent = treeBuilder.currentParent
-        let startIndex = parent?.children.count ?? treeBuilder.rootChildren.count
-        boundaryPositions[id] = BoundaryPosition(
-            parentNode: parent,
-            startChildIndex: startIndex
-        )
+        // Create a #suspense wrapper node in the tree so React's hydration
+        // can match this position via canHydrateSuspenseInstance.
+        // Fallback content will be added as children of the #suspense node.
+        // Note: fallback=false because that flag indicates an ERROR boundary
+        // (server-side error triggering client render), not a pending boundary.
+        activeBuilder.openElement(type: "#suspense", props: ["pending": true, "fallback": false])
         boundaryManager.beginBoundary(id: id)
     }
 
@@ -104,24 +95,21 @@ class SSRCoordinator: InstructionStreamDelegate {
             boundaryId = id
         }
 
-        // Pop the context (this clears BoundaryManager's empty fallback buffer)
+        // The #suspense node is currently on top of the tree builder's stack.
+        // Capture a reference before closeElement() pops it.
+        if let id = boundaryId {
+            boundaryWrappers[id] = activeBuilder.currentParent
+        }
+
+        // Close the #suspense wrapper — pops from stack, appends to parent
+        activeBuilder.closeElement()
+
+        // Pop the boundary context
         boundaryManager.endBoundary()
 
-        // Capture the actual fallback nodes from the main tree
-        if let id = boundaryId, let position = boundaryPositions[id] {
-            var fallbackNodes: [ShadowNodeWrapper] = []
-            if let parent = position.parentNode {
-                if position.startChildIndex < parent.children.count {
-                    fallbackNodes = Array(parent.children[position.startChildIndex...])
-                }
-            } else {
-                if position.startChildIndex < treeBuilder.rootChildren.count {
-                    fallbackNodes = Array(treeBuilder.rootChildren[position.startChildIndex...])
-                }
-            }
-            boundaryFallbackNodes[id] = fallbackNodes
-            // Also store in BoundaryManager for its tracking
-            boundaryManager.setFallbackNodes(id: id, nodes: fallbackNodes)
+        // Store fallback nodes (children of the #suspense wrapper)
+        if let id = boundaryId, let wrapper = boundaryWrappers[id] {
+            boundaryManager.setFallbackNodes(id: id, nodes: wrapper.children)
         }
     }
 
@@ -157,21 +145,25 @@ class SSRCoordinator: InstructionStreamDelegate {
     }
 
     func didReceiveRevealBoundary(id: Int) {
-        let fallbackNodes = boundaryFallbackNodes[id] ?? []
         let contentNodes = segmentContentNodes[id] ?? []
-        let position = boundaryPositions[id]
+        let wrapper = boundaryWrappers[id]
 
-        // Replace fallback nodes with content nodes in the shadow + yoga trees
-        treeBuilder.revealBoundary(
-            parentNode: position?.parentNode,
-            fallbackNodes: fallbackNodes,
-            contentNodes: contentNodes,
-            atIndex: position?.startChildIndex ?? 0
-        )
+        // Replace fallback children within the #suspense wrapper with content
+        if let wrapper = wrapper {
+            treeBuilder.revealBoundary(
+                parentNode: wrapper,
+                fallbackNodes: wrapper.children,
+                contentNodes: contentNodes,
+                atIndex: 0
+            )
+
+            // Mark the boundary as resolved so isSuspenseInstancePending
+            // returns false during hydration
+            wrapper.props["pending"] = false
+        }
 
         // Clean up tracking state
-        boundaryPositions.removeValue(forKey: id)
-        boundaryFallbackNodes.removeValue(forKey: id)
+        boundaryWrappers.removeValue(forKey: id)
         segmentContentNodes.removeValue(forKey: id)
         segmentBuilders.removeValue(forKey: id)
 

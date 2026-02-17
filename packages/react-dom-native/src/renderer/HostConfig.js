@@ -478,15 +478,21 @@ exports.canHydrateFormStateMarker = function() { return false; };
 exports.isFormStateMarkerMatching = function() { return false; };
 
 exports.getNextHydratableSibling = function(instance) {
-  return $$getNextSSRSibling(instance._ssrNodeRef);
+  var result = $$getNextSSRSibling(instance._ssrNodeRef);
+  console.log('[HostConfig] getNextHydratableSibling ref=' + instance._ssrNodeRef + ' result=' + (result ? result.type : 'null'));
+  return result;
 };
 exports.getNextHydratableSiblingAfterSingleton = function() { return null; };
 
 exports.getFirstHydratableChild = function(instance) {
-  return $$getSSRChildOf(instance._ssrNodeRef);
+  var result = $$getSSRChildOf(instance._ssrNodeRef);
+  console.log('[HostConfig] getFirstHydratableChild ref=' + instance._ssrNodeRef + ' result=' + (result ? result.type : 'null'));
+  return result;
 };
 exports.getFirstHydratableChildWithinContainer = function(container) {
-  return $$getFirstSSRChild(container.surfaceId);
+  var result = $$getFirstSSRChild(container.surfaceId);
+  console.log('[HostConfig] getFirstHydratableChildWithinContainer surfaceId=' + container.surfaceId + ' result=' + (result ? JSON.stringify({type: result.type, _ssrNodeRef: result._ssrNodeRef}) : 'null'));
+  return result;
 };
 exports.getFirstHydratableChildWithinActivityInstance = function() { return null; };
 exports.getFirstHydratableChildWithinSuspenseInstance = function(instance) {
@@ -495,12 +501,14 @@ exports.getFirstHydratableChildWithinSuspenseInstance = function(instance) {
 exports.getFirstHydratableChildWithinSingleton = function() { return null; };
 
 exports.canHydrateInstance = function(instance, type, props, inRootOrSingleton) {
+  console.log('[HostConfig] canHydrateInstance: instance.type=' + (instance ? instance.type : 'null') + ' fiberType=' + type + ' match=' + (instance && instance.type === type));
   if (instance.type === type) {
     return instance;
   }
   return null;
 };
 exports.canHydrateTextInstance = function(instance, text) {
+  console.log('[HostConfig] canHydrateTextInstance: instance.type=' + (instance ? instance.type : 'null') + ' text=' + JSON.stringify(text && text.substring ? text.substring(0, 30) : text));
   if (instance.type === '#text') {
     return instance;
   }
@@ -515,28 +523,23 @@ exports.canHydrateSuspenseInstance = function(instance) {
 };
 
 exports.hydrateInstance = function(instance, type, props, hostContext, internalHandle) {
-  // The reconciler has already set workInProgress.stateNode to this instance
-  // during tryToClaimNextHydratableInstance. We need to ensure the instance
-  // has the shape expected by cloneInstance/replaceContainerChildren.
-  //
-  // The instance IS the SSR node ref — we augment it in place so that
-  // the persistent mode child set builder can read _nativeNode from stateNode.
+  console.log('[HostConfig] hydrateInstance: type=' + type + ' ref=' + instance._ssrNodeRef);
   instance._nativeNode = instance._ssrNodeRef;
   instance._nativeFamily = instance._ssrFamily;
   instance._internalInstanceHandle = internalHandle;
   instance.props = props;
   instance.children = [];
-  // Return null = no hydration diff warnings
-  return null;
+  return true;
 };
 
 exports.hydrateTextInstance = function(textInstance, text, internalHandle) {
+  console.log('[HostConfig] hydrateTextInstance: ref=' + textInstance._ssrNodeRef + ' text=' + JSON.stringify(text && text.substring ? text.substring(0, 30) : text));
   textInstance._nativeNode = textInstance._ssrNodeRef;
   textInstance._nativeFamily = textInstance._ssrFamily;
   textInstance._internalInstanceHandle = internalHandle;
   textInstance.text = text;
-  // Return false = text matches, no update needed
-  return false;
+  // Return true = hydration succeeded
+  return true;
 };
 
 exports.hydrateActivityInstance = function() {};
@@ -573,7 +576,7 @@ exports.diffHydratedTextForDevWarnings = function() { return null; };
 exports.describeHydratableInstanceForDevWarnings = function(instance) {
   return instance.type || '';
 };
-exports.validateHydratableInstance = function() {};
+exports.validateHydratableInstance = function(type, props, hostContext) { return true; };
 exports.validateHydratableTextInstance = function() {};
 
 // ---------------------------------------------------------------------------
