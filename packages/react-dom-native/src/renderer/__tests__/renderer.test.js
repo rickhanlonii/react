@@ -7,6 +7,9 @@ const mockAppendChild = jest.fn();
 const mockCloneNodeWithNewProps = jest.fn();
 const mockCloneNodeWithNewChildrenAndProps = jest.fn();
 const mockCompleteRoot = jest.fn();
+const mockGetFirstSSRChild = jest.fn();
+const mockGetSSRChildOf = jest.fn();
+const mockGetNextSSRSibling = jest.fn();
 
 let nodeIdCounter = 0;
 
@@ -40,6 +43,9 @@ beforeEach(() => {
   );
 
   mockCompleteRoot.mockClear();
+  mockGetFirstSSRChild.mockClear();
+  mockGetSSRChildOf.mockClear();
+  mockGetNextSSRSibling.mockClear();
 
   // Register globals
   global.$$createNode = mockCreateNode;
@@ -48,6 +54,9 @@ beforeEach(() => {
   global.$$cloneNodeWithNewProps = mockCloneNodeWithNewProps;
   global.$$cloneNodeWithNewChildrenAndProps = mockCloneNodeWithNewChildrenAndProps;
   global.$$completeRoot = mockCompleteRoot;
+  global.$$getFirstSSRChild = mockGetFirstSSRChild;
+  global.$$getSSRChildOf = mockGetSSRChildOf;
+  global.$$getNextSSRSibling = mockGetNextSSRSibling;
 });
 
 afterEach(() => {
@@ -57,6 +66,9 @@ afterEach(() => {
   delete global.$$cloneNodeWithNewProps;
   delete global.$$cloneNodeWithNewChildrenAndProps;
   delete global.$$completeRoot;
+  delete global.$$getFirstSSRChild;
+  delete global.$$getSSRChildOf;
+  delete global.$$getNextSSRSibling;
 });
 
 const HostConfig = require('../HostConfig');
@@ -430,8 +442,8 @@ describe('HostConfig', () => {
       expect(HostConfig.supportsMutation).toBe(false);
     });
 
-    it('does not support hydration', () => {
-      expect(HostConfig.supportsHydration).toBe(false);
+    it('supports hydration', () => {
+      expect(HostConfig.supportsHydration).toBe(true);
     });
 
     it('supports microtasks', () => {
@@ -581,6 +593,124 @@ describe('HostConfig', () => {
       const passedProps = mockCloneNodeWithNewProps.mock.calls[0][1];
       expect(passedProps.style).toEqual({backgroundColor: 'blue'});
       expect(passedProps.style.flexDirection).toBeUndefined();
+    });
+  });
+});
+
+describe('Hydration host config', () => {
+  const defaultContext = {isInsideTextContext: false};
+
+  it('supportsHydration is true', () => {
+    expect(HostConfig.supportsHydration).toBe(true);
+  });
+
+  describe('getFirstHydratableChildWithinContainer', () => {
+    it('calls $$getFirstSSRChild with surfaceId', () => {
+      const ssrNode = {_ssrNodeRef: 1, type: 'div'};
+      mockGetFirstSSRChild.mockReturnValue(ssrNode);
+      const result = HostConfig.getFirstHydratableChildWithinContainer({surfaceId: 1});
+      expect(mockGetFirstSSRChild).toHaveBeenCalledWith(1);
+      expect(result).toBe(ssrNode);
+    });
+
+    it('returns null when no SSR children', () => {
+      mockGetFirstSSRChild.mockReturnValue(null);
+      const result = HostConfig.getFirstHydratableChildWithinContainer({surfaceId: 1});
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('getFirstHydratableChild', () => {
+    it('calls $$getSSRChildOf with node ref', () => {
+      const child = {_ssrNodeRef: 2, type: 'p'};
+      mockGetSSRChildOf.mockReturnValue(child);
+      const result = HostConfig.getFirstHydratableChild({_ssrNodeRef: 1});
+      expect(mockGetSSRChildOf).toHaveBeenCalledWith(1);
+      expect(result).toBe(child);
+    });
+  });
+
+  describe('getNextHydratableSibling', () => {
+    it('calls $$getNextSSRSibling with node ref', () => {
+      const sibling = {_ssrNodeRef: 3, type: 'span'};
+      mockGetNextSSRSibling.mockReturnValue(sibling);
+      const result = HostConfig.getNextHydratableSibling({_ssrNodeRef: 2});
+      expect(mockGetNextSSRSibling).toHaveBeenCalledWith(2);
+      expect(result).toBe(sibling);
+    });
+
+    it('returns null at end of sibling list', () => {
+      mockGetNextSSRSibling.mockReturnValue(null);
+      const result = HostConfig.getNextHydratableSibling({_ssrNodeRef: 2});
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('canHydrateInstance', () => {
+    it('returns ssrNode when type matches', () => {
+      const ssrNode = {_ssrNodeRef: 1, type: 'div'};
+      const result = HostConfig.canHydrateInstance(ssrNode, 'div', {});
+      expect(result).toBe(ssrNode);
+    });
+
+    it('returns null when type does not match', () => {
+      const ssrNode = {_ssrNodeRef: 1, type: 'div'};
+      const result = HostConfig.canHydrateInstance(ssrNode, 'span', {});
+      expect(result).toBeNull();
+    });
+
+    it('returns null for text nodes', () => {
+      const ssrNode = {_ssrNodeRef: 1, type: '#text'};
+      const result = HostConfig.canHydrateInstance(ssrNode, 'div', {});
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('canHydrateTextInstance', () => {
+    it('returns ssrNode when it is a text node', () => {
+      const ssrNode = {_ssrNodeRef: 1, type: '#text', text: 'hello'};
+      const result = HostConfig.canHydrateTextInstance(ssrNode, 'hello');
+      expect(result).toBe(ssrNode);
+    });
+
+    it('returns null when not a text node', () => {
+      const ssrNode = {_ssrNodeRef: 1, type: 'div'};
+      const result = HostConfig.canHydrateTextInstance(ssrNode, 'hello');
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('hydrateInstance', () => {
+    it('returns null (no diff warnings)', () => {
+      const ssrNode = {_ssrNodeRef: 42, _ssrFamily: 42, type: 'div'};
+      const props = {style: {color: 'red'}};
+      const handle = {};
+      const result = HostConfig.hydrateInstance(
+        ssrNode, 'div', props, defaultContext, handle
+      );
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('hydrateTextInstance', () => {
+    it('returns false (no diff) when text matches', () => {
+      const ssrNode = {_ssrNodeRef: 1, type: '#text', text: 'hello'};
+      const result = HostConfig.hydrateTextInstance(ssrNode, 'hello', {});
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('canHydrateSuspenseInstance', () => {
+    it('returns ssrNode when type is #suspense', () => {
+      const ssrNode = {_ssrNodeRef: 1, type: '#suspense'};
+      const result = HostConfig.canHydrateSuspenseInstance(ssrNode);
+      expect(result).toBe(ssrNode);
+    });
+
+    it('returns null for non-suspense nodes', () => {
+      const ssrNode = {_ssrNodeRef: 1, type: 'div'};
+      const result = HostConfig.canHydrateSuspenseInstance(ssrNode);
+      expect(result).toBeNull();
     });
   });
 });

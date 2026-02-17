@@ -111,7 +111,7 @@ function expandStyleShorthands(props) {
 // ---------------------------------------------------------------------------
 exports.supportsPersistence = true;
 exports.supportsMutation = false;
-exports.supportsHydration = false;
+exports.supportsHydration = true;
 exports.supportsMicrotasks = true;
 
 // ---------------------------------------------------------------------------
@@ -457,48 +457,122 @@ exports.createViewTransitionInstance = function createViewTransitionInstance() {
 exports.getCurrentGestureOffset = function getCurrentGestureOffset() { return 0; };
 
 // ---------------------------------------------------------------------------
-// Tier 4: Feature Shims — Hydration (WithNoHydration)
+// Tier 4: Feature Shims — Hydration
 // ---------------------------------------------------------------------------
 
-exports.isSuspenseInstancePending = function() { return false; };
-exports.isSuspenseInstanceFallback = function() { return false; };
+exports.isSuspenseInstancePending = function(instance) {
+  return instance.pending === true;
+};
+exports.isSuspenseInstanceFallback = function(instance) {
+  return instance.fallback === true;
+};
 exports.getSuspenseInstanceFallbackErrorDetails = function() { return null; };
-exports.registerSuspenseInstanceRetry = function() {};
+exports.registerSuspenseInstanceRetry = function(instance, callback) {
+  if (instance._retryCallbacks) {
+    instance._retryCallbacks.push(callback);
+  } else {
+    instance._retryCallbacks = [callback];
+  }
+};
 exports.canHydrateFormStateMarker = function() { return false; };
 exports.isFormStateMarkerMatching = function() { return false; };
-exports.getNextHydratableSibling = function() { return null; };
+
+exports.getNextHydratableSibling = function(instance) {
+  return $$getNextSSRSibling(instance._ssrNodeRef);
+};
 exports.getNextHydratableSiblingAfterSingleton = function() { return null; };
-exports.getFirstHydratableChild = function() { return null; };
-exports.getFirstHydratableChildWithinContainer = function() { return null; };
+
+exports.getFirstHydratableChild = function(instance) {
+  return $$getSSRChildOf(instance._ssrNodeRef);
+};
+exports.getFirstHydratableChildWithinContainer = function(container) {
+  return $$getFirstSSRChild(container.surfaceId);
+};
 exports.getFirstHydratableChildWithinActivityInstance = function() { return null; };
-exports.getFirstHydratableChildWithinSuspenseInstance = function() { return null; };
+exports.getFirstHydratableChildWithinSuspenseInstance = function(instance) {
+  return $$getSSRChildOf(instance._ssrNodeRef);
+};
 exports.getFirstHydratableChildWithinSingleton = function() { return null; };
-exports.canHydrateInstance = function() { return null; };
-exports.canHydrateTextInstance = function() { return null; };
+
+exports.canHydrateInstance = function(instance, type, props, inRootOrSingleton) {
+  if (instance.type === type) {
+    return instance;
+  }
+  return null;
+};
+exports.canHydrateTextInstance = function(instance, text) {
+  if (instance.type === '#text') {
+    return instance;
+  }
+  return null;
+};
 exports.canHydrateActivityInstance = function() { return null; };
-exports.canHydrateSuspenseInstance = function() { return null; };
-exports.hydrateInstance = function() { return null; };
-exports.hydrateTextInstance = function() { return false; };
+exports.canHydrateSuspenseInstance = function(instance) {
+  if (instance.type === '#suspense') {
+    return instance;
+  }
+  return null;
+};
+
+exports.hydrateInstance = function(instance, type, props, hostContext, internalHandle) {
+  // The reconciler has already set workInProgress.stateNode to this instance
+  // during tryToClaimNextHydratableInstance. We need to ensure the instance
+  // has the shape expected by cloneInstance/replaceContainerChildren.
+  //
+  // The instance IS the SSR node ref — we augment it in place so that
+  // the persistent mode child set builder can read _nativeNode from stateNode.
+  instance._nativeNode = instance._ssrNodeRef;
+  instance._nativeFamily = instance._ssrFamily;
+  instance._internalInstanceHandle = internalHandle;
+  instance.props = props;
+  instance.children = [];
+  // Return null = no hydration diff warnings
+  return null;
+};
+
+exports.hydrateTextInstance = function(textInstance, text, internalHandle) {
+  textInstance._nativeNode = textInstance._ssrNodeRef;
+  textInstance._nativeFamily = textInstance._ssrFamily;
+  textInstance._internalInstanceHandle = internalHandle;
+  textInstance.text = text;
+  // Return false = text matches, no update needed
+  return false;
+};
+
 exports.hydrateActivityInstance = function() {};
-exports.hydrateSuspenseInstance = function() {};
+exports.hydrateSuspenseInstance = function(suspenseInstance, internalHandle) {
+  suspenseInstance._internalInstanceHandle = internalHandle;
+};
+
 exports.getNextHydratableInstanceAfterActivityInstance = function() { return null; };
-exports.getNextHydratableInstanceAfterSuspenseInstance = function() { return null; };
+exports.getNextHydratableInstanceAfterSuspenseInstance = function(instance) {
+  return $$getNextSSRSibling(instance._ssrNodeRef);
+};
+
 exports.finalizeHydratedChildren = function() { return false; };
 exports.commitHydratedInstance = function() {};
 exports.commitHydratedContainer = function() {};
 exports.commitHydratedActivityInstance = function() {};
 exports.commitHydratedSuspenseInstance = function() {};
 exports.flushHydrationEvents = function() {};
+
 exports.clearActivityBoundary = function() {};
-exports.clearSuspenseBoundary = function() {};
+exports.clearSuspenseBoundary = function(parentInstance, suspenseInstance) {
+  // Remove SSR content for this boundary so client render can replace it
+};
 exports.clearActivityBoundaryFromContainer = function() {};
-exports.clearSuspenseBoundaryFromContainer = function() {};
+exports.clearSuspenseBoundaryFromContainer = function(container, suspenseInstance) {
+  // Remove SSR content for this boundary from the container
+};
+
 exports.hideDehydratedBoundary = function() {};
 exports.unhideDehydratedBoundary = function() {};
 exports.shouldDeleteUnhydratedTailInstances = function() { return false; };
 exports.diffHydratedPropsForDevWarnings = function() { return null; };
 exports.diffHydratedTextForDevWarnings = function() { return null; };
-exports.describeHydratableInstanceForDevWarnings = function() { return ''; };
+exports.describeHydratableInstanceForDevWarnings = function(instance) {
+  return instance.type || '';
+};
 exports.validateHydratableInstance = function() {};
 exports.validateHydratableTextInstance = function() {};
 
