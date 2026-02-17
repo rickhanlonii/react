@@ -52,6 +52,24 @@ public class Bindings {
     /// so the diff tree must not contain #suspense wrappers.
     private var surfacesNeedingSuspenseFlatten: Set<Int> = []
 
+    /// Surfaces where hydration is in progress. Set when hydration starts,
+    /// cleared on first $$completeRoot. While active, SSR tree updates are
+    /// queued to prevent mid-hydration tree mutations.
+    private var hydrationInProgress: Set<Int> = []
+
+    /// Queued SSR tree updates that arrived during hydration.
+    /// Applied after hydration completes (first $$completeRoot).
+    private var pendingSSRTreeUpdates: [Int: [ShadowNodeWrapper]] = [:]
+
+    /// Maps SSR nodes to their parent for resilient sibling lookups.
+    /// When a boundary reveal replaces the SSR tree, nodes from the old tree
+    /// can still find siblings via their parent reference.
+    private var ssrNodeToParent: [ObjectIdentifier: ShadowNodeWrapper] = [:]
+
+    /// Called when hydration completes for a surface (first $$completeRoot).
+    /// Root uses this to clean up SSR infrastructure (parser, tree builder, etc.).
+    public var onHydrationComplete: ((Int) -> Void)?
+
     // MARK: - Node Registry
 
     /// Maps integer node IDs to ShadowNodeWrapper instances.
@@ -160,6 +178,10 @@ public class Bindings {
         for child in rootChildren {
             registerSSRSubtree(child)
         }
+        // Build parent map for resilient sibling lookups
+        for child in rootChildren {
+            buildParentMap(child)
+        }
     }
 
     /// Recursively registers all nodes in an SSR subtree.
@@ -170,9 +192,24 @@ public class Bindings {
         }
     }
 
+    /// Recursively builds the parent map for an SSR subtree.
+    private func buildParentMap(_ node: ShadowNodeWrapper) {
+        for child in node.children {
+            ssrNodeToParent[ObjectIdentifier(child)] = node
+            buildParentMap(child)
+        }
+    }
+
     /// Clears the SSR tree after hydration completes.
     public func clearSSRTree(surfaceId: Int) {
         ssrTrees.removeValue(forKey: surfaceId)
+        ssrNodeToParent.removeAll()
+    }
+
+    /// Marks hydration as in progress for a surface.
+    /// While active, SSR tree updates are queued instead of applied immediately.
+    public func markHydrationStarted(surfaceId: Int) {
+        hydrationInProgress.insert(surfaceId)
     }
 
     /// Updates the current tree for a surface after an SSR boundary reveal
@@ -234,11 +271,27 @@ public class Bindings {
     /// Updates the SSR tree for hydration traversal after a boundary reveal.
     /// Called when a boundary reveals after hydration has started so that
     /// $$getSSRChildOf / $$getNextSSRSibling see the content nodes.
+    ///
+    /// If hydration is in progress, the update is queued and applied after
+    /// the first $$completeRoot to prevent mid-hydration tree mutations.
     public func updateSSRTree(surfaceId: Int, newTree: [ShadowNodeWrapper]) {
+        if hydrationInProgress.contains(surfaceId) {
+            print("[ReactDomNativeKit] SSR tree update queued (hydration in progress, surfaceId: \(surfaceId))")
+            pendingSSRTreeUpdates[surfaceId] = newTree
+            return
+        }
+        let isUpdate = ssrTrees[surfaceId] != nil
+        if isUpdate {
+            print("[ReactDomNativeKit] SSR tree updated (reveal during hydration, surfaceId: \(surfaceId))")
+        }
         ssrTrees[surfaceId] = newTree
         // Register any new nodes (content + cloned path nodes)
         for child in newTree {
             registerNewNodesInSubtree(child)
+        }
+        // Rebuild parent map for the new tree
+        for child in newTree {
+            buildParentMap(child)
         }
     }
 
@@ -541,6 +594,31 @@ public class Bindings {
             if self.surfacesNeedingSuspenseFlatten.contains(surfaceId) {
                 self.surfacesNeedingSuspenseFlatten.remove(surfaceId)
                 self.flattenSuspenseFromCurrentTree(surfaceId: surfaceId)
+            }
+
+            // 6c. Complete hydration — apply any queued SSR tree updates,
+            // then clean up SSR state. After the first commit, React owns
+            // the tree and handles updates through the reconciler.
+            if self.hydrationInProgress.contains(surfaceId) {
+                self.hydrationInProgress.remove(surfaceId)
+                print("[ReactDomNativeKit] Hydration complete for surfaceId \(surfaceId)")
+
+                if let pendingTree = self.pendingSSRTreeUpdates.removeValue(forKey: surfaceId) {
+                    print("[ReactDomNativeKit] Applying queued SSR tree update for surfaceId \(surfaceId)")
+                    self.ssrTrees[surfaceId] = pendingTree
+                    for child in pendingTree {
+                        self.registerNewNodesInSubtree(child)
+                    }
+                    for child in pendingTree {
+                        self.buildParentMap(child)
+                    }
+                }
+
+                // Clean up SSR tree — no longer needed after hydration
+                self.clearSSRTree(surfaceId: surfaceId)
+
+                // Notify Root to clean up SSR infrastructure
+                self.onHydrationComplete?(surfaceId)
             }
 
             // 7. Clean up stale nodes from registry
@@ -931,8 +1009,10 @@ public class Bindings {
             guard let self = self, let engine = engine else { return nil }
             let surfaceId = engine.toInt(args[0]) ?? 0
             guard let tree = self.ssrTrees[surfaceId], let first = tree.first else {
+                print("[ReactDomNativeKit] Hydration traversal: getFirstSSRChild(\(surfaceId)) -> nil")
                 return nil
             }
+            print("[ReactDomNativeKit] Hydration traversal: getFirstSSRChild(\(surfaceId)) -> \(first.family.elementType)")
             return self.makeSSRNodeRef(first, engine: engine)
         }
 
@@ -963,6 +1043,7 @@ public class Bindings {
             guard let self = self else { return nil }
             let surfaceId = (self.engine.toInt(args[0])) ?? 0
             self.ssrTrees.removeValue(forKey: surfaceId)
+            self.ssrNodeToParent.removeAll()
             return nil
         }
     }
@@ -991,12 +1072,23 @@ public class Bindings {
     }
 
     /// Finds the next sibling of a node by searching all known trees.
+    /// Falls back to the parent map if the node is from a stale (pre-reveal) tree.
     private func findNextSibling(of target: ShadowNodeWrapper) -> ShadowNodeWrapper? {
+        // Primary: search current SSR trees
         for (_, tree) in ssrTrees {
             if let sibling = findNextSiblingInChildren(target, children: tree) {
                 return sibling
             }
         }
+
+        // Fallback: use parent map for stale nodes from pre-reveal trees
+        if let parent = ssrNodeToParent[ObjectIdentifier(target)] {
+            if let index = parent.children.firstIndex(where: { $0 === target }),
+               index + 1 < parent.children.count {
+                return parent.children[index + 1]
+            }
+        }
+
         return nil
     }
 

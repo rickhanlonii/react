@@ -158,6 +158,7 @@ class SSRCoordinator: InstructionStreamDelegate {
     }
 
     func didReceiveRevealBoundary(id: Int) {
+        print("[ReactDomNativeKit] Reveal boundary \(id)")
         let contentNodes = segmentContentNodes[id] ?? []
         guard let wrapper = boundaryWrappers[id] else { return }
 

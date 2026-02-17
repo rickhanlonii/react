@@ -180,6 +180,11 @@ public class BoundaryManager {
         return boundaries.filter { !$0.value.isRevealed }.map { $0.key }
     }
 
+    /// Number of boundaries that have been revealed.
+    public var revealedCount: Int {
+        return boundaries.values.filter { $0.isRevealed }.count
+    }
+
     /// Reset all state.
     public func reset() {
         boundaries.removeAll()

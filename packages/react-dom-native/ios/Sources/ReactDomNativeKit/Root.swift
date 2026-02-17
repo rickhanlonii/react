@@ -435,6 +435,8 @@ public class Root {
         let streamDelegate = SSRStreamDelegate(parser: parser) { [weak self] in
             guard let self = self else { return }
             self.ssrStreamComplete = true
+            let revealCount = boundaryManager.revealedCount
+            print("[ReactDomNativeKit] SSR stream complete, reveals processed: \(revealCount)")
             // If hydrateRoot() was called before the stream finished,
             // execute the queued hydration now that D instructions are buffered.
             if let pending = self.pendingHydration {
@@ -490,6 +492,11 @@ public class Root {
 
             setupLayoutObserver()
 
+            // Wire hydration completion callback to clean up SSR infrastructure
+            runtime?.bindings.onHydrationComplete = { [weak self] surfaceId in
+                self?.cleanupSSRState()
+            }
+
             // DON'T rewire onViewsNeedUpdate to Bindings yet — boundary reveals
             // may still arrive from the SSR stream before hydration starts.
             // Keep them on the SSR path so they update the shadow tree without
@@ -518,9 +525,12 @@ public class Root {
                 let doHydrate = {
                     guard let self = self else { return }
 
+                    print("[ReactDomNativeKit] Hydration starting")
+
                     // NOW register surface for hydration and the SSR tree,
                     // after all boundary reveals have been applied.
                     let currentSSRTree = self.ssrCoordinator?.currentRootChildren ?? treeBuilder.rootChildren
+                    print("[ReactDomNativeKit] Registering SSR tree for hydration: \(currentSSRTree.count) root children")
                     self.runtime?.bindings.registerSurfaceForHydration(
                         surfaceId: self.options.surfaceId,
                         rootView: self.container,
@@ -548,6 +558,7 @@ public class Root {
                         )
                     }
 
+                    self.runtime?.bindings.markHydrationStarted(surfaceId: self.options.surfaceId)
                     self.callHydrateFromSSRData(serverURL: serverURL)
                     completion?(nil)
                 }
@@ -662,6 +673,26 @@ public class Root {
     }
 
     // MARK: - Private
+
+    /// Cleans up SSR infrastructure after hydration completes.
+    /// Called from Bindings.onHydrationComplete after the first $$completeRoot.
+    /// React now owns the tree — SSR objects are no longer needed.
+    private func cleanupSSRState() {
+        ssrDataTask?.cancel()
+        ssrDataTask = nil
+        ssrParser = nil
+        ssrTreeBuilder = nil
+        ssrBoundaryManager = nil
+        ssrCoordinator = nil
+        ssrFlightDataBuffer.removeAll()
+        ssrViewRegistry = nil
+        ssrMutationApplier = nil
+        ssrRevealHasOccurred = false
+        ssrStreamComplete = false
+        pendingHydration = nil
+
+        print("[ReactDomNativeKit] SSR state cleaned up after hydration")
+    }
 
     /// Resolves the bundle URL: dev server override (DEBUG) or package resource.
     private func resolveBundleURL() -> URL {

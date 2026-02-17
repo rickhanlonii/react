@@ -35,6 +35,9 @@ class TesterBridge {
     /// SSR trees registered for hydration traversal. Keyed by surfaceId.
     private var ssrTrees: [Int: [ShadowNodeWrapper]] = [:]
 
+    /// Maps SSR nodes to their parent for resilient sibling lookups.
+    private var ssrNodeToParent: [ObjectIdentifier: ShadowNodeWrapper] = [:]
+
     /// Root StubViews per surface. Keyed by surfaceId.
     private var rootViews: [Int: StubView] = [:]
 
@@ -486,6 +489,10 @@ class TesterBridge {
                 return self.nodeRegistry[id]
             }
             self.ssrTrees[surfaceId] = nodes
+            // Build parent map for resilient sibling lookups
+            for child in nodes {
+                self.buildParentMap(child)
+            }
             return nil
         }
 
@@ -529,6 +536,7 @@ class TesterBridge {
             guard let self = self else { return nil }
             let surfaceId = (self.engine.toInt(args[0])) ?? 0
             self.ssrTrees.removeValue(forKey: surfaceId)
+            self.ssrNodeToParent.removeAll()
             return nil
         }
     }
@@ -544,17 +552,37 @@ class TesterBridge {
         if let text = node.text {
             engine.setProperty(obj, "text", engine.makeString(text))
         }
+        // For #suspense nodes, expose pending/fallback state for hydration
+        if node.family.elementType == "#suspense" {
+            let pending = (node.props["pending"] as? Bool) ?? false
+            let fallback = (node.props["fallback"] as? Bool) ?? false
+            engine.setProperty(obj, "pending", engine.makeBool(pending))
+            engine.setProperty(obj, "fallback", engine.makeBool(fallback))
+            if let boundaryId = node.props["boundaryId"] as? Int {
+                engine.setProperty(obj, "boundaryId", engine.makeNumber(Double(boundaryId)))
+            }
+        }
         return obj
     }
 
     /// Finds the next sibling of a node by searching all known trees.
+    /// Falls back to the parent map if the node is from a stale (pre-reveal) tree.
     private func findNextSibling(of target: ShadowNodeWrapper) -> ShadowNodeWrapper? {
-        // Search SSR trees
+        // Primary: search current SSR trees
         for (_, tree) in ssrTrees {
             if let sibling = findNextSiblingInChildren(target, children: tree) {
                 return sibling
             }
         }
+
+        // Fallback: use parent map for stale nodes from pre-reveal trees
+        if let parent = ssrNodeToParent[ObjectIdentifier(target)] {
+            if let index = parent.children.firstIndex(where: { $0 === target }),
+               index + 1 < parent.children.count {
+                return parent.children[index + 1]
+            }
+        }
+
         return nil
     }
 
@@ -573,5 +601,13 @@ class TesterBridge {
             }
         }
         return nil
+    }
+
+    /// Recursively builds the parent map for an SSR subtree.
+    private func buildParentMap(_ node: ShadowNodeWrapper) {
+        for child in node.children {
+            ssrNodeToParent[ObjectIdentifier(child)] = node
+            buildParentMap(child)
+        }
     }
 }
