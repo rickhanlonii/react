@@ -1,4 +1,5 @@
 module.exports = {
+  watchman: false,
   projects: [
     // Unit tests
     {

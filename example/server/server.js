@@ -237,19 +237,28 @@ app.get('/ssr', function (req, res) {
     require('react-server-dom-webpack/server').renderToPipeableStream;
   var flightStream = renderToFlightStream(element, clientManifest);
 
-  // Step 2: Intercept the Flight stream with a Transform that captures
-  // each newline-delimited row. These rows will be emitted as D instructions
-  // after Fizz output completes, so the client can replay them during
-  // hydration without making a second HTTP fetch.
-  var capturedFlightRows = [];
+  // Step 2: Intercept the Flight stream to emit D instructions inline.
+  // Each Flight row is written to the response as a ["D", row] instruction
+  // as soon as it arrives, interleaved with Fizz output. Rows that arrive
+  // before onShellReady (before headers are sent) are buffered briefly.
+  var shellReady = false;
+  var pendingDRows = [];
   var partialRow = '';
+
+  function emitDRow(row) {
+    if (shellReady) {
+      res.write(JSON.stringify(['D', row]) + '\n');
+    } else {
+      pendingDRows.push(row);
+    }
+  }
 
   var flightCapture = new Transform({
     transform: function (chunk, encoding, callback) {
       // Pass data through to the Flight client unchanged
       this.push(chunk);
 
-      // Capture rows (newline-delimited)
+      // Parse rows (newline-delimited) and emit as D instructions
       var text = chunk.toString();
       var lines = text.split('\n');
 
@@ -269,7 +278,7 @@ app.get('/ssr', function (req, res) {
 
       for (var i = 0; i < lines.length; i++) {
         if (lines[i] !== '') {
-          capturedFlightRows.push(lines[i]);
+          emitDRow(lines[i]);
         }
       }
 
@@ -278,7 +287,7 @@ app.get('/ssr', function (req, res) {
     flush: function (callback) {
       // Flush any remaining partial row
       if (partialRow !== '') {
-        capturedFlightRows.push(partialRow);
+        emitDRow(partialRow);
         partialRow = '';
       }
       callback();
@@ -314,8 +323,13 @@ app.get('/ssr', function (req, res) {
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Cache-Control', 'no-cache');
 
-      // Pipe Fizz output through an intermediary so we can append
-      // D instructions after Fizz finishes writing.
+      // Flush any D rows that arrived before the shell was ready.
+      for (var i = 0; i < pendingDRows.length; i++) {
+        res.write(JSON.stringify(['D', pendingDRows[i]]) + '\n');
+      }
+      pendingDRows = null;
+      shellReady = true;
+
       var fizzPassThrough = new PassThrough();
       nativeStream.pipe(fizzPassThrough);
 
@@ -324,11 +338,6 @@ app.get('/ssr', function (req, res) {
       });
 
       fizzPassThrough.on('end', function () {
-        // Emit captured Flight rows as D instructions.
-        // The native parser recognizes ["D", row] and buffers the data.
-        for (var i = 0; i < capturedFlightRows.length; i++) {
-          res.write(JSON.stringify(['D', capturedFlightRows[i]]) + '\n');
-        }
         res.end();
       });
     },

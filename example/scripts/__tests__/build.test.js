@@ -5,9 +5,9 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '../..');
-const BUNDLE_PATH = path.join(
+const BUNDLE_PATH = path.resolve(
   ROOT,
-  'Falcon/Falcon/Resources/bundle.js',
+  '../packages/react-dom-native/ios/Sources/ReactDomNativeKit/Resources/bundle.js',
 );
 
 describe('JS build system', () => {
@@ -34,9 +34,9 @@ describe('JS build system', () => {
     expect(content).toContain('react-dom-native');
   });
 
-  it('bundle includes component registry', () => {
+  it('bundle includes renderer', () => {
     const content = fs.readFileSync(BUNDLE_PATH, 'utf8');
-    expect(content).toContain('registerElement');
+    expect(content).toContain('createRoot');
   });
 
   it('bundle includes flight client', () => {

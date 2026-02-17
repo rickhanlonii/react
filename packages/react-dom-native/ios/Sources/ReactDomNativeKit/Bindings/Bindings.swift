@@ -46,6 +46,12 @@ public class Bindings {
     /// SSR trees registered for hydration traversal. Keyed by surfaceId.
     private var ssrTrees: [Int: [ShadowNodeWrapper]] = [:]
 
+    /// Surfaces that need #suspense nodes flattened from currentTrees after
+    /// the first $$completeRoot. The SSR tree has #suspense host elements but
+    /// the React reconciler doesn't produce host elements for Suspense fibers,
+    /// so the diff tree must not contain #suspense wrappers.
+    private var surfacesNeedingSuspenseFlatten: Set<Int> = []
+
     // MARK: - Node Registry
 
     /// Maps integer node IDs to ShadowNodeWrapper instances.
@@ -136,6 +142,14 @@ public class Bindings {
         rootViews[surfaceId] = scrollView
         currentTrees[surfaceId] = ssrTree
         viewRegistry.merge(from: ssrViewRegistry)
+
+        // Mark this surface for #suspense flattening after the first commit.
+        // The SSR tree has #suspense host elements wrapping Suspense content,
+        // but the React reconciler doesn't produce host elements for Suspense
+        // fibers. After the first $$completeRoot (which is a no-op since old
+        // and new reference the same SSR nodes), we flatten #suspense from
+        // currentTrees so the second commit can diff correctly.
+        surfacesNeedingSuspenseFlatten.insert(surfaceId)
     }
 
     /// Registers an SSR tree for hydration traversal.
@@ -159,6 +173,85 @@ public class Bindings {
     /// Clears the SSR tree after hydration completes.
     public func clearSSRTree(surfaceId: Int) {
         ssrTrees.removeValue(forKey: surfaceId)
+    }
+
+    /// Updates the current tree for a surface after an SSR boundary reveal
+    /// during hydration. Calculates layout, diffs old vs new, applies mutations,
+    /// and updates the stored current tree.
+    ///
+    /// This mirrors what $$completeRoot does but for SSR boundary reveals that
+    /// happen after hydration has started (React owns the view hierarchy).
+    public func updateCurrentTree(
+        surfaceId: Int,
+        oldTree: [ShadowNodeWrapper],
+        newTree: [ShadowNodeWrapper]
+    ) {
+        // 1. Calculate layout on new tree
+        var contentSize: CGSize = .zero
+        if let rootView = rootViews[surfaceId] {
+            contentSize = calculateYogaLayout(for: newTree, in: rootView.bounds)
+        }
+
+        // 2. Diff old vs new
+        let mutations = differentiator.diff(
+            oldChildren: oldTree,
+            newChildren: newTree,
+            parent: nil
+        )
+
+        // 3. Apply mutations
+        if let rootView = rootViews[surfaceId] {
+            mutationApplier.applyMutations(mutations, rootView: rootView)
+            syncAllFrames(newTree)
+
+            // Attach new root-level children
+            for child in newTree {
+                if let childView = viewRegistry.view(for: child.family) {
+                    if childView.superview == nil {
+                        rootView.addSubview(childView)
+                    }
+                }
+            }
+        }
+
+        // 4. Update scroll content size
+        if let scrollView = rootViews[surfaceId] as? UIScrollView {
+            scrollView.contentSize = CGSize(
+                width: scrollView.bounds.width,
+                height: contentSize.height
+            )
+        }
+
+        // 5. Update current tree
+        currentTrees[surfaceId] = newTree
+
+        // 6. Register new nodes in the tree (content nodes + cloned path nodes)
+        for child in newTree {
+            registerNewNodesInSubtree(child)
+        }
+    }
+
+    /// Updates the SSR tree for hydration traversal after a boundary reveal.
+    /// Called when a boundary reveals after hydration has started so that
+    /// $$getSSRChildOf / $$getNextSSRSibling see the content nodes.
+    public func updateSSRTree(surfaceId: Int, newTree: [ShadowNodeWrapper]) {
+        ssrTrees[surfaceId] = newTree
+        // Register any new nodes (content + cloned path nodes)
+        for child in newTree {
+            registerNewNodesInSubtree(child)
+        }
+    }
+
+    /// Registers nodes in a subtree that aren't already in the node registry.
+    private func registerNewNodesInSubtree(_ node: ShadowNodeWrapper) {
+        // Check if already registered (any entry pointing to this exact object)
+        let alreadyRegistered = nodeRegistry.values.contains(where: { $0 === node })
+        if !alreadyRegistered {
+            _ = registerNode(node)
+        }
+        for child in node.children {
+            registerNewNodesInSubtree(child)
+        }
     }
 
     // MARK: - Event Priority Constants
@@ -440,6 +533,16 @@ public class Bindings {
             // 6. Promote new tree to current tree
             self.currentTrees[surfaceId] = newChildren
 
+            // 6b. After the first hydration commit, flatten #suspense wrappers
+            // from currentTrees. The SSR tree has #suspense host elements but
+            // the reconciler produces no host elements for Suspense fibers.
+            // The first commit is a no-op (old === new), so this runs after it,
+            // ensuring the second commit diffs correctly.
+            if self.surfacesNeedingSuspenseFlatten.contains(surfaceId) {
+                self.surfacesNeedingSuspenseFlatten.remove(surfaceId)
+                self.flattenSuspenseFromCurrentTree(surfaceId: surfaceId)
+            }
+
             // 7. Clean up stale nodes from registry
             // Collect all node IDs still reachable from any current tree
             var liveNodes = Set<Int>()
@@ -465,6 +568,105 @@ public class Bindings {
             }
             collectNodeIds(from: node.children, into: &ids)
         }
+    }
+
+    // MARK: - Suspense Flattening for Hydration
+
+    /// Flattens #suspense host elements from `currentTrees[surfaceId]`.
+    ///
+    /// The SSR tree has `#suspense` nodes wrapping Suspense boundary content,
+    /// but the React reconciler doesn't produce host elements for Suspense
+    /// fibers — it walks through them and collects content directly. This
+    /// creates a structural mismatch between the SSR tree (old) and the
+    /// reconciler's output (new) that causes the differ to DELETE all SSR
+    /// nodes and CREATE new ones.
+    ///
+    /// This method:
+    /// 1. Creates structural clones of parent nodes with #suspense children
+    ///    promoted up (e.g. `div > [#suspense > content]` → `div > [content]`)
+    /// 2. Re-parents UIKit views: moves content views from #suspense views
+    ///    to the parent view, adjusting frames for the new parent coordinate space
+    /// 3. Removes orphaned #suspense UIKit views
+    /// 4. Updates `currentTrees` with the flattened tree
+    private func flattenSuspenseFromCurrentTree(surfaceId: Int) {
+        guard let tree = currentTrees[surfaceId] else { return }
+
+        let flattened = flattenSuspenseNodes(tree)
+        currentTrees[surfaceId] = flattened
+    }
+
+    /// Recursively creates structural clones with #suspense nodes removed.
+    /// Children of #suspense nodes are promoted to the parent level.
+    private func flattenSuspenseNodes(_ nodes: [ShadowNodeWrapper]) -> [ShadowNodeWrapper] {
+        var result: [ShadowNodeWrapper] = []
+
+        for node in nodes {
+            if node.family.elementType == "#suspense" {
+                // Re-parent UIKit views: move content from #suspense to parent
+                reparentSuspenseContentViews(suspenseNode: node)
+
+                // Promote children up, recursively flattening them too
+                result.append(contentsOf: flattenSuspenseNodes(node.children))
+            } else {
+                // Recursively flatten children
+                let flattenedChildren = flattenSuspenseNodes(node.children)
+
+                // Only create a structural clone if children actually changed
+                let childrenChanged = flattenedChildren.count != node.children.count ||
+                    !zip(flattenedChildren, node.children).allSatisfy({ $0 === $1 })
+
+                if childrenChanged {
+                    // Structural clone: same family/props for differ matching,
+                    // fresh Yoga node (not used — layout is on the new tree).
+                    let clone = ShadowNodeWrapper(
+                        props: node.props,
+                        children: flattenedChildren,
+                        family: node.family,
+                        text: node.text
+                    )
+                    clone.layoutFrame = node.layoutFrame
+                    clone.scrollContentSize = node.scrollContentSize
+                    result.append(clone)
+                } else {
+                    result.append(node)
+                }
+            }
+        }
+
+        return result
+    }
+
+    /// Moves content UIKit views from a #suspense view to its parent view,
+    /// adjusting frames for the new parent coordinate space. Then removes
+    /// the #suspense view and unregisters it from the view registry.
+    private func reparentSuspenseContentViews(suspenseNode: ShadowNodeWrapper) {
+        guard let suspenseView = viewRegistry.view(for: suspenseNode.family),
+              let parentView = suspenseView.superview else { return }
+
+        let suspenseOrigin = suspenseView.frame.origin
+
+        // Find the insertion index (where #suspense is among siblings)
+        let insertionIndex = parentView.subviews.firstIndex(of: suspenseView)
+            ?? parentView.subviews.count
+
+        // Move each content child view to the parent
+        for (i, child) in suspenseNode.children.enumerated() {
+            if let childView = viewRegistry.view(for: child.family) {
+                // Adjust frame: was relative to #suspense, now relative to parent
+                childView.frame = CGRect(
+                    x: childView.frame.origin.x + suspenseOrigin.x,
+                    y: childView.frame.origin.y + suspenseOrigin.y,
+                    width: childView.frame.size.width,
+                    height: childView.frame.size.height
+                )
+                childView.removeFromSuperview()
+                parentView.insertSubview(childView, at: insertionIndex + i)
+            }
+        }
+
+        // Remove the #suspense view itself
+        suspenseView.removeFromSuperview()
+        viewRegistry.unregister(family: suspenseNode.family)
     }
 
     /// Recursively syncs every UIView's frame to match its node's layoutFrame.
@@ -781,6 +983,9 @@ public class Bindings {
             let fallback = (node.props["fallback"] as? Bool) ?? false
             engine.setProperty(obj, "pending", engine.makeBool(pending))
             engine.setProperty(obj, "fallback", engine.makeBool(fallback))
+            if let boundaryId = node.props["boundaryId"] as? Int {
+                engine.setProperty(obj, "boundaryId", engine.makeNumber(Double(boundaryId)))
+            }
         }
         return obj
     }

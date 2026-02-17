@@ -15,8 +15,13 @@ public class UIKitMutationApplier: NSObject {
     private let viewRegistry: ViewRegistry
     public var dispatchEvent: EventDispatcher?
 
-    public init(viewRegistry: ViewRegistry) {
+    /// Label used in log output to distinguish SSR vs CSR mutations.
+    /// Defaults to "MutationApplier" for the reconciler (CSR) path.
+    private let logPrefix: String
+
+    public init(viewRegistry: ViewRegistry, logPrefix: String = "MutationApplier CSR") {
         self.viewRegistry = viewRegistry
+        self.logPrefix = logPrefix
     }
 
     // MARK: - Mutation application
@@ -30,29 +35,29 @@ public class UIKitMutationApplier: NSObject {
         _ mutations: [Mutation],
         rootView: UIView
     ) {
-        print("[MutationApplier] Applying \(mutations.count) mutations")
+        print("[\(logPrefix)] Applying \(mutations.count) mutations")
 
         for (index, mutation) in mutations.enumerated() {
             switch mutation {
             case .create(let node):
-                print("[MutationApplier] [\(index)] CREATE: \(node.family.elementType)")
+                print("[\(logPrefix)] [\(index)] CREATE: \(node.family.elementType)")
                 let view = createView(for: node)
                 view.frame = node.layoutFrame
-                print("[MutationApplier]   frame: \(view.frame)")
+                print("[\(logPrefix)]   frame: \(view.frame)")
                 viewRegistry.register(view: view, family: node.family)
 
             case .delete(let node):
-                print("[MutationApplier] [\(index)] DELETE: \(node.family.elementType)")
+                print("[\(logPrefix)] [\(index)] DELETE: \(node.family.elementType)")
                 if let view = viewRegistry.view(for: node.family) {
                     view.removeFromSuperview()
                 }
                 viewRegistry.unregister(family: node.family)
 
             case .insert(let parent, let child, let index):
-                print("[MutationApplier] [\(index)] INSERT: \(child.family.elementType) into \(parent.family.elementType) at \(index)")
+                print("[\(logPrefix)] [\(index)] INSERT: \(child.family.elementType) into \(parent.family.elementType) at \(index)")
                 guard let parentView = viewRegistry.view(for: parent.family),
                       let childView = viewRegistry.view(for: child.family) else {
-                    print("[MutationApplier]   SKIPPED - parent or child view not found")
+                    print("[\(logPrefix)]   SKIPPED - parent or child view not found")
                     continue
                 }
                 // Inherit font properties from parent text elements to #text children
@@ -61,17 +66,17 @@ public class UIKitMutationApplier: NSObject {
                 }
                 let clampedIndex = min(index, parentView.subviews.count)
                 parentView.insertSubview(childView, at: clampedIndex)
-                print("[MutationApplier]   inserted OK")
+                print("[\(logPrefix)]   inserted OK")
 
             case .remove(let parent, let child):
-                print("[MutationApplier] [\(index)] REMOVE: \(child.family.elementType)")
+                print("[\(logPrefix)] [\(index)] REMOVE: \(child.family.elementType)")
                 guard let childView = viewRegistry.view(for: child.family) else {
                     continue
                 }
                 childView.removeFromSuperview()
 
             case .update(let node, _, let newProps):
-                print("[MutationApplier] [\(index)] UPDATE: \(node.family.elementType)")
+                print("[\(logPrefix)] [\(index)] UPDATE: \(node.family.elementType)")
                 guard let view = viewRegistry.view(for: node.family) else {
                     continue
                 }
@@ -83,7 +88,7 @@ public class UIKitMutationApplier: NSObject {
             }
         }
 
-        print("[MutationApplier] Done. Root view subviews: \(rootView.subviews.count)")
+        print("[\(logPrefix)] Done. Root view subviews: \(rootView.subviews.count)")
     }
 
     // MARK: - View Factory

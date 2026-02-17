@@ -22,7 +22,6 @@ class SSRCoordinator: InstructionStreamDelegate {
     private let treeBuilder: ShadowTreeBuilder
     private let boundaryManager: BoundaryManager
     private weak var rootView: UIView?
-    private var flightDataBuffer: [String]
 
     /// Separate tree builders for segment content (one per boundary ID)
     private var segmentBuilders: [Int: ShadowTreeBuilder] = [:]
@@ -34,19 +33,33 @@ class SSRCoordinator: InstructionStreamDelegate {
     private var segmentContentNodes: [Int: [ShadowNodeWrapper]] = [:]
 
     /// Called after a boundary reveal updates the shadow tree.
-    /// Provides the updated root children for view recreation.
-    var onViewsNeedUpdate: (([ShadowNodeWrapper]) -> Void)?
+    /// Provides both old and new root children for diffing (not full rebuild).
+    var onViewsNeedUpdate: ((_ oldRootChildren: [ShadowNodeWrapper], _ newRootChildren: [ShadowNodeWrapper]) -> Void)?
+
+    /// Tracks the current root children across boundary reveals.
+    /// Starts as nil (uses treeBuilder.rootChildren), updated after each reveal.
+    private(set) var currentRootChildren: [ShadowNodeWrapper]?
+
+    /// Called after a boundary reveal completes, providing the boundary ID.
+    /// Used to notify the JS side so React can fire retry callbacks.
+    var onBoundaryRevealed: ((Int) -> Void)?
+
+    /// Called when a Flight data row (D instruction) is received from the SSR stream.
+    /// Used to buffer raw Flight rows for replay during hydration.
+    var onFlightDataReceived: ((String) -> Void)?
+
+    /// Called when the SSR stream has fully completed (all data received and parsed,
+    /// including D instructions that arrive after root complete).
+    var onStreamComplete: (() -> Void)?
 
     init(
         treeBuilder: ShadowTreeBuilder,
         boundaryManager: BoundaryManager,
-        rootView: UIView,
-        flightDataBuffer: [String]
+        rootView: UIView
     ) {
         self.treeBuilder = treeBuilder
         self.boundaryManager = boundaryManager
         self.rootView = rootView
-        self.flightDataBuffer = flightDataBuffer
     }
 
     // MARK: - Active Builder
@@ -83,7 +96,7 @@ class SSRCoordinator: InstructionStreamDelegate {
         // Fallback content will be added as children of the #suspense node.
         // Note: fallback=false because that flag indicates an ERROR boundary
         // (server-side error triggering client render), not a pending boundary.
-        activeBuilder.openElement(type: "#suspense", props: ["pending": true, "fallback": false])
+        activeBuilder.openElement(type: "#suspense", props: ["pending": true, "fallback": false, "boundaryId": id])
         boundaryManager.beginBoundary(id: id)
     }
 
@@ -146,21 +159,21 @@ class SSRCoordinator: InstructionStreamDelegate {
 
     func didReceiveRevealBoundary(id: Int) {
         let contentNodes = segmentContentNodes[id] ?? []
-        let wrapper = boundaryWrappers[id]
+        guard let wrapper = boundaryWrappers[id] else { return }
 
-        // Replace fallback children within the #suspense wrapper with content
-        if let wrapper = wrapper {
-            treeBuilder.revealBoundary(
-                parentNode: wrapper,
-                fallbackNodes: wrapper.children,
-                contentNodes: contentNodes,
-                atIndex: 0
-            )
+        // Get the current root children (initial tree or last reveal's result)
+        let oldRootChildren = currentRootChildren ?? treeBuilder.rootChildren
 
-            // Mark the boundary as resolved so isSuspenseInstancePending
-            // returns false during hydration
-            wrapper.props["pending"] = false
-        }
+        // Clone-based reveal: produces NEW tree without mutating the old one.
+        // The differentiator can then diff old vs new for minimal mutations.
+        let newRootChildren = ShadowTreeBuilder.revealBoundaryImmutable(
+            rootChildren: oldRootChildren,
+            suspenseNode: wrapper,
+            contentNodes: contentNodes
+        )
+
+        // Store new tree for subsequent reveals
+        currentRootChildren = newRootChildren
 
         // Clean up tracking state
         boundaryWrappers.removeValue(forKey: id)
@@ -169,8 +182,11 @@ class SSRCoordinator: InstructionStreamDelegate {
 
         boundaryManager.revealBoundary(id: id)
 
-        // Notify Root to rebuild views from updated tree
-        onViewsNeedUpdate?(treeBuilder.rootChildren)
+        // Notify with both old and new trees for diff-based update
+        onViewsNeedUpdate?(oldRootChildren, newRootChildren)
+
+        // Notify JS side so React can fire retry callbacks for this boundary
+        onBoundaryRevealed?(id)
     }
 
     func didReceiveRootComplete() {
@@ -182,7 +198,7 @@ class SSRCoordinator: InstructionStreamDelegate {
     }
 
     func didReceiveFlightData(row: String) {
-        flightDataBuffer.append(row)
+        onFlightDataReceived?(row)
     }
 
     func didReceiveClientRenderBoundary(id: Int, errorDigest: String?) {
@@ -204,9 +220,11 @@ class SSRCoordinator: InstructionStreamDelegate {
 class SSRStreamDelegate: NSObject, URLSessionDataDelegate {
 
     private let parser: InstructionStreamParser
+    private let onComplete: (() -> Void)?
 
-    init(parser: InstructionStreamParser) {
+    init(parser: InstructionStreamParser, onComplete: (() -> Void)? = nil) {
         self.parser = parser
+        self.onComplete = onComplete
     }
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
@@ -220,5 +238,6 @@ class SSRStreamDelegate: NSObject, URLSessionDataDelegate {
         } else {
             parser.finish()
         }
+        onComplete?()
     }
 }

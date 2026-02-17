@@ -688,15 +688,15 @@ describe('Hydration host config', () => {
       const result = HostConfig.hydrateInstance(
         ssrNode, 'div', props, defaultContext, handle
       );
-      expect(result).toBeNull();
+      expect(result).toBe(true);
     });
   });
 
   describe('hydrateTextInstance', () => {
-    it('returns false (no diff) when text matches', () => {
+    it('returns true (hydration succeeded) when text matches', () => {
       const ssrNode = {_ssrNodeRef: 1, type: '#text', text: 'hello'};
       const result = HostConfig.hydrateTextInstance(ssrNode, 'hello', {});
-      expect(result).toBe(false);
+      expect(result).toBe(true);
     });
   });
 

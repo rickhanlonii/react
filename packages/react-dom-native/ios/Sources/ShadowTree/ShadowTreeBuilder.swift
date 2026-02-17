@@ -176,51 +176,81 @@ public class ShadowTreeBuilder {
         }
     }
 
-    /// Replace fallback nodes with content nodes in the tree and recalculate layout.
+    /// Clone-based boundary reveal for persistent mode immutability.
     ///
-    /// Used by SSR streaming to reveal a Suspense boundary:
-    /// - Removes fallback nodes from their parent (shadow tree + Yoga)
-    /// - Inserts content nodes at the same position
-    /// - Recalculates the full Yoga layout
-    public func revealBoundary(
-        parentNode: ShadowNodeWrapper?,
-        fallbackNodes: [ShadowNodeWrapper],
-        contentNodes: [ShadowNodeWrapper],
-        atIndex startIndex: Int
-    ) {
-        let parentYoga = parentNode?.yogaNode ?? rootYogaNode
-
-        // Remove fallback nodes (reverse order to preserve indices)
-        for node in fallbackNodes.reversed() {
-            YGNodeRemoveChild(parentYoga, node.yogaNode)
-            if let parent = parentNode {
-                parent.children.removeAll { $0 === node }
-            } else {
-                rootChildren.removeAll { $0 === node }
-            }
-        }
-
-        // Insert content nodes where the fallbacks were
-        let children = parentNode?.children ?? rootChildren
-        let insertAt = min(startIndex, children.count)
-        for (offset, node) in contentNodes.enumerated() {
-            // Detach from segment builder's yoga tree
+    /// Returns a NEW root children array with the #suspense boundary revealed
+    /// (content replacing fallback). The old tree remains completely unchanged.
+    ///
+    /// The approach:
+    /// 1. Clone the #suspense wrapper with content children and pending=false
+    /// 2. Clone all ancestors up to root, replacing the old child at each level
+    /// 3. Return new root children (caller diffs old vs new and applies mutations)
+    ///
+    /// - Parameters:
+    ///   - rootChildren: The current root children array (not modified).
+    ///   - suspenseNode: The #suspense wrapper node to reveal.
+    ///   - contentNodes: The content nodes built by the segment builder.
+    /// - Returns: New root children array with the boundary revealed.
+    public static func revealBoundaryImmutable(
+        rootChildren: [ShadowNodeWrapper],
+        suspenseNode: ShadowNodeWrapper,
+        contentNodes: [ShadowNodeWrapper]
+    ) -> [ShadowNodeWrapper] {
+        // Detach content nodes from their segment builder's yoga tree
+        for node in contentNodes {
             if let owner = YGNodeGetOwner(node.yogaNode) {
                 YGNodeRemoveChild(owner, node.yogaNode)
             }
-
-            let idx = insertAt + offset
-            if let parent = parentNode {
-                parent.children.insert(node, at: idx)
-                YGNodeInsertChild(parent.yogaNode, node.yogaNode, idx)
-            } else {
-                rootChildren.insert(node, at: idx)
-                YGNodeInsertChild(rootYogaNode, node.yogaNode, idx)
-            }
         }
 
-        // Recalculate layout with updated tree
-        recalculateLayout()
+        // Clone #suspense with content children and pending=false
+        var newProps = suspenseNode.props
+        newProps["pending"] = false
+        let clonedSuspense = suspenseNode.cloneWithNewChildrenAndProps(contentNodes, newProps)
+
+        // Clone the ancestor path from root to #suspense, replacing the
+        // suspense node with the clone at each level
+        return clonePathReplacingNode(
+            target: suspenseNode,
+            replacement: clonedSuspense,
+            in: rootChildren
+        )
+    }
+
+    /// Recursively clones the path from root to target, replacing target with
+    /// replacement. Nodes not on the path are reused by reference (shared).
+    private static func clonePathReplacingNode(
+        target: ShadowNodeWrapper,
+        replacement: ShadowNodeWrapper,
+        in children: [ShadowNodeWrapper]
+    ) -> [ShadowNodeWrapper] {
+        return children.map { child in
+            if child === target {
+                return replacement
+            }
+            // Check if target is a descendant of this child
+            if containsNode(target, in: child.children) {
+                let newGrandchildren = clonePathReplacingNode(
+                    target: target,
+                    replacement: replacement,
+                    in: child.children
+                )
+                return child.cloneWithNewChildren(newGrandchildren)
+            }
+            return child // not on the path — reuse by reference
+        }
+    }
+
+    /// Returns true if target exists anywhere in the children subtree.
+    private static func containsNode(
+        _ target: ShadowNodeWrapper,
+        in children: [ShadowNodeWrapper]
+    ) -> Bool {
+        for child in children {
+            if child === target { return true }
+            if containsNode(target, in: child.children) { return true }
+        }
+        return false
     }
 
     /// Recalculate Yoga layout and update all node frames.

@@ -30,7 +30,7 @@ class FalconRootViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .white
 
-        #if DEBUG
+        #if DEBUG 
         Root.devBundleURL = URL(string: "http://localhost:6000/bundle.js")
         #endif
 

@@ -19,6 +19,13 @@ const ContinuousEventPriority = 8;
 let currentUpdatePriority = DefaultEventPriority;
 
 // ---------------------------------------------------------------------------
+// Suspense boundary tracking — maps SSR boundary IDs to suspense instances
+// so $$notifyBoundaryRevealed can fire retry callbacks when the Swift side
+// reveals a boundary after hydration has already registered retry callbacks.
+// ---------------------------------------------------------------------------
+const pendingSuspenseByBoundary = new Map();
+
+// ---------------------------------------------------------------------------
 // Text element set — elements that create a text context for children
 // ---------------------------------------------------------------------------
 const TEXT_CONTEXT_ELEMENTS = new Set([
@@ -473,14 +480,44 @@ exports.registerSuspenseInstanceRetry = function(instance, callback) {
   } else {
     instance._retryCallbacks = [callback];
   }
+  // Track by boundary ID so $$notifyBoundaryRevealed can find this instance
+  if (instance.boundaryId != null) {
+    pendingSuspenseByBoundary.set(instance.boundaryId, instance);
+  }
 };
 exports.canHydrateFormStateMarker = function() { return false; };
+
+// ---------------------------------------------------------------------------
+// Suspense boundary reveal notification (Swift -> JS)
+//
+// Called by the Swift SSRCoordinator when a boundary's content is revealed
+// after hydration has already registered retry callbacks. This handles
+// "Case B" — reveal after hydration. "Case A" (reveal before hydration)
+// is handled by makeSSRNodeRef reading the updated pending=false prop.
+// ---------------------------------------------------------------------------
+globalThis.$$notifyBoundaryRevealed = function(boundaryId) {
+  console.log('[HostConfig] $$notifyBoundaryRevealed: boundaryId=' + boundaryId);
+  var instance = pendingSuspenseByBoundary.get(boundaryId);
+  if (!instance) {
+    console.log('[HostConfig] $$notifyBoundaryRevealed: no instance for boundaryId=' + boundaryId);
+    return;
+  }
+  // Mark as resolved so isSuspenseInstancePending returns false
+  instance.pending = false;
+  // Fire and clear retry callbacks
+  var callbacks = instance._retryCallbacks;
+  if (callbacks) {
+    instance._retryCallbacks = null;
+    for (var i = 0; i < callbacks.length; i++) {
+      callbacks[i]();
+    }
+  }
+  pendingSuspenseByBoundary.delete(boundaryId);
+};
 exports.isFormStateMarkerMatching = function() { return false; };
 
 exports.getNextHydratableSibling = function(instance) {
-  var result = $$getNextSSRSibling(instance._ssrNodeRef);
-  console.log('[HostConfig] getNextHydratableSibling ref=' + instance._ssrNodeRef + ' result=' + (result ? result.type : 'null'));
-  return result;
+  return $$getNextSSRSibling(instance._ssrNodeRef);
 };
 exports.getNextHydratableSiblingAfterSingleton = function() { return null; };
 
@@ -501,7 +538,6 @@ exports.getFirstHydratableChildWithinSuspenseInstance = function(instance) {
 exports.getFirstHydratableChildWithinSingleton = function() { return null; };
 
 exports.canHydrateInstance = function(instance, type, props, inRootOrSingleton) {
-  console.log('[HostConfig] canHydrateInstance: instance.type=' + (instance ? instance.type : 'null') + ' fiberType=' + type + ' match=' + (instance && instance.type === type));
   if (instance.type === type) {
     return instance;
   }
@@ -529,21 +565,26 @@ exports.hydrateInstance = function(instance, type, props, hostContext, internalH
   instance._internalInstanceHandle = internalHandle;
   instance.props = props;
   instance.children = [];
+  // Return truthy = hydration succeeded (reconciler checks `hydrateInstance(...) || throwOnHydrationMismatch`)
   return true;
 };
 
 exports.hydrateTextInstance = function(textInstance, text, internalHandle) {
-  console.log('[HostConfig] hydrateTextInstance: ref=' + textInstance._ssrNodeRef + ' text=' + JSON.stringify(text && text.substring ? text.substring(0, 30) : text));
   textInstance._nativeNode = textInstance._ssrNodeRef;
   textInstance._nativeFamily = textInstance._ssrFamily;
   textInstance._internalInstanceHandle = internalHandle;
   textInstance.text = text;
-  // Return true = hydration succeeded
+  // Return truthy = hydration succeeded (reconciler checks `hydrateTextInstance(...) || throwOnHydrationMismatch`)
   return true;
 };
 
 exports.hydrateActivityInstance = function() {};
 exports.hydrateSuspenseInstance = function(suspenseInstance, internalHandle) {
+  // Set _nativeNode so cloneInstance can call $$cloneNode* on this instance.
+  // Without this, the clone operation receives undefined and fails silently,
+  // causing the committed tree to be missing the #suspense subtree entirely.
+  suspenseInstance._nativeNode = suspenseInstance._ssrNodeRef;
+  suspenseInstance._nativeFamily = suspenseInstance._ssrFamily;
   suspenseInstance._internalInstanceHandle = internalHandle;
 };
 
@@ -571,10 +612,45 @@ exports.clearSuspenseBoundaryFromContainer = function(container, suspenseInstanc
 exports.hideDehydratedBoundary = function() {};
 exports.unhideDehydratedBoundary = function() {};
 exports.shouldDeleteUnhydratedTailInstances = function() { return false; };
-exports.diffHydratedPropsForDevWarnings = function() { return null; };
-exports.diffHydratedTextForDevWarnings = function() { return null; };
+exports.diffHydratedPropsForDevWarnings = function(instance, type, expectedProps, hostContext) {
+  if (!instance || !instance.props) return null;
+  var serverProps = instance.props;
+  var diff = null;
+  // Compare each expected prop against server props
+  for (var propName in expectedProps) {
+    if (propName === 'children') continue;
+    var expected = expectedProps[propName];
+    var actual = serverProps[propName];
+    if (expected !== actual) {
+      if (diff === null) diff = {};
+      diff[propName] = actual !== undefined ? actual : null;
+    }
+  }
+  // Check for server props not in expected
+  for (var propName in serverProps) {
+    if (propName === 'children' || propName === 'style') continue;
+    if (!(propName in expectedProps)) {
+      if (diff === null) diff = {};
+      diff[propName] = serverProps[propName];
+    }
+  }
+  return diff;
+};
+exports.diffHydratedTextForDevWarnings = function(textInstance, expectedText) {
+  if (!textInstance) return null;
+  var serverText = textInstance.text;
+  if (serverText !== expectedText) {
+    return serverText != null ? serverText : '';
+  }
+  return null;
+};
 exports.describeHydratableInstanceForDevWarnings = function(instance) {
-  return instance.type || '';
+  if (!instance) return '';
+  if (instance.type === '#text') {
+    return instance.text || '';
+  }
+  // Return {type, props} for describeExpandedElement to format
+  return {type: instance.type, props: instance.props || {}};
 };
 exports.validateHydratableInstance = function(type, props, hostContext) { return true; };
 exports.validateHydratableTextInstance = function() {};
