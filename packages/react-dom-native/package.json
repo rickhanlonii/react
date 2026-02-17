@@ -5,7 +5,9 @@
   "main": "src/index.js",
   "exports": {
     ".": "./src/index.js",
-    "./server": "./src/server/index.js"
+    "./server": "./src/server/index.js",
+    "./src/renderer/renderer": "./src/renderer/renderer.js",
+    "./src/flight-client/client": "./src/flight-client/client.js"
   },
   "dependencies": {
     "react": "19.2.3",
