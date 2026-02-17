@@ -24,6 +24,44 @@ function createRoot() {
 }
 
 /**
+ * Creates a pre-populated SSR tree and returns a hydration root.
+ *
+ * Usage:
+ *   var root = Fantom.createHydrationRoot(<div><p>Hello</p></div>);
+ *   Fantom.runTask(function() {
+ *     root.hydrate(<div><p>Hello</p></div>);
+ *   });
+ *
+ * The SSR step renders the element via createRoot (building the shadow tree),
+ * then registers that tree as the SSR tree for hydration traversal.
+ * The hydrate step runs hydrateRoot against the registered SSR tree.
+ */
+function createHydrationRoot(ssrElement) {
+  var surfaceId = 1;
+  var nativeRootView = {surfaceId: surfaceId, width: 390, height: 844};
+
+  // Step 1: Render the SSR content to build the shadow tree
+  var ssrRoot = renderer.createRoot(nativeRootView);
+  ssrRoot.render(ssrElement);
+  $$flushWork();
+
+  // Step 2: Get the current tree node IDs and register as SSR tree
+  var nodeIds = $$getRenderedNodeIds(surfaceId);
+  $$registerSSRTree(surfaceId, nodeIds);
+
+  return {
+    hydrate: function(element) {
+      // Create a hydration root that will walk the SSR tree
+      var hydrationRoot = renderer.hydrateRoot(nativeRootView, element);
+      return hydrationRoot;
+    },
+    getRenderedOutput: function() {
+      return JSON.parse($$getRenderedOutput(surfaceId));
+    },
+  };
+}
+
+/**
  * Run a synchronous task and flush all pending React scheduler work.
  * Calls the user callback, then drains the setTimeout queue so that
  * React's deferred scheduler callbacks run before returning.
@@ -201,6 +239,7 @@ function createFromFlight(payload) {
 
 module.exports = {
   createRoot: createRoot,
+  createHydrationRoot: createHydrationRoot,
   renderToFlightString: renderToFlightString,
   createFromFlight: createFromFlight,
   runTask: runTask,

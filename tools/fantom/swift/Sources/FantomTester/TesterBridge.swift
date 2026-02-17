@@ -148,6 +148,24 @@ class TesterBridge {
             }
             return nil
         }
+
+        // $$getRenderedNodeIds(surfaceId) -> [nodeId]
+        // Returns the node IDs for the current tree's root children.
+        engine.setGlobalFunction("$$getRenderedNodeIds") { [weak self, weak engine] args in
+            guard let self = self, let engine = engine else { return nil }
+            let surfaceId = engine.toInt(args[0]) ?? 0
+            guard let tree = self.currentTrees[surfaceId] else {
+                return engine.makeArray([])
+            }
+            let ids: [JSValueRef] = tree.compactMap { node in
+                // Find the node ID in the registry
+                for (id, registeredNode) in self.nodeRegistry where registeredNode === node {
+                    return engine.makeNumber(Double(id))
+                }
+                return nil
+            }
+            return engine.makeArray(ids)
+        }
     }
 
     /// Finds a shadow node by element type in the tree (depth-first).

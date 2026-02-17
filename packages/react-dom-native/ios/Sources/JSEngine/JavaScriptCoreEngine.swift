@@ -163,6 +163,14 @@ public final class JavaScriptCoreEngine: JSEngine {
         return JSValue(newObjectIn: context)!
     }
 
+    public func makeArray(_ elements: [JSValueRef]) -> JSValueRef {
+        let jsElements: [Any] = elements.map { elem in
+            if let jsVal = elem as? JSValue { return jsVal }
+            return elem
+        }
+        return JSValue(object: jsElements, in: context)!
+    }
+
     // MARK: - Object property access
 
     public func getProperty(_ ref: JSValueRef, _ name: String) -> JSValueRef? {

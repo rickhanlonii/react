@@ -76,6 +76,9 @@ public protocol JSEngine: AnyObject {
     /// Creates a new empty JS object.
     func makeObject() -> JSValueRef
 
+    /// Creates a new JS array from the given elements.
+    func makeArray(_ elements: [JSValueRef]) -> JSValueRef
+
     // MARK: - Object property access
 
     /// Gets a named property from a JS object.
