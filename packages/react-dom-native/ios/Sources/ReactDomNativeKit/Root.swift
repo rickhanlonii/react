@@ -329,8 +329,8 @@ public class Root {
                 print("[ReactDomNativeKit] SSR first paint complete (\(rootChildren.count) root children)")
                 completion?(nil)
 
-                // TODO: re-enable hydration after SSR content is verified
-                // self.startHydration(serverURL: serverURL)
+                // Hydration is now available via root.hydrateRoot(serverURL:)
+                // called separately after renderWithSSR completes.
             }
         }
 
@@ -350,24 +350,82 @@ public class Root {
         task.resume()
     }
 
-    /// Start JS runtime and hydrate after SSR content is displayed.
-    private func startHydration(serverURL: String) {
-        // Load the JS bundle and render normally
-        // React will diff against the SSR tree and attach event handlers
-        render(serverURL: serverURL) { [weak self] error in
-            if let error = error {
-                print("[ReactDomNativeKit] Hydration failed: \(error)")
-                self?.options.onRecoverableError?(error)
-            } else {
-                print("[ReactDomNativeKit] Hydration complete — app is interactive")
+    /// Hydrates SSR content by attaching React's runtime to the pre-rendered tree.
+    ///
+    /// Call this after `renderWithSSR()` completes its first paint. The hydration
+    /// process:
+    /// 1. Loads the JS bundle and boots the React runtime
+    /// 2. Registers the SSR tree for JS-side traversal
+    /// 3. Fetches the RSC stream and hydrates against the SSR tree
+    /// 4. Attaches event handlers — app becomes interactive
+    ///
+    /// - Parameters:
+    ///   - serverURL: URL of the RSC server (e.g. "http://localhost:6000").
+    ///   - completion: Called when hydration completes or fails.
+    public func hydrateRoot(serverURL: String, completion: ((Error?) -> Void)? = nil) {
+        guard !isUnmounted else {
+            print("[ReactDomNativeKit] Warning: Cannot hydrate an unmounted root.")
+            completion?(RootError.alreadyUnmounted)
+            return
+        }
+
+        guard let treeBuilder = ssrTreeBuilder else {
+            print("[ReactDomNativeKit] Warning: No SSR tree to hydrate. Call renderWithSSR() first.")
+            completion?(RootError.runtimeNotInitialized)
+            return
+        }
+
+        // Create runtime if needed
+        if runtime == nil {
+            runtime = JSRuntime()
+
+            if let onError = options.onUncaughtError {
+                runtime?.engine.exceptionHandler = { message, _ in
+                    onError(RootError.jsException(message))
+                }
+            }
+
+            runtime?.bindings.registerSurface(surfaceId: options.surfaceId, rootView: container)
+            setupLayoutObserver()
+        }
+
+        // Register the SSR tree so bridge functions can traverse it
+        runtime?.bindings.registerSSRTree(
+            surfaceId: options.surfaceId,
+            rootChildren: treeBuilder.rootChildren
+        )
+
+        // Load and execute bundle, then trigger hydrateFromURL
+        let bundleURL = resolveBundleURL()
+        loadBundle(from: bundleURL) { [weak self] result in
+            switch result {
+            case .success(let source):
+                self?.executeBundle(source: source, sourceURL: bundleURL)
+                self?.callHydrateFromURL(serverURL: serverURL)
+                completion?(nil)
+
                 // Clean up SSR state
                 self?.ssrParser = nil
                 self?.ssrTreeBuilder = nil
                 self?.ssrBoundaryManager = nil
                 self?.ssrCoordinator = nil
                 self?.ssrFlightDataBuffer.removeAll()
+                self?.ssrViewRegistry = nil
+                self?.ssrMutationApplier = nil
+                self?.ssrRevealHasOccurred = false
+
+            case .failure(let error):
+                print("[ReactDomNativeKit] Hydration failed to load bundle: \(error)")
+                self?.options.onRecoverableError?(error)
+                completion?(error)
             }
         }
+    }
+
+    /// Calls the JS-side hydrateFromURL after the framework bundle has been evaluated.
+    private func callHydrateFromURL(serverURL: String) {
+        let js = "globalThis.__REACT_DOM_NATIVE__.hydrateFromURL('\(serverURL)', {surfaceId: \(options.surfaceId)})"
+        runtime?.engine.evaluate(js)
     }
 
     /// Creates UIKit views from the SSR shadow tree and adds them to the root view.
