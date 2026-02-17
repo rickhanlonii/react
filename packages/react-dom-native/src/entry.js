@@ -14,6 +14,7 @@
 var React = require('react');
 var renderer = require('./renderer/index');
 var createRoot = renderer.createRoot;
+var hydrateRoot = renderer.hydrateRoot;
 var flightClient = require('./flight-client/index');
 var createFromFetch = flightClient.createFromFetch;
 var http = require('./flight-client/http');
@@ -55,6 +56,22 @@ globalThis.__REACT_DOM_NATIVE__ = {
     var root = createRoot(rootViewHandle);
     root.render(element);
     return root;
+  },
+
+  // Called by native to hydrate SSR content from an RSC stream.
+  // Must be called after SSR tree is registered via $$registerSSRTree.
+  hydrateFromURL: function hydrateFromURL(url, options) {
+    var surfaceId = options && options.surfaceId ? options.surfaceId : 1;
+    var fetchPromise = fetchWithBridge(url, {
+      headers: {Accept: 'text/x-component'},
+    });
+    var tree = createFromFetch(fetchPromise, {serverURL: url});
+
+    tree.then(function(element) {
+      hydrateRoot({surfaceId: surfaceId}, element);
+    }, function(error) {
+      console.error('[react-dom-native] Hydration RSC stream error: ' + error);
+    });
   },
 
   // Version info

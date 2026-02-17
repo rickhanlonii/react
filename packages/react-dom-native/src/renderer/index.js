@@ -1,5 +1,5 @@
 'use strict';
 
-const {createRoot} = require('./renderer');
+const {createRoot, hydrateRoot} = require('./renderer');
 
-module.exports = {createRoot};
+module.exports = {createRoot, hydrateRoot};

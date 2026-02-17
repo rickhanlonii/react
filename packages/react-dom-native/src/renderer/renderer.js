@@ -55,4 +55,46 @@ function createRoot(nativeRootView) {
   };
 }
 
-module.exports = {createRoot, reconciler};
+function noop() {}
+
+function hydrateRoot(nativeRootView, initialElement, options) {
+  console.log('[Renderer] hydrateRoot called with surfaceId: ' + (nativeRootView.surfaceId || 'auto'));
+  const surfaceId = nativeRootView.surfaceId != null
+    ? nativeRootView.surfaceId
+    : nextSurfaceId++;
+  const container = {
+    surfaceId,
+    rootView: nativeRootView,
+    width: nativeRootView.width || 0,
+    height: nativeRootView.height || 0,
+    currentTree: null,
+    pendingTree: null,
+  };
+  const root = reconciler.createHydrationContainer(
+    initialElement,
+    null,           // callback
+    container,
+    1,              // ConcurrentRoot
+    null,           // hydrationCallbacks
+    false,          // isStrictMode
+    null,           // concurrentUpdatesByDefaultOverride
+    '',             // identifierPrefix
+    options && options.onUncaughtError ? options.onUncaughtError : noop,
+    options && options.onCaughtError ? options.onCaughtError : noop,
+    options && options.onRecoverableError ? options.onRecoverableError : noop,
+    noop,           // onDefaultTransitionIndicator
+    null,           // transitionCallbacks
+    null,           // formState
+  );
+  console.log('[Renderer] Hydration container created for surfaceId: ' + surfaceId);
+  return {
+    render(element) {
+      reconciler.updateContainer(element, root, null, null);
+    },
+    unmount() {
+      reconciler.updateContainer(null, root, null, null);
+    },
+  };
+}
+
+module.exports = {createRoot, hydrateRoot, reconciler};

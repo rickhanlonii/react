@@ -714,3 +714,37 @@ describe('Hydration host config', () => {
     });
   });
 });
+
+describe('hydrateRoot', () => {
+  let hydrateRoot;
+
+  beforeEach(() => {
+    // Need to clear module cache since HostConfig is already loaded with mocks
+    jest.resetModules();
+    // Re-register mocks
+    global.$$createNode = mockCreateNode;
+    global.$$createTextNode = mockCreateTextNode;
+    global.$$appendChild = mockAppendChild;
+    global.$$cloneNodeWithNewProps = mockCloneNodeWithNewProps;
+    global.$$cloneNodeWithNewChildrenAndProps = mockCloneNodeWithNewChildrenAndProps;
+    global.$$completeRoot = mockCompleteRoot;
+    global.$$getFirstSSRChild = mockGetFirstSSRChild;
+    global.$$getSSRChildOf = mockGetSSRChildOf;
+    global.$$getNextSSRSibling = mockGetNextSSRSibling;
+    global.$$registerEventHandler = jest.fn();
+    hydrateRoot = require('../renderer').hydrateRoot;
+  });
+
+  it('is exported from renderer', () => {
+    expect(typeof hydrateRoot).toBe('function');
+  });
+
+  it('returns object with render and unmount methods', () => {
+    const root = hydrateRoot(
+      {surfaceId: 1, width: 390, height: 844},
+      null,
+    );
+    expect(typeof root.render).toBe('function');
+    expect(typeof root.unmount).toBe('function');
+  });
+});
