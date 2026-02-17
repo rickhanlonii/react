@@ -18,7 +18,7 @@ var esbuild = require('esbuild');
 var React = require('react');
 var path = require('path');
 var url = require('url');
-var {PassThrough} = require('stream');
+var {PassThrough, Transform} = require('stream');
 
 var app = express();
 var PORT = 6000;
@@ -237,11 +237,57 @@ app.get('/ssr', function (req, res) {
     require('react-server-dom-webpack/server').renderToPipeableStream;
   var flightStream = renderToFlightStream(element, clientManifest);
 
-  // Step 2: Feed Flight stream directly to Flight client (no buffering).
-  // The Flight client resolves chunks lazily — async server components
-  // remain as unresolved thenables until their Flight chunks arrive.
+  // Step 2: Intercept the Flight stream with a Transform that captures
+  // each newline-delimited row. These rows will be emitted as D instructions
+  // after Fizz output completes, so the client can replay them during
+  // hydration without making a second HTTP fetch.
+  var capturedFlightRows = [];
+  var partialRow = '';
+
+  var flightCapture = new Transform({
+    transform: function (chunk, encoding, callback) {
+      // Pass data through to the Flight client unchanged
+      this.push(chunk);
+
+      // Capture rows (newline-delimited)
+      var text = chunk.toString();
+      var lines = text.split('\n');
+
+      // First element joins with any partial row from previous chunk
+      lines[0] = partialRow + lines[0];
+      partialRow = '';
+
+      // Last element may be incomplete (no trailing newline)
+      if (text[text.length - 1] !== '\n') {
+        partialRow = lines.pop();
+      } else {
+        // Remove trailing empty string from split
+        if (lines[lines.length - 1] === '') {
+          lines.pop();
+        }
+      }
+
+      for (var i = 0; i < lines.length; i++) {
+        if (lines[i] !== '') {
+          capturedFlightRows.push(lines[i]);
+        }
+      }
+
+      callback();
+    },
+    flush: function (callback) {
+      // Flush any remaining partial row
+      if (partialRow !== '') {
+        capturedFlightRows.push(partialRow);
+        partialRow = '';
+      }
+      callback();
+    },
+  });
+
+  // Pipe: flightStream → flightCapture → passThrough (for Flight client)
   var passThrough = new PassThrough();
-  flightStream.pipe(passThrough);
+  flightStream.pipe(flightCapture).pipe(passThrough);
 
   var createFromNodeStream =
     require('react-server-dom-webpack/client.node').createFromNodeStream;
@@ -252,32 +298,47 @@ app.get('/ssr', function (req, res) {
     serverModuleMap: null,
   };
 
-  var rootPromise = createFromNodeStream(passThrough, ssrManifest);
+  var rootThenable = createFromNodeStream(passThrough, ssrManifest);
 
-  // Step 3: Wait for root element, then render with Fizz.
-  // Fizz handles lazy/thenable resolution natively (suspends and retries).
-  Promise.resolve(rootPromise).then(function (rootElement) {
-    var nativeSSR = require('react-dom-native/server');
+  // Step 3: Render with Fizz, passing the Flight thenable directly.
+  // Fizz handles thenable children natively: it calls unwrapThenable()
+  // which throws SuspenseException if pending, rendering Suspense
+  // fallbacks immediately. When Flight chunks resolve, Fizz resumes
+  // via pingTask() and streams reveal instructions.
+  var nativeSSR = require('react-dom-native/server');
 
-    var renderToNativeStream = nativeSSR.renderToPipeableStream;
-    var nativeStream = renderToNativeStream(rootElement, {
-      onShellReady: function () {
-        res.setHeader('Content-Type', 'application/x-native-ssr');
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Cache-Control', 'no-cache');
-        nativeStream.pipe(res);
-      },
-      onShellError: function (error) {
-        console.error('[SSR] Shell error:', error);
-        res.status(500).send('SSR shell error: ' + error.message);
-      },
-      onError: function (error) {
-        console.error('[SSR] Error:', error);
-      },
-    });
-  }).catch(function (error) {
-    console.error('[SSR] Flight client error:', error);
-    res.status(500).send('SSR error: ' + error.message);
+  var renderToNativeStream = nativeSSR.renderToPipeableStream;
+  var nativeStream = renderToNativeStream(rootThenable, {
+    onShellReady: function () {
+      res.setHeader('Content-Type', 'application/x-native-ssr');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cache-Control', 'no-cache');
+
+      // Pipe Fizz output through an intermediary so we can append
+      // D instructions after Fizz finishes writing.
+      var fizzPassThrough = new PassThrough();
+      nativeStream.pipe(fizzPassThrough);
+
+      fizzPassThrough.on('data', function (chunk) {
+        res.write(chunk);
+      });
+
+      fizzPassThrough.on('end', function () {
+        // Emit captured Flight rows as D instructions.
+        // The native parser recognizes ["D", row] and buffers the data.
+        for (var i = 0; i < capturedFlightRows.length; i++) {
+          res.write(JSON.stringify(['D', capturedFlightRows[i]]) + '\n');
+        }
+        res.end();
+      });
+    },
+    onShellError: function (error) {
+      console.error('[SSR] Shell error:', error);
+      res.status(500).send('SSR shell error: ' + error.message);
+    },
+    onError: function (error) {
+      console.error('[SSR] Error:', error);
+    },
   });
 });
 
