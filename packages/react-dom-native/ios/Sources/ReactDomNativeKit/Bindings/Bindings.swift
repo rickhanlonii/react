@@ -43,6 +43,9 @@ public class Bindings {
     /// Root UIViews per surface. Keyed by surfaceId.
     private var rootViews: [Int: UIView] = [:]
 
+    /// SSR trees registered for hydration traversal. Keyed by surfaceId.
+    private var ssrTrees: [Int: [ShadowNodeWrapper]] = [:]
+
     // MARK: - Node Registry
 
     /// Maps integer node IDs to ShadowNodeWrapper instances.
@@ -105,6 +108,29 @@ public class Bindings {
         currentTrees.removeValue(forKey: surfaceId)
     }
 
+    /// Registers an SSR tree for hydration traversal.
+    /// Called by Root.hydrateRoot() after SSR first paint completes.
+    public func registerSSRTree(surfaceId: Int, rootChildren: [ShadowNodeWrapper]) {
+        ssrTrees[surfaceId] = rootChildren
+        // Register all SSR nodes so they have IDs for the bridge
+        for child in rootChildren {
+            registerSSRSubtree(child)
+        }
+    }
+
+    /// Recursively registers all nodes in an SSR subtree.
+    private func registerSSRSubtree(_ node: ShadowNodeWrapper) {
+        _ = registerNode(node)
+        for child in node.children {
+            registerSSRSubtree(child)
+        }
+    }
+
+    /// Clears the SSR tree after hydration completes.
+    public func clearSSRTree(surfaceId: Int) {
+        ssrTrees.removeValue(forKey: surfaceId)
+    }
+
     // MARK: - Event Priority Constants
 
     private func registerEventPriorityConstants() {
@@ -123,6 +149,7 @@ public class Bindings {
         registerMeasurement()
         registerEventHandling()
         registerNetworking()
+        registerHydrationTraversal()
     }
 
     // MARK: - Node Creation
@@ -646,5 +673,104 @@ public class Bindings {
             task.resume()
             return nil
         }
+    }
+
+    // MARK: - Hydration Traversal
+
+    private func registerHydrationTraversal() {
+        // $$registerSSRTree(surfaceId, nodeIds) -> void
+        // Called from JS to register an SSR tree for hydration.
+        // nodeIds is an array of root-level SSR node IDs.
+        engine.setGlobalFunction("$$registerSSRTree") { [weak self, weak engine] args in
+            guard let self = self, let engine = engine else { return nil }
+            let surfaceId = engine.toInt(args[0]) ?? 0
+            let nodeRefs = engine.toArray(args[1]) ?? []
+            let nodes: [ShadowNodeWrapper] = nodeRefs.compactMap { ref in
+                guard let id = engine.toInt(ref) else { return nil }
+                return self.nodeRegistry[id]
+            }
+            self.ssrTrees[surfaceId] = nodes
+            return nil
+        }
+
+        // $$getFirstSSRChild(surfaceId) -> {nodeId, type} | null
+        // Returns the first root-level child of the SSR tree for a surface.
+        engine.setGlobalFunction("$$getFirstSSRChild") { [weak self, weak engine] args in
+            guard let self = self, let engine = engine else { return nil }
+            let surfaceId = engine.toInt(args[0]) ?? 0
+            guard let tree = self.ssrTrees[surfaceId], let first = tree.first else {
+                return nil
+            }
+            return self.makeSSRNodeRef(first, engine: engine)
+        }
+
+        // $$getSSRChildOf(nodeId) -> {nodeId, type} | null
+        // Returns the first child of an SSR node.
+        engine.setGlobalFunction("$$getSSRChildOf") { [weak self, weak engine] args in
+            guard let self = self, let engine = engine else { return nil }
+            guard let node = self.lookupNode(args[0]) else { return nil }
+            guard let first = node.children.first else { return nil }
+            return self.makeSSRNodeRef(first, engine: engine)
+        }
+
+        // $$getNextSSRSibling(nodeId) -> {nodeId, type} | null
+        // Returns the next sibling of an SSR node.
+        engine.setGlobalFunction("$$getNextSSRSibling") { [weak self, weak engine] args in
+            guard let self = self, let engine = engine else { return nil }
+            guard let node = self.lookupNode(args[0]) else { return nil }
+
+            if let sibling = self.findNextSibling(of: node) {
+                return self.makeSSRNodeRef(sibling, engine: engine)
+            }
+            return nil
+        }
+
+        // $$clearSSRTree(surfaceId) -> void
+        // Cleans up the SSR tree after hydration completes.
+        engine.setGlobalFunction("$$clearSSRTree") { [weak self] args in
+            guard let self = self else { return nil }
+            let surfaceId = (self.engine.toInt(args[0])) ?? 0
+            self.ssrTrees.removeValue(forKey: surfaceId)
+            return nil
+        }
+    }
+
+    /// Creates a JS object representing an SSR node for hydration traversal.
+    private func makeSSRNodeRef(_ node: ShadowNodeWrapper, engine: JSEngine) -> JSValueRef? {
+        let nodeId = registerNode(node)
+        let obj = engine.makeObject()
+        engine.setProperty(obj, "_ssrNodeRef", engine.makeNumber(Double(nodeId)))
+        engine.setProperty(obj, "_ssrFamily", engine.makeNumber(Double(nodeId)))
+        engine.setProperty(obj, "type", engine.makeString(node.family.elementType))
+        if let text = node.text {
+            engine.setProperty(obj, "text", engine.makeString(text))
+        }
+        return obj
+    }
+
+    /// Finds the next sibling of a node by searching all known trees.
+    private func findNextSibling(of target: ShadowNodeWrapper) -> ShadowNodeWrapper? {
+        for (_, tree) in ssrTrees {
+            if let sibling = findNextSiblingInChildren(target, children: tree) {
+                return sibling
+            }
+        }
+        return nil
+    }
+
+    /// Recursively searches children arrays for the target node and returns the next sibling.
+    private func findNextSiblingInChildren(_ target: ShadowNodeWrapper, children: [ShadowNodeWrapper]) -> ShadowNodeWrapper? {
+        for (index, child) in children.enumerated() {
+            if child === target {
+                if index + 1 < children.count {
+                    return children[index + 1]
+                }
+                return nil
+            }
+            if let found = findNextSiblingInChildren(target, children: child.children) {
+                return found
+            }
+        }
+        return nil
     }
 }
