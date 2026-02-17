@@ -57,6 +57,12 @@ public class Bindings {
     /// queued to prevent mid-hydration tree mutations.
     private var hydrationInProgress: Set<Int> = []
 
+    /// Surfaces that need SSR cleanup after Suspense retries complete.
+    /// Set after the initial hydration commit. Cleared on the NEXT
+    /// $$completeRoot (the Suspense retry commit), at which point it's
+    /// safe to discard the SSR tree.
+    private var surfacesNeedingSSRCleanup: Set<Int> = []
+
     /// Queued SSR tree updates that arrived during hydration.
     /// Applied after hydration completes (first $$completeRoot).
     private var pendingSSRTreeUpdates: [Int: [ShadowNodeWrapper]] = [:]
@@ -586,6 +592,17 @@ public class Bindings {
             // 6. Promote new tree to current tree
             self.currentTrees[surfaceId] = newChildren
 
+            // 6a. If SSR cleanup was deferred from the previous commit
+            // (waiting for Suspense retries to complete), do it now.
+            // The retry render phase has already traversed the SSR tree,
+            // so it's safe to discard.
+            if self.surfacesNeedingSSRCleanup.contains(surfaceId) {
+                self.surfacesNeedingSSRCleanup.remove(surfaceId)
+                print("[ReactDomNativeKit] SSR cleanup after Suspense retries for surfaceId \(surfaceId)")
+                self.clearSSRTree(surfaceId: surfaceId)
+                self.onHydrationComplete?(surfaceId)
+            }
+
             // 6b. After the first hydration commit, flatten #suspense wrappers
             // from currentTrees. The SSR tree has #suspense host elements but
             // the reconciler produces no host elements for Suspense fibers.
@@ -596,12 +613,15 @@ public class Bindings {
                 self.flattenSuspenseFromCurrentTree(surfaceId: surfaceId)
             }
 
-            // 6c. Complete hydration — apply any queued SSR tree updates,
-            // then clean up SSR state. After the first commit, React owns
-            // the tree and handles updates through the reconciler.
+            // 6c. Initial hydration commit — apply any queued SSR tree updates
+            // but DON'T clean up SSR state yet. Suspense retries (scheduled
+            // during this render) will run as a separate commit and need the
+            // SSR tree for traversal (getFirstHydratableChildWithinSuspenseInstance,
+            // getNextHydratableSibling). Cleanup is deferred to the next
+            // $$completeRoot via surfacesNeedingSSRCleanup.
             if self.hydrationInProgress.contains(surfaceId) {
                 self.hydrationInProgress.remove(surfaceId)
-                print("[ReactDomNativeKit] Hydration complete for surfaceId \(surfaceId)")
+                print("[ReactDomNativeKit] Hydration initial commit for surfaceId \(surfaceId)")
 
                 if let pendingTree = self.pendingSSRTreeUpdates.removeValue(forKey: surfaceId) {
                     print("[ReactDomNativeKit] Applying queued SSR tree update for surfaceId \(surfaceId)")
@@ -614,11 +634,8 @@ public class Bindings {
                     }
                 }
 
-                // Clean up SSR tree — no longer needed after hydration
-                self.clearSSRTree(surfaceId: surfaceId)
-
-                // Notify Root to clean up SSR infrastructure
-                self.onHydrationComplete?(surfaceId)
+                // Defer SSR cleanup to the next $$completeRoot
+                self.surfacesNeedingSSRCleanup.insert(surfaceId)
             }
 
             // 7. Clean up stale nodes from registry
@@ -627,7 +644,13 @@ public class Bindings {
             for (_, tree) in self.currentTrees {
                 self.collectNodeIds(from: tree, into: &liveNodes)
             }
-            // Remove nodes not in any current tree
+            // Also keep SSR tree nodes alive — Suspense hydration retries
+            // need to look up #suspense nodes and their content children
+            // after the initial hydration commit.
+            for (_, tree) in self.ssrTrees {
+                self.collectNodeIds(from: tree, into: &liveNodes)
+            }
+            // Remove nodes not in any current tree or SSR tree
             let staleIds = self.nodeRegistry.keys.filter { !liveNodes.contains($0) }
             for id in staleIds {
                 self.nodeRegistry.removeValue(forKey: id)

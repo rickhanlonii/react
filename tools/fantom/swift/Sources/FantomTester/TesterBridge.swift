@@ -100,6 +100,7 @@ class TesterBridge {
         registerMeasurement()
         registerEventHandling()
         registerHydrationTraversal()
+        registerSSRProcessing()
     }
 
     // MARK: - Test-specific Functions
@@ -609,5 +610,262 @@ class TesterBridge {
             ssrNodeToParent[ObjectIdentifier(child)] = node
             buildParentMap(child)
         }
+    }
+
+    // MARK: - SSR Stream Processing
+
+    private func registerSSRProcessing() {
+        // $$processSSRStream(surfaceId, streamString) -> void
+        // Feeds an instruction stream string through the real SSR pipeline:
+        // InstructionStreamParser → TestSSRCoordinator → ShadowTreeBuilder/BoundaryManager
+        // Then registers the resulting tree for both rendering and hydration.
+        engine.setGlobalFunction("$$processSSRStream") { [weak self, weak engine] args in
+            guard let self = self, let engine = engine else { return nil }
+            let surfaceId = engine.toInt(args[0]) ?? 0
+            let streamString = engine.toString(args[1]) ?? ""
+
+            // Create the SSR pipeline components
+            let treeBuilder = ShadowTreeBuilder(surfaceId: surfaceId)
+            let boundaryManager = BoundaryManager(treeBuilder: treeBuilder)
+            let coordinator = TestSSRCoordinator(
+                treeBuilder: treeBuilder,
+                boundaryManager: boundaryManager
+            )
+
+            // Simulate Root.swift's onViewsNeedUpdate: after each boundary
+            // reveal, reparent yoga nodes to a temp root, calculate layout,
+            // then detach. This reproduces the yoga tree side effects that
+            // happen between reveals in the real app.
+            coordinator.onViewsNeedUpdate = { oldRootChildren, newRootChildren in
+                let rootYogaNode = YGNodeNewWithConfig(YogaConfig.shared)!
+                YGNodeStyleSetFlexDirection(rootYogaNode, .column)
+                YGNodeStyleSetWidth(rootYogaNode, 390)
+
+                for (index, child) in newRootChildren.enumerated() {
+                    if let owner = YGNodeGetOwner(child.yogaNode) {
+                        YGNodeRemoveChild(owner, child.yogaNode)
+                    }
+                    YGNodeInsertChild(rootYogaNode, child.yogaNode, index)
+                }
+
+                YGNodeCalculateLayout(rootYogaNode, 390, .nan, .LTR)
+
+                YGNodeRemoveAllChildren(rootYogaNode)
+                YGNodeFree(rootYogaNode)
+            }
+
+            // Parse the instruction stream
+            let parser = InstructionStreamParser()
+            parser.delegate = coordinator
+            if let data = streamString.data(using: .utf8) {
+                parser.receive(data: data)
+            }
+            parser.finish()
+
+            // Get the final tree (may have been updated by boundary reveals)
+            let finalChildren = coordinator.currentRootChildren ?? treeBuilder.rootChildren
+
+            // Calculate Yoga layout
+            self.calculateYogaLayout(for: finalChildren, width: 390, height: 844)
+
+            // Register all nodes in nodeRegistry so hydration traversal can find them
+            self.registerAllDescendants(finalChildren)
+
+            // Diff empty old tree vs new tree, apply mutations to rootViews
+            let oldChildren = self.currentTrees[surfaceId] ?? []
+            let mutations = self.differentiator.diff(
+                oldChildren: oldChildren,
+                newChildren: finalChildren,
+                parent: nil
+            )
+
+            if self.rootViews[surfaceId] == nil {
+                self.rootViews[surfaceId] = StubView(elementType: "root")
+            }
+
+            if let rootView = self.rootViews[surfaceId] {
+                self.mutationApplier.applyMutations(mutations, rootView: rootView)
+                rootView.children = finalChildren.compactMap { node in
+                    self.viewRegistry.view(for: node.family)
+                }
+            }
+
+            // Set current tree and SSR tree for hydration
+            self.currentTrees[surfaceId] = finalChildren
+            self.ssrTrees[surfaceId] = finalChildren
+
+            // Build parent map for sibling lookups during hydration
+            self.ssrNodeToParent.removeAll()
+            for child in finalChildren {
+                self.buildParentMap(child)
+            }
+
+            return nil
+        }
+    }
+
+    /// Recursively registers all nodes in a tree so hydration traversal
+    /// functions ($$getSSRChildOf, $$getNextSSRSibling) can look them up.
+    private func registerAllDescendants(_ children: [ShadowNodeWrapper]) {
+        for child in children {
+            _ = registerNode(child)
+            registerAllDescendants(child.children)
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// TestSSRCoordinator
+//
+// Minimal SSR coordinator for Fantom tests. Modeled on SSRCoordinator
+// (ReactDomNativeKit) but without UIKit dependencies. Implements
+// InstructionStreamDelegate and coordinates between ShadowTreeBuilder
+// and BoundaryManager to process instruction streams.
+// ---------------------------------------------------------------------------
+
+private class TestSSRCoordinator: InstructionStreamDelegate {
+
+    private let treeBuilder: ShadowTreeBuilder
+    private let boundaryManager: BoundaryManager
+
+    /// Separate tree builders for segment content (one per boundary ID)
+    private var segmentBuilders: [Int: ShadowTreeBuilder] = [:]
+
+    /// The #suspense wrapper node for each boundary ID
+    private var boundaryWrappers: [Int: ShadowNodeWrapper] = [:]
+
+    /// Content nodes built by segment builders (for insertion on reveal)
+    private var segmentContentNodes: [Int: [ShadowNodeWrapper]] = [:]
+
+    /// Tracks the current root children across boundary reveals.
+    private(set) var currentRootChildren: [ShadowNodeWrapper]?
+
+    /// Called after a boundary reveal updates the tree.
+    /// Mirrors SSRCoordinator.onViewsNeedUpdate for reproducing yoga side effects.
+    var onViewsNeedUpdate: ((_ oldRootChildren: [ShadowNodeWrapper], _ newRootChildren: [ShadowNodeWrapper]) -> Void)?
+
+    init(treeBuilder: ShadowTreeBuilder, boundaryManager: BoundaryManager) {
+        self.treeBuilder = treeBuilder
+        self.boundaryManager = boundaryManager
+    }
+
+    // MARK: - Active Builder
+
+    private var activeBuilder: ShadowTreeBuilder {
+        if let context = boundaryManager.currentBuffer() {
+            if case .segment(let id) = context {
+                return segmentBuilders[id] ?? treeBuilder
+            }
+        }
+        return treeBuilder
+    }
+
+    // MARK: - InstructionStreamDelegate
+
+    func didReceiveOpenElement(type: String, props: [String: Any]) {
+        activeBuilder.openElement(type: type, props: props)
+    }
+
+    func didReceiveTextNode(text: String) {
+        activeBuilder.textNode(text: text)
+    }
+
+    func didReceiveCloseElement() {
+        activeBuilder.closeElement()
+    }
+
+    func didReceiveBeginBoundary(id: Int) {
+        activeBuilder.openElement(type: "#suspense", props: ["pending": true, "fallback": false, "boundaryId": id])
+        boundaryManager.beginBoundary(id: id)
+    }
+
+    func didReceiveEndBoundary() {
+        var boundaryId: Int? = nil
+        if let context = boundaryManager.currentBuffer(),
+           case .fallback(let id) = context {
+            boundaryId = id
+        }
+
+        if let id = boundaryId {
+            boundaryWrappers[id] = activeBuilder.currentParent
+        }
+
+        activeBuilder.closeElement()
+        boundaryManager.endBoundary()
+
+        if let id = boundaryId, let wrapper = boundaryWrappers[id] {
+            boundaryManager.setFallbackNodes(id: id, nodes: wrapper.children)
+        }
+    }
+
+    func didReceiveBeginSegment(id: Int) {
+        let builder = ShadowTreeBuilder(
+            surfaceId: treeBuilder.surfaceId,
+            viewportWidth: treeBuilder.viewportWidth,
+            viewportHeight: treeBuilder.viewportHeight
+        )
+        segmentBuilders[id] = builder
+        boundaryManager.beginSegment(id: id)
+    }
+
+    func didReceiveEndSegment() {
+        var segmentId: Int? = nil
+        if let context = boundaryManager.currentBuffer(),
+           case .segment(let id) = context {
+            segmentId = id
+        }
+
+        boundaryManager.endSegment()
+
+        if let id = segmentId, let builder = segmentBuilders[id] {
+            segmentContentNodes[id] = builder.rootChildren
+            boundaryManager.setContentNodes(id: id, nodes: builder.rootChildren)
+        }
+    }
+
+    func didReceiveRevealBoundary(id: Int) {
+        let contentNodes = segmentContentNodes[id] ?? []
+        guard let wrapper = boundaryWrappers[id] else { return }
+
+        let oldRootChildren = currentRootChildren ?? treeBuilder.rootChildren
+
+        let newRootChildren = ShadowTreeBuilder.revealBoundaryImmutable(
+            rootChildren: oldRootChildren,
+            suspenseNode: wrapper,
+            contentNodes: contentNodes
+        )
+
+        currentRootChildren = newRootChildren
+
+        boundaryWrappers.removeValue(forKey: id)
+        segmentContentNodes.removeValue(forKey: id)
+        segmentBuilders.removeValue(forKey: id)
+
+        boundaryManager.revealBoundary(id: id)
+
+        // Simulate the yoga layout recalculation that Root.swift's
+        // onViewsNeedUpdate does between reveals (reparent to temp root,
+        // calculate layout, remove from temp root).
+        onViewsNeedUpdate?(oldRootChildren, newRootChildren)
+    }
+
+    func didReceiveRootComplete() {
+        treeBuilder.rootComplete()
+    }
+
+    func didReceivePlaceholder(id: Int) {
+        // No-op in tests
+    }
+
+    func didReceiveFlightData(row: String) {
+        // No-op in tests
+    }
+
+    func didReceiveClientRenderBoundary(id: Int, errorDigest: String?) {
+        boundaryManager.clientRenderBoundary(id: id, errorDigest: errorDigest)
+    }
+
+    func didReceiveError(_ error: Error) {
+        print("[TestSSRCoordinator] Parse error: \(error)")
     }
 }

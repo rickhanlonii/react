@@ -559,8 +559,14 @@ public class Root {
                     }
 
                     self.runtime?.bindings.markHydrationStarted(surfaceId: self.options.surfaceId)
-                    self.callHydrateFromSSRData(serverURL: serverURL)
-                    completion?(nil)
+                    do {
+                        try self.callHydrateFromSSRData(serverURL: serverURL)
+                        completion?(nil)
+                    } catch {
+                        print("[ReactDomNativeKit] Hydration failed: \(error)")
+                        self.options.onRecoverableError?(error)
+                        completion?(error)
+                    }
                 }
 
                 if self?.ssrStreamComplete == true {
@@ -578,23 +584,15 @@ public class Root {
         }
     }
 
-    /// Calls the JS-side hydrateFromURL after the framework bundle has been evaluated.
-    private func callHydrateFromURL(serverURL: String) {
-        let js = "globalThis.__REACT_DOM_NATIVE__.hydrateFromURL('\(serverURL)', {surfaceId: \(options.surfaceId)})"
-        runtime?.engine.evaluate(js)
-    }
-
     /// Calls the JS-side hydrateFromSSRData with buffered Flight rows.
-    /// Falls back to hydrateFromURL if no D instructions were received.
-    private func callHydrateFromSSRData(serverURL: String) {
+    /// Throws if no SSR data was received or serialization fails.
+    private func callHydrateFromSSRData(serverURL: String) throws {
         guard !ssrFlightDataBuffer.isEmpty else {
-            callHydrateFromURL(serverURL: serverURL)
-            return
+            throw RootError.hydrationDataMissing
         }
         guard let jsonData = try? JSONSerialization.data(withJSONObject: ssrFlightDataBuffer),
               let jsonString = String(data: jsonData, encoding: .utf8) else {
-            callHydrateFromURL(serverURL: serverURL)
-            return
+            throw RootError.hydrationDataSerializationFailed
         }
         let js = "globalThis.__REACT_DOM_NATIVE__.hydrateFromSSRData('\(serverURL)', \(jsonString), {surfaceId: \(options.surfaceId)})"
         runtime?.engine.evaluate(js)
@@ -779,6 +777,8 @@ public enum RootError: Error, CustomStringConvertible {
     case jsException(String)
     case alreadyUnmounted
     case runtimeNotInitialized
+    case hydrationDataMissing
+    case hydrationDataSerializationFailed
 
     public var description: String {
         switch self {
@@ -794,6 +794,10 @@ public enum RootError: Error, CustomStringConvertible {
             return "Cannot render to an unmounted root"
         case .runtimeNotInitialized:
             return "Runtime not initialized - call render() first"
+        case .hydrationDataMissing:
+            return "No SSR Flight data received — ssrFlightDataBuffer is empty"
+        case .hydrationDataSerializationFailed:
+            return "Failed to serialize SSR Flight data to JSON"
         }
     }
 }

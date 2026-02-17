@@ -31,9 +31,15 @@ class StubMutationApplier {
         for mutation in mutations {
             switch mutation {
             case .create(let node):
+                var props = node.props
+                // ShadowTreeBuilder stores text in node.text, not props.
+                // Include it so StubView JSON output contains text content.
+                if let text = node.text {
+                    props["text"] = text
+                }
                 let view = StubView(
                     elementType: node.family.elementType,
-                    props: node.props
+                    props: props
                 )
                 view.frame = node.layoutFrame
                 viewRegistry.register(view: view, family: node.family)
@@ -62,7 +68,11 @@ class StubMutationApplier {
                 guard let view = viewRegistry.view(for: node.family) else {
                     continue
                 }
-                view.props = newProps
+                var props = newProps
+                if let text = node.text {
+                    props["text"] = text
+                }
+                view.props = props
                 view.frame = node.layoutFrame
             }
         }

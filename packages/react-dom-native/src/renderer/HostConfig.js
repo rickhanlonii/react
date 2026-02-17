@@ -141,7 +141,6 @@ exports.createInstance = function createInstance(
   hostContext,
   internalHandle,
 ) {
-  console.log('[HostConfig] createInstance: ' + type);
   // Strip children from props — child nodes are managed by the reconciler
   // via appendInitialChild, not stored as props on the native node.
   // Element-type defaults (flexDirection, fontSize, etc.) are merged natively
@@ -154,7 +153,6 @@ exports.createInstance = function createInstance(
     hostContext.isInsideTextContext,
     internalHandle,
   );
-  console.log('[HostConfig] createInstance returned nativeNode: ' + (nativeNode ? 'yes' : 'no'));
   return {
     _nativeNode: nativeNode,
     _nativeFamily: nativeNode._family || nativeNode,
@@ -265,24 +263,19 @@ exports.cloneHiddenTextInstance = function cloneHiddenTextInstance(instance, tex
 };
 
 exports.createContainerChildSet = function createContainerChildSet() {
-  console.log('[HostConfig] createContainerChildSet');
   return [];
 };
 
 exports.appendChildToContainerChildSet = function appendChildToContainerChildSet(childSet, child) {
-  console.log('[HostConfig] appendChildToContainerChildSet, child type: ' + (child ? child.type : 'null'));
   childSet.push(child);
 };
 
 exports.finalizeContainerChildren = function finalizeContainerChildren(container, newChildren) {
-  console.log('[HostConfig] finalizeContainerChildren, count: ' + (newChildren ? newChildren.length : 0));
   // No-op — preparation happens in replaceContainerChildren
 };
 
 exports.replaceContainerChildren = function replaceContainerChildren(container, newChildren) {
-  console.log('[HostConfig] replaceContainerChildren, count: ' + (newChildren ? newChildren.length : 0));
   const childNodes = newChildren.map(c => c._nativeNode);
-  console.log('[HostConfig] calling $$completeRoot with ' + childNodes.length + ' children');
   $$completeRoot(container.surfaceId, childNodes);
   container.currentTree = container.pendingTree;
   container.pendingTree = null;
@@ -475,6 +468,12 @@ exports.isSuspenseInstanceFallback = function(instance) {
 };
 exports.getSuspenseInstanceFallbackErrorDetails = function() { return null; };
 exports.registerSuspenseInstanceRetry = function(instance, callback) {
+  // If boundary is already revealed (not pending), fire retry immediately
+  // so hydration runs at HydrationLane before other re-renders interfere.
+  if (instance.pending !== true) {
+    callback();
+    return;
+  }
   if (instance._retryCallbacks) {
     instance._retryCallbacks.push(callback);
   } else {
@@ -496,10 +495,8 @@ exports.canHydrateFormStateMarker = function() { return false; };
 // is handled by makeSSRNodeRef reading the updated pending=false prop.
 // ---------------------------------------------------------------------------
 globalThis.$$notifyBoundaryRevealed = function(boundaryId) {
-  console.log('[HostConfig] $$notifyBoundaryRevealed: boundaryId=' + boundaryId);
   var instance = pendingSuspenseByBoundary.get(boundaryId);
   if (!instance) {
-    console.log('[HostConfig] $$notifyBoundaryRevealed: no instance for boundaryId=' + boundaryId);
     return;
   }
   // Mark as resolved so isSuspenseInstancePending returns false
@@ -522,14 +519,10 @@ exports.getNextHydratableSibling = function(instance) {
 exports.getNextHydratableSiblingAfterSingleton = function() { return null; };
 
 exports.getFirstHydratableChild = function(instance) {
-  var result = $$getSSRChildOf(instance._ssrNodeRef);
-  console.log('[HostConfig] getFirstHydratableChild ref=' + instance._ssrNodeRef + ' result=' + (result ? result.type : 'null'));
-  return result;
+  return $$getSSRChildOf(instance._ssrNodeRef);
 };
 exports.getFirstHydratableChildWithinContainer = function(container) {
-  var result = $$getFirstSSRChild(container.surfaceId);
-  console.log('[HostConfig] getFirstHydratableChildWithinContainer surfaceId=' + container.surfaceId + ' result=' + (result ? JSON.stringify({type: result.type, _ssrNodeRef: result._ssrNodeRef}) : 'null'));
-  return result;
+  return $$getFirstSSRChild(container.surfaceId);
 };
 exports.getFirstHydratableChildWithinActivityInstance = function() { return null; };
 exports.getFirstHydratableChildWithinSuspenseInstance = function(instance) {
@@ -544,7 +537,6 @@ exports.canHydrateInstance = function(instance, type, props, inRootOrSingleton) 
   return null;
 };
 exports.canHydrateTextInstance = function(instance, text) {
-  console.log('[HostConfig] canHydrateTextInstance: instance.type=' + (instance ? instance.type : 'null') + ' text=' + JSON.stringify(text && text.substring ? text.substring(0, 30) : text));
   if (instance.type === '#text') {
     return instance;
   }
@@ -559,7 +551,6 @@ exports.canHydrateSuspenseInstance = function(instance) {
 };
 
 exports.hydrateInstance = function(instance, type, props, hostContext, internalHandle) {
-  console.log('[HostConfig] hydrateInstance: type=' + type + ' ref=' + instance._ssrNodeRef);
   instance._nativeNode = instance._ssrNodeRef;
   instance._nativeFamily = instance._ssrFamily;
   instance._internalInstanceHandle = internalHandle;
