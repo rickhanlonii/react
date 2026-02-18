@@ -34,11 +34,14 @@ class NativeRendererModel {
                     return
                 }
 
+                // Register a callback that JS will invoke after React commits
+                runtime.engine.setGlobalFunction("__onFixtureReady__") { _ in
+                    DispatchQueue.main.async { completion() }
+                    return nil
+                }
+
                 runtime.engine.evaluate(source, sourceURL: bundleURL)
                 runtime.engine.evaluate("__LAYOUT_COMPARE__.renderFixture('\(name)', \(self.surfaceId))")
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    completion()
-                }
             }
         }.resume()
     }

@@ -57,6 +57,8 @@ class FixtureRunner {
                 guard let self = self else { return }
                 guard let webLayout = webLayout else {
                     self.results[name] = .error("Failed to extract web layout")
+                    let fixtureResult = HTTPResultsServer.FixtureResult(passed: false, elements: 0, diffs: [], error: "Failed to extract web layout")
+                    HTTPResultsServer.shared.latestResults.fixtures[name] = fixtureResult
                     self.printResults(fixture: name, diffs: [], elementCount: 0, error: "web extract failed")
                     self.runNext(fixtures: fixtures, index: index + 1, webRenderer: webRenderer, nativeRenderer: nativeRenderer)
                     return
@@ -66,6 +68,8 @@ class FixtureRunner {
                     guard let self = self else { return }
                     guard let nativeLayout = nativeRenderer.extractLayout() else {
                         self.results[name] = .error("Failed to extract native layout")
+                        let fixtureResult = HTTPResultsServer.FixtureResult(passed: false, elements: 0, diffs: [], error: "Failed to extract native layout")
+                        HTTPResultsServer.shared.latestResults.fixtures[name] = fixtureResult
                         self.printResults(fixture: name, diffs: [], elementCount: 0, error: "native extract failed")
                         self.runNext(fixtures: fixtures, index: index + 1, webRenderer: webRenderer, nativeRenderer: nativeRenderer)
                         return

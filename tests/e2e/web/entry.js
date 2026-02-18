@@ -83,6 +83,9 @@ globalThis.__LAYOUT_COMPARE__ = {
     ReactDOMFlush.flushSync(function() {
       root.render(React.createElement(fixtures[name].component));
     });
+    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.layoutReady) {
+      window.webkit.messageHandlers.layoutReady.postMessage(name);
+    }
   },
 
   extractLayout: function() {

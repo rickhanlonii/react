@@ -23,6 +23,7 @@ class HTTPResultsServer {
         let passed: Bool
         let elements: Int
         let diffs: [LayoutDiff]
+        var error: String? = nil
     }
 
     struct ResultsPayload: Codable {

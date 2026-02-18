@@ -2,16 +2,22 @@ import SwiftUI
 import WebKit
 
 @Observable
-class WebRendererModel {
+class WebRendererModel: NSObject, WKScriptMessageHandler {
     let webView: WKWebView
     private var isLoaded = false
     private var pendingRender: (() -> Void)?
+    private var renderCompletion: (() -> Void)?
 
-    init() {
+    override init() {
         let config = WKWebViewConfiguration()
         config.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
         webView = WKWebView(frame: CGRect(x: 0, y: 0, width: 390, height: 844), configuration: config)
         webView.scrollView.isScrollEnabled = false
+
+        super.init()
+
+        // Register message handler for render-ready events from JS
+        webView.configuration.userContentController.add(self, name: "layoutReady")
 
         loadHTML()
     }
@@ -47,11 +53,17 @@ class WebRendererModel {
     func renderFixture(_ name: String, completion: @escaping () -> Void) {
         let doRender: () -> Void = { [weak self] in
             guard let self = self else { return }
+            // Store completion — will be called when JS posts layoutReady message
+            self.renderCompletion = completion
             self.webView.evaluateJavaScript("__LAYOUT_COMPARE__.renderFixture('\(name)')") { _, error in
                 if let error = error {
                     print("[WebRenderer] Render error: \(error)")
+                    // If JS eval itself failed, fire completion (layoutReady won't arrive)
+                    if let pending = self.renderCompletion {
+                        self.renderCompletion = nil
+                        pending()
+                    }
                 }
-                completion()
             }
         }
 
@@ -59,6 +71,17 @@ class WebRendererModel {
             doRender()
         } else {
             pendingRender = doRender
+        }
+    }
+
+    // MARK: - WKScriptMessageHandler
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == "layoutReady" {
+            if let completion = renderCompletion {
+                renderCompletion = nil
+                completion()
+            }
         }
     }
 

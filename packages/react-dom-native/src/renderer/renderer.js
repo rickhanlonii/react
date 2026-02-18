@@ -44,9 +44,9 @@ function createRoot(nativeRootView) {
   );
   console.log('[Renderer] Container created for surfaceId: ' + surfaceId);
   return {
-    render(element) {
+    render(element, callback) {
       console.log('[Renderer] render called with element type: ' + (element ? (element.$$typeof ? String(element.$$typeof) : typeof element) : 'null'));
-      reconciler.updateContainer(element, root, null, null);
+      reconciler.updateContainer(element, root, null, callback || null);
       console.log('[Renderer] updateContainer completed');
     },
     unmount() {

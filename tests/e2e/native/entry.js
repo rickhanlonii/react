@@ -9,6 +9,10 @@ globalThis.__LAYOUT_COMPARE__ = {
 
   renderFixture: function(name, surfaceId) {
     var root = renderer.createRoot({surfaceId: surfaceId, width: 390, height: 844});
-    root.render(React.createElement(fixtures[name].component));
+    root.render(React.createElement(fixtures[name].component), function() {
+      if (typeof __onFixtureReady__ === 'function') {
+        __onFixtureReady__();
+      }
+    });
   }
 };
