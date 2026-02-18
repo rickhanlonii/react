@@ -10,6 +10,20 @@ public enum YogaStyleApplier {
 
     /// Apply style properties from a dictionary to a Yoga node.
     public static func apply(_ style: [String: Any], to node: YGNodeRef) {
+        // CSS default: content-box (Yoga defaults to border-box)
+        YGNodeStyleSetBoxSizing(node, .contentBox)
+
+        // boxSizing
+        if let bs = style["boxSizing"] as? String {
+            switch bs {
+            case "border-box":
+                YGNodeStyleSetBoxSizing(node, .borderBox)
+            case "content-box":
+                YGNodeStyleSetBoxSizing(node, .contentBox)
+            default: break
+            }
+        }
+
         // flexDirection
         if let fd = style["flexDirection"] as? String {
             switch fd {

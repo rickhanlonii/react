@@ -5,8 +5,10 @@ import Yoga
 /// Extracts a LayoutNode tree from a ShadowNodeWrapper tree after Yoga layout.
 enum LayoutExtractor {
 
-    static func extract(from node: ShadowNodeWrapper) -> LayoutNode {
+    static func extract(from node: ShadowNodeWrapper, parentAbsX: Double = 0, parentAbsY: Double = 0) -> LayoutNode {
         let frame = node.layoutFrame
+        let absX = parentAbsX + Double(frame.origin.x)
+        let absY = parentAbsY + Double(frame.origin.y)
         let styles = extractStyles(from: node)
 
         var children: [LayoutNode] = []
@@ -16,13 +18,13 @@ enum LayoutExtractor {
             if child.family.elementType == "#text" {
                 continue
             }
-            children.append(extract(from: child))
+            children.append(extract(from: child, parentAbsX: absX, parentAbsY: absY))
         }
 
         return LayoutNode(
             type: node.family.elementType,
-            x: Double(frame.origin.x),
-            y: Double(frame.origin.y),
+            x: absX,
+            y: absY,
             width: Double(frame.size.width),
             height: Double(frame.size.height),
             styles: styles,
@@ -40,11 +42,23 @@ enum LayoutExtractor {
         styles["marginBottom"] = .number(Double(YGNodeLayoutGetMargin(yoga, .bottom)))
         styles["marginLeft"] = .number(Double(YGNodeLayoutGetMargin(yoga, .left)))
 
-        // Layout-computed padding
-        styles["paddingTop"] = .number(Double(YGNodeLayoutGetPadding(yoga, .top)))
-        styles["paddingRight"] = .number(Double(YGNodeLayoutGetPadding(yoga, .right)))
-        styles["paddingBottom"] = .number(Double(YGNodeLayoutGetPadding(yoga, .bottom)))
-        styles["paddingLeft"] = .number(Double(YGNodeLayoutGetPadding(yoga, .left)))
+        // Layout-computed padding (fallback to style props when Yoga returns 0)
+        func extractPadding(_ edge: String, _ yogaEdge: YGEdge) {
+            let computed = Double(YGNodeLayoutGetPadding(yoga, yogaEdge))
+            if computed != 0 {
+                styles[edge] = .number(computed)
+            } else if let styleDict = node.props["style"] as? [String: Any] {
+                if let v = styleDict[edge] as? NSNumber {
+                    styles[edge] = .number(v.doubleValue)
+                } else if let v = styleDict["padding"] as? NSNumber {
+                    styles[edge] = .number(v.doubleValue)
+                }
+            }
+        }
+        extractPadding("paddingTop", .top)
+        extractPadding("paddingRight", .right)
+        extractPadding("paddingBottom", .bottom)
+        extractPadding("paddingLeft", .left)
 
         // Props-based values
         if let styleDict = node.props["style"] as? [String: Any] {

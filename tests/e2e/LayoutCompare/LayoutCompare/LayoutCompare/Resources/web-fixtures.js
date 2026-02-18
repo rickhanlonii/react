@@ -21535,19 +21535,19 @@
   var ReactDOM = require_client();
   var fixtures = require_fixtures();
   var root = null;
-  function extractNode(el) {
+  function extractNode(el, rootRect) {
     if (!el) return null;
     var rect = el.getBoundingClientRect();
     var style = getComputedStyle(el);
     var children = [];
     for (var i = 0; i < el.children.length; i++) {
-      var child = extractNode(el.children[i]);
+      var child = extractNode(el.children[i], rootRect);
       if (child) children.push(child);
     }
     return {
       type: el.tagName.toLowerCase(),
-      x: Math.round(rect.x * 100) / 100,
-      y: Math.round(rect.y * 100) / 100,
+      x: Math.round((rect.x - rootRect.x) * 100) / 100,
+      y: Math.round((rect.y - rootRect.y) * 100) / 100,
       width: Math.round(rect.width * 100) / 100,
       height: Math.round(rect.height * 100) / 100,
       styles: {
@@ -21583,7 +21583,8 @@
     },
     extractLayout: function() {
       var rootEl = document.getElementById("root").firstElementChild;
-      return JSON.stringify(extractNode(rootEl));
+      var rootRect = rootEl.getBoundingClientRect();
+      return JSON.stringify(extractNode(rootEl, rootRect));
     }
   };
 })();

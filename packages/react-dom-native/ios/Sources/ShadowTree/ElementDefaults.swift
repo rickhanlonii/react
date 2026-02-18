@@ -177,7 +177,8 @@ public enum ElementDefaults {
     // MARK: - Default Dictionaries
 
     private static let blockDefaults: [String: Any] = [
-        "display": "block"
+        "display": "block",
+        "fontSize": 16
     ]
 
     private static let addressDefaults: [String: Any] = [
@@ -250,8 +251,8 @@ public enum ElementDefaults {
         "flexWrap": "wrap",
         "fontSize": 32,
         "fontWeight": "bold",
-        "marginTop": 21.4,
-        "marginBottom": 21.4
+        "marginTop": 21.44,
+        "marginBottom": 21.44
     ]
 
     private static let h2Defaults: [String: Any] = [
@@ -260,18 +261,18 @@ public enum ElementDefaults {
         "flexWrap": "wrap",
         "fontSize": 24,
         "fontWeight": "bold",
-        "marginTop": 19.9,
-        "marginBottom": 19.9
+        "marginTop": 19.92,
+        "marginBottom": 19.92
     ]
 
     private static let h3Defaults: [String: Any] = [
         "display": "block",
         "flexDirection": "row",
         "flexWrap": "wrap",
-        "fontSize": 18.7,
+        "fontSize": 18.72,
         "fontWeight": "bold",
-        "marginTop": 18.7,
-        "marginBottom": 18.7
+        "marginTop": 18.72,
+        "marginBottom": 18.72
     ]
 
     private static let h4Defaults: [String: Any] = [
@@ -280,28 +281,28 @@ public enum ElementDefaults {
         "flexWrap": "wrap",
         "fontSize": 16,
         "fontWeight": "bold",
-        "marginTop": 21.3,
-        "marginBottom": 21.3
+        "marginTop": 21.28,
+        "marginBottom": 21.28
     ]
 
     private static let h5Defaults: [String: Any] = [
         "display": "block",
         "flexDirection": "row",
         "flexWrap": "wrap",
-        "fontSize": 13.3,
+        "fontSize": 13.28,
         "fontWeight": "bold",
-        "marginTop": 22.2,
-        "marginBottom": 22.2
+        "marginTop": 22.18,
+        "marginBottom": 22.18
     ]
 
     private static let h6Defaults: [String: Any] = [
         "display": "block",
         "flexDirection": "row",
         "flexWrap": "wrap",
-        "fontSize": 10.7,
+        "fontSize": 10.72,
         "fontWeight": "bold",
-        "marginTop": 24.9,
-        "marginBottom": 24.9
+        "marginTop": 24.98,
+        "marginBottom": 24.98
     ]
 
     private static let spanDefaults: [String: Any] = [

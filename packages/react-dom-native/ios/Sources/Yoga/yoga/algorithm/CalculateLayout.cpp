@@ -1221,6 +1221,16 @@ static void calculateBlockLayout(
   const float paddingStart = node->getLayout().padding(startEdge);
   const float borderStart = node->getLayout().border(startEdge);
 
+  // Parent-child margin collapsing: when a parent has no padding/border on
+  // top/bottom, the first/last child's margin "escapes" through the parent
+  // (CSS §8.3.1 collapsing through parent).
+  const bool collapseTopMargin =
+      (paddingTop == 0.0f && borderTop == 0.0f &&
+       node->style().overflow() == Overflow::Visible);
+  const bool collapseBottomMargin =
+      (paddingBottom == 0.0f && borderBottom == 0.0f &&
+       node->style().overflow() == Overflow::Visible);
+
   float currentY = paddingTop + borderTop;
   float prevMarginBottom = 0.0f;
   bool isFirstChild = true;
@@ -1405,8 +1415,8 @@ static void calculateBlockLayout(
             child->style().computeMarginForAxis(flexRow, ownerWidth);
         childWidthMode = SizingMode::StretchFit;
       } else {
-        childWidth = availableInnerWidth +
-            child->style().computeMarginForAxis(flexRow, ownerWidth);
+        // Auto width: CSS block auto-width = containing block - margins
+        childWidth = availableInnerWidth;
         childWidthMode = SizingMode::StretchFit;
       }
 
@@ -1447,15 +1457,17 @@ static void calculateBlockLayout(
       // MARGIN COLLAPSING (sibling) — block children only
       float effectiveMarginGap;
       if (isFirstChild) {
-        effectiveMarginGap = childMarginTop;
+        effectiveMarginGap = collapseTopMargin ? 0.0f : childMarginTop;
         isFirstChild = false;
       } else {
         effectiveMarginGap = collapseMargins(prevMarginBottom, childMarginTop);
       }
 
-      if (performLayout) {
-        currentY += effectiveMarginGap;
+      // Advance currentY by margin gap regardless of performLayout,
+      // since it affects content height calculation (not just positioning).
+      currentY += effectiveMarginGap;
 
+      if (performLayout) {
         const float childLayoutWidth =
             child->getLayout().measuredDimension(Dimension::Width);
         const float remainingWidth = availableInnerWidth - childLayoutWidth;
@@ -1488,8 +1500,8 @@ static void calculateBlockLayout(
   // Flush any remaining inline line
   flushInlineLine();
 
-  // Add last block child's bottom margin
-  if (!isFirstChild && prevMarginBottom != 0.0f) {
+  // Add last block child's bottom margin (unless collapsed through parent)
+  if (!isFirstChild && prevMarginBottom != 0.0f && !collapseBottomMargin) {
     currentY += prevMarginBottom;
   }
 

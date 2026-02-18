@@ -34,27 +34,34 @@ If not set, call `session_set_defaults` with those values.
 ## Workflow: Run All Tests
 
 1. Build JS bundles: `node tests/e2e/scripts/build.js`
-2. Build and run: `build_run_sim` (builds LayoutCompare scheme, launches on Falcon E2E)
-3. Wait 5 seconds for fixture list to load
-4. For each fixture in the list:
+2. Build the app: `build_sim`
+3. Stop any running instance: `stop_app_sim`
+4. Launch with log capture: `launch_app_logs_sim`
+5. Wait 8 seconds for fixture list to load
+6. For each fixture:
    a. Tap the fixture name
    b. Wait 5 seconds for comparison to complete
-   c. Take a `screenshot` — the bottom section shows diff summary + scrollable diff detail list
-   d. Read the diff results from the screenshot (path, property, web value, native value, delta)
-   e. Swipe back (`gesture` preset `swipe-from-left-edge`) to return to fixture list
-5. Summarize: which fixtures passed (0 diffs), which failed, and the specific mismatches
-
-## Workflow: Compare Specific Fixture
-
-1. If app is not running, build and run: `build_run_sim`
-2. Wait for fixture list, then tap the target fixture
-3. Wait 5 seconds, then `screenshot`
-4. Read diff detail list from the screenshot
-5. For the full structured JSON data, use `launch_app_logs_sim` instead of `build_run_sim`, tap the fixture, wait, then `stop_sim_log_cap` — the logs will contain:
+   c. Take a `screenshot` for visual comparison (optional — only if you need to see the rendering)
+   d. Swipe back (`gesture` preset `swipe-from-left-edge`) to return to fixture list
+7. After all fixtures are tapped, call `stop_sim_log_cap` with the log session ID
+8. Parse the logs — each fixture comparison prints:
    ```
    [LayoutCompare] fixture=<name> elements=<n> diffs=<n>
    [LayoutCompare] <JSON array of LayoutDiff objects>
    ```
+9. Summarize: which fixtures passed (0 diffs), which failed, and the specific mismatches
+
+**IMPORTANT**: Use log capture to read diff data, NOT screenshots. The logs contain the full structured JSON for every fixture that was viewed. Screenshots are only needed for visual comparison of the renderings themselves.
+
+## Workflow: Compare Specific Fixture
+
+1. Build the app if needed: `build_sim`
+2. Stop any running instance: `stop_app_sim`
+3. Launch with log capture: `launch_app_logs_sim`
+4. Wait for fixture list to load (8 seconds), then tap the target fixture
+5. Wait 5 seconds for comparison, optionally take a `screenshot` for visual comparison
+6. Call `stop_sim_log_cap` to get the full structured diff JSON from the logs
+7. Parse the `[LayoutCompare]` lines for the fixture's diff data
 
 ## Workflow: Add Fixture
 
