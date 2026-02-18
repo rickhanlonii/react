@@ -2,12 +2,12 @@ import SwiftUI
 
 struct ComparisonView: View {
     let fixtureName: String
+    var webRenderer: WebRendererModel
+    var nativeRenderer: NativeRendererModel
     @State private var diffs: [LayoutDiff] = []
     @State private var elementCount: Int = 0
     @State private var isComparing = true
     @State private var error: String?
-    @State private var webRenderer = WebRendererModel()
-    @State private var nativeRenderer = NativeRendererModel()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -109,30 +109,45 @@ struct ComparisonView: View {
     }
 
     private func renderAndCompare() {
-        webRenderer.renderFixture(fixtureName) {
-            webRenderer.extractLayout { webLayout in
-                guard let webLayout = webLayout else {
-                    error = "Failed to extract web layout"
-                    isComparing = false
-                    return
-                }
+        var webLayout: LayoutNode?
+        var nativeLayout: LayoutNode?
+        var pending = 2
 
-                nativeRenderer.renderFixture(fixtureName) {
-                    guard let nativeLayout = nativeRenderer.extractLayout() else {
-                        error = "Failed to extract native layout"
-                        isComparing = false
-                        return
-                    }
+        func tryCompare() {
+            pending -= 1
+            guard pending == 0 else { return }
 
-                    let result = LayoutComparer.compare(web: webLayout, native: nativeLayout)
-                    diffs = result
-                    elementCount = LayoutComparer.countElements(webLayout)
-                    isComparing = false
-
-                    // Print structured results to stdout for log capture
-                    printResults(diffs: result, elementCount: elementCount)
-                }
+            guard let web = webLayout else {
+                error = "Failed to extract web layout"
+                isComparing = false
+                return
             }
+            guard let native = nativeLayout else {
+                error = "Failed to extract native layout"
+                isComparing = false
+                return
+            }
+
+            let result = LayoutComparer.compare(web: web, native: native)
+            diffs = result
+            elementCount = LayoutComparer.countElements(web)
+            isComparing = false
+
+            // Print structured results to stdout for log capture
+            printResults(diffs: result, elementCount: elementCount)
+        }
+
+        // Render web and native in parallel
+        webRenderer.renderFixture(fixtureName) {
+            webRenderer.extractLayout { layout in
+                webLayout = layout
+                tryCompare()
+            }
+        }
+
+        nativeRenderer.renderFixture(fixtureName) {
+            nativeLayout = nativeRenderer.extractLayout()
+            tryCompare()
         }
     }
 

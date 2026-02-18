@@ -14,13 +14,10 @@ class FixtureRunner {
     var isRunning = false
     var currentFixture: String?
 
-    func runAll(fixtures: [String]) {
+    func runAll(fixtures: [String], webRenderer: WebRendererModel, nativeRenderer: NativeRendererModel) {
         guard !isRunning else { return }
         isRunning = true
         results = [:]
-
-        let webRenderer = WebRendererModel()
-        let nativeRenderer = NativeRendererModel()
 
         webRenderer.onReady { [weak self] in
             self?.runNext(
@@ -101,6 +98,8 @@ struct FixtureListView: View {
     @State private var isLoading = true
     @State private var loader = FixtureNameLoader()
     @State private var runner = FixtureRunner()
+    @State private var webRenderer = WebRendererModel()
+    @State private var nativeRenderer = NativeRendererModel()
 
     var body: some View {
         Group {
@@ -115,7 +114,7 @@ struct FixtureListView: View {
                         summaryBar
                     }
                     List(fixtureNames, id: \.self) { name in
-                        NavigationLink(destination: ComparisonView(fixtureName: name)) {
+                        NavigationLink(destination: ComparisonView(fixtureName: name, webRenderer: webRenderer, nativeRenderer: nativeRenderer)) {
                             fixtureRow(name: name)
                         }
                     }
@@ -126,7 +125,7 @@ struct FixtureListView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
-                    runner.runAll(fixtures: fixtureNames)
+                    runner.runAll(fixtures: fixtureNames, webRenderer: webRenderer, nativeRenderer: nativeRenderer)
                 } label: {
                     if runner.isRunning {
                         ProgressView()
