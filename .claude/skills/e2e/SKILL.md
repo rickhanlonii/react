@@ -17,12 +17,19 @@ Compares layout output between react-dom (WKWebView) and react-dom-native (UIKit
 - **Compare specific**: "compare headings", "check div-basic"
 - **Fix issues**: "find the first issue and create a plan to fix it"
 
-## Prerequisites
+## Architecture
 
-Before any workflow, ensure JS bundles are built:
+- **Dev server** (`localhost:6100`): Serves JS bundles via esbuild watch mode. Auto-rebuilds on file changes.
+- **HTTP results server** (`localhost:6101`): Runs inside the iOS app, exposes test results as JSON.
+- **Auto-rerun**: The app polls `/bundle-version` every 2s. When bundles change, it automatically reruns all fixtures.
+
+## One-Time Setup
+
+Start the dev server and build/launch the app:
 ```bash
-cd /Users/rickhanlonii/oss/falcon && node tests/e2e/scripts/build.js
+cd /Users/rickhanlonii/oss/falcon && npm run dev:e2e &
 ```
+Then `build_run_sim` to build and launch the app.
 
 XcodeBuildMCP session defaults should already be configured (persisted in `.xcodebuildmcp/config.yaml`):
 - Project: `tests/e2e/LayoutCompare/LayoutCompare/LayoutCompare.xcodeproj`
@@ -33,36 +40,56 @@ If not set, call `session_set_defaults` with those values.
 
 ## Workflow: Run All Tests
 
-1. Build JS bundles: `node tests/e2e/scripts/build.js`
-2. Build the app: `build_sim`
-3. Stop any running instance: `stop_app_sim`
-4. Launch with log capture: `launch_app_logs_sim`
-5. Wait 8 seconds for fixture list to load
-6. Tap the **"Run All"** button in the top-right toolbar
-7. Wait 15-20 seconds for all fixtures to complete
-8. Take a `screenshot` — the fixture list shows inline pass/fail status:
-   - Green checkmark = passed (0 diffs)
-   - Red X = failed (with diff count)
-   - Summary bar at top shows "N/N passed"
-9. Call `stop_sim_log_cap` with the log session ID for full structured diff data
-10. Parse the logs — each fixture comparison prints:
+### After JS-only changes (fastest — ~2s)
+1. Edit the JS file — esbuild auto-rebuilds, the app detects the version change and auto-reruns
+2. Poll for results:
    ```
-   [LayoutCompare] fixture=<name> elements=<n> diffs=<n>
-   [LayoutCompare] <JSON array of LayoutDiff objects>
+   WebFetch http://localhost:6101/results
    ```
-11. Summarize: which fixtures passed (0 diffs), which failed, and the specific mismatches
+3. If `status` is `"running"`, wait 2s and poll again
+4. When `status` is `"complete"`, read `passed`, `total`, and `fixtures` for details
 
-**IMPORTANT**: Use log capture to read diff data, NOT screenshots. The logs contain the full structured JSON for every fixture. Screenshots show the pass/fail summary and are useful for a quick visual check.
+### After Swift changes (~12s)
+1. `build_run_sim` — rebuild and relaunch the app
+2. Wait 3-5s for the app to start and auto-run fixtures
+3. Poll for results: `WebFetch http://localhost:6101/results`
+
+### Force rerun (no file changes)
+```bash
+curl -X POST http://localhost:6101/run-all
+```
+Then poll `WebFetch http://localhost:6101/results` for completion.
+
+### Launch with auto-run (no UI interaction needed)
+Build the app with `build_sim`, then:
+```
+launch_app_sim with args: ["--run-all"]
+```
+Poll `http://localhost:6101/results` for results.
+
+## Results Format
+
+`GET http://localhost:6101/results` returns:
+```json
+{
+  "status": "complete",
+  "passed": 10,
+  "total": 10,
+  "fixtures": {
+    "div-basic": { "passed": true, "elements": 3, "diffs": [] },
+    "headings": { "passed": false, "elements": 7, "diffs": [...] }
+  }
+}
+```
+
+Each diff in the `diffs` array has: `path`, `property`, `web`, `native`, `delta` (numeric) or `webString`, `nativeString` (string comparison).
 
 ## Workflow: Compare Specific Fixture
 
-1. Build the app if needed: `build_sim`
-2. Stop any running instance: `stop_app_sim`
-3. Launch with log capture: `launch_app_logs_sim`
-4. Wait for fixture list to load (8 seconds), then tap the target fixture
-5. Wait 5 seconds for comparison, optionally take a `screenshot` for visual comparison
-6. Call `stop_sim_log_cap` to get the full structured diff JSON from the logs
-7. Parse the `[LayoutCompare]` lines for the fixture's diff data
+1. Build and run the app if not already running
+2. Tap the target fixture in the list
+3. Take a `screenshot` for visual side-by-side comparison
+4. Check `WebFetch http://localhost:6101/results` for structured diff data
 
 ## Workflow: Add Fixture
 
@@ -86,11 +113,9 @@ If not set, call `session_set_defaults` with those values.
    'fixture-name': { component: require('./fixture-name'), description: 'What it tests' },
    ```
 
-3. Rebuild JS bundles: `node tests/e2e/scripts/build.js`
+3. The dev server auto-rebuilds. Wait 2-3s, then check results via HTTP.
 
-4. Rebuild and run the app: `build_run_sim`
-
-5. Verify the new fixture appears in the list, tap it, screenshot the comparison
+4. If dev server is not running: `node tests/e2e/scripts/build.js`, then `build_run_sim`
 
 ## Workflow: Fix Layout Issues
 
@@ -112,12 +137,12 @@ When diffs are found, the fix is usually in one of these files:
 - **Spacing between elements**: Yoga doesn't collapse margins like CSS. If parent uses `gap` and children have margins, spacing doubles. Fix by adjusting margin defaults or removing gap.
 
 **Fixing workflow:**
-1. Identify the diff (e.g., `root > p[0].y` web=0 native=16)
+1. Identify the diff from `http://localhost:6101/results`
 2. Determine cause (e.g., native `<p>` has 16px marginTop but web CSS reset removed it)
 3. Fix in `defaults.js` or `ElementDefaults.swift`
-4. If JS change: bundles auto-rebuild if dev server is running, otherwise `node tests/e2e/scripts/build.js`
-5. If Swift change: `build_run_sim` to rebuild
-6. Re-check the fixture
+4. JS change: dev server auto-rebuilds, app auto-reruns — poll results in ~2s
+5. Swift change: `build_run_sim` — poll results in ~12s
+6. Verify fix via HTTP results
 
 ## Project Structure
 
@@ -138,19 +163,20 @@ tests/e2e/
     entry.js           # Native bundle entry (react-dom-native createRoot)
   scripts/
     build.js           # esbuild: builds web + native bundles → Resources/
+    dev.js             # Dev server: esbuild watch + Express on :6100
   LayoutCompare/       # iOS app
     LayoutCompare/
       LayoutCompare.xcodeproj
       LayoutCompare/
-        LayoutCompareApp.swift
-        FixtureListView.swift
-        ComparisonView.swift       # Split view + scrollable diff list
-        WebRenderer.swift
-        NativeRenderer.swift
+        LayoutCompareApp.swift       # Starts HTTPResultsServer
+        FixtureListView.swift        # Fixture list + auto-rerun + --run-all
+        ComparisonView.swift         # Split view + scrollable diff list
+        WebRenderer.swift            # Loads from dev server :6100
+        NativeRenderer.swift         # Loads from dev server :6100
+        HTTPResultsServer.swift      # HTTP server on :6101
         LayoutExtractor.swift
         LayoutComparer.swift
         LayoutNode.swift
-        Resources/                 # Built JS bundles + HTML (copied by build.js)
 ```
 
 ## Diff Data Format
@@ -161,5 +187,7 @@ Each `LayoutDiff` has:
 - `web`: web value (Double)
 - `native`: native value (Double)
 - `delta`: web - native (positive = web is larger)
+
+String diffs have `webString` and `nativeString` instead.
 
 Tolerance is 2px — diffs within 2px are ignored.

@@ -19,6 +19,10 @@ class FixtureRunner {
         isRunning = true
         results = [:]
 
+        HTTPResultsServer.shared.latestResults = HTTPResultsServer.ResultsPayload(
+            status: "running", passed: 0, total: fixtures.count, fixtures: [:]
+        )
+
         webRenderer.onReady { [weak self] in
             self?.runNext(
                 fixtures: fixtures,
@@ -38,6 +42,9 @@ class FixtureRunner {
         guard index < fixtures.count else {
             isRunning = false
             currentFixture = nil
+            let passedCount = HTTPResultsServer.shared.latestResults.fixtures.values.filter { $0.passed }.count
+            HTTPResultsServer.shared.latestResults.status = "complete"
+            HTTPResultsServer.shared.latestResults.passed = passedCount
             return
         }
 
@@ -73,6 +80,10 @@ class FixtureRunner {
                         self.results[name] = .failed(diffs: diffs, elementCount: elementCount)
                     }
 
+                    // Update HTTP results server
+                    let fixtureResult = HTTPResultsServer.FixtureResult(passed: diffs.isEmpty, elements: elementCount, diffs: diffs)
+                    HTTPResultsServer.shared.latestResults.fixtures[name] = fixtureResult
+
                     self.printResults(fixture: name, diffs: diffs, elementCount: elementCount, error: nil)
                     self.runNext(fixtures: fixtures, index: index + 1, webRenderer: webRenderer, nativeRenderer: nativeRenderer)
                 }
@@ -100,6 +111,8 @@ struct FixtureListView: View {
     @State private var runner = FixtureRunner()
     @State private var webRenderer = WebRendererModel()
     @State private var nativeRenderer = NativeRendererModel()
+    @State private var lastBundleVersion: Double = 0
+    @State private var versionTimer: Timer?
 
     var body: some View {
         Group {
@@ -140,8 +153,50 @@ struct FixtureListView: View {
             loader.load { names in
                 self.fixtureNames = names
                 self.isLoading = false
+                startBundleVersionPolling()
+
+                // Wire up HTTP run-all callback
+                HTTPResultsServer.shared.onRunAllRequested = {
+                    runner.runAll(fixtures: fixtureNames, webRenderer: webRenderer, nativeRenderer: nativeRenderer)
+                }
+
+                // Auto-run if launched with --run-all
+                if CommandLine.arguments.contains("--run-all") {
+                    runner.runAll(fixtures: fixtureNames, webRenderer: webRenderer, nativeRenderer: nativeRenderer)
+                }
             }
         }
+    }
+
+    private func startBundleVersionPolling() {
+        let versionURL = URL(string: "http://localhost:6100/bundle-version")!
+        // Fetch initial version
+        fetchBundleVersion(from: versionURL) { version in
+            lastBundleVersion = version
+        }
+        // Poll every 2 seconds
+        versionTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { _ in
+            fetchBundleVersion(from: versionURL) { version in
+                guard version > 0, version != lastBundleVersion else { return }
+                lastBundleVersion = version
+                print("[LayoutCompare] Bundle updated (version \(version)), reloading...")
+                runner.runAll(fixtures: fixtureNames, webRenderer: webRenderer, nativeRenderer: nativeRenderer)
+            }
+        }
+    }
+
+    private func fetchBundleVersion(from url: URL, completion: @escaping (Double) -> Void) {
+        URLSession.shared.dataTask(with: url) { data, _, _ in
+            DispatchQueue.main.async {
+                guard let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let version = json["version"] as? Double else {
+                    completion(0)
+                    return
+                }
+                completion(version)
+            }
+        }.resume()
     }
 
     private var summaryBar: some View {
@@ -229,19 +284,14 @@ class FixtureNameLoader {
     private var webView: WKWebView?
 
     func load(completion: @escaping ([String]) -> Void) {
-        guard let htmlURL = Bundle.main.url(forResource: "index", withExtension: "html") else {
-            print("[LayoutCompare] index.html not found in bundle")
-            completion([])
-            return
-        }
-
         let config = WKWebViewConfiguration()
         config.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
         let wv = WKWebView(frame: CGRect(x: 0, y: 0, width: 390, height: 844), configuration: config)
         self.webView = wv
 
-        print("[LayoutCompare] Loading index.html from: \(htmlURL)")
-        wv.loadFileURL(htmlURL, allowingReadAccessTo: htmlURL.deletingLastPathComponent())
+        let devURL = URL(string: "http://localhost:6100/index.html")!
+        print("[LayoutCompare] Loading index.html from: \(devURL)")
+        wv.load(URLRequest(url: devURL))
 
         pollForFixtureNames(webView: wv, completion: completion)
     }

@@ -2,6 +2,7 @@
 
 var React = require('react');
 var ReactDOM = require('react-dom/client');
+var ReactDOMFlush = require('react-dom');
 var fixtures = require('../fixtures');
 
 var root = null;
@@ -79,7 +80,9 @@ globalThis.__LAYOUT_COMPARE__ = {
     }
     container.innerHTML = '';
     root = ReactDOM.createRoot(container);
-    root.render(React.createElement(fixtures[name].component));
+    ReactDOMFlush.flushSync(function() {
+      root.render(React.createElement(fixtures[name].component));
+    });
   },
 
   extractLayout: function() {

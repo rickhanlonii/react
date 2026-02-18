@@ -17,11 +17,8 @@ class WebRendererModel {
     }
 
     private func loadHTML() {
-        guard let htmlURL = Bundle.main.url(forResource: "index", withExtension: "html") else {
-            print("[WebRenderer] index.html not found in bundle")
-            return
-        }
-        webView.loadFileURL(htmlURL, allowingReadAccessTo: htmlURL.deletingLastPathComponent())
+        let devURL = URL(string: "http://localhost:6100/index.html")!
+        webView.load(URLRequest(url: devURL))
         pollForLoad()
     }
 
@@ -54,9 +51,7 @@ class WebRendererModel {
                 if let error = error {
                     print("[WebRenderer] Render error: \(error)")
                 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    completion()
-                }
+                completion()
             }
         }
 

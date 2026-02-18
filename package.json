@@ -18,7 +18,8 @@
     "test:fantom": "bash scripts/build-fantom.sh --if-needed && jest --selectProjects fantom",
     "test:all": "jest",
     "build:fantom": "bash scripts/build-fantom.sh",
-    "build:e2e": "node tests/e2e/scripts/build.js"
+    "build:e2e": "node tests/e2e/scripts/build.js",
+    "dev:e2e": "node tests/e2e/scripts/dev.js"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",

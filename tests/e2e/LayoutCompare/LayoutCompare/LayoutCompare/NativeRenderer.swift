@@ -21,26 +21,26 @@ class NativeRendererModel {
         runtime = JSRuntime()
         runtime!.bindings.registerSurface(surfaceId: surfaceId, rootView: containerView)
 
-        guard let bundleURL = Bundle.main.url(forResource: "native-fixtures", withExtension: "js") else {
-            print("[NativeRenderer] native-fixtures.js not found in bundle")
-            completion()
-            return
-        }
+        let bundleURL = URL(string: "http://localhost:6100/native-fixtures.js")!
+        URLSession.shared.dataTask(with: bundleURL) { [weak self] data, _, error in
+            DispatchQueue.main.async {
+                guard let self = self, let runtime = self.runtime else {
+                    completion()
+                    return
+                }
+                guard let data = data, let source = String(data: data, encoding: .utf8) else {
+                    print("[NativeRenderer] Failed to load bundle: \(error?.localizedDescription ?? "unknown")")
+                    completion()
+                    return
+                }
 
-        do {
-            let source = try String(contentsOf: bundleURL, encoding: .utf8)
-            runtime!.engine.evaluate(source, sourceURL: bundleURL)
-        } catch {
-            print("[NativeRenderer] Failed to load bundle: \(error)")
-            completion()
-            return
-        }
-
-        runtime!.engine.evaluate("__LAYOUT_COMPARE__.renderFixture('\(name)', \(surfaceId))")
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            completion()
-        }
+                runtime.engine.evaluate(source, sourceURL: bundleURL)
+                runtime.engine.evaluate("__LAYOUT_COMPARE__.renderFixture('\(name)', \(self.surfaceId))")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    completion()
+                }
+            }
+        }.resume()
     }
 
     func extractLayout() -> LayoutNode? {
