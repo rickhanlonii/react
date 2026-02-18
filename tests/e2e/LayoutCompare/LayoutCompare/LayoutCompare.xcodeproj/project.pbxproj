@@ -363,18 +363,22 @@
 /* Begin XCSwiftPackageProductDependency section */
 		FDB804092F4532420058D14D /* JSEngine */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = FDB804082F4532420058D14D /* XCLocalSwiftPackageReference "../../../../packages/react-dom-native/ios" */;
 			productName = JSEngine;
 		};
 		FDB8040B2F4532420058D14D /* ReactDomNativeKit */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = FDB804082F4532420058D14D /* XCLocalSwiftPackageReference "../../../../packages/react-dom-native/ios" */;
 			productName = ReactDomNativeKit;
 		};
 		FDB8040D2F4532420058D14D /* ShadowTree */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = FDB804082F4532420058D14D /* XCLocalSwiftPackageReference "../../../../packages/react-dom-native/ios" */;
 			productName = ShadowTree;
 		};
 		FDB8040F2F4532420058D14D /* Yoga */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = FDB804082F4532420058D14D /* XCLocalSwiftPackageReference "../../../../packages/react-dom-native/ios" */;
 			productName = Yoga;
 		};
 /* End XCSwiftPackageProductDependency section */

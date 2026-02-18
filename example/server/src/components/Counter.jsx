@@ -11,7 +11,7 @@ function Counter({initialCount = 0}) {
       <button onClick={() => setCount((c) => c - 1)}>
         <span>-</span>
       </button>
-      <span>{String(count)}</span>
+      <span style={{width: 12, textAlign: 'center', marginLeft: 4, marginRight: 4}}>{String(count)}</span>
       <button onClick={() => setCount((c) => c + 1)}>
         <span>+</span>
       </button>

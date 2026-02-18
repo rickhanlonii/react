@@ -13942,7 +13942,7 @@
       "use strict";
       var React2 = require_react();
       module.exports = function DivNested() {
-        return /* @__PURE__ */ React2.createElement("div", { style: { width: 300, flexDirection: "row", gap: 10 } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 80, backgroundColor: "#ff9999" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 80, backgroundColor: "#99ff99" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 80, backgroundColor: "#9999ff" } }));
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 300 } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 80, backgroundColor: "#ff9999" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 80, backgroundColor: "#99ff99" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 80, backgroundColor: "#9999ff" } }));
       };
     }
   });
@@ -13969,6 +13969,35 @@
     }
   });
 
+  // tests/e2e/fixtures/flex-row.jsx
+  var require_flex_row = __commonJS({
+    "tests/e2e/fixtures/flex-row.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function FlexRow() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 300, display: "flex", flexDirection: "row", gap: 10 } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 80, backgroundColor: "#ff9999" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 80, backgroundColor: "#99ff99" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 80, backgroundColor: "#9999ff" } }));
+      };
+    }
+  });
+
+  // tests/e2e/fixtures/flex-align.jsx
+  var require_flex_align = __commonJS({
+    "tests/e2e/fixtures/flex-align.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function FlexAlign() {
+        return /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 390,
+          display: "flex",
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: 10
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 40, backgroundColor: "#ff9999" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 60, backgroundColor: "#99ff99" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 50, height: 50, backgroundColor: "#9999ff" } }));
+      };
+    }
+  });
+
   // tests/e2e/fixtures/flex-layout.jsx
   var require_flex_layout = __commonJS({
     "tests/e2e/fixtures/flex-layout.jsx"(exports, module) {
@@ -13977,9 +14006,6 @@
       module.exports = function FlexLayout() {
         return /* @__PURE__ */ React2.createElement("div", { style: {
           width: 390,
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
           padding: 10
         } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 40, backgroundColor: "#ff9999" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 60, backgroundColor: "#99ff99" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 50, height: 50, backgroundColor: "#9999ff" } }));
       };
@@ -14011,17 +14037,81 @@
     }
   });
 
+  // tests/e2e/fixtures/border-basic.jsx
+  var require_border_basic = __commonJS({
+    "tests/e2e/fixtures/border-basic.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function BorderBasic() {
+        return /* @__PURE__ */ React2.createElement("div", null, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          height: 100,
+          borderWidth: 4,
+          borderStyle: "solid",
+          borderColor: "#333333",
+          backgroundColor: "#eeeeee"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 50, height: 50, backgroundColor: "#cccccc" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          height: 80,
+          borderTopWidth: 8,
+          borderBottomWidth: 2,
+          borderLeftWidth: 6,
+          borderRightWidth: 6,
+          borderStyle: "solid",
+          borderColor: "#666666",
+          backgroundColor: "#dddddd"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 50, height: 30, backgroundColor: "#bbbbbb" } })));
+      };
+    }
+  });
+
+  // tests/e2e/fixtures/border-padding.jsx
+  var require_border_padding = __commonJS({
+    "tests/e2e/fixtures/border-padding.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function BorderPadding() {
+        return /* @__PURE__ */ React2.createElement("div", null, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          height: 100,
+          borderWidth: 4,
+          borderStyle: "solid",
+          borderColor: "#333333",
+          padding: 10,
+          backgroundColor: "#eeeeee"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 50, height: 50, backgroundColor: "#cccccc" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 250,
+          borderTopWidth: 6,
+          borderBottomWidth: 2,
+          borderLeftWidth: 4,
+          borderRightWidth: 4,
+          borderStyle: "solid",
+          borderColor: "#666666",
+          paddingTop: 15,
+          paddingBottom: 5,
+          paddingLeft: 10,
+          paddingRight: 10,
+          backgroundColor: "#dddddd"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 40, backgroundColor: "#bbbbbb" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 30, backgroundColor: "#aaaaaa" } })));
+      };
+    }
+  });
+
   // tests/e2e/fixtures/index.js
   var require_fixtures = __commonJS({
     "tests/e2e/fixtures/index.js"(exports, module) {
       "use strict";
       module.exports = {
         "div-basic": { component: require_div_basic(), description: "Basic div with dimensions" },
-        "div-nested": { component: require_div_nested(), description: "Nested divs with flex row layout" },
+        "div-nested": { component: require_div_nested(), description: "Nested divs with block layout" },
         "p-text": { component: require_p_text(), description: "Paragraph with text content" },
         "headings": { component: require_headings(), description: "h1 through h6" },
-        "flex-layout": { component: require_flex_layout(), description: "Flex direction, alignment, spacing" },
-        "box-model": { component: require_box_model(), description: "Margin and padding combinations" }
+        "flex-row": { component: require_flex_row(), description: "Flex row with gap" },
+        "flex-align": { component: require_flex_align(), description: "Flex alignment (justify-content, align-items)" },
+        "flex-layout": { component: require_flex_layout(), description: "Padded container with block children" },
+        "box-model": { component: require_box_model(), description: "Margin and padding combinations" },
+        "border-basic": { component: require_border_basic(), description: "Border width (uniform and per-side)" },
+        "border-padding": { component: require_border_padding(), description: "Border width combined with padding" }
       };
     }
   });

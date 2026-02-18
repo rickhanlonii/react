@@ -9,6 +9,8 @@ struct FalconApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                .ignoresSafeArea()
+                .background(Color(red: 0xF2/255.0, green: 0xF2/255.0, blue: 0xF7/255.0).ignoresSafeArea())
         }
     }
 }
@@ -28,7 +30,7 @@ class FalconRootViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .white
+        view.backgroundColor = UIColor(red: 0xF2/255.0, green: 0xF2/255.0, blue: 0xF7/255.0, alpha: 1.0)
 
         #if DEBUG
         Root.devBundleURL = URL(string: "http://localhost:6000/bundle.js")
@@ -49,7 +51,7 @@ class FalconRootViewController: UIViewController {
                 print("[Falcon] Render failed: \(error)")
                 self?.showError(error)
             } else {
-                // SSR content is on screen — now hydrate to make it interactive
+                 // SSR content is on screen — now hydrate to make it interactive
                 self?.root?.hydrateRoot(serverURL: self?.serverURL() ?? "") { error in
                     if let error = error {
                         print("[Falcon] Hydration failed: \(error)")

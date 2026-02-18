@@ -7,7 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		FDCCCE512F3D640B0074C86D /* ReactDomNativeKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD0000022F3D60000074C86D /* ReactDomNativeKit */; };
+		FD6561062F46461D0079D926 /* JSEngine in Frameworks */ = {isa = PBXBuildFile; productRef = FD6561052F46461D0079D926 /* JSEngine */; };
+		FD6561082F46461D0079D926 /* ReactDomNativeKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD6561072F46461D0079D926 /* ReactDomNativeKit */; };
+		FD65610A2F46461D0079D926 /* ShadowTree in Frameworks */ = {isa = PBXBuildFile; productRef = FD6561092F46461D0079D926 /* ShadowTree */; };
+		FD65610C2F46461D0079D926 /* Yoga in Frameworks */ = {isa = PBXBuildFile; productRef = FD65610B2F46461D0079D926 /* Yoga */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,7 +30,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FDCCCE512F3D640B0074C86D /* ReactDomNativeKit in Frameworks */,
+				FD65610C2F46461D0079D926 /* Yoga in Frameworks */,
+				FD6561062F46461D0079D926 /* JSEngine in Frameworks */,
+				FD6561082F46461D0079D926 /* ReactDomNativeKit in Frameworks */,
+				FD65610A2F46461D0079D926 /* ShadowTree in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -70,7 +76,10 @@
 			);
 			name = Falcon;
 			packageProductDependencies = (
-				FD0000022F3D60000074C86D /* ReactDomNativeKit */,
+				FD6561052F46461D0079D926 /* JSEngine */,
+				FD6561072F46461D0079D926 /* ReactDomNativeKit */,
+				FD6561092F46461D0079D926 /* ShadowTree */,
+				FD65610B2F46461D0079D926 /* Yoga */,
 			);
 			productName = Falcon;
 			productReference = FDCCCDFD2F3D52A30074C86D /* Falcon.app */;
@@ -101,7 +110,7 @@
 			mainGroup = FDCCCDF42F3D52A30074C86D;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				FD0000012F3D60000074C86D /* XCLocalSwiftPackageReference "../../packages/react-dom-native/ios" */,
+				FD6561042F46461D0079D926 /* XCLocalSwiftPackageReference "../../packages/react-dom-native/ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = FDCCCDFE2F3D52A30074C86D /* Products */;
@@ -335,16 +344,32 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		FD0000012F3D60000074C86D /* XCLocalSwiftPackageReference "../../packages/react-dom-native/ios" */ = {
+		FD6561042F46461D0079D926 /* XCLocalSwiftPackageReference "../../packages/react-dom-native/ios" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "../../packages/react-dom-native/ios";
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		FD0000022F3D60000074C86D /* ReactDomNativeKit */ = {
+		FD6561052F46461D0079D926 /* JSEngine */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = FD6561042F46461D0079D926 /* XCLocalSwiftPackageReference "../../packages/react-dom-native/ios" */;
+			productName = JSEngine;
+		};
+		FD6561072F46461D0079D926 /* ReactDomNativeKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6561042F46461D0079D926 /* XCLocalSwiftPackageReference "../../packages/react-dom-native/ios" */;
 			productName = ReactDomNativeKit;
+		};
+		FD6561092F46461D0079D926 /* ShadowTree */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6561042F46461D0079D926 /* XCLocalSwiftPackageReference "../../packages/react-dom-native/ios" */;
+			productName = ShadowTree;
+		};
+		FD65610B2F46461D0079D926 /* Yoga */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6561042F46461D0079D926 /* XCLocalSwiftPackageReference "../../packages/react-dom-native/ios" */;
+			productName = Yoga;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

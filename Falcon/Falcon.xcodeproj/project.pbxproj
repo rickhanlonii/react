@@ -101,7 +101,7 @@
 			mainGroup = FDCCCDF42F3D52A30074C86D;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				FD0000012F3D60000074C86D /* XCLocalSwiftPackageReference "../ios" */,
+				FD0000012F3D60000074C86D /* XCLocalSwiftPackageReference "../packages/react-dom-native/ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = FDCCCDFE2F3D52A30074C86D /* Products */;
@@ -335,9 +335,9 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		FD0000012F3D60000074C86D /* XCLocalSwiftPackageReference "../ios" */ = {
+		FD0000012F3D60000074C86D /* XCLocalSwiftPackageReference "../packages/react-dom-native/ios" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../ios;
+			relativePath = ../packages/react-dom-native/ios;
 		};
 /* End XCLocalSwiftPackageReference section */
 

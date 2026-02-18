@@ -81,7 +81,7 @@ function TextInput({placeholder = 'Search fruits...'}) {
           });
         }}
       />
-      <div style={{opacity: isPending ? 0.6 : 1}}>
+      <div style={{paddingTop: 8, opacity: isPending ? 0.6 : 1}}>
         <Suspense fallback={<p>Searching...</p>}>
           <SearchResults query={searchQuery} />
         </Suspense>

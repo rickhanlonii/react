@@ -7,12 +7,30 @@ struct LayoutDiff: Codable {
     let web: Double
     let native: Double
     let delta: Double
+    let webString: String?
+    let nativeString: String?
+
+    /// Numeric diff (backward-compatible)
+    init(path: String, property: String, web: Double, native: Double, delta: Double) {
+        self.path = path; self.property = property
+        self.web = web; self.native = native; self.delta = delta
+        self.webString = nil; self.nativeString = nil
+    }
+
+    /// String diff
+    init(path: String, property: String, webString: String, nativeString: String) {
+        self.path = path; self.property = property
+        self.web = 0; self.native = 0; self.delta = 0
+        self.webString = webString; self.nativeString = nativeString
+    }
+
+    var isStringDiff: Bool { webString != nil }
 }
 
 /// Compares web and native layout trees, returning differences.
 enum LayoutComparer {
 
-    static let defaultTolerance: Double = 2.0
+    static let defaultTolerance: Double = 1.0
 
     static func compare(
         web: LayoutNode,
@@ -47,7 +65,13 @@ enum LayoutComparer {
         let numericStyleProps = [
             "marginTop", "marginRight", "marginBottom", "marginLeft",
             "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
-            "fontSize"
+            "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth",
+            "fontSize", "lineHeight",
+            "gap", "rowGap", "columnGap",
+            "flexGrow", "flexShrink", "flexBasis",
+            "minWidth", "maxWidth", "minHeight", "maxHeight",
+            "top", "right", "bottom", "left",
+            "borderRadius", "opacity"
         ]
 
         for prop in numericStyleProps {
@@ -62,6 +86,28 @@ enum LayoutComparer {
                     native: nativeVal,
                     delta: delta
                 ))
+            }
+        }
+
+        // Compare string style properties (only when both sides have values)
+        let stringStyleProps = [
+            "display", "flexDirection", "alignItems", "justifyContent",
+            "flexWrap", "fontWeight",
+            "overflow", "position", "textAlign",
+            "color", "backgroundColor", "borderColor"
+        ]
+
+        for prop in stringStyleProps {
+            if let webStr = web.styles[prop]?.stringValue,
+               let nativeStr = native.styles[prop]?.stringValue {
+                if webStr != nativeStr {
+                    diffs.append(LayoutDiff(
+                        path: path,
+                        property: "styles.\(prop)",
+                        webString: webStr,
+                        nativeString: nativeStr
+                    ))
+                }
             }
         }
 

@@ -71,16 +71,27 @@ struct ComparisonView: View {
                             Text("\(diff.path).\(diff.property)")
                                 .font(.caption)
                                 .fontWeight(.medium)
-                            HStack {
-                                Text("web: \(diff.web, specifier: "%.1f")")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                                Text("native: \(diff.native, specifier: "%.1f")")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                                Text("delta: \(diff.delta, specifier: "%+.1f")")
-                                    .font(.caption2)
-                                    .foregroundColor(abs(diff.delta) > 5 ? .red : .orange)
+                            if diff.isStringDiff {
+                                HStack {
+                                    Text("web: \"\(diff.webString ?? "")\"")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                    Text("native: \"\(diff.nativeString ?? "")\"")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                            } else {
+                                HStack {
+                                    Text("web: \(diff.web, specifier: "%.1f")")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                    Text("native: \(diff.native, specifier: "%.1f")")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                    Text("delta: \(diff.delta, specifier: "%+.1f")")
+                                        .font(.caption2)
+                                        .foregroundColor(abs(diff.delta) > 5 ? .red : .orange)
+                                }
                             }
                         }
                         .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
