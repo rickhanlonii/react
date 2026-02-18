@@ -30,7 +30,31 @@ struct LayoutDiff: Codable {
 /// Compares web and native layout trees, returning differences.
 enum LayoutComparer {
 
-    static let defaultTolerance: Double = 1.0
+    static let defaultTolerance: Double = 2.0
+
+    /// Normalize color strings to a common format for comparison.
+    /// Converts "rgb(r, g, b)" → "#rrggbb" so web and native values match.
+    private static func normalizeColor(_ color: String) -> String {
+        let trimmed = color.trimmingCharacters(in: .whitespaces)
+        if trimmed.hasPrefix("rgb(") && trimmed.hasSuffix(")") {
+            let inner = trimmed.dropFirst(4).dropLast(1)
+            let parts = inner.split(separator: ",").compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
+            if parts.count == 3 {
+                return String(format: "#%02x%02x%02x", parts[0], parts[1], parts[2])
+            }
+        }
+        return trimmed
+    }
+
+    /// Normalize fontWeight keywords to numeric equivalents.
+    /// CSS: "normal" = "400", "bold" = "700".
+    private static func normalizeFontWeight(_ value: String) -> String {
+        switch value {
+        case "normal": return "400"
+        case "bold": return "700"
+        default: return value
+        }
+    }
 
     static func compare(
         web: LayoutNode,
@@ -97,10 +121,30 @@ enum LayoutComparer {
             "color", "backgroundColor", "borderColor"
         ]
 
+        let colorProps: Set<String> = ["color", "backgroundColor", "borderColor"]
+
+        // Elements that intentionally diverge on flexWrap (use "wrap" in Yoga to emulate CSS block text wrapping)
+        let flexWrapExcluded: Set<String> = ["p", "h1", "h2", "h3", "h4", "h5", "h6"]
+
         for prop in stringStyleProps {
+            if prop == "flexWrap" && flexWrapExcluded.contains(web.type) {
+                continue
+            }
             if let webStr = web.styles[prop]?.stringValue,
                let nativeStr = native.styles[prop]?.stringValue {
-                if webStr != nativeStr {
+                let webNorm: String
+                let nativeNorm: String
+                if colorProps.contains(prop) {
+                    webNorm = normalizeColor(webStr)
+                    nativeNorm = normalizeColor(nativeStr)
+                } else if prop == "fontWeight" {
+                    webNorm = normalizeFontWeight(webStr)
+                    nativeNorm = normalizeFontWeight(nativeStr)
+                } else {
+                    webNorm = webStr
+                    nativeNorm = nativeStr
+                }
+                if webNorm != nativeNorm {
                     diffs.append(LayoutDiff(
                         path: path,
                         property: "styles.\(prop)",

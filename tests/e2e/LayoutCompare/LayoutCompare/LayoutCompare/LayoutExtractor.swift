@@ -42,20 +42,14 @@ enum LayoutExtractor {
         styles["marginBottom"] = .number(Double(YGNodeLayoutGetMargin(yoga, .bottom)))
         styles["marginLeft"] = .number(Double(YGNodeLayoutGetMargin(yoga, .left)))
 
-        // Rendered border widths — UIKitMutationApplier only applies the shorthand
-        // "borderWidth" via CALayer.borderWidth (uniform), ignoring per-side props.
-        // Extract what's actually rendered so mismatches surface as diffs.
-        let renderedBorder: Double
-        if let styleDict = node.props["style"] as? [String: Any],
-           let bw = styleDict["borderWidth"] as? NSNumber {
-            renderedBorder = bw.doubleValue
-        } else {
-            renderedBorder = 0
+        // Border widths — per-side values override uniform borderWidth
+        if let styleDict = node.props["style"] as? [String: Any] {
+            let uniform = (styleDict["borderWidth"] as? NSNumber)?.doubleValue ?? 0
+            styles["borderTopWidth"] = .number((styleDict["borderTopWidth"] as? NSNumber)?.doubleValue ?? uniform)
+            styles["borderRightWidth"] = .number((styleDict["borderRightWidth"] as? NSNumber)?.doubleValue ?? uniform)
+            styles["borderBottomWidth"] = .number((styleDict["borderBottomWidth"] as? NSNumber)?.doubleValue ?? uniform)
+            styles["borderLeftWidth"] = .number((styleDict["borderLeftWidth"] as? NSNumber)?.doubleValue ?? uniform)
         }
-        styles["borderTopWidth"] = .number(renderedBorder)
-        styles["borderRightWidth"] = .number(renderedBorder)
-        styles["borderBottomWidth"] = .number(renderedBorder)
-        styles["borderLeftWidth"] = .number(renderedBorder)
 
         // Layout-computed padding (fallback to style props when Yoga returns 0)
         func extractPadding(_ edge: String, _ yogaEdge: YGEdge) {
@@ -99,10 +93,19 @@ enum LayoutExtractor {
                 styles["fontWeight"] = .string(fontWeight)
             }
 
-            // Flex container spacing
-            if let v = styleDict["gap"] as? NSNumber { styles["gap"] = .number(v.doubleValue) }
-            if let v = styleDict["rowGap"] as? NSNumber { styles["rowGap"] = .number(v.doubleValue) }
-            if let v = styleDict["columnGap"] as? NSNumber { styles["columnGap"] = .number(v.doubleValue) }
+            // Flex container spacing — expand gap to rowGap/columnGap like CSS does
+            let gapValue = styleDict["gap"] as? NSNumber
+            if let v = gapValue { styles["gap"] = .number(v.doubleValue) }
+            if let v = styleDict["rowGap"] as? NSNumber {
+                styles["rowGap"] = .number(v.doubleValue)
+            } else if let v = gapValue {
+                styles["rowGap"] = .number(v.doubleValue)
+            }
+            if let v = styleDict["columnGap"] as? NSNumber {
+                styles["columnGap"] = .number(v.doubleValue)
+            } else if let v = gapValue {
+                styles["columnGap"] = .number(v.doubleValue)
+            }
 
             // Text
             if let v = styleDict["lineHeight"] as? NSNumber { styles["lineHeight"] = .number(v.doubleValue) }

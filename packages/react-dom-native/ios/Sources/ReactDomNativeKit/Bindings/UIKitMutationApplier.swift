@@ -238,13 +238,8 @@ public class UIKitMutationApplier: NSObject {
             if let bgColor = style["backgroundColor"] as? String {
                 view.backgroundColor = parseColor(bgColor)
             }
-            // Border properties via CALayer
-            if let borderWidth = style["borderWidth"] as? NSNumber {
-                view.layer.borderWidth = CGFloat(borderWidth.doubleValue)
-            }
-            if let borderColor = style["borderColor"] as? String {
-                view.layer.borderColor = parseColor(borderColor).cgColor
-            }
+            // Border properties (per-side or uniform)
+            applyBorderProps(to: view, style: style)
             if let borderRadius = style["borderRadius"] as? NSNumber {
                 view.layer.cornerRadius = CGFloat(borderRadius.doubleValue)
                 // Don't set clipsToBounds here — it conflicts with boxShadow.
@@ -321,6 +316,75 @@ public class UIKitMutationApplier: NSObject {
                 }
                 view.transform = t
             }
+        }
+    }
+
+    /// Removes any previously-added border-edge sublayers and adds new ones
+    /// for per-side border widths. Falls back to CALayer.borderWidth for uniform borders.
+    private func applyBorderProps(to view: UIView, style: [String: Any]) {
+        // Read per-side values (nil = not set)
+        let top = (style["borderTopWidth"] as? NSNumber)?.doubleValue
+        let right = (style["borderRightWidth"] as? NSNumber)?.doubleValue
+        let bottom = (style["borderBottomWidth"] as? NSNumber)?.doubleValue
+        let left = (style["borderLeftWidth"] as? NSNumber)?.doubleValue
+        let uniform = (style["borderWidth"] as? NSNumber)?.doubleValue
+
+        // Resolve each edge: per-side overrides uniform
+        let t = top ?? uniform ?? 0
+        let r = right ?? uniform ?? 0
+        let b = bottom ?? uniform ?? 0
+        let l = left ?? uniform ?? 0
+
+        // Parse border color
+        let borderColor: CGColor
+        if let colorStr = style["borderColor"] as? String {
+            borderColor = parseColor(colorStr).cgColor
+        } else {
+            borderColor = UIColor.black.cgColor
+        }
+
+        // Remove old border layers
+        view.layer.sublayers?.removeAll { $0.name == "__border_edge__" }
+
+        // If all zero, clear CALayer border too and return
+        if t == 0 && r == 0 && b == 0 && l == 0 {
+            view.layer.borderWidth = 0
+            return
+        }
+
+        // If all equal, use CALayer uniform border (simpler, antialiased)
+        if t == r && r == b && b == l {
+            view.layer.borderWidth = CGFloat(t)
+            view.layer.borderColor = borderColor
+            return
+        }
+
+        // Clear uniform border — we'll use sublayers instead
+        view.layer.borderWidth = 0
+
+        // Helper to add an edge layer
+        func addEdge(frame: CGRect) {
+            let layer = CALayer()
+            layer.name = "__border_edge__"
+            layer.backgroundColor = borderColor
+            layer.frame = frame
+            // zPosition ensures borders render above child views
+            layer.zPosition = 1000
+            view.layer.addSublayer(layer)
+        }
+
+        let bounds = view.bounds
+        if t > 0 {
+            addEdge(frame: CGRect(x: 0, y: 0, width: bounds.width, height: CGFloat(t)))
+        }
+        if b > 0 {
+            addEdge(frame: CGRect(x: 0, y: bounds.height - CGFloat(b), width: bounds.width, height: CGFloat(b)))
+        }
+        if l > 0 {
+            addEdge(frame: CGRect(x: 0, y: 0, width: CGFloat(l), height: bounds.height))
+        }
+        if r > 0 {
+            addEdge(frame: CGRect(x: bounds.width - CGFloat(r), y: 0, width: CGFloat(r), height: bounds.height))
         }
     }
 
