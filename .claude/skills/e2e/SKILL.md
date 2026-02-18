@@ -38,20 +38,21 @@ If not set, call `session_set_defaults` with those values.
 3. Stop any running instance: `stop_app_sim`
 4. Launch with log capture: `launch_app_logs_sim`
 5. Wait 8 seconds for fixture list to load
-6. For each fixture:
-   a. Tap the fixture name
-   b. Wait 5 seconds for comparison to complete
-   c. Take a `screenshot` for visual comparison (optional — only if you need to see the rendering)
-   d. Swipe back (`gesture` preset `swipe-from-left-edge`) to return to fixture list
-7. After all fixtures are tapped, call `stop_sim_log_cap` with the log session ID
-8. Parse the logs — each fixture comparison prints:
+6. Tap the **"Run All"** button in the top-right toolbar
+7. Wait 15-20 seconds for all fixtures to complete
+8. Take a `screenshot` — the fixture list shows inline pass/fail status:
+   - Green checkmark = passed (0 diffs)
+   - Red X = failed (with diff count)
+   - Summary bar at top shows "N/N passed"
+9. Call `stop_sim_log_cap` with the log session ID for full structured diff data
+10. Parse the logs — each fixture comparison prints:
    ```
    [LayoutCompare] fixture=<name> elements=<n> diffs=<n>
    [LayoutCompare] <JSON array of LayoutDiff objects>
    ```
-9. Summarize: which fixtures passed (0 diffs), which failed, and the specific mismatches
+11. Summarize: which fixtures passed (0 diffs), which failed, and the specific mismatches
 
-**IMPORTANT**: Use log capture to read diff data, NOT screenshots. The logs contain the full structured JSON for every fixture that was viewed. Screenshots are only needed for visual comparison of the renderings themselves.
+**IMPORTANT**: Use log capture to read diff data, NOT screenshots. The logs contain the full structured JSON for every fixture. Screenshots show the pass/fail summary and are useful for a quick visual check.
 
 ## Workflow: Compare Specific Fixture
 

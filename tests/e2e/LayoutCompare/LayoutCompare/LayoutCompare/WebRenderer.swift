@@ -42,6 +42,11 @@ class WebRendererModel {
         }
     }
 
+    func onReady(_ callback: @escaping () -> Void) {
+        if isLoaded { callback() }
+        else { pendingRender = callback }
+    }
+
     func renderFixture(_ name: String, completion: @escaping () -> Void) {
         let doRender: () -> Void = { [weak self] in
             guard let self = self else { return }
