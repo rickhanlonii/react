@@ -71,7 +71,7 @@ Next.js (RSC server) → Flight stream (HTTP) → Native iOS client
 
 ## Skills
 
-`/test-unit`, `/test-e2e`
+`/test-unit`, `/test-e2e`, `/e2e`
 
 ## Superpowers
 

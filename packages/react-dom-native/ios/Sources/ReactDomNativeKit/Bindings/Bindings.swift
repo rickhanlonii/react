@@ -131,6 +131,11 @@ public class Bindings {
         currentTrees[surfaceId] = []
     }
 
+    /// Returns the current shadow tree for a surface, or nil if not registered.
+    public func currentTree(forSurface surfaceId: Int) -> [ShadowNodeWrapper]? {
+        return currentTrees[surfaceId]
+    }
+
     /// Unregisters a surface and cleans up its tree and views.
     public func unregisterSurface(surfaceId: Int) {
         rootViews[surfaceId]?.removeFromSuperview()
@@ -1067,6 +1072,19 @@ public class Bindings {
             let surfaceId = (self.engine.toInt(args[0])) ?? 0
             self.ssrTrees.removeValue(forKey: surfaceId)
             self.ssrNodeToParent.removeAll()
+            return nil
+        }
+
+        // $$setInstanceHandle(nodeId, instanceHandle) -> void
+        // Called during hydration to attach the React fiber reference to an
+        // SSR-created node's family so that event dispatch works.
+        engine.setGlobalFunction("$$setInstanceHandle") { [weak self, weak engine] args in
+            guard let self = self, let engine = engine else { return nil }
+            guard let nodeId = engine.toInt(args[0]) else { return nil }
+            guard let node = self.nodeRegistry[nodeId] else { return nil }
+            let instanceHandle = args[1]
+            engine.protect(instanceHandle)
+            node.family.instanceHandle = instanceHandle
             return nil
         }
     }

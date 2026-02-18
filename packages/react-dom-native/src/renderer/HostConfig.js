@@ -556,6 +556,8 @@ exports.hydrateInstance = function(instance, type, props, hostContext, internalH
   instance._internalInstanceHandle = internalHandle;
   instance.props = props;
   instance.children = [];
+  // Sync the fiber reference back to the Swift ShadowNodeFamily so event dispatch works.
+  $$setInstanceHandle(instance._ssrNodeRef, internalHandle);
   // Return truthy = hydration succeeded (reconciler checks `hydrateInstance(...) || throwOnHydrationMismatch`)
   return true;
 };
@@ -565,6 +567,7 @@ exports.hydrateTextInstance = function(textInstance, text, internalHandle) {
   textInstance._nativeFamily = textInstance._ssrFamily;
   textInstance._internalInstanceHandle = internalHandle;
   textInstance.text = text;
+  $$setInstanceHandle(textInstance._ssrNodeRef, internalHandle);
   // Return truthy = hydration succeeded (reconciler checks `hydrateTextInstance(...) || throwOnHydrationMismatch`)
   return true;
 };
@@ -577,6 +580,7 @@ exports.hydrateSuspenseInstance = function(suspenseInstance, internalHandle) {
   suspenseInstance._nativeNode = suspenseInstance._ssrNodeRef;
   suspenseInstance._nativeFamily = suspenseInstance._ssrFamily;
   suspenseInstance._internalInstanceHandle = internalHandle;
+  $$setInstanceHandle(suspenseInstance._ssrNodeRef, internalHandle);
 };
 
 exports.getNextHydratableInstanceAfterActivityInstance = function() { return null; };

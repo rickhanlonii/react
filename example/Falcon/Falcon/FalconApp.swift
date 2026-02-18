@@ -30,15 +30,21 @@ class FalconRootViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .white
 
-        #if DEBUG 
+        #if DEBUG
         Root.devBundleURL = URL(string: "http://localhost:6000/bundle.js")
         #endif
 
         // Create root (like react-dom's createRoot)
         root = createRoot(view)
+        renderAndHydrate()
 
-        // Render: load framework bundle, then fetch RSC stream from server
-        root?.renderWithSSR(serverURL: serverURL()) { [weak self] error in
+        #if DEBUG
+        startDevReloadPolling()
+        #endif
+    }
+
+    private func renderAndHydrate() {
+        root?.renderWithSSR(serverURL: ssrServerURL()) { [weak self] error in
             if let error = error {
                 print("[Falcon] Render failed: \(error)")
                 self?.showError(error)
@@ -53,10 +59,6 @@ class FalconRootViewController: UIViewController {
                 }
             }
         }
-
-        #if DEBUG
-        startDevReloadPolling()
-        #endif
     }
 
     #if DEBUG
@@ -71,13 +73,9 @@ class FalconRootViewController: UIViewController {
 
     @objc private func reloadBundle() {
         print("[Falcon] Manual reload (Cmd+Shift+R)...")
-        root?.reload(serverURL: serverURL()) { error in
-            if let error = error {
-                print("[Falcon] Reload failed: \(error)")
-            } else {
-                print("[Falcon] Reload complete")
-            }
-        }
+        root?.unmount()
+        root = createRoot(view)
+        renderAndHydrate()
     }
 
     private func startDevReloadPolling() {
@@ -97,13 +95,9 @@ class FalconRootViewController: UIViewController {
             guard let self = self, version > 0, version != self.lastBundleVersion else { return }
             self.lastBundleVersion = version
             print("[Falcon] Bundle updated, reloading...")
-            self.root?.reload(serverURL: self.serverURL()) { error in
-                if let error = error {
-                    print("[Falcon] Reload failed: \(error)")
-                } else {
-                    print("[Falcon] Reload complete")
-                }
-            }
+            self.root?.unmount()
+            self.root = createRoot(self.view)
+            self.renderAndHydrate()
         }
     }
 
@@ -128,6 +122,14 @@ class FalconRootViewController: UIViewController {
         #else
         // In release builds, the server URL should be configured for production
         return "http://localhost:6000"
+        #endif
+    }
+
+    private func ssrServerURL() -> String {
+        #if DEBUG
+        return "http://localhost:6001"
+        #else
+        return "http://localhost:6001"
         #endif
     }
 

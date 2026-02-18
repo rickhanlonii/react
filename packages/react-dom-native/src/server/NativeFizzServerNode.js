@@ -10,7 +10,7 @@ var React = require('react');
 // Fizz expects these internals to be initialized by the server renderer
 // before createRequest is called.
 var ReactSharedInternals =
-  React.__SERVER_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
+  React.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
 ReactSharedInternals.getCurrentStack = null;
 ReactSharedInternals.recentlyCreatedOwnerStacks = 0;
 

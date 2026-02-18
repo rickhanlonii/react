@@ -22,10 +22,10 @@ function App() {
       {/*<h1 style={d}>react-dom-native</h1>*/}
       {/*<p style={d}>This page is rendered by React Server Components on native iOS.</p>*/}
       
-      {/*<div style={d}>*/}
-      {/*  <h2 style={d}>Counter</h2>*/}
-      {/*  <Counter initialCount={0} />*/}
-      {/*</div>*/}
+      <div style={d}>
+        <h2 style={d}>Counter</h2>
+        <Counter initialCount={0} />
+      </div>
       
       {/*<div style={d}>*/}
       {/*  <h2 style={d}>Search</h2>*/}

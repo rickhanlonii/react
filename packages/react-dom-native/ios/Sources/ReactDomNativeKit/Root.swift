@@ -284,8 +284,8 @@ public class Root {
     /// 5. React renders → $$completeRoot → atomic swap → interactive
     ///
     /// - Parameters:
-    ///   - serverURL: URL of the RSC server (e.g. "http://localhost:6000").
-    ///   - comp    d when SSR content is first displayed or an error occurs.
+    ///   - serverURL: URL of the SSR server (e.g. "http://localhost:6001").
+    ///   - completion: Called when SSR content is first displayed or an error occurs.
     public func renderWithSSR(serverURL: String, completion: ((Error?) -> Void)? = nil) {
         guard !isUnmounted else {
             print("[ReactDomNativeKit] Warning: Cannot render to an unmounted root.")
@@ -537,6 +537,14 @@ public class Root {
                         ssrTree: currentSSRTree,
                         ssrViewRegistry: self.ssrViewRegistry ?? ViewRegistry()
                     )
+
+                    // Wire the SSR applier's event dispatch to Bindings so that
+                    // tap handlers on SSR-created buttons reach the JS runtime.
+                    if let bindings = self.runtime?.bindings {
+                        self.ssrMutationApplier?.dispatchEvent = { view, eventType, payload in
+                            bindings.dispatchEvent(from: view, eventType: eventType, payload: payload)
+                        }
+                    }
                     self.runtime?.bindings.registerSSRTree(
                         surfaceId: self.options.surfaceId,
                         rootChildren: currentSSRTree
@@ -684,7 +692,9 @@ public class Root {
         ssrCoordinator = nil
         ssrFlightDataBuffer.removeAll()
         ssrViewRegistry = nil
-        ssrMutationApplier = nil
+        // Keep ssrMutationApplier alive — SSR-created buttons hold a weak
+        // reference to it as their tap target. If deallocated, taps silently
+        // stop working. It stays alive until the root is unmounted.
         ssrRevealHasOccurred = false
         ssrStreamComplete = false
         pendingHydration = nil

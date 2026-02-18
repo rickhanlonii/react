@@ -6,7 +6,8 @@
     "build": "node scripts/build.js",
     "build:prod": "node scripts/build.js --production",
     "dev": "bash scripts/dev.sh",
-    "server": "cd server && node --conditions react-server server.js"
+    "server": "cd server && node --conditions react-server server.js",
+    "server:ssr": "cd server && node ssr-server.js"
   },
   "dependencies": {
     "chokidar": "^4.0.0",

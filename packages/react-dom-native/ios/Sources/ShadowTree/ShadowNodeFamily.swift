@@ -21,7 +21,7 @@ public class ShadowNodeFamily {
     /// Stored as an opaque ref. The engine's protect/unprotect mechanism
     /// prevents GC while we need it. ARC keeps the ref alive as long as
     /// this family is alive.
-    public let instanceHandle: AnyObject?
+    public var instanceHandle: AnyObject?
 
     public init(elementType: String, surfaceId: Int, instanceHandle: AnyObject?) {
         self.elementType = elementType
