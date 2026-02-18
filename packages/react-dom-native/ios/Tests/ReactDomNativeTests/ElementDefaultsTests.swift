@@ -519,4 +519,70 @@ final class ElementDefaultsTests: XCTestCase {
         XCTAssertEqual(merged["width"] as? Int, 100)
         XCTAssertEqual(merged["objectFit"] as? String, "fill")
     }
+
+    // MARK: - Border shorthand expansion
+
+    func testBorderShorthandFullParse() {
+        let merged = ElementDefaults.mergedStyle(
+            for: "div",
+            userStyle: ["border": "1px solid red"]
+        )
+        XCTAssertEqual(merged["borderWidth"] as? Double, 1.0)
+        XCTAssertEqual(merged["borderColor"] as? String, "red")
+        XCTAssertNil(merged["border"])
+    }
+
+    func testBorderShorthandFractionalWidth() {
+        let merged = ElementDefaults.mergedStyle(
+            for: "div",
+            userStyle: ["border": "2.5px solid #333"]
+        )
+        XCTAssertEqual(merged["borderWidth"] as? Double, 2.5)
+        XCTAssertEqual(merged["borderColor"] as? String, "#333")
+    }
+
+    func testBorderShorthandRgbaColor() {
+        let merged = ElementDefaults.mergedStyle(
+            for: "div",
+            userStyle: ["border": "1px solid rgba(255, 0, 0, 0.4)"]
+        )
+        XCTAssertEqual(merged["borderWidth"] as? Double, 1.0)
+        XCTAssertEqual(merged["borderColor"] as? String, "rgba(255, 0, 0, 0.4)")
+    }
+
+    func testBorderShorthandWidthOnly() {
+        let merged = ElementDefaults.mergedStyle(
+            for: "div",
+            userStyle: ["border": "3px"]
+        )
+        XCTAssertEqual(merged["borderWidth"] as? Double, 3.0)
+        XCTAssertNil(merged["borderColor"])
+    }
+
+    func testBorderShorthandExplicitOverrides() {
+        let merged = ElementDefaults.mergedStyle(
+            for: "div",
+            userStyle: ["border": "1px solid red", "borderWidth": 5]
+        )
+        XCTAssertEqual(merged["borderWidth"] as? Int, 5)
+        XCTAssertEqual(merged["borderColor"] as? String, "red")
+    }
+
+    func testBorderShorthandExplicitColorOverrides() {
+        let merged = ElementDefaults.mergedStyle(
+            for: "div",
+            userStyle: ["border": "1px solid red", "borderColor": "blue"]
+        )
+        XCTAssertEqual(merged["borderWidth"] as? Double, 1.0)
+        XCTAssertEqual(merged["borderColor"] as? String, "blue")
+    }
+
+    func testNoBorderShorthandPassesThrough() {
+        let merged = ElementDefaults.mergedStyle(
+            for: "div",
+            userStyle: ["borderWidth": 2, "borderColor": "blue"]
+        )
+        XCTAssertEqual(merged["borderWidth"] as? Int, 2)
+        XCTAssertEqual(merged["borderColor"] as? String, "blue")
+    }
 }

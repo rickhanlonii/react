@@ -33,46 +33,6 @@ const TEXT_CONTEXT_ELEMENTS = new Set([
 const EVENT_HANDLER_RE = /^on[A-Z]/;
 
 // ---------------------------------------------------------------------------
-// Style shorthand expansion (from HostConfig.js)
-// ---------------------------------------------------------------------------
-
-function expandStyleShorthands(props) {
-  let style = props.style;
-
-  if (style != null && typeof style === 'object' && typeof style._init === 'function') {
-    style = style._init(style._payload);
-    props = {...props, style};
-  }
-
-  if (style == null || typeof style.border !== 'string') {
-    return props;
-  }
-
-  const border = style.border;
-  const expanded = {};
-
-  const match = border.match(
-    /^(\d+(?:\.\d+)?(?:px|em|rem)?)\s+(\w+)\s+(.+)$/,
-  );
-  if (match) {
-    expanded.borderWidth = parseFloat(match[1]);
-    expanded.borderColor = match[3];
-  } else {
-    const simple = border.match(/^(\d+(?:\.\d+)?(?:px|em|rem)?)(?:\s+(.+))?$/);
-    if (simple) {
-      expanded.borderWidth = parseFloat(simple[1]);
-      if (simple[2]) {
-        expanded.borderColor = simple[2];
-      }
-    }
-  }
-
-  const {border: _removed, ...restStyle} = style;
-  const newStyle = {...expanded, ...restStyle};
-  return {...props, style: newStyle};
-}
-
-// ---------------------------------------------------------------------------
 // Prop filtering — strip children and event handlers for SSR
 // ---------------------------------------------------------------------------
 
@@ -113,7 +73,7 @@ exports.pushStartInstance = function pushStartInstance(
   textEmbedded,
   isFallback,
 ) {
-  const filteredProps = filterProps(expandStyleShorthands(props));
+  const filteredProps = filterProps(props);
   // Only include props object if non-empty
   const hasProps = Object.keys(filteredProps).length > 0;
   if (hasProps) {

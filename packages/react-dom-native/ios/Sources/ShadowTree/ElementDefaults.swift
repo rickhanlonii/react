@@ -155,7 +155,7 @@ public enum ElementDefaults {
     }
 
     /// Merges element-type defaults with user-supplied style.
-    /// User style overrides defaults.
+    /// User style overrides defaults. CSS `border` shorthand is expanded.
     public static func mergedStyle(
         for elementType: String,
         userStyle: [String: Any]?
@@ -165,13 +165,75 @@ public enum ElementDefaults {
             return defaults
         }
         guard !defaults.isEmpty else {
-            return userStyle
+            return expandBorderShorthand(userStyle)
         }
         var merged = defaults
         for (key, value) in userStyle {
             merged[key] = value
         }
-        return merged
+        return expandBorderShorthand(merged)
+    }
+
+    /// Expands CSS `border` shorthand (e.g. "1px solid red") into individual
+    /// borderWidth/borderColor properties. Returns the style unchanged if no
+    /// shorthand is present. Explicit borderWidth/borderColor take precedence.
+    private static func expandBorderShorthand(_ style: [String: Any]) -> [String: Any] {
+        guard let border = style["border"] as? String else {
+            return style
+        }
+
+        var expanded = style
+        expanded.removeValue(forKey: "border")
+
+        // Parse: "<width> <style> <color>"
+        // Color may contain spaces (e.g. "rgba(255, 0, 0, 0.4)"), so we parse
+        // width and style tokens from the front, then treat the rest as color.
+        let fullPattern = #"^(\d+(?:\.\d+)?(?:px|em|rem)?)\s+(\w+)\s+(.+)$"#
+        if let regex = try? NSRegularExpression(pattern: fullPattern),
+           let result = regex.firstMatch(
+               in: border,
+               range: NSRange(border.startIndex..., in: border)
+           ) {
+            if let widthRange = Range(result.range(at: 1), in: border) {
+                let widthStr = String(border[widthRange])
+                let numStr = widthStr.replacingOccurrences(
+                    of: #"(px|em|rem)$"#, with: "", options: .regularExpression
+                )
+                if let width = Double(numStr), expanded["borderWidth"] == nil {
+                    expanded["borderWidth"] = width
+                }
+            }
+            // result.range(at: 2) is border-style (e.g. "solid") — ignored
+            if let colorRange = Range(result.range(at: 3), in: border),
+               expanded["borderColor"] == nil {
+                expanded["borderColor"] = String(border[colorRange])
+            }
+        } else {
+            // Fallback: width-only ("1px") or width+color ("1px red")
+            let simplePattern = #"^(\d+(?:\.\d+)?(?:px|em|rem)?)(?:\s+(.+))?$"#
+            if let regex = try? NSRegularExpression(pattern: simplePattern),
+               let result = regex.firstMatch(
+                   in: border,
+                   range: NSRange(border.startIndex..., in: border)
+               ) {
+                if let widthRange = Range(result.range(at: 1), in: border) {
+                    let widthStr = String(border[widthRange])
+                    let numStr = widthStr.replacingOccurrences(
+                        of: #"(px|em|rem)$"#, with: "", options: .regularExpression
+                    )
+                    if let width = Double(numStr), expanded["borderWidth"] == nil {
+                        expanded["borderWidth"] = width
+                    }
+                }
+                if result.range(at: 2).location != NSNotFound,
+                   let colorRange = Range(result.range(at: 2), in: border),
+                   expanded["borderColor"] == nil {
+                    expanded["borderColor"] = String(border[colorRange])
+                }
+            }
+        }
+
+        return expanded
     }
 
     // MARK: - Default Dictionaries
