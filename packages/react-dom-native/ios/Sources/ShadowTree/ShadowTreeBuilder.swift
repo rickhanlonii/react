@@ -128,6 +128,11 @@ public class ShadowTreeBuilder {
                 if let d = lh as? Double { lineHeight = CGFloat(d) }
                 else if let i = lh as? Int { lineHeight = CGFloat(i) }
             }
+            // Monospace elements store lineHeight as an internal-only
+            // measurement hint, not in the style dict.
+            if lineHeight == nil {
+                lineHeight = ElementDefaults.textLineHeight(for: parent.family.elementType)
+            }
         }
 
         YogaTextMeasure.setupMeasureFunc(
@@ -293,11 +298,26 @@ public class ShadowTreeBuilder {
         // CSS: block children of flex parents participate in flex layout
         let parentStyle = parent.props["style"] as? [String: Any] ?? [:]
         let childStyle = child.props["style"] as? [String: Any] ?? [:]
+        let childDisplayBefore = childStyle["display"] as? String
         YogaStyleApplier.applyFlexContextOverride(
             parent: parent.yogaNode,
             child: child.yogaNode,
             parentStyle: parentStyle,
             childStyle: childStyle
+        )
+        // Update style dict to reflect CSS blockification
+        if childDisplayBefore == "inline-block",
+           (parentStyle["display"] as? String == "flex" || parentStyle["display"] as? String == "inline-flex") {
+            var updatedStyle = childStyle
+            updatedStyle["display"] = "block"
+            child.props["style"] = updatedStyle
+        }
+
+        // CSS: nested lists (ul/ol inside li) have margin 0
+        YogaStyleApplier.applyNestedListOverride(
+            parentType: parent.family.elementType,
+            childYogaNode: child.yogaNode,
+            childType: child.family.elementType
         )
     }
 

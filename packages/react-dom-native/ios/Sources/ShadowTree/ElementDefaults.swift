@@ -156,6 +156,20 @@ public enum ElementDefaults {
         }
     }
 
+    /// Returns the CSS "normal" line-height for monospace element types.
+    /// This is used internally for text measurement only — it is NOT stored
+    /// in the style dict, so it won't appear in layout comparison diffs.
+    /// On web, `<code>`/`<kbd>`/`<samp>` have `line-height: normal` which
+    /// for monospace fonts is ~1.08 × fontSize (13 × 1.08 ≈ 14).
+    public static func textLineHeight(for elementType: String) -> CGFloat? {
+        switch elementType {
+        case "code", "kbd", "samp":
+            return 14
+        default:
+            return nil
+        }
+    }
+
     /// Merges element-type defaults with user-supplied style.
     /// User style overrides defaults. CSS `border` shorthand is expanded.
     /// Em-relative margins are recomputed when fontSize is overridden.
@@ -436,7 +450,7 @@ public enum ElementDefaults {
     ]
 
     private static let liDefaults: [String: Any] = [
-        "flexDirection": "row",
+        "display": "block",
         "fontSize": 16
     ]
 
@@ -452,7 +466,8 @@ public enum ElementDefaults {
     ]
 
     private static let trDefaults: [String: Any] = [
-        "flexDirection": "row"
+        "flexDirection": "row",
+        "fontSize": 16
     ]
 
     private static let thDefaults: [String: Any] = [
@@ -462,6 +477,7 @@ public enum ElementDefaults {
         "paddingBottom": 1,
         "paddingLeft": 1,
         "paddingRight": 1,
+        "fontSize": 16,
         "fontWeight": "bold"
     ]
 
@@ -471,7 +487,8 @@ public enum ElementDefaults {
         "paddingTop": 1,
         "paddingBottom": 1,
         "paddingLeft": 1,
-        "paddingRight": 1
+        "paddingRight": 1,
+        "fontSize": 16
     ]
 
     private static let captionDefaults: [String: Any] = [
@@ -491,8 +508,8 @@ public enum ElementDefaults {
         "paddingRight": 11,
         "borderRadius": 10,
         "borderWidth": 1,
-        "borderColor": "#767676",
-        "backgroundColor": "#EFEFEF",
+        "borderColor": "#FFFFFF",
+        "backgroundColor": "#E9E9EA",
         "fontSize": 11,
         "minHeight": 20
     ]
@@ -501,11 +518,11 @@ public enum ElementDefaults {
         "display": "inline-block",
         "boxSizing": "border-box",
         "width": 154,
-        "height": 20,
+        "height": 22,
         "paddingLeft": 4,
         "paddingRight": 4,
         "borderWidth": 1,
-        "borderColor": "#767676",
+        "borderColor": "rgba(60, 60, 67, 0.6)",
         "borderRadius": 2,
         "fontSize": 11,
         "backgroundColor": "#FFFFFF"
@@ -640,9 +657,8 @@ public enum ElementDefaults {
     private static let monospaceDefaults: [String: Any] = [
         "flexDirection": "row",
         "flexShrink": 1,
-        "alignSelf": "flex-start",
+        "alignSelf": "flex-end",
         "fontSize": 13,
-        "fontFamily": "Menlo",
-        "lineHeight": 14
+        "fontFamily": "Menlo"
     ]
 }

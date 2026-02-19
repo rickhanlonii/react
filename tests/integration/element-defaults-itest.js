@@ -159,4 +159,19 @@ describe('Element defaults', function () {
     expect(span.props.style.flexDirection).toBe('row');
     expect(span.props.style.flexShrink).toBe(1);
   });
+
+  it('margin auto string value survives JS-to-native bridge', function () {
+    var root = Fantom.createRoot();
+    Fantom.runTask(function () {
+      root.render(
+        <div style={{width: 200, marginLeft: 'auto', marginRight: 'auto'}} />,
+      );
+    });
+
+    var output = Fantom.getRenderedOutput();
+    var div = output.children[0];
+    expect(div.type).toBe('div');
+    expect(div.props.style.marginLeft).toBe('auto');
+    expect(div.props.style.marginRight).toBe('auto');
+  });
 });

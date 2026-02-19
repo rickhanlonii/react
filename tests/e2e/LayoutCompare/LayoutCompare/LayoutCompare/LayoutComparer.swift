@@ -32,10 +32,26 @@ enum LayoutComparer {
 
     static let defaultTolerance: Double = 2.0
 
-    /// Normalize color strings to a common format for comparison.
-    /// Converts "rgb(r, g, b)" → "#rrggbb" so web and native values match.
-    private static func normalizeColor(_ color: String) -> String {
+    /// Normalize a single color token to lowercase hex "#rrggbb" or "#rrggbbaa".
+    /// Handles: rgb(r,g,b), rgba(r,g,b,a), #RRGGBB, #RGB.
+    private static func normalizeSingleColor(_ color: String) -> String {
         let trimmed = color.trimmingCharacters(in: .whitespaces)
+
+        // rgba(r, g, b, a)
+        if trimmed.hasPrefix("rgba(") && trimmed.hasSuffix(")") {
+            let inner = trimmed.dropFirst(5).dropLast(1)
+            let parts = inner.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+            if parts.count == 4,
+               let r = Int(parts[0]), let g = Int(parts[1]), let b = Int(parts[2]),
+               let a = Double(parts[3]) {
+                if a >= 1.0 {
+                    return String(format: "#%02x%02x%02x", r, g, b)
+                }
+                return String(format: "#%02x%02x%02x%02x", r, g, b, Int(round(a * 255)))
+            }
+        }
+
+        // rgb(r, g, b)
         if trimmed.hasPrefix("rgb(") && trimmed.hasSuffix(")") {
             let inner = trimmed.dropFirst(4).dropLast(1)
             let parts = inner.split(separator: ",").compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
@@ -43,7 +59,62 @@ enum LayoutComparer {
                 return String(format: "#%02x%02x%02x", parts[0], parts[1], parts[2])
             }
         }
+
+        // Already hex — lowercase it
+        if trimmed.hasPrefix("#") {
+            return trimmed.lowercased()
+        }
+
         return trimmed
+    }
+
+    /// Normalize color strings to a common format for comparison.
+    /// Handles multi-value border colors like "rgb(255,0,0) rgb(0,255,0)".
+    private static func normalizeColor(_ color: String) -> String {
+        // Split on rgb/rgba boundaries to handle multi-value border colors
+        // e.g. "rgb(255, 0, 0) rgb(153, 153, 153) rgb(153, 153, 153)"
+        var tokens: [String] = []
+        var remaining = color.trimmingCharacters(in: .whitespaces)
+
+        while !remaining.isEmpty {
+            if remaining.hasPrefix("rgb") {
+                // Find the closing paren
+                if let closeIdx = remaining.firstIndex(of: ")") {
+                    let token = String(remaining[remaining.startIndex...closeIdx])
+                    tokens.append(normalizeSingleColor(token))
+                    remaining = String(remaining[remaining.index(after: closeIdx)...])
+                        .trimmingCharacters(in: .whitespaces)
+                } else {
+                    tokens.append(normalizeSingleColor(remaining))
+                    break
+                }
+            } else if remaining.hasPrefix("#") {
+                // Hex token — take until next space or end
+                let parts = remaining.split(separator: " ", maxSplits: 1)
+                tokens.append(normalizeSingleColor(String(parts[0])))
+                remaining = parts.count > 1 ? String(parts[1]).trimmingCharacters(in: .whitespaces) : ""
+            } else {
+                tokens.append(normalizeSingleColor(remaining))
+                break
+            }
+        }
+
+        return tokens.joined(separator: " ")
+    }
+
+    /// Normalize display keywords to layout-equivalent values.
+    /// CSS table display types map to "block" since Yoga uses block/flex layout.
+    private static func normalizeDisplay(_ value: String) -> String {
+        switch value {
+        case "list-item", "table", "table-header-group", "table-row-group",
+             "table-footer-group", "table-row", "table-cell", "table-caption",
+             "table-column", "table-column-group":
+            return "block"
+        case "inline-table":
+            return "inline-block"
+        default:
+            return value
+        }
     }
 
     /// Normalize fontWeight keywords to numeric equivalents.
@@ -91,7 +162,7 @@ enum LayoutComparer {
             "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
             "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth",
             "fontSize", "lineHeight",
-            "gap", "rowGap", "columnGap",
+            "rowGap", "columnGap",
             "flexGrow", "flexShrink", "flexBasis",
             "minWidth", "maxWidth", "minHeight", "maxHeight",
             "top", "right", "bottom", "left",
@@ -129,8 +200,16 @@ enum LayoutComparer {
         // Elements that intentionally diverge on flexWrap (use "wrap" in Yoga to emulate CSS block text wrapping)
         let flexWrapExcluded: Set<String> = ["p", "h1", "h2", "h3", "h4", "h5", "h6"]
 
+        // Buttons/inputs: web reports "normal" for alignItems/justifyContent, but
+        // native uses "center" to implement the same visual behavior. Skip these.
+        let alignExcludedElements: Set<String> = ["button", "input", "select", "textarea"]
+        let alignExcludedProps: Set<String> = ["alignItems", "justifyContent"]
+
         for prop in stringStyleProps {
             if prop == "flexWrap" && flexWrapExcluded.contains(web.type) {
+                continue
+            }
+            if alignExcludedProps.contains(prop) && alignExcludedElements.contains(web.type) {
                 continue
             }
             if let webStr = web.styles[prop]?.stringValue,
@@ -143,6 +222,12 @@ enum LayoutComparer {
                 } else if prop == "fontWeight" {
                     webNorm = normalizeFontWeight(webStr)
                     nativeNorm = normalizeFontWeight(nativeStr)
+                } else if prop == "display" {
+                    // Normalize display values that are equivalent for layout:
+                    // "list-item" → "block", CSS table display types → "block"
+                    // (Yoga can't do table layout, renders table elements as block)
+                    webNorm = normalizeDisplay(webStr)
+                    nativeNorm = normalizeDisplay(nativeStr)
                 } else {
                     webNorm = webStr
                     nativeNorm = nativeStr

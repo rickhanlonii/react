@@ -64,10 +64,33 @@ enum LayoutExtractor {
                 )
 
                 let childFrame = child.layoutFrame
-                let childAbsX = absX + Double(childFrame.origin.x)
-                let childAbsY = absY + Double(childFrame.origin.y)
+                var childAbsX = absX + Double(childFrame.origin.x)
+                var childAbsY = absY + Double(childFrame.origin.y)
                 let childWidth = Double(childFrame.size.width)
                 let childHeight = Double(childFrame.size.height)
+
+                // For position:relative, Yoga's behavior differs by parent layout:
+                // - Block parents: layout position is FLOW only (no offset)
+                // - Flex parents: layout position INCLUDES the offset
+                // CSS getBoundingClientRect always returns VISUAL position.
+                // Only add offset manually for block parents.
+                let childStyleDict = child.props["style"] as? [String: Any]
+                if childStyleDict?["position"] as? String == "relative" {
+                    let parentDisplay = (node.props["style"] as? [String: Any])?["display"] as? String
+                    let parentIsFlexContainer = parentDisplay == "flex" || parentDisplay == "inline-flex"
+                    if !parentIsFlexContainer {
+                        if let left = childStyleDict?["left"] as? NSNumber {
+                            childAbsX += left.doubleValue
+                        } else if let right = childStyleDict?["right"] as? NSNumber {
+                            childAbsX -= right.doubleValue
+                        }
+                        if let top = childStyleDict?["top"] as? NSNumber {
+                            childAbsY += top.doubleValue
+                        } else if let bottom = childStyleDict?["bottom"] as? NSNumber {
+                            childAbsY -= bottom.doubleValue
+                        }
+                    }
+                }
 
                 let grandchildren = extractChildNodes(
                     from: child,
@@ -155,10 +178,33 @@ enum LayoutExtractor {
                 )
 
                 let childFrame = child.layoutFrame
-                let childAbsX = parentAbsX + Double(childFrame.origin.x)
-                let childAbsY = parentAbsY + Double(childFrame.origin.y)
+                var childAbsX = parentAbsX + Double(childFrame.origin.x)
+                var childAbsY = parentAbsY + Double(childFrame.origin.y)
                 let childWidth = Double(childFrame.size.width)
                 let childHeight = Double(childFrame.size.height)
+
+                // For position:relative, Yoga's behavior differs by parent layout:
+                // - Block parents: layout position is FLOW only (no offset)
+                // - Flex parents: layout position INCLUDES the offset
+                // CSS getBoundingClientRect always returns VISUAL position.
+                // Only add offset manually for block parents.
+                let childStyleDict = child.props["style"] as? [String: Any]
+                if childStyleDict?["position"] as? String == "relative" {
+                    let parentDisplay = (parent.props["style"] as? [String: Any])?["display"] as? String
+                    let parentIsFlexContainer = parentDisplay == "flex" || parentDisplay == "inline-flex"
+                    if !parentIsFlexContainer {
+                        if let left = childStyleDict?["left"] as? NSNumber {
+                            childAbsX += left.doubleValue
+                        } else if let right = childStyleDict?["right"] as? NSNumber {
+                            childAbsX -= right.doubleValue
+                        }
+                        if let top = childStyleDict?["top"] as? NSNumber {
+                            childAbsY += top.doubleValue
+                        } else if let bottom = childStyleDict?["bottom"] as? NSNumber {
+                            childAbsY -= bottom.doubleValue
+                        }
+                    }
+                }
 
                 let grandchildren = extractChildNodes(
                     from: child,
@@ -383,10 +429,28 @@ enum LayoutExtractor {
             if let v = styleDict["left"] as? NSNumber { styles["left"] = .number(v.doubleValue) }
 
             // Compute missing opposite position offsets for positioned elements.
-            // CSS getComputedStyle auto-computes these; we replicate that behavior
-            // so the native extractor reports the same values as web.
+            // CSS getComputedStyle auto-computes these differently per position type.
             let position = styleDict["position"] as? String
-            if position == "absolute" || position == "relative" {
+            if position == "relative" {
+                // CSS relative: opposite = -(explicit). If no offsets → all 0.
+                let hasTop = styleDict["top"] as? NSNumber != nil
+                let hasBottom = styleDict["bottom"] as? NSNumber != nil
+                let hasLeft = styleDict["left"] as? NSNumber != nil
+                let hasRight = styleDict["right"] as? NSNumber != nil
+
+                if hasTop && !hasBottom {
+                    styles["bottom"] = .number(-(styleDict["top"] as! NSNumber).doubleValue)
+                } else if hasBottom && !hasTop {
+                    styles["top"] = .number(-(styleDict["bottom"] as! NSNumber).doubleValue)
+                }
+                if hasLeft && !hasRight {
+                    styles["right"] = .number(-(styleDict["left"] as! NSNumber).doubleValue)
+                } else if hasRight && !hasLeft {
+                    styles["left"] = .number(-(styleDict["right"] as! NSNumber).doubleValue)
+                }
+                // If neither side set, leave both as nil (defaults to 0 in comparison)
+            } else if position == "absolute" {
+                // CSS absolute: opposite = physical distance from edge
                 let frame = node.layoutFrame
                 let w = Double(frame.size.width)
                 let h = Double(frame.size.height)
@@ -422,9 +486,232 @@ enum LayoutExtractor {
             if let v = styleDict["textAlign"] as? String { styles["textAlign"] = .string(v) }
             if let v = styleDict["color"] as? String { styles["color"] = .string(v) }
             if let v = styleDict["backgroundColor"] as? String { styles["backgroundColor"] = .string(v) }
-            if let v = styleDict["borderColor"] as? String { styles["borderColor"] = .string(v) }
+
+            // borderColor — compose per-side values like CSS getComputedStyle().borderColor
+            let uniformBorderColor = styleDict["borderColor"] as? String
+            let topColor = (styleDict["borderTopColor"] as? String) ?? uniformBorderColor
+            let rightColor = (styleDict["borderRightColor"] as? String) ?? uniformBorderColor
+            let bottomColor = (styleDict["borderBottomColor"] as? String) ?? uniformBorderColor
+            let leftColor = (styleDict["borderLeftColor"] as? String) ?? uniformBorderColor
+            if let t = topColor, let r = rightColor, let b = bottomColor, let l = leftColor {
+                // All four sides have values — use CSS shorthand compression
+                if t == r && t == b && t == l {
+                    styles["borderColor"] = .string(t)
+                } else if t == b && r == l {
+                    styles["borderColor"] = .string("\(t) \(r)")
+                } else if r == l {
+                    styles["borderColor"] = .string("\(t) \(r) \(b)")
+                } else {
+                    styles["borderColor"] = .string("\(t) \(r) \(b) \(l)")
+                }
+            } else if let uniform = uniformBorderColor {
+                styles["borderColor"] = .string(uniform)
+            }
         }
 
         return styles
+    }
+
+    // MARK: - Margin Collapse-Through Adjustment
+
+    /// Whether a node is block-level for margin collapse purposes.
+    /// Only block and list-item participate; flex/inline-block/inline do not.
+    private static func isBlockLevelForCollapse(_ node: LayoutNode) -> Bool {
+        guard let display = node.styles["display"]?.stringValue else {
+            return true // default display is block for most elements
+        }
+        return display == "block" || display == "list-item"
+    }
+
+    /// Whether a node uses block formatting context for its children.
+    /// Flex containers use flex formatting — no margin collapsing between flex items.
+    private static func isBlockFormattingParent(_ node: LayoutNode) -> Bool {
+        guard let display = node.styles["display"]?.stringValue else {
+            return true
+        }
+        return display == "block" || display == "list-item"
+    }
+
+    /// Compute the effective top margin that would collapse through nested first children.
+    /// CSS: if a block parent has no top padding/border, its first child's marginTop
+    /// collapses with the parent's marginTop → effective = max(parent, child).
+    private static func computeCollapseTopMargin(_ node: LayoutNode) -> Double {
+        let margin = node.styles["marginTop"]?.numericValue ?? 0
+        let padding = node.styles["paddingTop"]?.numericValue ?? 0
+        let border = node.styles["borderTopWidth"]?.numericValue ?? 0
+
+        guard padding == 0 && border == 0 &&
+              !node.children.isEmpty &&
+              isBlockFormattingParent(node) else {
+            return margin
+        }
+
+        let firstChild = node.children[0]
+        guard isBlockLevelForCollapse(firstChild) else { return margin }
+
+        return max(margin, computeCollapseTopMargin(firstChild))
+    }
+
+    /// Compute the effective bottom margin that would collapse through nested last children.
+    private static func computeCollapseBottomMargin(_ node: LayoutNode) -> Double {
+        let margin = node.styles["marginBottom"]?.numericValue ?? 0
+        let padding = node.styles["paddingBottom"]?.numericValue ?? 0
+        let border = node.styles["borderBottomWidth"]?.numericValue ?? 0
+
+        guard padding == 0 && border == 0 &&
+              !node.children.isEmpty &&
+              isBlockFormattingParent(node) else {
+            return margin
+        }
+
+        let lastChild = node.children[node.children.count - 1]
+        guard isBlockLevelForCollapse(lastChild) else { return margin }
+
+        return max(margin, computeCollapseBottomMargin(lastChild))
+    }
+
+    /// Offset a node and all descendants by a y delta.
+    private static func offsetNodeY(_ node: LayoutNode, by delta: Double) -> LayoutNode {
+        LayoutNode(
+            type: node.type,
+            x: node.x,
+            y: node.y + delta,
+            width: node.width,
+            height: node.height,
+            styles: node.styles,
+            children: node.children.map { offsetNodeY($0, by: delta) }
+        )
+    }
+
+    /// Adjust an extracted LayoutNode tree for CSS margin collapse-through.
+    /// Yoga's block mode collapses margins internally (first child at y=0) but doesn't
+    /// propagate them upward. This post-extraction pass adjusts positions to match CSS.
+    /// Returns the adjusted tree with the root height already corrected.
+    static func adjustForMarginCollapseThrough(_ node: LayoutNode) -> LayoutNode {
+        let (adjusted, delta) = collapsePass(node)
+        if delta > 0 {
+            return LayoutNode(
+                type: adjusted.type,
+                x: adjusted.x,
+                y: adjusted.y,
+                width: adjusted.width,
+                height: adjusted.height + delta,
+                styles: adjusted.styles,
+                children: adjusted.children
+            )
+        }
+        return adjusted
+    }
+
+    /// Recursive collapse-through pass. Returns (adjustedNode, heightDelta).
+    /// The heightDelta represents how much THIS node's content grew, which the
+    /// parent must add to the node's height and use to offset subsequent siblings.
+    private static func collapsePass(_ node: LayoutNode) -> (LayoutNode, Double) {
+        guard isBlockFormattingParent(node) && !node.children.isEmpty else {
+            return (node, 0)
+        }
+
+        var adjustedChildren: [LayoutNode] = []
+        var cumulativeOffset: Double = 0
+
+        for i in 0..<node.children.count {
+            var child = node.children[i]
+
+            // Step 1: Recursively adjust the child's subtree
+            let (adjustedChild, childDelta) = collapsePass(child)
+            child = adjustedChild
+
+            // Step 2: Apply child's internal height growth
+            if childDelta > 0 {
+                child = LayoutNode(
+                    type: child.type, x: child.x, y: child.y,
+                    width: child.width, height: child.height + childDelta,
+                    styles: child.styles, children: child.children
+                )
+            }
+
+            // Step 3: Apply cumulative offset from previous siblings
+            if cumulativeOffset > 0 {
+                child = offsetNodeY(child, by: cumulativeOffset)
+            }
+
+            // Step 4: Check for collapse-through at THIS parent level
+            var extraTop: Double = 0
+            var extraBottom: Double = 0
+
+            if isBlockLevelForCollapse(child) && !child.children.isEmpty && isBlockFormattingParent(child) {
+                let childMarginTop = child.styles["marginTop"]?.numericValue ?? 0
+                let childMarginBottom = child.styles["marginBottom"]?.numericValue ?? 0
+                let childPaddingTop = child.styles["paddingTop"]?.numericValue ?? 0
+                let childBorderTop = child.styles["borderTopWidth"]?.numericValue ?? 0
+                let childPaddingBottom = child.styles["paddingBottom"]?.numericValue ?? 0
+                let childBorderBottom = child.styles["borderBottomWidth"]?.numericValue ?? 0
+
+                // Top collapse-through
+                if childPaddingTop == 0 && childBorderTop == 0 {
+                    let firstGrandchild = child.children[0]
+                    if isBlockLevelForCollapse(firstGrandchild) {
+                        let collapseTop = computeCollapseTopMargin(firstGrandchild)
+                        let effectiveTop = max(childMarginTop, collapseTop)
+
+                        if i > 0 {
+                            // Non-first child: extra = CSS gap - Yoga gap
+                            let prevBottom = adjustedChildren[i - 1].styles["marginBottom"]?.numericValue ?? 0
+                            let yogaGap = max(prevBottom, childMarginTop)
+                            let cssGap = max(prevBottom, effectiveTop)
+                            extraTop = max(0, cssGap - yogaGap)
+                        } else {
+                            // First child: collapse propagates up through parent.
+                            // If parent has padding, the collapse stops and we
+                            // adjust the child's position within the parent.
+                            let parentPaddingTop = node.styles["paddingTop"]?.numericValue ?? 0
+                            if parentPaddingTop > 0 {
+                                extraTop = max(0, effectiveTop - childMarginTop)
+                            }
+                            // If parent has no padding, the collapse propagates
+                            // further up — handled at grandparent level.
+                        }
+                    }
+                }
+
+                // Bottom collapse-through
+                if childPaddingBottom == 0 && childBorderBottom == 0 {
+                    let lastGrandchild = child.children[child.children.count - 1]
+                    if isBlockLevelForCollapse(lastGrandchild) {
+                        let collapseBottom = computeCollapseBottomMargin(lastGrandchild)
+                        let effectiveBottom = max(childMarginBottom, collapseBottom)
+
+                        if i < node.children.count - 1 {
+                            // Non-last child: extra gap to next sibling
+                            let nextTop = node.children[i + 1].styles["marginTop"]?.numericValue ?? 0
+                            let yogaGap = max(childMarginBottom, nextTop)
+                            let cssGap = max(effectiveBottom, nextTop)
+                            extraBottom = max(0, cssGap - yogaGap)
+                        }
+                        // Last child: collapse propagates to parent's bottom
+                        // — handled at grandparent level.
+                    }
+                }
+            }
+
+            if extraTop > 0 {
+                child = offsetNodeY(child, by: extraTop)
+            }
+
+            adjustedChildren.append(child)
+
+            // Step 5: Accumulate offset for subsequent siblings
+            cumulativeOffset += childDelta + extraTop + extraBottom
+        }
+
+        return (LayoutNode(
+            type: node.type,
+            x: node.x,
+            y: node.y,
+            width: node.width,
+            height: node.height,
+            styles: node.styles,
+            children: adjustedChildren
+        ), cumulativeOffset)
     }
 }

@@ -112,8 +112,23 @@ async function startServer() {
     res.json({version: bundleVersion});
   });
 
-  app.listen(PORT, function() {
+  var server = app.listen(PORT, function() {
     console.log('[dev] E2E dev server listening on http://localhost:' + PORT);
+  });
+  server.on('error', function(err) {
+    if (err.code === 'EADDRINUSE') {
+      var http = require('http');
+      http.get('http://localhost:' + PORT + '/bundle-version', function(res) {
+        console.log('[dev] Port ' + PORT + ' already has a healthy dev server running, exiting.');
+        process.exit(0);
+      }).on('error', function() {
+        console.error('[dev] Port ' + PORT + ' is in use by a non-dev-server process.');
+        console.error('[dev] Run: kill $(lsof -ti :' + PORT + ')');
+        process.exit(1);
+      });
+      return;
+    }
+    throw err;
   });
 
   // Watch for changes and rebuild

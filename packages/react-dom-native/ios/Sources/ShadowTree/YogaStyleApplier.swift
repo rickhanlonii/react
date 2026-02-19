@@ -321,7 +321,7 @@ public enum YogaStyleApplier {
         let childDisplay = YGNodeStyleGetDisplay(childYogaNode)
 
         guard parentDisplayStr == "flex" || parentDisplayStr == "inline-flex",
-              childDisplay == .block else {
+              childDisplay == .block || childDisplay == .inlineBlock else {
             return
         }
 
@@ -332,6 +332,30 @@ public enum YogaStyleApplier {
         if childStyle["flexDirection"] == nil {
             YGNodeStyleSetFlexDirection(childYogaNode, .column)
         }
+    }
+
+    // MARK: - Nested List Override
+
+    /// CSS user-agent stylesheet sets margin-block-start/end to 0 for nested
+    /// lists (ul/ol inside li). Yoga applies the element defaults unconditionally,
+    /// so we must manually clear the margins when a list is inserted into a li.
+    ///
+    /// Call this after `YGNodeInsertChild` when the child is a list element.
+    ///
+    /// - Parameters:
+    ///   - parentType: The parent element type (e.g. "li").
+    ///   - childYogaNode: The child list's Yoga node.
+    ///   - childType: The child element type (e.g. "ul", "ol").
+    public static func applyNestedListOverride(
+        parentType: String,
+        childYogaNode: YGNodeRef,
+        childType: String
+    ) {
+        let listElements: Set<String> = ["ul", "ol", "menu", "dir"]
+        guard parentType == "li" && listElements.contains(childType) else { return }
+
+        YGNodeStyleSetMargin(childYogaNode, .top, 0)
+        YGNodeStyleSetMargin(childYogaNode, .bottom, 0)
     }
 
     // MARK: - Helpers

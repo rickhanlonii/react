@@ -75,6 +75,12 @@ public enum YogaTextMeasure {
 
         // Mark as text node type (allows layout rounding truncation)
         YGNodeSetNodeType(node.yogaNode, .text)
+
+        // Mark dirty so Yoga re-measures with the new context.
+        // YGNodeSetMeasureFunc does NOT mark dirty when the function pointer
+        // is unchanged (e.g. re-setup with new fontSize/fontFamily/lineHeight
+        // from parent element inheritance in $$appendChild).
+        YGNodeMarkDirty(node.yogaNode)
     }
 
     /// Clean up the measure context when a text node is being deallocated.
@@ -183,7 +189,7 @@ private func textMeasureFunc(
     case .exactly:
         measuredWidth = width
     default:
-        measuredWidth = Float(ceil(measuredRect.width))
+        measuredWidth = Float(measuredRect.width)
     }
 
     let measuredHeight: Float

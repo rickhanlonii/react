@@ -57,7 +57,17 @@ function extractNode(el, rootRect) {
       right: parseFloat(style.right) || 0,
       bottom: parseFloat(style.bottom) || 0,
       left: parseFloat(style.left) || 0,
-      borderRadius: parseFloat(style.borderRadius) || 0,
+      borderRadius: (function() {
+        // borderRadius shorthand may be non-uniform (e.g. "20px 0px").
+        // Only report the uniform value; per-corner values are separate.
+        var br = style.borderRadius;
+        if (br && br.indexOf(' ') === -1) return parseFloat(br) || 0;
+        return 0;
+      })(),
+      borderTopLeftRadius: parseFloat(style.borderTopLeftRadius) || 0,
+      borderTopRightRadius: parseFloat(style.borderTopRightRadius) || 0,
+      borderBottomRightRadius: parseFloat(style.borderBottomRightRadius) || 0,
+      borderBottomLeftRadius: parseFloat(style.borderBottomLeftRadius) || 0,
       opacity: parseFloat(style.opacity),
       overflow: style.overflow,
       position: style.position,

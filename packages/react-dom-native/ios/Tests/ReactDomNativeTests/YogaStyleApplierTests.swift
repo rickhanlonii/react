@@ -376,4 +376,52 @@ final class YogaStyleApplierTests: XCTestCase {
         // computed value. The LayoutExtractor must compute auto margins from
         // layout position and parent width instead.
     }
+
+    func testTextRemeasureAfterFontInheritance() {
+        // Simulates $$appendChild: a #text node initially measured at 16pt
+        // is re-measured with the parent code element's font (Menlo 13pt).
+        // lineHeight comes from ElementDefaults.textLineHeight (not the style dict).
+        // Without YGNodeMarkDirty, Yoga would cache the initial 16pt measurement.
+        let parent = ShadowNodeWrapper.createElementNode(
+            type: "code",
+            props: [:],
+            surfaceId: 0
+        )
+
+        let family = ShadowNodeFamily(elementType: "#text", surfaceId: 0, instanceHandle: nil)
+        let textNode = ShadowNodeWrapper(props: [:], children: [], family: family, text: "hello")
+
+        // 1. Initial setup at 16pt (like $$createTextNode)
+        YogaTextMeasure.setupMeasureFunc(on: textNode)
+
+        // 2. Append to parent
+        YGNodeInsertChild(parent.yogaNode, textNode.yogaNode, 0)
+
+        // 3. Re-setup with parent's font (like $$appendChild).
+        // lineHeight is NOT in the style dict — it comes from textLineHeight().
+        let style = parent.props["style"] as? [String: Any] ?? [:]
+        let fontSize = (style["fontSize"] as? NSNumber)?.doubleValue ?? 16
+        let fontFamily = style["fontFamily"] as? String
+        let lineHeight = ElementDefaults.textLineHeight(for: parent.family.elementType)
+
+        YogaTextMeasure.cleanupMeasureContext(for: textNode.yogaNode)
+        YogaTextMeasure.setupMeasureFunc(
+            on: textNode,
+            fontSize: CGFloat(fontSize),
+            fontFamily: fontFamily,
+            lineHeight: lineHeight
+        )
+
+        // 4. Calculate layout
+        YGNodeStyleSetWidth(parent.yogaNode, 390)
+        YGNodeCalculateLayout(parent.yogaNode, 390, Float.nan, .LTR)
+
+        // Text should be measured at 14px (lineHeight), not ~20px (16pt system font)
+        let textHeight = YGNodeLayoutGetHeight(textNode.yogaNode)
+        XCTAssertEqual(textHeight, 14, accuracy: 0.5,
+                       "Text should use lineHeight 14 from code element, not default 16pt measurement (~20)")
+
+        // Verify lineHeight is NOT in the style dict (no false comparison diff)
+        XCTAssertNil(style["lineHeight"], "lineHeight should not appear in style dict")
+    }
 }

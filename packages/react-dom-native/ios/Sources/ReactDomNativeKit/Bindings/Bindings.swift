@@ -478,13 +478,29 @@ public class Bindings {
             // CSS: block children of flex parents participate in flex layout.
             // Yoga doesn't do this automatically — override display:block to
             // display:flex + flexDirection:column so flexGrow/flexShrink work.
+            // Also handles CSS blockification: inline-block → block in flex ctx.
             let parentStyle = parent.props["style"] as? [String: Any] ?? [:]
             let childStyle = child.props["style"] as? [String: Any] ?? [:]
+            let childDisplayBefore = childStyle["display"] as? String
             YogaStyleApplier.applyFlexContextOverride(
                 parent: parent.yogaNode,
                 child: child.yogaNode,
                 parentStyle: parentStyle,
                 childStyle: childStyle
+            )
+            // Update style dict to reflect CSS blockification
+            if childDisplayBefore == "inline-block",
+               (parentStyle["display"] as? String == "flex" || parentStyle["display"] as? String == "inline-flex") {
+                var updatedStyle = childStyle
+                updatedStyle["display"] = "block"
+                child.props["style"] = updatedStyle
+            }
+
+            // CSS: nested lists (ul/ol inside li) have margin 0
+            YogaStyleApplier.applyNestedListOverride(
+                parentType: parent.family.elementType,
+                childYogaNode: child.yogaNode,
+                childType: child.family.elementType
             )
 
             // If the child is a #text node, inherit font properties from parent for
@@ -505,7 +521,10 @@ public class Bindings {
                 if let lh = style["lineHeight"] as? NSNumber {
                     lineHeight = CGFloat(lh.doubleValue)
                 } else {
-                    lineHeight = nil
+                    // Monospace elements (code, kbd, samp) need a CSS "normal"
+                    // line-height for measurement but don't store it in the
+                    // style dict to avoid false style comparison diffs.
+                    lineHeight = ElementDefaults.textLineHeight(for: parent.family.elementType)
                 }
 
                 YogaTextMeasure.cleanupMeasureContext(for: child.yogaNode)

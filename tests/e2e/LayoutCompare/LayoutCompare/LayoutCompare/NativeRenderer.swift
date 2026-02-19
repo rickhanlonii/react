@@ -53,20 +53,24 @@ class NativeRendererModel {
             return nil
         }
 
+        let raw: LayoutNode
         if trees.count == 1 {
-            return LayoutExtractor.extract(from: trees[0])
+            raw = LayoutExtractor.extract(from: trees[0])
         } else {
             var children: [LayoutNode] = []
             for node in trees {
                 children.append(LayoutExtractor.extract(from: node))
             }
-            return LayoutNode(
+            raw = LayoutNode(
                 type: "root",
                 x: 0, y: 0, width: 390, height: 844,
                 styles: [:],
                 children: children
             )
         }
+
+        // Post-extraction: adjust for CSS margin collapse-through
+        return LayoutExtractor.adjustForMarginCollapseThrough(raw)
     }
 
     func cleanup() {
