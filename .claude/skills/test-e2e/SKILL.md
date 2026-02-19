@@ -24,8 +24,15 @@ description: Run end-to-end test — start RSC server, build iOS app, verify nat
    cd /Users/rickhanlonii/oss/falcon && npm run build
    ```
 
-3. **Build and run iOS app** (simulator):
-   Use the XcodeBuildMCP `build_run_sim` tool. If session defaults aren't set, first call `session_set_defaults` with the Falcon scheme and a simulator.
+3. **Set XcodeBuildMCP session defaults** and **build the iOS app**:
+   ```
+   session_set_defaults:
+     projectPath: example/Falcon/Falcon.xcodeproj
+     scheme: Falcon
+     simulatorName: Falcon Demo
+     simulatorId: 61F83D8B-36DF-474F-9AAD-61DC6D60FFED
+   ```
+   Then use `build_run_sim` to build and launch the app.
 
 4. **Verify**:
    - Check build succeeded

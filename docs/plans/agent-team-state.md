@@ -24,6 +24,16 @@ All passing with 0 diffs: basic-layout, text-rendering, flex-layout, nested-flex
 - Session 5: Batch 5 fixtures, position:relative, gap extraction, color normalization, nested-list margin handling, z-index (24/29 → 32/35)
 - Session 6: Margin collapse-through adjustment, text measurement ceil removal, table display normalization + fixture rewrite (32/35 → 35/35)
 
+## Session 7 — Layout-only (in progress)
+
+Starting layout-only pipeline. All 35 fixtures passing at session start. Demo pipeline user-managed.
+
+### Layout Pipeline
+- layout-builder: writing Batch 6 fixtures (remaining gaps: text-decoration, pre, overflow-scroll, mark/small/sub/sup, details/summary, textarea/select)
+- layout-qa: testing new fixtures
+- layout-fixer: fixing any diffs
+- reviewer: reviewing fixes
+
 ## Key Fixes (Sessions 5-6)
 
 ### Session 5 — 24/29 → 32/35

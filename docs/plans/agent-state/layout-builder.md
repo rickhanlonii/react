@@ -182,3 +182,55 @@ All registered in `tests/e2e/fixtures/index.js`. QA tasks created: #92-#97.
 
 **Total fixtures written:** 25 (batches 1-5), all registered in index.js
 **Total fixtures in project:** 35 (10 pre-existing + 25 new)
+
+---
+
+### 2026-02-19 — Batch 6 (6 fixtures)
+
+Created 6 new fixtures covering the remaining gaps from the coverage matrix:
+
+1. **text-decoration-transform** — textDecorationLine (underline, line-through), textTransform (uppercase, lowercase, capitalize), lineHeight, letterSpacing, and combined styles
+2. **pre-element** — `<pre>` with monospace font (Menlo), default margins, custom bg/colors, dark theme, overflow:hidden+maxHeight
+3. **inline-text-extras** — `<mark>` (yellow highlight), `<small>` (smaller font), `<sub>` (subscript), `<sup>` (superscript), combinations, custom colors, nesting
+4. **fieldset-legend** — `<fieldset>` with `<legend>`, custom borderColor, fieldset without legend, nested fieldsets
+5. **overflow-scroll** — overflow:scroll vertical (content taller), horizontal (content wider), with text, with border, no-overflow case
+6. **textarea-select** — `<textarea>` (basic, custom size, styled), `<select>` (basic, custom width), side-by-side in flex row, complete feedback form
+
+All registered in `tests/e2e/fixtures/index.js`. QA tasks created: #109-#114.
+
+**Coverage update:**
+- text decoration/transform: NOW COVERED (text-decoration-transform)
+- pre element: NOW COVERED (pre-element)
+- inline extras: NOW COVERED (inline-text-extras covers mark, small, sub, sup)
+- fieldset/legend: NOW COVERED (fieldset-legend)
+- overflow scroll: NOW COVERED (overflow-scroll adds to overflow-hidden)
+- textarea/select: NOW COVERED (textarea-select adds to form-basic)
+
+**Updated Coverage Matrix:**
+
+| Category | Covered | Remaining Gaps |
+|----------|---------|----------------|
+| div basics | div-basic, div-nested | - |
+| text | p-text, headings, text-inline, article-content, text-style-overrides, text-decoration-transform | - |
+| semantic | semantic-layout, article-content | details/summary, dialog |
+| flex direction | flex-row, flex-layout, flex-direction-reverse | - |
+| flex alignment | flex-align, flex-align-extras | - |
+| flex sizing | flex-grow, flex-shrink | - |
+| flex wrap | flex-wrap, flex-wrap-reverse | - |
+| box model | box-model, margin-auto | - |
+| border | border-basic, border-padding, border-radius, border-color-sides | - |
+| position | position-absolute, relative-position | - |
+| lists | list-basic, nested-lists | dl/dt/dd |
+| tables | table-basic | colspan/rowspan, caption |
+| forms | form-basic, fieldset-legend, textarea-select | - |
+| inline elements | text-inline, article-content, inline-text-extras | - |
+| overflow | overflow-hidden, overflow-scroll | - |
+| display | display-none | - |
+| blockquote/hr | article-content, pre-element | - |
+| opacity | opacity | - |
+| min/max sizing | min-max-size | - |
+| z-index | z-index | - |
+| gap | gap-properties | - |
+
+**Total fixtures written:** 31 (batches 1-6), all registered in index.js
+**Total fixtures in project:** 41 (10 pre-existing + 31 new)

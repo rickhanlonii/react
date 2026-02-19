@@ -199,3 +199,36 @@
   - z-index: 4 diffs (extractor false positives, visual PASS)
   - gap-properties: 2 diffs (extractor reporting, visual PASS)
 - Created fix tasks: #98 (nested-lists), #99 (relative-position), #100 (border-color-sides), #101 (z-index extractor), #102 (gap-properties extractor)
+
+---
+### Session log: 2026-02-19 (ninth run — 35 fixtures, full pass)
+- Ran all 35 fixtures: **35/35 passing** (up from 25/35)
+- ALL previously-failing fixtures now pass automated diff (0 diffs each):
+  - text-inline: PASS (was 4 diffs)
+  - semantic-layout: PASS (was 9 diffs)
+  - article-content: PASS (was 2 diffs)
+  - form-basic: PASS (was 20 diffs)
+  - table-basic: PASS (was 57 diffs)
+  - nested-lists: PASS (was 47 diffs)
+  - relative-position: PASS (was 10 diffs)
+  - border-color-sides: PASS (was 1 diff)
+  - z-index: PASS (was 4 diffs)
+  - gap-properties: PASS (was 2 diffs)
+- Completed fix tasks: #98 (nested-lists), #99 (relative-position), #101 (z-index), #102 (gap-properties), #76 (semantic-layout), #42 (per-side border widths)
+- **Visual audits performed (10 fixtures):**
+  - table-basic: PASS — all columns, bold headers, alternating row background match
+  - form-basic: PASS — labels, inputs, buttons match (minor platform input styling differences expected)
+  - nested-lists: FAIL (visual) — list markers (bullets/numbers) missing on native (task #41)
+  - relative-position: PASS — all offsets (positive, negative, siblings unaffected) match
+  - border-color-sides: FAIL (visual) — per-side border colors not applied, all borders uniform color (task #100)
+  - text-inline: PASS — bold, italic, underline, strikethrough, code all render correctly inline
+  - semantic-layout: PASS — backgrounds, headings, nav row, aside border, footer all match
+  - article-content: PASS with notes — hr may not render as visible line, anchor has underline on native without href
+  - z-index: FAIL (visual) — positive z-index stacking correct, but zIndex:-1 does not render behind parent background (task #107)
+  - gap-properties: PASS — rowGap, columnGap, mixed gaps with wrapping all match
+  - border-basic: PASS — per-side border widths now render correctly (task #42 resolved)
+  - border-padding: PASS — borders + padding + per-side widths all correct
+- **Remaining visual issues (3):**
+  - Task #41: list-basic + nested-lists — missing list markers (bullets/numbers)
+  - Task #100: border-color-sides — per-side border colors not applied
+  - Task #107: z-index — negative z-index (-1) doesn't render behind parent background

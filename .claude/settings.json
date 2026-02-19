@@ -16,6 +16,9 @@
     ],
     "deny": [
       "Bash(xcrun:*)",
+      "Bash(kill:*)",
+      "Bash(pkill:*)",
+      "Bash(lsof:*)",
       "Bash(xcodebuild:*)",
       "Bash(codesign:*)",
       "Bash(plutil:*)",

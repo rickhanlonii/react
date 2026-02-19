@@ -224,3 +224,47 @@ div, main, section, article, nav, header, footer, aside, form, details, search, 
   - `ElementDefaultsTests.swift:535` — changed alignSelf assertion from "flex-start" to XCTAssertNil
 - Tests: npm test PASS (172/172), npm run test:swift PASS (143/143)
 - Status: Fix applied, needs Swift rebuild for e2e verification
+
+---
+### 2026-02-19T10:55
+- Working on: `text-decoration-transform` / lineHeight unitless multiplier (Task #109)
+- Analysis: p[5] has `lineHeight: 32, fontSize: 16`. On web, CSS treats numeric lineHeight as a unitless multiplier: 32 * 16 = 512px. On native, the raw value 32 was stored as-is (treated as 32px). The e2e comparison showed lineHeight 32 (native) vs 512 (web).
+- Fix:
+  1. Added CSS unitless lineHeight resolution in `ElementDefaults.mergedStyle()`. When user provides numeric lineHeight, it's multiplied by fontSize (from user style, element defaults, or fallback 16) to produce pixel value. Applied in both the main merge path and the early-return-for-no-defaults path.
+  2. Fixed fixture `text-decoration-transform.jsx` — changed `lineHeight: 32` to `lineHeight: 2` (2 * 16 = 32px, matching the comment "larger than font"). The old value would produce 512px line spacing.
+- Files changed:
+  - `ElementDefaults.swift:184-197` — early-return path: resolve lineHeight multiplier
+  - `ElementDefaults.swift:218-228` — main merge path: resolve lineHeight multiplier
+  - `ElementDefaultsTests.swift:669-698` — 3 new tests: testLineHeightResolvedAsMultiplier, testLineHeightUsesDefaultFontSizeWhenNotSpecified, testLineHeightUsesElementDefaultFontSize
+  - `text-decoration-transform.jsx:24` — fixture: lineHeight 32 → 2
+- Tests: npm test PASS (172/172), npm run test:swift PASS (146/146, was 143 + 3 new)
+
+---
+### 2026-02-19T10:56
+- Working on: `pre-element` / 25 diffs (Task #110)
+- Analysis: `<pre>` missing proper monospace defaults (fontSize, em-relative margins), and LayoutComparer not normalizing 3-digit hex colors (#eef → #eeeeff).
+- Fix:
+  1. Updated `preDefaults` in ElementDefaults.swift: added `fontSize: 13` (monospace), changed margins from 16 to 13 (1em = 13px for monospace font)
+  2. Added "pre" to `emMarginMultiplier` dict (1.0 multiplier) so margins scale with user fontSize overrides
+  3. Added "pre" to `textLineHeight(for:)` returning 14 (same as code/kbd/samp) for text measurement
+  4. Added "pre" to `TEXT_CONTEXT_ELEMENTS` in HostConfig.js — pre is a text container per reference descriptor
+  5. Fixed 3-digit hex color normalization in LayoutComparer.swift — `#eef` now expands to `#eeeeff` before comparison, also handles 4-digit hex (#rgba → #rrggbbaa)
+- Files changed:
+  - `ElementDefaults.swift:341-347` — preDefaults: added fontSize 13, margins 13
+  - `ElementDefaults.swift:166` — textLineHeight: added "pre" case
+  - `ElementDefaults.swift:249` — emMarginMultiplier: added "pre": 1.0
+  - `HostConfig.js:65` — TEXT_CONTEXT_ELEMENTS: added "pre"
+  - `LayoutComparer.swift:64-76` — normalizeSingleColor: expand 3-digit and 4-digit hex shorthand
+  - `ElementDefaultsTests.swift:432-439` — updated testPreDefaults to expect fontSize 13, margins 13
+- Tests: npm test PASS (172/172), npm run test:swift PASS (146/146)
+- Status: Fix applied, needs Swift rebuild for e2e verification
+
+---
+### 2026-02-19T10:59
+- Working on: `border-color-sides` / per-side border colors not applied (Task #100)
+- Analysis: `applyBorderProps` in UIKitMutationApplier.swift only read `borderColor` (uniform), ignoring per-side color props (`borderTopColor`, `borderRightColor`, `borderBottomColor`, `borderLeftColor`). All border edges rendered with the same color.
+- Fix: Updated `applyBorderProps` to read per-side color properties, falling back to uniform `borderColor` then black. The uniform CALayer path now also checks color uniformity — if widths are uniform but colors differ, it falls back to sublayers. The `addEdge` helper now takes a color parameter, and each edge gets its per-side color.
+- Files changed:
+  - `UIKitMutationApplier.swift:338-397` — read borderTopColor/borderRightColor/borderBottomColor/borderLeftColor, pass per-side colors to addEdge helper, check color uniformity in uniform-width path
+- Tests: npm test PASS (172/172), npm run test:swift PASS (146/146)
+- Status: Fix applied, needs Swift rebuild for visual verification
