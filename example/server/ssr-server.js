@@ -193,8 +193,14 @@ app.get('/ssr', function (req, res) {
           }
         }
 
-        // Render a fallback empty shell so the client gets a valid
-        // instruction stream and can hydrate with the Flight data.
+        // Mark shell as ready so remaining async D rows (from Suspense-
+        // wrapped sections) stream directly to the response as they arrive.
+        pendingDRows = null;
+        shellReady = true;
+
+        // Render a minimal fallback shell so the client gets a valid
+        // instruction stream. Don't end the response yet — the Flight
+        // stream is still producing D rows for async Suspense content.
         var fallbackStream = renderToNativeStream(
           React.createElement('div'),
           {
@@ -204,12 +210,16 @@ app.get('/ssr', function (req, res) {
               fallbackPassThrough.on('data', function (chunk) {
                 res.write(chunk);
               });
-              fallbackPassThrough.on('end', function () {
-                res.end();
-              });
+              // Don't res.end() here — wait for the Flight stream to finish.
             },
           }
         );
+
+        // End the response when the Flight stream completes, so all async
+        // D rows (resolved Suspense content) are delivered to the client.
+        flightCapture.on('end', function () {
+          res.end();
+        });
       },
       onError: function (error) {
         console.error('[SSR] Error:', error);
