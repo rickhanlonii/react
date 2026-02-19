@@ -5,11 +5,13 @@ import Yoga
 /// Extracts a LayoutNode tree from a ShadowNodeWrapper tree after Yoga layout.
 enum LayoutExtractor {
 
-    static func extract(from node: ShadowNodeWrapper, parentAbsX: Double = 0, parentAbsY: Double = 0) -> LayoutNode {
+    static func extract(from node: ShadowNodeWrapper, parentAbsX: Double = 0, parentAbsY: Double = 0, parentWidth: Double = 0, parentHeight: Double = 0) -> LayoutNode {
         let frame = node.layoutFrame
         let absX = parentAbsX + Double(frame.origin.x)
         let absY = parentAbsY + Double(frame.origin.y)
-        let styles = extractStyles(from: node)
+        let nodeWidth = Double(frame.size.width)
+        let nodeHeight = Double(frame.size.height)
+        let styles = extractStyles(from: node, nodeWidth: nodeWidth, nodeHeight: nodeHeight, parentWidth: parentWidth, parentHeight: parentHeight)
 
         var children: [LayoutNode] = []
         for child in node.children {
@@ -18,7 +20,7 @@ enum LayoutExtractor {
             if child.family.elementType == "#text" {
                 continue
             }
-            children.append(extract(from: child, parentAbsX: absX, parentAbsY: absY))
+            children.append(extract(from: child, parentAbsX: absX, parentAbsY: absY, parentWidth: nodeWidth, parentHeight: nodeHeight))
         }
 
         return LayoutNode(
@@ -32,7 +34,7 @@ enum LayoutExtractor {
         )
     }
 
-    private static func extractStyles(from node: ShadowNodeWrapper) -> [String: LayoutValue] {
+    private static func extractStyles(from node: ShadowNodeWrapper, nodeWidth: Double = 0, nodeHeight: Double = 0, parentWidth: Double = 0, parentHeight: Double = 0) -> [String: LayoutValue] {
         var styles: [String: LayoutValue] = [:]
         let yoga = node.yogaNode
 
@@ -121,11 +123,36 @@ enum LayoutExtractor {
             if let v = styleDict["minHeight"] as? NSNumber { styles["minHeight"] = .number(v.doubleValue) }
             if let v = styleDict["maxHeight"] as? NSNumber { styles["maxHeight"] = .number(v.doubleValue) }
 
-            // Positioning
+            // Positioning — explicit values from style dict
             if let v = styleDict["top"] as? NSNumber { styles["top"] = .number(v.doubleValue) }
             if let v = styleDict["right"] as? NSNumber { styles["right"] = .number(v.doubleValue) }
             if let v = styleDict["bottom"] as? NSNumber { styles["bottom"] = .number(v.doubleValue) }
             if let v = styleDict["left"] as? NSNumber { styles["left"] = .number(v.doubleValue) }
+
+            // Compute missing opposite position offsets for positioned elements.
+            // CSS getComputedStyle auto-computes these; we replicate that behavior
+            // so the native extractor reports the same values as web.
+            let position = styleDict["position"] as? String
+            if position == "absolute" || position == "relative" {
+                let frame = node.layoutFrame
+                let w = Double(frame.size.width)
+                let h = Double(frame.size.height)
+                let x = Double(frame.origin.x)
+                let y = Double(frame.origin.y)
+
+                if styles["top"] == nil && parentHeight > 0 {
+                    styles["top"] = .number(y)
+                }
+                if styles["bottom"] == nil && parentHeight > 0 {
+                    styles["bottom"] = .number(parentHeight - y - h)
+                }
+                if styles["left"] == nil && parentWidth > 0 {
+                    styles["left"] = .number(x)
+                }
+                if styles["right"] == nil && parentWidth > 0 {
+                    styles["right"] = .number(parentWidth - x - w)
+                }
+            }
 
             // Visual
             if let v = styleDict["borderRadius"] as? NSNumber { styles["borderRadius"] = .number(v.doubleValue) }

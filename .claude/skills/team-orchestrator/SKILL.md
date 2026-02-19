@@ -24,10 +24,10 @@ The **demo pipeline** has a diagnosis loop: builder → QA → diagnoser → rep
 
 Before spawning any teammates, verify you can build and launch both apps. Subagents cannot build due to sandbox restrictions — only the lead agent can build.
 
-1. Start dev servers:
-   ```bash
-   cd /Users/rickhanlonii/oss/falcon && npm run dev:e2e &
-   cd /Users/rickhanlonii/oss/falcon/example && npm run dev &
+1. Start dev servers (use the Bash tool's `run_in_background: true` parameter — do NOT use `&`, redirects, `echo`, or any other shell tricks):
+   ```
+   Bash(command: "npm run dev:e2e", run_in_background: true)
+   Bash(command: "cd /Users/rickhanlonii/oss/falcon/example && npm run dev", run_in_background: true)
    ```
 2. Build and launch **LayoutCompare** on Falcon E2E:
    ```

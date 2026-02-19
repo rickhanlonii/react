@@ -380,13 +380,15 @@ public enum ElementDefaults {
 
     private static let listDefaults: [String: Any] = [
         "display": "block",
+        "fontSize": 16,
         "paddingLeft": 40,
         "marginTop": 16,
         "marginBottom": 16
     ]
 
     private static let liDefaults: [String: Any] = [
-        "flexDirection": "row"
+        "flexDirection": "row",
+        "fontSize": 16
     ]
 
     private static let dlDefaults: [String: Any] = [

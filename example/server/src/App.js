@@ -2,6 +2,8 @@ const React = require('react');
 const {Suspense} = React;
 const Counter = require('./components/Counter');
 const TextInput = require('./components/TextInput');
+const Tabs = require('./components/Tabs');
+const Accordion = require('./components/Accordion');
 
 // ── Shared Styles ──
 
@@ -95,6 +97,40 @@ function SearchSkeleton() {
   );
 }
 
+function TabsSkeleton() {
+  return (
+    <>
+      <SkeletonLine width={140} height={20} />
+      <div
+        style={{
+          backgroundColor: colors.skeleton,
+          borderRadius: 8,
+          height: 32,
+          marginTop: 12,
+        }}
+      />
+      <div style={{display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16}}>
+        <SkeletonLine width={'90%'} />
+        <SkeletonLine width={'60%'} />
+      </div>
+    </>
+  );
+}
+
+function AccordionSkeleton() {
+  return (
+    <>
+      <SkeletonLine width={40} height={20} />
+      <div style={{display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16}}>
+        <SkeletonLine height={20} />
+        <SkeletonLine height={20} />
+        <SkeletonLine height={20} />
+        <SkeletonLine height={20} />
+      </div>
+    </>
+  );
+}
+
 // ── Async Server Sections ──
 
 async function CounterSection({delay}) {
@@ -129,6 +165,125 @@ async function SearchSection({delay}) {
   );
 }
 
+async function TabsSection({delay}) {
+  await new Promise((resolve) => setTimeout(resolve, delay));
+  return (
+    <>
+      <h3 style={{color: colors.text, marginTop: 0, marginBottom: 0}}>
+        Navigation Tabs
+      </h3>
+      <p style={{color: colors.secondary, fontSize: 13, marginTop: 0}}>
+        Conditional rendering with state
+      </p>
+      <Tabs
+        tabs={[
+          {
+            label: 'Overview',
+            content: (
+              <div>
+                <p style={{color: colors.text, marginTop: 0}}>
+                  Falcon renders React Server Components natively on iOS using UIKit and Yoga layout.
+                </p>
+                <p style={{color: colors.secondary, fontSize: 13, marginTop: 0}}>
+                  Tap the tabs above to switch content.
+                </p>
+              </div>
+            ),
+          },
+          {
+            label: 'Stack',
+            content: (
+              <div style={{display: 'flex', flexDirection: 'column', gap: 8}}>
+                <p style={{color: colors.text, marginTop: 0, marginBottom: 0}}>
+                  <b>Server:</b> Next.js + Flight protocol
+                </p>
+                <p style={{color: colors.text, marginTop: 0, marginBottom: 0}}>
+                  <b>Client:</b> JavaScriptCore
+                </p>
+                <p style={{color: colors.text, marginTop: 0, marginBottom: 0}}>
+                  <b>Layout:</b> Yoga with web defaults
+                </p>
+                <p style={{color: colors.text, marginTop: 0, marginBottom: 0}}>
+                  <b>Views:</b> UIKit
+                </p>
+              </div>
+            ),
+          },
+          {
+            label: 'Status',
+            content: (
+              <div style={{display: 'flex', flexDirection: 'column', gap: 6}}>
+                <div style={{display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8}}>
+                  <div style={{width: 8, height: 8, borderRadius: 4, backgroundColor: '#34c759'}} />
+                  <p style={{color: colors.text, marginTop: 0, marginBottom: 0}}>RSC streaming</p>
+                </div>
+                <div style={{display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8}}>
+                  <div style={{width: 8, height: 8, borderRadius: 4, backgroundColor: '#34c759'}} />
+                  <p style={{color: colors.text, marginTop: 0, marginBottom: 0}}>Client hydration</p>
+                </div>
+                <div style={{display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8}}>
+                  <div style={{width: 8, height: 8, borderRadius: 4, backgroundColor: '#34c759'}} />
+                  <p style={{color: colors.text, marginTop: 0, marginBottom: 0}}>Interactive events</p>
+                </div>
+              </div>
+            ),
+          },
+        ]}
+      />
+    </>
+  );
+}
+
+async function AccordionSection({delay}) {
+  await new Promise((resolve) => setTimeout(resolve, delay));
+  return (
+    <>
+      <h3 style={{color: colors.text, marginTop: 0, marginBottom: 0}}>
+        FAQ
+      </h3>
+      <p style={{color: colors.secondary, fontSize: 13, marginTop: 0}}>
+        Expandable sections
+      </p>
+      <Accordion
+        items={[
+          {
+            title: 'What is Falcon?',
+            content: (
+              <p style={{color: colors.secondary, fontSize: 14, marginTop: 0, marginBottom: 0}}>
+                Falcon is a React framework that maps HTML elements to native iOS views using UIKit and Yoga layout.
+              </p>
+            ),
+          },
+          {
+            title: 'How does RSC work?',
+            content: (
+              <p style={{color: colors.secondary, fontSize: 14, marginTop: 0, marginBottom: 0}}>
+                The server renders React components to a Flight stream, which the native client deserializes and renders using a custom reconciler.
+              </p>
+            ),
+          },
+          {
+            title: 'What elements are supported?',
+            content: (
+              <p style={{color: colors.secondary, fontSize: 14, marginTop: 0, marginBottom: 0}}>
+                Standard HTML elements like div, span, p, h1-h6, button, input, img, b, i, u, code, mark, sub, sup, and more.
+              </p>
+            ),
+          },
+          {
+            title: 'Is it production ready?',
+            content: (
+              <p style={{color: colors.secondary, fontSize: 14, marginTop: 0, marginBottom: 0}}>
+                Falcon is an experimental project exploring how React Server Components can power native mobile apps.
+              </p>
+            ),
+          },
+        ]}
+      />
+    </>
+  );
+}
+
 // ── App ──
 
 function App() {
@@ -155,6 +310,20 @@ function App() {
       {/* Search Card */}
       <Suspense fallback={<SearchSkeleton />}>
         <SearchSection delay={2000} />
+      </Suspense>
+      </div>
+
+      <div style={card}>
+      {/* Tabs Card */}
+      <Suspense fallback={<TabsSkeleton />}>
+        <TabsSection delay={1500} />
+      </Suspense>
+      </div>
+
+      <div style={card}>
+      {/* Accordion Card */}
+      <Suspense fallback={<AccordionSkeleton />}>
+        <AccordionSection delay={2500} />
       </Suspense>
       </div>
 

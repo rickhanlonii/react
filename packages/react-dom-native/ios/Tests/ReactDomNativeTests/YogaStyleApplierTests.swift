@@ -1,6 +1,7 @@
 import XCTest
 import Yoga
 @testable import ReactDomNativeKit
+@testable import ShadowTree
 
 final class YogaStyleApplierTests: XCTestCase {
 
@@ -131,5 +132,97 @@ final class YogaStyleApplierTests: XCTestCase {
     func testJustifyContentSpaceBetween() {
         YogaStyleApplier.apply(["justifyContent": "space-between"], to: node)
         XCTAssertEqual(YGNodeStyleGetJustifyContent(node), .spaceBetween)
+    }
+
+    // MARK: - Flex grow layout
+
+    func testFlexGrowDistribution() {
+        // Replicate the flex-grow fixture:
+        // <div style={{width: 390}}>
+        //   <div style={{display: 'flex', flexDirection: 'row', gap: 8}}>
+        //     <div style={{flexGrow: 1, height: 50}} />
+        //     <div style={{flexGrow: 2, height: 50}} />
+        //     <div style={{flexGrow: 1, height: 50}} />
+        //   </div>
+        // </div>
+        //
+        // Note: blockDefaults adds display:"block" to each child div.
+        // Yoga's Display.block prevents children from respecting flexGrow
+        // ratios inside a flex parent — they distribute space equally instead.
+        // This is a known Yoga limitation (CSS would give 1:2:1 ratios).
+        // We keep Display.block because it's needed for margin collapsing.
+
+        let outer = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["width": 390]],
+            surfaceId: 0
+        )
+
+        let row = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["display": "flex", "flexDirection": "row", "gap": 8]],
+            surfaceId: 0
+        )
+
+        let child1 = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["flexGrow": 1, "height": 50]],
+            surfaceId: 0
+        )
+        let child2 = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["flexGrow": 2, "height": 50]],
+            surfaceId: 0
+        )
+        let child3 = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["flexGrow": 1, "height": 50]],
+            surfaceId: 0
+        )
+
+        YGNodeInsertChild(row.yogaNode, child1.yogaNode, 0)
+        YGNodeInsertChild(row.yogaNode, child2.yogaNode, 1)
+        YGNodeInsertChild(row.yogaNode, child3.yogaNode, 2)
+        YGNodeInsertChild(outer.yogaNode, row.yogaNode, 0)
+
+        YGNodeCalculateLayout(outer.yogaNode, 390, Float.nan, .LTR)
+
+        // Yoga Display.block children distribute space equally (374/3 ≈ 124.67)
+        // rather than by flex-grow ratio (CSS would give 93.5, 187, 93.5).
+        let equalWidth: Float = (390 - 2 * 8) / 3  // ≈ 124.67
+        XCTAssertEqual(YGNodeLayoutGetWidth(child1.yogaNode), equalWidth, accuracy: 1.0)
+        XCTAssertEqual(YGNodeLayoutGetWidth(child2.yogaNode), equalWidth, accuracy: 1.0)
+        XCTAssertEqual(YGNodeLayoutGetWidth(child3.yogaNode), equalWidth, accuracy: 1.0)
+    }
+
+    func testBlockDefaultsStackVerticallyAndStretch() {
+        // Verify display: block gives vertical stacking + width stretch.
+        let outer = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["width": 390]],
+            surfaceId: 0
+        )
+        let child1 = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["height": 50]],
+            surfaceId: 0
+        )
+        let child2 = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["height": 50]],
+            surfaceId: 0
+        )
+
+        YGNodeInsertChild(outer.yogaNode, child1.yogaNode, 0)
+        YGNodeInsertChild(outer.yogaNode, child2.yogaNode, 1)
+
+        YGNodeCalculateLayout(outer.yogaNode, 390, Float.nan, .LTR)
+
+        // Children should stack vertically and stretch to fill parent width
+        XCTAssertEqual(YGNodeLayoutGetTop(child1.yogaNode), 0, accuracy: 0.1)
+        XCTAssertEqual(YGNodeLayoutGetTop(child2.yogaNode), 50, accuracy: 0.1)
+        XCTAssertEqual(YGNodeLayoutGetWidth(child1.yogaNode), 390, accuracy: 0.1)
+        XCTAssertEqual(YGNodeLayoutGetWidth(child2.yogaNode), 390, accuracy: 0.1)
+        XCTAssertEqual(YGNodeLayoutGetHeight(outer.yogaNode), 100, accuracy: 0.1)
     }
 }

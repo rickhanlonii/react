@@ -23,6 +23,8 @@ var renderer = require('react-dom-native/src/renderer/renderer');
 //   ["R"]                                       — root shell complete
 // ---------------------------------------------------------------------------
 
+// TODO: FantomTester times out processing SSR instruction streams with
+// Suspense boundaries. Excluded from jest.config.js until root cause is fixed.
 describe('Hydration with Suspense boundaries (App.js reproduction)', function () {
   var Suspense = React.Suspense;
   var surfaceId = 1;

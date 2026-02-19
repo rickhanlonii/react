@@ -46,7 +46,7 @@ final class ElementDefaultsTests: XCTestCase {
         XCTAssertEqual(defaults["display"] as? String, "block")
         XCTAssertEqual(defaults["flexDirection"] as? String, "row")
         XCTAssertEqual(defaults["flexWrap"] as? String, "wrap")
-        XCTAssertEqual(defaults["fontSize"] as? Double, 18.7)
+        XCTAssertEqual(defaults["fontSize"] as? Double, 18.72)
         XCTAssertEqual(defaults["fontWeight"] as? String, "bold")
     }
 
@@ -64,7 +64,7 @@ final class ElementDefaultsTests: XCTestCase {
         XCTAssertEqual(defaults["display"] as? String, "block")
         XCTAssertEqual(defaults["flexDirection"] as? String, "row")
         XCTAssertEqual(defaults["flexWrap"] as? String, "wrap")
-        XCTAssertEqual(defaults["fontSize"] as? Double, 13.3)
+        XCTAssertEqual(defaults["fontSize"] as? Double, 13.28)
         XCTAssertEqual(defaults["fontWeight"] as? String, "bold")
     }
 
@@ -73,7 +73,7 @@ final class ElementDefaultsTests: XCTestCase {
         XCTAssertEqual(defaults["display"] as? String, "block")
         XCTAssertEqual(defaults["flexDirection"] as? String, "row")
         XCTAssertEqual(defaults["flexWrap"] as? String, "wrap")
-        XCTAssertEqual(defaults["fontSize"] as? Double, 10.7)
+        XCTAssertEqual(defaults["fontSize"] as? Double, 10.72)
         XCTAssertEqual(defaults["fontWeight"] as? String, "bold")
     }
 
@@ -117,8 +117,15 @@ final class ElementDefaultsTests: XCTestCase {
         for type in ["ul", "ol"] {
             let defaults = ElementDefaults.defaults(for: type)
             XCTAssertEqual(defaults["display"] as? String, "block", "\(type) should default to display block")
+            XCTAssertEqual(defaults["fontSize"] as? Int, 16, "\(type) should default to fontSize 16")
             XCTAssertEqual(defaults["paddingLeft"] as? Int, 40, "\(type) should have paddingLeft 40")
         }
+    }
+
+    func testLiDefaults() {
+        let defaults = ElementDefaults.defaults(for: "li")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+        XCTAssertEqual(defaults["fontSize"] as? Int, 16)
     }
 
     // MARK: - defaults(for:) — Links
@@ -484,7 +491,7 @@ final class ElementDefaultsTests: XCTestCase {
     func testUnknownElementFallsBackToBlockDefaults() {
         let defaults = ElementDefaults.defaults(for: "custom-element")
         XCTAssertEqual(defaults["display"] as? String, "block")
-        XCTAssertEqual(defaults.count, 1, "Unknown element should only have display")
+        XCTAssertEqual(defaults["fontSize"] as? Int, 16)
     }
 
     // MARK: - mergedStyle(for:userStyle:)

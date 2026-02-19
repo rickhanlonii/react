@@ -44,7 +44,7 @@ describe('Element defaults', function () {
     expect(p.props.style.marginBottom).toBe(16);
   });
 
-  it('h1 gets default vertical margins of 21.4px', function () {
+  it('h1 gets default vertical margins of 21.44px', function () {
     var root = Fantom.createRoot();
     Fantom.runTask(function () {
       root.render(<h1>Title</h1>);
@@ -52,11 +52,11 @@ describe('Element defaults', function () {
 
     var output = Fantom.getRenderedOutput();
     var h1 = output.children[0];
-    expect(h1.props.style.marginTop).toBe(21.4);
-    expect(h1.props.style.marginBottom).toBe(21.4);
+    expect(h1.props.style.marginTop).toBe(21.44);
+    expect(h1.props.style.marginBottom).toBe(21.44);
   });
 
-  it('h2 gets default vertical margins of 19.9px', function () {
+  it('h2 gets default vertical margins of 19.92px', function () {
     var root = Fantom.createRoot();
     Fantom.runTask(function () {
       root.render(<h2>Title</h2>);
@@ -64,8 +64,8 @@ describe('Element defaults', function () {
 
     var output = Fantom.getRenderedOutput();
     var h2 = output.children[0];
-    expect(h2.props.style.marginTop).toBe(19.9);
-    expect(h2.props.style.marginBottom).toBe(19.9);
+    expect(h2.props.style.marginTop).toBe(19.92);
+    expect(h2.props.style.marginBottom).toBe(19.92);
   });
 
   it('ul gets default vertical margins of 16px', function () {

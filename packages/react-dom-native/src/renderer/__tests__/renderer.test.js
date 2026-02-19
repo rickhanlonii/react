@@ -10,6 +10,7 @@ const mockCompleteRoot = jest.fn();
 const mockGetFirstSSRChild = jest.fn();
 const mockGetSSRChildOf = jest.fn();
 const mockGetNextSSRSibling = jest.fn();
+const mockSetInstanceHandle = jest.fn();
 
 let nodeIdCounter = 0;
 
@@ -46,6 +47,7 @@ beforeEach(() => {
   mockGetFirstSSRChild.mockClear();
   mockGetSSRChildOf.mockClear();
   mockGetNextSSRSibling.mockClear();
+  mockSetInstanceHandle.mockClear();
 
   // Register globals
   global.$$createNode = mockCreateNode;
@@ -57,6 +59,7 @@ beforeEach(() => {
   global.$$getFirstSSRChild = mockGetFirstSSRChild;
   global.$$getSSRChildOf = mockGetSSRChildOf;
   global.$$getNextSSRSibling = mockGetNextSSRSibling;
+  global.$$setInstanceHandle = mockSetInstanceHandle;
 });
 
 afterEach(() => {
@@ -69,6 +72,7 @@ afterEach(() => {
   delete global.$$getFirstSSRChild;
   delete global.$$getSSRChildOf;
   delete global.$$getNextSSRSibling;
+  delete global.$$setInstanceHandle;
 });
 
 const HostConfig = require('../HostConfig');
@@ -719,6 +723,7 @@ describe('hydrateRoot', () => {
   let hydrateRoot;
 
   beforeEach(() => {
+    jest.useFakeTimers();
     // Need to clear module cache since HostConfig is already loaded with mocks
     jest.resetModules();
     // Re-register mocks
@@ -731,8 +736,13 @@ describe('hydrateRoot', () => {
     global.$$getFirstSSRChild = mockGetFirstSSRChild;
     global.$$getSSRChildOf = mockGetSSRChildOf;
     global.$$getNextSSRSibling = mockGetNextSSRSibling;
+    global.$$setInstanceHandle = mockSetInstanceHandle;
     global.$$registerEventHandler = jest.fn();
     hydrateRoot = require('../renderer').hydrateRoot;
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   it('is exported from renderer', () => {
@@ -746,5 +756,6 @@ describe('hydrateRoot', () => {
     );
     expect(typeof root.render).toBe('function');
     expect(typeof root.unmount).toBe('function');
+    root.unmount();
   });
 });

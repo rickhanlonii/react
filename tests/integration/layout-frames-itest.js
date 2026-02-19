@@ -89,8 +89,9 @@ describe('Layout frames', function () {
     var output = Fantom.getRenderedOutput();
     var parent = output.children[0];
     var child = parent.children[0];
-    // Child should be inset by border on each side (100 - 5 - 5 = 90)
-    expect(child.frame.width).toBe(90);
+    // Default box-sizing is content-box: width/height specify content area,
+    // border is added outside. Child stretches to fill content area (100).
+    expect(child.frame.width).toBe(100);
     expect(child.frame.x).toBe(5);
     expect(child.frame.y).toBe(5);
   });

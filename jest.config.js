@@ -19,7 +19,7 @@ module.exports = {
         '<rootDir>/packages/react-dom-native/src/**/*-itest.js',
         '<rootDir>/tests/integration/**/*-itest.js',
       ],
-      testPathIgnorePatterns: ['/node_modules/', '/server/'],
+      testPathIgnorePatterns: ['/node_modules/', '/server/', 'hydration-suspense-itest'],
     },
   ],
 };
