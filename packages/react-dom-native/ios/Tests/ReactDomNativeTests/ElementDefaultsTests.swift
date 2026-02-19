@@ -120,6 +120,40 @@ final class ElementDefaultsTests: XCTestCase {
         XCTAssertEqual(defaults["fontSize"] as? Int, 11)
     }
 
+    func testTextareaDefaults() {
+        let defaults = ElementDefaults.defaults(for: "textarea")
+        XCTAssertEqual(defaults["display"] as? String, "inline-block")
+        XCTAssertEqual(defaults["boxSizing"] as? String, "border-box")
+        XCTAssertEqual(defaults["width"] as? Int, 154)
+        XCTAssertNil(defaults["minHeight"], "minHeight should not be in style dict — applied via yogaMinHeight")
+        XCTAssertEqual(defaults["paddingTop"] as? Int, 4)
+        XCTAssertEqual(defaults["paddingBottom"] as? Int, 4)
+        XCTAssertEqual(defaults["paddingLeft"] as? Int, 4)
+        XCTAssertEqual(defaults["paddingRight"] as? Int, 4)
+        XCTAssertEqual(defaults["borderWidth"] as? Int, 1)
+        XCTAssertEqual(defaults["borderColor"] as? String, "rgba(60, 60, 67, 0.6)")
+        XCTAssertEqual(defaults["borderRadius"] as? Int, 2)
+        XCTAssertEqual(defaults["fontSize"] as? Int, 11)
+        XCTAssertEqual(defaults["backgroundColor"] as? String, "#FFFFFF")
+    }
+
+    func testSelectDefaults() {
+        let defaults = ElementDefaults.defaults(for: "select")
+        XCTAssertEqual(defaults["display"] as? String, "inline-block")
+        XCTAssertEqual(defaults["boxSizing"] as? String, "border-box")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+        XCTAssertEqual(defaults["alignItems"] as? String, "center")
+        XCTAssertEqual(defaults["height"] as? Int, 20)
+        XCTAssertEqual(defaults["minHeight"] as? Int, 20)
+        XCTAssertEqual(defaults["paddingLeft"] as? Int, 4)
+        XCTAssertEqual(defaults["paddingRight"] as? Int, 4)
+        XCTAssertEqual(defaults["borderWidth"] as? Int, 1)
+        XCTAssertEqual(defaults["borderColor"] as? String, "#FFFFFF")
+        XCTAssertEqual(defaults["borderRadius"] as? Int, 10)
+        XCTAssertEqual(defaults["fontSize"] as? Int, 11)
+        XCTAssertEqual(defaults["backgroundColor"] as? String, "#E9E9EA")
+    }
+
     // MARK: - defaults(for:) — Lists
 
     func testListDefaults() {
@@ -170,6 +204,7 @@ final class ElementDefaultsTests: XCTestCase {
         let defaults = ElementDefaults.defaults(for: "sub")
         XCTAssertEqual(defaults["flexDirection"] as? String, "row")
         XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["alignSelf"] as? String, "flex-end")
         XCTAssertEqual(defaults["fontSize"] as? Double, 13.28)
     }
 
@@ -177,6 +212,7 @@ final class ElementDefaultsTests: XCTestCase {
         let defaults = ElementDefaults.defaults(for: "sup")
         XCTAssertEqual(defaults["flexDirection"] as? String, "row")
         XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["alignSelf"] as? String, "flex-start")
         XCTAssertEqual(defaults["fontSize"] as? Double, 13.28)
     }
 
@@ -208,11 +244,13 @@ final class ElementDefaultsTests: XCTestCase {
     func testSummaryDefaults() {
         let defaults = ElementDefaults.defaults(for: "summary")
         XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+        XCTAssertEqual(defaults["flexWrap"] as? String, "wrap")
+        XCTAssertEqual(defaults["fontSize"] as? Int, 16)
     }
 
     func testDialogDefaults() {
         let defaults = ElementDefaults.defaults(for: "dialog")
-        XCTAssertEqual(defaults["display"] as? String, "block")
+        XCTAssertEqual(defaults["display"] as? String, "none")
         XCTAssertEqual(defaults["paddingTop"] as? Int, 16)
         XCTAssertEqual(defaults["paddingBottom"] as? Int, 16)
         XCTAssertEqual(defaults["paddingLeft"] as? Int, 16)
@@ -225,14 +263,19 @@ final class ElementDefaultsTests: XCTestCase {
     func testFieldsetDefaults() {
         let defaults = ElementDefaults.defaults(for: "fieldset")
         XCTAssertEqual(defaults["display"] as? String, "block")
+        XCTAssertEqual(defaults["fontSize"] as? Int, 16)
         XCTAssertEqual(defaults["borderWidth"] as? Int, 2)
         XCTAssertEqual(defaults["borderColor"] as? String, "#C0C0C0")
-        XCTAssertEqual(defaults["borderRadius"] as? Int, 4)
+        XCTAssertNil(defaults["borderRadius"])
     }
 
     func testLegendDefaults() {
         let defaults = ElementDefaults.defaults(for: "legend")
+        XCTAssertNil(defaults["display"])
         XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+        XCTAssertEqual(defaults["flexWrap"] as? String, "wrap")
+        XCTAssertNil(defaults["alignSelf"])
+        XCTAssertEqual(defaults["fontSize"] as? Int, 16)
         XCTAssertEqual(defaults["paddingLeft"] as? Int, 2)
         XCTAssertEqual(defaults["paddingRight"] as? Int, 2)
     }
@@ -382,6 +425,7 @@ final class ElementDefaultsTests: XCTestCase {
     func testDlDefaults() {
         let defaults = ElementDefaults.defaults(for: "dl")
         XCTAssertEqual(defaults["display"] as? String, "block")
+        XCTAssertEqual(defaults["fontSize"] as? Int, 16)
         XCTAssertEqual(defaults["marginTop"] as? Int, 16)
         XCTAssertEqual(defaults["marginBottom"] as? Int, 16)
     }
@@ -394,6 +438,7 @@ final class ElementDefaultsTests: XCTestCase {
     func testDdDefaults() {
         let defaults = ElementDefaults.defaults(for: "dd")
         XCTAssertEqual(defaults["display"] as? String, "block")
+        XCTAssertEqual(defaults["fontSize"] as? Int, 16)
         XCTAssertEqual(defaults["marginLeft"] as? Int, 40)
     }
 
@@ -432,8 +477,11 @@ final class ElementDefaultsTests: XCTestCase {
     func testPreDefaults() {
         let defaults = ElementDefaults.defaults(for: "pre")
         XCTAssertEqual(defaults["display"] as? String, "block")
-        XCTAssertEqual(defaults["marginTop"] as? Int, 16)
-        XCTAssertEqual(defaults["marginBottom"] as? Int, 16)
+        XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+        XCTAssertEqual(defaults["flexWrap"] as? String, "wrap")
+        XCTAssertEqual(defaults["fontSize"] as? Int, 13)
+        XCTAssertEqual(defaults["marginTop"] as? Int, 13)
+        XCTAssertEqual(defaults["marginBottom"] as? Int, 13)
         XCTAssertEqual(defaults["fontFamily"] as? String, "Menlo")
     }
 
@@ -520,6 +568,7 @@ final class ElementDefaultsTests: XCTestCase {
         XCTAssertEqual(defaults["fontSize"] as? Int, 16)
         XCTAssertEqual(defaults["backgroundColor"] as? String, "#FFFF00")
         XCTAssertEqual(defaults["color"] as? String, "#000000")
+        XCTAssertNil(defaults["minHeight"])
         XCTAssertNil(defaults["alignItems"])
     }
 
@@ -527,6 +576,7 @@ final class ElementDefaultsTests: XCTestCase {
         let defaults = ElementDefaults.defaults(for: "small")
         XCTAssertEqual(defaults["flexDirection"] as? String, "row")
         XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["alignSelf"] as? String, "flex-end")
         XCTAssertEqual(defaults["fontSize"] as? Double, 13.28)
     }
 
@@ -555,6 +605,22 @@ final class ElementDefaultsTests: XCTestCase {
         XCTAssertNil(ElementDefaults.textLineHeight(for: "p"))
         XCTAssertNil(ElementDefaults.textLineHeight(for: "span"))
         XCTAssertNil(ElementDefaults.textLineHeight(for: "h1"))
+    }
+
+    // MARK: - yogaMinHeight(for:)
+
+    func testYogaMinHeightForSubSup() {
+        XCTAssertEqual(ElementDefaults.yogaMinHeight(for: "sub"), 24)
+        XCTAssertEqual(ElementDefaults.yogaMinHeight(for: "sup"), 23)
+        XCTAssertEqual(ElementDefaults.yogaMinHeight(for: "textarea"), 34)
+    }
+
+    func testYogaMinHeightNilForOtherElements() {
+        XCTAssertNil(ElementDefaults.yogaMinHeight(for: "div"))
+        XCTAssertNil(ElementDefaults.yogaMinHeight(for: "span"))
+        XCTAssertNil(ElementDefaults.yogaMinHeight(for: "mark"))
+        XCTAssertNil(ElementDefaults.yogaMinHeight(for: "small"))
+        XCTAssertNil(ElementDefaults.yogaMinHeight(for: "code"))
     }
 
     // MARK: - defaults(for:) — Unknown element
@@ -662,5 +728,62 @@ final class ElementDefaultsTests: XCTestCase {
         )
         XCTAssertEqual(merged["borderWidth"] as? Int, 2)
         XCTAssertEqual(merged["borderColor"] as? String, "blue")
+    }
+
+    // MARK: - Line-height resolution
+
+    func testPaddingShorthandOverridesDefaultIndividualPadding() {
+        // textarea has default paddingTop/Bottom/Left/Right: 4
+        // User sets padding: 8 (shorthand) — should remove individual defaults
+        let merged = ElementDefaults.mergedStyle(
+            for: "textarea",
+            userStyle: ["padding": 8]
+        )
+        XCTAssertEqual(merged["padding"] as? Int, 8)
+        XCTAssertNil(merged["paddingTop"], "shorthand should remove default paddingTop")
+        XCTAssertNil(merged["paddingBottom"], "shorthand should remove default paddingBottom")
+        XCTAssertNil(merged["paddingLeft"], "shorthand should remove default paddingLeft")
+        XCTAssertNil(merged["paddingRight"], "shorthand should remove default paddingRight")
+    }
+
+    func testPaddingShorthandPreservesExplicitIndividualPadding() {
+        // When user sets both shorthand AND individual, keep the individual
+        let merged = ElementDefaults.mergedStyle(
+            for: "textarea",
+            userStyle: ["padding": 8, "paddingTop": 12]
+        )
+        XCTAssertEqual(merged["padding"] as? Int, 8)
+        XCTAssertEqual(merged["paddingTop"] as? Int, 12)
+        XCTAssertNil(merged["paddingBottom"])
+    }
+
+    func testLineHeightResolvedAsMultiplier() {
+        // CSS unitless line-height is a multiplier: lineHeight * fontSize
+        let merged = ElementDefaults.mergedStyle(
+            for: "p",
+            userStyle: ["lineHeight": 2, "fontSize": 16]
+        )
+        // 2 * 16 = 32px
+        XCTAssertEqual(merged["lineHeight"] as? Double, 32.0)
+    }
+
+    func testLineHeightUsesDefaultFontSizeWhenNotSpecified() {
+        // When no fontSize is provided, uses default 16
+        let merged = ElementDefaults.mergedStyle(
+            for: "p",
+            userStyle: ["lineHeight": 1.5]
+        )
+        // 1.5 * 16 = 24px
+        XCTAssertEqual(merged["lineHeight"] as? Double, 24.0)
+    }
+
+    func testLineHeightUsesElementDefaultFontSize() {
+        // h1 has fontSize 32 in defaults — lineHeight should multiply by that
+        let merged = ElementDefaults.mergedStyle(
+            for: "h1",
+            userStyle: ["lineHeight": 1.5]
+        )
+        // 1.5 * 32 = 48px
+        XCTAssertEqual(merged["lineHeight"] as? Double, 48.0)
     }
 }

@@ -60,8 +60,19 @@ enum LayoutComparer {
             }
         }
 
-        // Already hex — lowercase it
+        // Already hex — normalize shorthand and lowercase
         if trimmed.hasPrefix("#") {
+            let hex = trimmed.dropFirst()
+            // Expand 3-digit (#rgb) to 6-digit (#rrggbb)
+            if hex.count == 3 {
+                let expanded = hex.map { "\($0)\($0)" }.joined()
+                return "#\(expanded)".lowercased()
+            }
+            // Expand 4-digit (#rgba) to 8-digit (#rrggbbaa)
+            if hex.count == 4 {
+                let expanded = hex.map { "\($0)\($0)" }.joined()
+                return "#\(expanded)".lowercased()
+            }
             return trimmed.lowercased()
         }
 

@@ -17,6 +17,7 @@ require('@babel/register')({
 });
 
 var http = require('http');
+var fs = require('fs');
 var path = require('path');
 var express = require('express');
 var React = require('react');
@@ -39,7 +40,9 @@ globalThis.__webpack_require__ = function (id) {
 // The Flight client uses this to resolve client references (I rows).
 function buildSSRModuleMap() {
   var moduleMap = {};
-  var components = ['Counter', 'TextInput'];
+  var components = fs.readdirSync(COMPONENTS_DIR)
+    .filter(function(f) { return f.endsWith('.jsx'); })
+    .map(function(f) { return f.replace('.jsx', ''); });
 
   for (var i = 0; i < components.length; i++) {
     var name = components[i];
@@ -52,7 +55,7 @@ function buildSSRModuleMap() {
   return moduleMap;
 }
 
-var ssrModuleMap = buildSSRModuleMap();
+// SSR module map is rebuilt per-request in dev so new components are picked up.
 
 // ---------------------------------------------------------------------------
 // SSR endpoint — produces native instruction stream
@@ -133,7 +136,7 @@ app.get('/ssr', function (req, res) {
       require('react-server-dom-webpack/client.node').createFromNodeStream;
 
     var ssrManifest = {
-      moduleMap: ssrModuleMap,
+      moduleMap: buildSSRModuleMap(),
       moduleLoading: null,
       serverModuleMap: null,
     };
@@ -177,7 +180,36 @@ app.get('/ssr', function (req, res) {
       },
       onShellError: function (error) {
         console.error('[SSR] Shell error:', error);
-        res.status(500).send('SSR shell error: ' + error.message);
+        res.setHeader('Content-Type', 'application/x-native-ssr');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Cache-Control', 'no-cache');
+
+        // Flush any D rows so the client can process the Flight stream
+        // (which contains the E row for the error). The client-side
+        // ErrorBoundary will catch the error during hydration.
+        if (pendingDRows) {
+          for (var i = 0; i < pendingDRows.length; i++) {
+            res.write(JSON.stringify(['D', pendingDRows[i]]) + '\n');
+          }
+        }
+
+        // Render a fallback empty shell so the client gets a valid
+        // instruction stream and can hydrate with the Flight data.
+        var fallbackStream = renderToNativeStream(
+          React.createElement('div'),
+          {
+            onShellReady: function () {
+              var fallbackPassThrough = new PassThrough();
+              fallbackStream.pipe(fallbackPassThrough);
+              fallbackPassThrough.on('data', function (chunk) {
+                res.write(chunk);
+              });
+              fallbackPassThrough.on('end', function () {
+                res.end();
+              });
+            },
+          }
+        );
       },
       onError: function (error) {
         console.error('[SSR] Error:', error);
@@ -189,6 +221,25 @@ app.get('/ssr', function (req, res) {
   });
 });
 
-app.listen(PORT, function () {
+app.get('/healthz', function(req, res) {
+  res.json({status: 'ok'});
+});
+
+var server = app.listen(PORT, function () {
   console.log('SSR server listening on http://localhost:' + PORT);
+});
+server.on('error', function(err) {
+  if (err.code === 'EADDRINUSE') {
+    var http = require('http');
+    http.get('http://localhost:' + PORT + '/healthz', function(res) {
+      console.log('Port ' + PORT + ' already has a healthy SSR server running, exiting.');
+      process.exit(0);
+    }).on('error', function() {
+      console.error('Port ' + PORT + ' is in use by a non-SSR-server process.');
+      console.error('Run: kill $(lsof -ti :' + PORT + ')');
+      process.exit(1);
+    });
+    return;
+  }
+  throw err;
 });

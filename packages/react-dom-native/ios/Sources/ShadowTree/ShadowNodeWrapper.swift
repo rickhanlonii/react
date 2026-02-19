@@ -37,6 +37,11 @@ public class ShadowNodeWrapper {
     /// Computed during layout by re-laying-out children with unbounded height.
     public var scrollContentSize: CGSize? = nil
 
+    /// Original child family ordering from the node this was cloned from.
+    /// Used by $$appendChild to interleave reconciler children with
+    /// preserved #suspense children at correct positions. Nil for non-clones.
+    public var oldChildFamilies: [ShadowNodeFamily]? = nil
+
     // MARK: - Initializers
 
     public init(
@@ -83,7 +88,13 @@ public class ShadowNodeWrapper {
     ) -> ShadowNodeWrapper {
         // 1. Merge element-type defaults with user-supplied style
         let userStyle = props["style"] as? [String: Any]
-        let mergedStyle = ElementDefaults.mergedStyle(for: type, userStyle: userStyle)
+        var mergedStyle = ElementDefaults.mergedStyle(for: type, userStyle: userStyle)
+
+        // HTML <dialog> is hidden by default (display:none). The `open`
+        // attribute makes it visible. Check the prop and override display.
+        if type == "dialog", props["open"] != nil {
+            mergedStyle["display"] = "block"
+        }
 
         var nodeProps = props
         if !mergedStyle.isEmpty {
@@ -108,6 +119,17 @@ public class ShadowNodeWrapper {
         // 4. Apply Yoga styles
         if !mergedStyle.isEmpty {
             YogaStyleApplier.apply(mergedStyle, to: node.yogaNode)
+        }
+
+        // 5. Apply Yoga-only overrides (not stored in style dict)
+        if let minH = ElementDefaults.yogaMinHeight(for: type) {
+            YGNodeStyleSetMinHeight(node.yogaNode, Float(minH))
+        }
+        // Legend needs inline-block display for shrink-to-fit width inside
+        // fieldset's block layout, but we don't put "display" in the style
+        // dict to avoid comparison diffs (web reports display: block).
+        if type == "legend" || ElementDefaults.needsInlineBlockDisplay(for: type) {
+            YGNodeStyleSetDisplay(node.yogaNode, .inlineBlock)
         }
 
         return node

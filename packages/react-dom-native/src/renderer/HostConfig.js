@@ -61,7 +61,10 @@ const TEXT_CONTEXT_ELEMENTS = new Set([
   'h5',
   'h6',
   'label',
+  'legend',
   'li',
+  'pre',
+  'summary',
 ]);
 
 // ---------------------------------------------------------------------------

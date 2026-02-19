@@ -319,6 +319,34 @@ public class ShadowTreeBuilder {
             childYogaNode: child.yogaNode,
             childType: child.family.elementType
         )
+
+        // HTML <details> without `open` hides all children except <summary>.
+        if parent.family.elementType == "details",
+           parent.props["open"] == nil,
+           child.family.elementType != "summary" {
+            YGNodeStyleSetDisplay(child.yogaNode, .none)
+        }
+
+        // CSS <legend> inside <fieldset>: pull legend up to sit on border.
+        if parent.family.elementType == "fieldset",
+           child.family.elementType == "legend" {
+            let borderTopVal = YGNodeStyleGetBorder(parent.yogaNode, .top)
+            let borderAllVal = YGNodeStyleGetBorder(parent.yogaNode, .all)
+            let borderTop = !borderTopVal.isNaN ? borderTopVal : (!borderAllVal.isNaN ? borderAllVal : 0)
+
+            let paddingTopEdge = YGNodeStyleGetPadding(parent.yogaNode, .top)
+            let paddingAllEdge = YGNodeStyleGetPadding(parent.yogaNode, .all)
+            let paddingTop: Float
+            if paddingTopEdge.unit == .point {
+                paddingTop = paddingTopEdge.value
+            } else if paddingAllEdge.unit == .point {
+                paddingTop = paddingAllEdge.value
+            } else {
+                paddingTop = 0
+            }
+            let offset = borderTop + paddingTop
+            YGNodeStyleSetMargin(child.yogaNode, .top, -offset)
+        }
     }
 
 }

@@ -4,6 +4,8 @@ const Counter = require('./components/Counter');
 const TextInput = require('./components/TextInput');
 const Tabs = require('./components/Tabs');
 const Accordion = require('./components/Accordion');
+const TodoList = require('./components/TodoList');
+const ErrorBoundary = require('./components/ErrorBoundary');
 
 // ── Shared Styles ──
 
@@ -126,6 +128,36 @@ function AccordionSkeleton() {
         <SkeletonLine height={20} />
         <SkeletonLine height={20} />
         <SkeletonLine height={20} />
+      </div>
+    </>
+  );
+}
+
+function TodoSkeleton() {
+  return (
+    <>
+      <SkeletonLine width={80} height={20} />
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'row',
+          gap: 8,
+          marginTop: 12,
+        }}>
+        <SkeletonLine height={36} style={{flex: 1}} />
+        <div
+          style={{
+            backgroundColor: colors.skeleton,
+            borderRadius: 8,
+            width: 56,
+            height: 36,
+          }}
+        />
+      </div>
+      <div style={{display: 'flex', flexDirection: 'column', gap: 10, marginTop: 16}}>
+        <SkeletonLine width={'85%'} />
+        <SkeletonLine width={'70%'} />
+        <SkeletonLine width={'60%'} />
       </div>
     </>
   );
@@ -284,8 +316,33 @@ async function AccordionSection({delay}) {
   );
 }
 
-// ── App ──
+async function TodoSection({delay}) {
+  await new Promise((resolve) => setTimeout(resolve, delay));
 
+  const initialTodos = [
+    {id: 1, text: 'Build the renderer', done: true},
+    {id: 2, text: 'Add Yoga layout', done: true},
+    {id: 3, text: 'Wire up Flight client', done: false},
+    {id: 4, text: 'Ship the demo', done: false},
+  ];
+
+  return (
+    <>
+      <h3 style={{color: colors.text, marginTop: 0, marginBottom: 0}}>
+        Todo List
+      </h3>
+      <p style={{color: colors.secondary, fontSize: 13, marginTop: 0}}>
+        Add, complete, and remove tasks
+      </p>
+      <TodoList initialTodos={initialTodos} />
+    </>
+  );
+}
+
+// ── App ──
+function Throws() {
+  throw new Error('Erorr in server component');
+}
 function App() {
   return (
     <div style={{display: 'flex', flexDirection: 'column', backgroundColor: colors.bg, minHeight: '100%', padding: 16, gap: 16}}>
@@ -301,9 +358,10 @@ function App() {
 
       <div style={card}>
       {/* Counter Card */}
-      <Suspense fallback={<CounterSkeleton />}>
+      <ErrorBoundary>
+        <Throws />
         <CounterSection delay={1000} />
-      </Suspense>
+      </ErrorBoundary>
       </div>
 
       <div style={card}>
@@ -324,6 +382,13 @@ function App() {
       {/* Accordion Card */}
       <Suspense fallback={<AccordionSkeleton />}>
         <AccordionSection delay={2500} />
+      </Suspense>
+      </div>
+
+      <div style={card}>
+      {/* Todo Card */}
+      <Suspense fallback={<TodoSkeleton />}>
+        <TodoSection delay={3000} />
       </Suspense>
       </div>
 

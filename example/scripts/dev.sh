@@ -18,13 +18,31 @@ node ssr-server.js &
 SSR_PID=$!
 cd "$EXAMPLE_ROOT"
 
-# Cleanup on exit
+# Cleanup on exit — only kill PIDs that are still alive and belong to us
 cleanup() {
   echo "Shutting down..."
   kill $RSC_PID 2>/dev/null || true
   kill $SSR_PID 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
+
+# Wait for servers to be ready (or detect they were already running)
+wait_for_server() {
+  local port=$1
+  local name=$2
+  local endpoint=$3
+  for i in $(seq 1 30); do
+    if curl -s -o /dev/null "http://localhost:${port}${endpoint}" 2>/dev/null; then
+      return 0
+    fi
+    sleep 0.5
+  done
+  echo "ERROR: ${name} on port ${port} failed to start"
+  return 1
+}
+
+wait_for_server 6000 "Flight server" "/bundle-version" || exit 1
+wait_for_server 6001 "SSR server" "/healthz" || exit 1
 
 echo ""
 echo "Development servers running:"

@@ -46,12 +46,6 @@ public class Bindings {
     /// SSR trees registered for hydration traversal. Keyed by surfaceId.
     private var ssrTrees: [Int: [ShadowNodeWrapper]] = [:]
 
-    /// Surfaces that need #suspense nodes flattened from currentTrees after
-    /// the first $$completeRoot. The SSR tree has #suspense host elements but
-    /// the React reconciler doesn't produce host elements for Suspense fibers,
-    /// so the diff tree must not contain #suspense wrappers.
-    private var surfacesNeedingSuspenseFlatten: Set<Int> = []
-
     /// Surfaces where hydration is in progress. Set when hydration starts,
     /// cleared on first $$completeRoot. While active, SSR tree updates are
     /// queued to prevent mid-hydration tree mutations.
@@ -165,14 +159,6 @@ public class Bindings {
         rootViews[surfaceId] = scrollView
         currentTrees[surfaceId] = ssrTree
         viewRegistry.merge(from: ssrViewRegistry)
-
-        // Mark this surface for #suspense flattening after the first commit.
-        // The SSR tree has #suspense host elements wrapping Suspense content,
-        // but the React reconciler doesn't produce host elements for Suspense
-        // fibers. After the first $$completeRoot (which is a no-op since old
-        // and new reference the same SSR nodes), we flatten #suspense from
-        // currentTrees so the second commit can diff correctly.
-        surfacesNeedingSuspenseFlatten.insert(surfaceId)
     }
 
     /// Registers an SSR tree for hydration traversal.
@@ -428,9 +414,17 @@ public class Bindings {
         engine.setGlobalFunction("$$cloneNodeWithNewChildren") { [weak self, weak engine] args in
             guard let self = self, let engine = engine else { return nil }
             guard let node = self.lookupNode(args[0]) else { return nil }
-            // children parameter may be undefined; the reconciler typically
-            // passes undefined and then appends children individually
-            let cloned = node.cloneWithNewChildren([])
+
+            // Preserve #suspense children from old node — they stay until hydrated
+            let preserved = node.children.filter { $0.family.elementType == "#suspense" }
+
+            let cloned = node.cloneWithNewChildren(preserved)
+
+            // Save old ordering for $$appendChild interleaving
+            if !preserved.isEmpty {
+                cloned.oldChildFamilies = node.children.map { $0.family }
+            }
+
             let newId = self.registerNode(cloned)
             return engine.makeNumber(Double(newId))
         }
@@ -447,11 +441,21 @@ public class Bindings {
             if !mergedStyle.isEmpty {
                 newProps["style"] = mergedStyle
             }
-            let cloned = node.cloneWithNewChildrenAndProps([], newProps)
+
+            // Preserve #suspense children from old node — they stay until hydrated
+            let preserved = node.children.filter { $0.family.elementType == "#suspense" }
+
+            let cloned = node.cloneWithNewChildrenAndProps(preserved, newProps)
             // Apply merged style to the cloned yogaNode
             if let style = newProps["style"] as? [String: Any] {
                 YogaStyleApplier.apply(style, to: cloned.yogaNode)
             }
+
+            // Save old ordering for $$appendChild interleaving
+            if !preserved.isEmpty {
+                cloned.oldChildFamilies = node.children.map { $0.family }
+            }
+
             let newId = self.registerNode(cloned)
             return engine.makeNumber(Double(newId))
         }
@@ -467,13 +471,39 @@ public class Bindings {
                   let child = self.lookupNode(args[1]) else {
                 return nil
             }
-            let index = parent.children.count
-            parent.children.append(child)
+
+            // --- Self-flatten: detect hydrated boundary ---
+            // If this child's family exists inside a preserved #suspense sibling,
+            // the boundary just hydrated. Flatten the #suspense.
+            for (i, existing) in parent.children.enumerated() {
+                if existing.family.elementType == "#suspense" {
+                    let isContentOf = existing.children.contains { $0.family === child.family }
+                    if isContentOf {
+                        self.reparentSuspenseContentViews(suspenseNode: existing)
+                        // Remove #suspense from yoga tree
+                        YGNodeRemoveChild(parent.yogaNode, existing.yogaNode)
+                        parent.children.remove(at: i)
+                        break
+                    }
+                }
+            }
+
+            // --- Interleave: find correct insertion position ---
+            let insertionIndex: Int
+            if let oldFamilies = parent.oldChildFamilies {
+                insertionIndex = self.findInsertionIndex(
+                    parent: parent, child: child, oldFamilies: oldFamilies
+                )
+            } else {
+                insertionIndex = parent.children.count
+            }
+
+            parent.children.insert(child, at: insertionIndex)
             // Wire up Yoga parent-child relationship
             if let owner = YGNodeGetOwner(child.yogaNode) {
                 YGNodeRemoveChild(owner, child.yogaNode)
             }
-            YGNodeInsertChild(parent.yogaNode, child.yogaNode, index)
+            YGNodeInsertChild(parent.yogaNode, child.yogaNode, insertionIndex)
 
             // CSS: block children of flex parents participate in flex layout.
             // Yoga doesn't do this automatically — override display:block to
@@ -502,6 +532,56 @@ public class Bindings {
                 childYogaNode: child.yogaNode,
                 childType: child.family.elementType
             )
+
+            // CSS font-size inheritance for em-relative margins.
+            // Elements like <p> have margin: 1em 0, where 1em resolves to
+            // the computed font-size. When a <p> is inside a container with
+            // a different font-size (e.g. <address style="font-size:14px">),
+            // the margins must scale. We recompute at insertion time since
+            // we don't have full CSS inheritance.
+            if let parentFS = (parentStyle["fontSize"] as? NSNumber).map({ $0.doubleValue })
+                ?? (parentStyle["fontSize"] as? Double) {
+                if let updated = ElementDefaults.recomputeEmMargins(
+                    childType: child.family.elementType,
+                    childStyle: childStyle,
+                    parentFontSize: parentFS
+                ) {
+                    child.props["style"] = updated
+                    YogaStyleApplier.apply(updated, to: child.yogaNode)
+                }
+            }
+
+            // HTML <details> without `open` hides all children except <summary>.
+            // Set non-summary children to display:none at insertion time.
+            if parent.family.elementType == "details",
+               parent.props["open"] == nil,
+               child.family.elementType != "summary" {
+                YGNodeStyleSetDisplay(child.yogaNode, .none)
+            }
+
+            // CSS <legend> inside <fieldset>: legend sits ON the fieldset's
+            // top border, not inside the content area. Apply a negative top
+            // margin to pull it up by (borderTop + paddingTop), centering it
+            // on the border edge.
+            if parent.family.elementType == "fieldset",
+               child.family.elementType == "legend" {
+                let borderTopVal = YGNodeStyleGetBorder(parent.yogaNode, .top)
+                let borderAllVal = YGNodeStyleGetBorder(parent.yogaNode, .all)
+                let borderTop = !borderTopVal.isNaN ? borderTopVal : (!borderAllVal.isNaN ? borderAllVal : 0)
+
+                let paddingTopEdge = YGNodeStyleGetPadding(parent.yogaNode, .top)
+                let paddingAllEdge = YGNodeStyleGetPadding(parent.yogaNode, .all)
+                let paddingTop: Float
+                if paddingTopEdge.unit == .point {
+                    paddingTop = paddingTopEdge.value
+                } else if paddingAllEdge.unit == .point {
+                    paddingTop = paddingAllEdge.value
+                } else {
+                    paddingTop = 0
+                }
+                let offset = borderTop + paddingTop
+                YGNodeStyleSetMargin(child.yogaNode, .top, -offset)
+            }
 
             // If the child is a #text node, inherit font properties from parent for
             // accurate Yoga measurement. Without this, text nodes default to
@@ -629,22 +709,9 @@ public class Bindings {
             // 6. Promote new tree to current tree
             self.currentTrees[surfaceId] = newChildren
 
-            // 6a. After the first hydration commit, flatten #suspense wrappers
-            // from currentTrees. The SSR tree has #suspense host elements but
-            // the reconciler produces no host elements for Suspense fibers.
-            // The first commit is a no-op (old === new), so this runs after it,
-            // ensuring the second commit diffs correctly.
-            if self.surfacesNeedingSuspenseFlatten.contains(surfaceId) {
-                self.surfacesNeedingSuspenseFlatten.remove(surfaceId)
-                self.flattenSuspenseFromCurrentTree(surfaceId: surfaceId)
-            }
-
             // 6b. Initial hydration commit — apply any queued SSR tree updates
-            // and fire onHydrationComplete. The SSR tree stays alive — React
-            // may need it for an indeterminate number of subsequent commits
-            // (Suspense retries, recovery renders after mismatch). The stale
-            // cleanup in step 7 keeps SSR node IDs alive as long as ssrTrees
-            // references them.
+            // and fire onHydrationComplete. After completion, SSR trees are
+            // cleaned up since #suspense nodes are preserved in currentTrees.
             if self.hydrationInProgress.contains(surfaceId) {
                 self.hydrationInProgress.remove(surfaceId)
                 print("[ReactDomNativeKit] Hydration initial commit for surfaceId \(surfaceId)")
@@ -661,6 +728,9 @@ public class Bindings {
                 }
 
                 self.onHydrationComplete?(surfaceId)
+
+                // SSR trees no longer needed — #suspense nodes live in currentTrees
+                self.ssrTrees.removeValue(forKey: surfaceId)
             }
 
             // 7. Clean up stale nodes from registry
@@ -669,12 +739,7 @@ public class Bindings {
             for (_, tree) in self.currentTrees {
                 self.collectNodeIds(from: tree, into: &liveNodes)
             }
-            // Also keep SSR tree nodes alive — React's hydration may still
-            // need them for Suspense retries and recovery renders.
-            for (_, tree) in self.ssrTrees {
-                self.collectNodeIds(from: tree, into: &liveNodes)
-            }
-            // Remove nodes not in any current or SSR tree
+            // Remove nodes not in any current tree
             let staleIds = self.nodeRegistry.keys.filter { !liveNodes.contains($0) }
             for id in staleIds {
                 self.nodeRegistry.removeValue(forKey: id)
@@ -695,71 +760,41 @@ public class Bindings {
         }
     }
 
-    // MARK: - Suspense Flattening for Hydration
+    // MARK: - Suspense Interleaving
 
-    /// Flattens #suspense host elements from `currentTrees[surfaceId]`.
+    /// Finds the correct insertion index for a new child among preserved
+    /// #suspense siblings, using the old child ordering as reference.
     ///
-    /// The SSR tree has `#suspense` nodes wrapping Suspense boundary content,
-    /// but the React reconciler doesn't produce host elements for Suspense
-    /// fibers — it walks through them and collects content directly. This
-    /// creates a structural mismatch between the SSR tree (old) and the
-    /// reconciler's output (new) that causes the differ to DELETE all SSR
-    /// nodes and CREATE new ones.
-    ///
-    /// This method:
-    /// 1. Creates structural clones of parent nodes with #suspense children
-    ///    promoted up (e.g. `div > [#suspense > content]` → `div > [content]`)
-    /// 2. Re-parents UIKit views: moves content views from #suspense views
-    ///    to the parent view, adjusting frames for the new parent coordinate space
-    /// 3. Removes orphaned #suspense UIKit views
-    /// 4. Updates `currentTrees` with the flattened tree
-    private func flattenSuspenseFromCurrentTree(surfaceId: Int) {
-        guard let tree = currentTrees[surfaceId] else { return }
+    /// Example: old children were [A, #suspense, B, C].
+    /// Preserved #suspense sits at index 0 in the clone.
+    /// When appendChild(A') is called, A was at oldIndex 0 → insert at 0 (before #suspense at old index 1).
+    /// When appendChild(B') is called, B was at oldIndex 2 → insert at 2 (after #suspense).
+    private func findInsertionIndex(
+        parent: ShadowNodeWrapper,
+        child: ShadowNodeWrapper,
+        oldFamilies: [ShadowNodeFamily]
+    ) -> Int {
+        // Find this child's position in the old ordering
+        let childOldIndex = oldFamilies.firstIndex(where: { $0 === child.family })
 
-        let flattened = flattenSuspenseNodes(tree)
-        currentTrees[surfaceId] = flattened
-    }
-
-    /// Recursively creates structural clones with #suspense nodes removed.
-    /// Children of #suspense nodes are promoted to the parent level.
-    private func flattenSuspenseNodes(_ nodes: [ShadowNodeWrapper]) -> [ShadowNodeWrapper] {
-        var result: [ShadowNodeWrapper] = []
-
-        for node in nodes {
-            if node.family.elementType == "#suspense" {
-                // Re-parent UIKit views: move content from #suspense to parent
-                reparentSuspenseContentViews(suspenseNode: node)
-
-                // Promote children up, recursively flattening them too
-                result.append(contentsOf: flattenSuspenseNodes(node.children))
-            } else {
-                // Recursively flatten children
-                let flattenedChildren = flattenSuspenseNodes(node.children)
-
-                // Only create a structural clone if children actually changed
-                let childrenChanged = flattenedChildren.count != node.children.count ||
-                    !zip(flattenedChildren, node.children).allSatisfy({ $0 === $1 })
-
-                if childrenChanged {
-                    // Structural clone: same family/props for differ matching,
-                    // fresh Yoga node (not used — layout is on the new tree).
-                    let clone = ShadowNodeWrapper(
-                        props: node.props,
-                        children: flattenedChildren,
-                        family: node.family,
-                        text: node.text
-                    )
-                    clone.layoutFrame = node.layoutFrame
-                    clone.scrollContentSize = node.scrollContentSize
-                    result.append(clone)
-                } else {
-                    result.append(node)
+        // Walk current children to find where this child fits
+        // relative to the preserved #suspense nodes
+        var insertAt = parent.children.count  // default: append
+        for (i, existing) in parent.children.enumerated() {
+            guard existing.family.elementType == "#suspense" else { continue }
+            let suspenseOldIndex = oldFamilies.firstIndex(where: { $0 === existing.family })
+            if let childIdx = childOldIndex, let suspIdx = suspenseOldIndex {
+                if childIdx < suspIdx {
+                    // Child was before this #suspense in old tree
+                    insertAt = i
+                    break
                 }
             }
         }
-
-        return result
+        return insertAt
     }
+
+    // MARK: - Suspense Flattening for Hydration
 
     /// Moves content UIKit views from a #suspense view to its parent view,
     /// adjusting frames for the new parent coordinate space. Then removes

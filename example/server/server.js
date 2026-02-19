@@ -29,7 +29,9 @@ var PORT = 6000;
 function buildClientManifest() {
   var componentsDir = path.resolve(__dirname, 'src/components');
   var manifest = {};
-  var components = ['Counter', 'TextInput'];
+  var components = fs.readdirSync(componentsDir)
+    .filter(function(f) { return f.endsWith('.jsx'); })
+    .map(function(f) { return f.replace('.jsx', ''); });
 
   for (var i = 0; i < components.length; i++) {
     var name = components[i];
@@ -59,7 +61,7 @@ function buildClientManifest() {
   return manifest;
 }
 
-var clientManifest = buildClientManifest();
+// Client manifest is rebuilt per-request in dev so new components are picked up.
 
 var SERVER_SRC_DIR = path.resolve(__dirname, 'src');
 var ENTRY_POINT = path.resolve(__dirname, '../../packages/react-dom-native/src/entry.js');
@@ -191,10 +193,25 @@ app.get('/', function (req, res) {
 
   var renderToPipeableStream =
     require('react-server-dom-webpack/server').renderToPipeableStream;
-  var stream = renderToPipeableStream(element, clientManifest);
+  var stream = renderToPipeableStream(element, buildClientManifest());
   stream.pipe(res);
 });
 
-app.listen(PORT, function () {
+var server = app.listen(PORT, function () {
   console.log('RSC server listening on http://localhost:' + PORT);
+});
+server.on('error', function(err) {
+  if (err.code === 'EADDRINUSE') {
+    var http = require('http');
+    http.get('http://localhost:' + PORT + '/bundle-version', function(res) {
+      console.log('Port ' + PORT + ' already has a healthy RSC server running, exiting.');
+      process.exit(0);
+    }).on('error', function() {
+      console.error('Port ' + PORT + ' is in use by a non-RSC-server process.');
+      console.error('Run: kill $(lsof -ti :' + PORT + ')');
+      process.exit(1);
+    });
+    return;
+  }
+  throw err;
 });

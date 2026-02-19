@@ -4,6 +4,7 @@ const React = require('react');
 const {useState} = React;
 
 function Counter({initialCount = 0}) {
+  throw new Error('Counter render error: testing error handling');
   const [count, setCount] = useState(initialCount);
 
   return (

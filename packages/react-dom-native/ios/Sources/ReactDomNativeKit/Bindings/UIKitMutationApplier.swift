@@ -43,6 +43,10 @@ public class UIKitMutationApplier: NSObject {
                 print("[\(logPrefix)] [\(index)] CREATE: \(node.family.elementType)")
                 let view = createView(for: node)
                 view.frame = node.layoutFrame
+                // Promote backgroundColor to a sublayer for positioned elements so
+                // children with negative zIndex can render behind the background
+                // (matching CSS stacking context behavior).
+                applyBackgroundLayerIfNeeded(to: view, props: node.props)
                 print("[\(logPrefix)]   frame: \(view.frame)")
                 viewRegistry.register(view: view, family: node.family)
 
@@ -82,6 +86,7 @@ public class UIKitMutationApplier: NSObject {
                 }
                 updateView(view, elementType: node.family.elementType, props: newProps)
                 view.frame = node.layoutFrame
+                applyBackgroundLayerIfNeeded(to: view, props: newProps)
                 if let scrollView = view as? UIScrollView, let contentSize = node.scrollContentSize {
                     scrollView.contentSize = contentSize
                 }
@@ -335,13 +340,17 @@ public class UIKitMutationApplier: NSObject {
         let b = bottom ?? uniform ?? 0
         let l = left ?? uniform ?? 0
 
-        // Parse border color
-        let borderColor: CGColor
+        // Parse border color — uniform and per-side
+        let uniformColor: CGColor
         if let colorStr = style["borderColor"] as? String {
-            borderColor = parseColor(colorStr).cgColor
+            uniformColor = parseColor(colorStr).cgColor
         } else {
-            borderColor = UIColor.black.cgColor
+            uniformColor = UIColor.black.cgColor
         }
+        let topColor = (style["borderTopColor"] as? String).map { parseColor($0).cgColor } ?? uniformColor
+        let rightColor = (style["borderRightColor"] as? String).map { parseColor($0).cgColor } ?? uniformColor
+        let bottomColor = (style["borderBottomColor"] as? String).map { parseColor($0).cgColor } ?? uniformColor
+        let leftColor = (style["borderLeftColor"] as? String).map { parseColor($0).cgColor } ?? uniformColor
 
         // Remove old border layers
         view.layer.sublayers?.removeAll { $0.name == "__border_edge__" }
@@ -352,10 +361,12 @@ public class UIKitMutationApplier: NSObject {
             return
         }
 
-        // If all equal, use CALayer uniform border (simpler, antialiased)
-        if t == r && r == b && b == l {
+        let colorsUniform = topColor === rightColor && rightColor === bottomColor && bottomColor === leftColor
+
+        // If all widths and colors equal, use CALayer uniform border (simpler, antialiased)
+        if t == r && r == b && b == l && colorsUniform {
             view.layer.borderWidth = CGFloat(t)
-            view.layer.borderColor = borderColor
+            view.layer.borderColor = topColor
             return
         }
 
@@ -363,10 +374,10 @@ public class UIKitMutationApplier: NSObject {
         view.layer.borderWidth = 0
 
         // Helper to add an edge layer
-        func addEdge(frame: CGRect) {
+        func addEdge(frame: CGRect, color: CGColor) {
             let layer = CALayer()
             layer.name = "__border_edge__"
-            layer.backgroundColor = borderColor
+            layer.backgroundColor = color
             layer.frame = frame
             // zPosition ensures borders render above child views
             layer.zPosition = 1000
@@ -375,16 +386,16 @@ public class UIKitMutationApplier: NSObject {
 
         let bounds = view.bounds
         if t > 0 {
-            addEdge(frame: CGRect(x: 0, y: 0, width: bounds.width, height: CGFloat(t)))
+            addEdge(frame: CGRect(x: 0, y: 0, width: bounds.width, height: CGFloat(t)), color: topColor)
         }
         if b > 0 {
-            addEdge(frame: CGRect(x: 0, y: bounds.height - CGFloat(b), width: bounds.width, height: CGFloat(b)))
+            addEdge(frame: CGRect(x: 0, y: bounds.height - CGFloat(b), width: bounds.width, height: CGFloat(b)), color: bottomColor)
         }
         if l > 0 {
-            addEdge(frame: CGRect(x: 0, y: 0, width: CGFloat(l), height: bounds.height))
+            addEdge(frame: CGRect(x: 0, y: 0, width: CGFloat(l), height: bounds.height), color: leftColor)
         }
         if r > 0 {
-            addEdge(frame: CGRect(x: bounds.width - CGFloat(r), y: 0, width: CGFloat(r), height: bounds.height))
+            addEdge(frame: CGRect(x: bounds.width - CGFloat(r), y: 0, width: CGFloat(r), height: bounds.height), color: rightColor)
         }
     }
 
@@ -519,12 +530,15 @@ public class UIKitMutationApplier: NSObject {
         case "h4": size = 16; isBold = true
         case "h5": size = 13.3; isBold = true
         case "h6": size = 10.7; isBold = true
+        case "small", "sub", "sup": size = 13.28
         default: size = 16
         }
 
         // Override with explicit fontSize
         if let fontSize = style["fontSize"] as? NSNumber {
             size = CGFloat(fontSize.doubleValue)
+        } else if let fontSize = style["fontSize"] as? Double {
+            size = CGFloat(fontSize)
         }
 
         // Determine weight
@@ -633,6 +647,52 @@ public class UIKitMutationApplier: NSObject {
         }
 
         label.attributedText = NSAttributedString(string: text, attributes: attributes)
+    }
+
+    // MARK: - Background Layer for Stacking Context
+
+    /// When a view is a positioned element (position: relative/absolute), CSS
+    /// allows children with negative z-index to render behind the parent's
+    /// background. UIKit's `backgroundColor` is drawn by the view's own layer,
+    /// which is always behind all sublayers — so `zPosition = -1` on a child
+    /// still appears above the background.
+    ///
+    /// To match CSS behavior, this method "promotes" the background color into
+    /// a separate sublayer with `zPosition = 0`. Child layers with negative
+    /// `zPosition` will then render behind this background sublayer, matching
+    /// the CSS stacking context paint order.
+    private func applyBackgroundLayerIfNeeded(to view: UIView, props: [String: Any]) {
+        let style = props["style"] as? [String: Any] ?? [:]
+        let position = style["position"] as? String
+
+        // Remove any existing promoted background layer
+        view.layer.sublayers?.removeAll { $0.name == "__bg_layer__" }
+
+        // Only promote for positioned elements that create a stacking context
+        guard position == "relative" || position == "absolute",
+              let bgColorStr = style["backgroundColor"] as? String else {
+            return
+        }
+
+        let bgColor = parseColor(bgColorStr)
+
+        // Clear the view's own backgroundColor so it doesn't paint behind everything
+        view.backgroundColor = .clear
+
+        // Add a background sublayer at zPosition 0
+        let bgLayer = CALayer()
+        bgLayer.name = "__bg_layer__"
+        bgLayer.backgroundColor = bgColor.cgColor
+        bgLayer.frame = view.bounds
+        bgLayer.zPosition = 0
+
+        // Apply corner radius to match the view
+        if let borderRadius = style["borderRadius"] as? NSNumber {
+            bgLayer.cornerRadius = CGFloat(borderRadius.doubleValue)
+        }
+
+        // Insert at position 0 so it's behind existing sublayers
+        view.layer.insertSublayer(bgLayer, at: 0)
     }
 
     // MARK: - Helpers

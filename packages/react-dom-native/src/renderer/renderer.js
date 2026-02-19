@@ -39,8 +39,14 @@ function createRoot(nativeRootView) {
     false,   // isStrictMode
     null,    // concurrentUpdatesByDefaultOverride
     '',      // identifierPrefix
-    null,    // onUncaughtError
-    null,    // onCaughtError
+    function(error) {
+      console.error('[Renderer] Uncaught error: ' + error.message);
+      if (error.stack) console.error('[Renderer] Stack: ' + error.stack);
+    },
+    function(error, errorInfo) {
+      console.error('[Renderer] Caught error: ' + error.message);
+      if (error.stack) console.error('[Renderer] Stack: ' + error.stack);
+    },
   );
   console.log('[Renderer] Container created for surfaceId: ' + surfaceId);
   return {
@@ -80,16 +86,16 @@ function hydrateRoot(nativeRootView, initialElement, options) {
     null,           // concurrentUpdatesByDefaultOverride
     '',             // identifierPrefix
     options && options.onUncaughtError ? options.onUncaughtError : function(error) {
-      console.log('[Hydration] Uncaught error: ' + error.message);
-      if (error.stack) console.log('[Hydration] Stack: ' + error.stack);
+      console.error('[Hydration] Uncaught error: ' + error.message);
+      if (error.stack) console.error('[Hydration] Stack: ' + error.stack);
     },
     options && options.onCaughtError ? options.onCaughtError : function(error, errorInfo) {
-      console.log('[Hydration] Caught error: ' + error.message);
-      if (error.stack) console.log('[Hydration] Stack: ' + error.stack);
+      console.error('[Hydration] Caught error: ' + error.message);
+      if (error.stack) console.error('[Hydration] Stack: ' + error.stack);
     },
     options && options.onRecoverableError ? options.onRecoverableError : function(error, errorInfo) {
-      console.log('[Hydration] Recoverable error: ' + error.message);
-      if (error.stack) console.log('[Hydration] Stack: ' + error.stack);
+      console.error('[Hydration] Recoverable error: ' + error.message);
+      if (error.stack) console.error('[Hydration] Stack: ' + error.stack);
     },
     noop,           // onDefaultTransitionIndicator
     null,           // transitionCallbacks

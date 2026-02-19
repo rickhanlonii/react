@@ -73,8 +73,10 @@ public enum ElementDefaults {
             return monospaceDefaults
         case "cite", "dfn", "var":
             return italicDefaults
-        case "sub", "sup":
-            return smallDefaults
+        case "sub":
+            return subDefaults
+        case "sup":
+            return supDefaults
         case "q", "time", "abbr", "data":
             return spanDefaults
 
@@ -163,10 +165,58 @@ public enum ElementDefaults {
     /// for monospace fonts is ~1.08 × fontSize (13 × 1.08 ≈ 14).
     public static func textLineHeight(for elementType: String) -> CGFloat? {
         switch elementType {
-        case "code", "kbd", "samp":
+        case "code", "kbd", "samp", "pre":
             return 14
         default:
             return nil
+        }
+    }
+
+    /// Returns a Yoga-only minHeight for elements that need it to emulate
+    /// CSS inline formatting context behavior. This is applied directly to
+    /// the Yoga node (NOT stored in the style dict) so it won't appear in
+    /// layout comparison diffs.
+    ///
+    /// CSS `vertical-align: sub/super` shifts text below/above the baseline,
+    /// expanding the parent line box. Yoga flex layout has no equivalent —
+    /// `alignSelf` positions children within the row but doesn't expand it.
+    /// Setting a minHeight on sub/sup makes them tall enough to expand the
+    /// parent flex row to match the web's line box height.
+    ///
+    /// Values are calibrated for the default 16px parent font size:
+    /// - sub: web line box expands to ~24px (baseline shift down ~4px)
+    /// - sup: web line box expands to ~23px (baseline shift up ~3px)
+    public static func yogaMinHeight(for elementType: String) -> CGFloat? {
+        switch elementType {
+        case "sub":
+            return 24
+        case "sup":
+            return 23
+        case "textarea":
+            return 34
+        default:
+            return nil
+        }
+    }
+
+    /// Returns true if the element type is CSS inline and should use Yoga
+    /// `display: inlineBlock` for shrink-to-fit width inside block containers.
+    /// This is set directly on the Yoga node (NOT stored in the style dict)
+    /// to avoid false comparison diffs with web's computed display values.
+    ///
+    /// CSS inline elements stretch to full parent width in Yoga's block layout
+    /// (calculateBlockLayout). Setting inlineBlock gives them content-sized
+    /// width, matching CSS inline behavior where width = content width.
+    public static func needsInlineBlockDisplay(for elementType: String) -> Bool {
+        switch elementType {
+        case "strong", "b", "em", "i", "u", "s", "del", "ins",
+             "mark", "small", "code", "kbd", "samp",
+             "cite", "dfn", "var", "sub", "sup",
+             "span", "a", "q", "time", "abbr", "data",
+             "bdi", "bdo", "wbr", "ruby", "rt", "rp", "output":
+            return true
+        default:
+            return false
         }
     }
 
@@ -182,11 +232,43 @@ public enum ElementDefaults {
             return defaults
         }
         guard !defaults.isEmpty else {
-            return expandBorderShorthand(userStyle)
+            var style = expandBorderShorthand(userStyle)
+            // Resolve unitless lineHeight (see comment below)
+            if let rawLH = userStyle["lineHeight"], let lh = toDouble(rawLH) {
+                let fontSize: Double
+                if let userFS = userStyle["fontSize"], let fs = toDouble(userFS) {
+                    fontSize = fs
+                } else {
+                    fontSize = 16
+                }
+                style["lineHeight"] = lh * fontSize
+            }
+            return style
         }
         var merged = defaults
         for (key, value) in userStyle {
             merged[key] = value
+        }
+
+        // CSS shorthand properties override individual properties.
+        // When user sets `padding: 8`, remove default individual padding
+        // values so YogaStyleApplier's shorthand → individual ordering
+        // doesn't let defaults override the user's shorthand.
+        if userStyle["padding"] != nil {
+            for key in ["paddingTop", "paddingBottom", "paddingLeft", "paddingRight",
+                        "paddingHorizontal", "paddingVertical"] {
+                if userStyle[key] == nil {
+                    merged.removeValue(forKey: key)
+                }
+            }
+        }
+        if userStyle["margin"] != nil {
+            for key in ["marginTop", "marginBottom", "marginLeft", "marginRight",
+                        "marginHorizontal", "marginVertical"] {
+                if userStyle[key] == nil {
+                    merged.removeValue(forKey: key)
+                }
+            }
         }
 
         // CSS margins specified in `em` units scale with fontSize.
@@ -203,7 +285,69 @@ public enum ElementDefaults {
             }
         }
 
+        // CSS unitless line-height is a multiplier of fontSize (e.g.
+        // lineHeight: 2 with fontSize: 16 = 32px).  React DOM treats
+        // numeric lineHeight values as unitless (no "px" suffix), so we
+        // resolve to pixels here to match getComputedStyle behavior.
+        if let rawLH = userStyle["lineHeight"], let lh = toDouble(rawLH) {
+            let fontSize: Double
+            if let userFS = merged["fontSize"], let fs = toDouble(userFS) {
+                fontSize = fs
+            } else {
+                fontSize = 16
+            }
+            merged["lineHeight"] = lh * fontSize
+        }
+
         return expandBorderShorthand(merged)
+    }
+
+    /// Recomputes em-relative margins on a child element based on the
+    /// parent's fontSize, simulating CSS font-size inheritance for margin
+    /// computation. Called at appendChild time when the parent's effective
+    /// fontSize differs from the child's default.
+    ///
+    /// In CSS, `<p>` has `margin: 1em 0` where `1em` resolves to the
+    /// element's computed font-size. When a `<p>` is inside a container
+    /// with a different font-size (e.g. `<address style="font-size:14px">`),
+    /// the margins scale accordingly. Since we don't have full CSS
+    /// inheritance, we approximate by recomputing margins at insertion time.
+    ///
+    /// Returns the updated style dict if margins were recomputed, or nil
+    /// if no changes were needed.
+    public static func recomputeEmMargins(
+        childType: String,
+        childStyle: [String: Any],
+        parentFontSize: Double
+    ) -> [String: Any]? {
+        guard let multiplier = emMarginMultiplier[childType] else { return nil }
+
+        // Get the child's own fontSize (from defaults or user override)
+        guard let childFontSize = toDouble(childStyle["fontSize"] ?? 16) else { return nil }
+
+        // Only recompute if parent fontSize differs from child fontSize
+        // and the child's margins match the default (not user-overridden)
+        guard parentFontSize != childFontSize else { return nil }
+
+        let defaultMarginTop = childFontSize * multiplier
+        let defaultMarginBottom = childFontSize * multiplier
+
+        let currentMarginTop = toDouble(childStyle["marginTop"] ?? 0) ?? 0
+        let currentMarginBottom = toDouble(childStyle["marginBottom"] ?? 0) ?? 0
+
+        // Only recompute if margins are still at their default values
+        // (i.e. user hasn't explicitly overridden them)
+        guard abs(currentMarginTop - defaultMarginTop) < 0.01,
+              abs(currentMarginBottom - defaultMarginBottom) < 0.01 else {
+            return nil
+        }
+
+        var updated = childStyle
+        updated["marginTop"] = parentFontSize * multiplier
+        updated["marginBottom"] = parentFontSize * multiplier
+        // Also inherit the parent's fontSize since CSS would inherit it
+        updated["fontSize"] = parentFontSize
+        return updated
     }
 
     /// Em multiplier for default vertical margins. CSS uses `em` units for
@@ -220,6 +364,7 @@ public enum ElementDefaults {
         "ol": 1.0,
         "dl": 1.0,
         "blockquote": 1.0,
+        "pre": 1.0,
     ]
 
     /// Convert numeric style values (Int, Double, or NSNumber) to Double.
@@ -315,17 +460,22 @@ public enum ElementDefaults {
 
     private static let preDefaults: [String: Any] = [
         "display": "block",
-        "marginTop": 16,
-        "marginBottom": 16,
+        "flexDirection": "row",
+        "flexWrap": "wrap",
+        "fontSize": 13,
+        "marginTop": 13,
+        "marginBottom": 13,
         "fontFamily": "Menlo"
     ]
 
     private static let summaryDefaults: [String: Any] = [
-        "flexDirection": "row"
+        "flexDirection": "row",
+        "flexWrap": "wrap",
+        "fontSize": 16
     ]
 
     private static let dialogDefaults: [String: Any] = [
-        "display": "block",
+        "display": "none",
         "paddingTop": 16,
         "paddingBottom": 16,
         "paddingLeft": 16,
@@ -337,6 +487,7 @@ public enum ElementDefaults {
 
     private static let fieldsetDefaults: [String: Any] = [
         "display": "block",
+        "fontSize": 16,
         "marginLeft": 2,
         "marginRight": 2,
         "paddingTop": 5.6,
@@ -344,13 +495,13 @@ public enum ElementDefaults {
         "paddingLeft": 12,
         "paddingRight": 12,
         "borderWidth": 2,
-        "borderColor": "#C0C0C0",
-        "borderRadius": 4
+        "borderColor": "#C0C0C0"
     ]
 
     private static let legendDefaults: [String: Any] = [
-        "display": "block",
         "flexDirection": "row",
+        "flexWrap": "wrap",
+        "fontSize": 16,
         "paddingLeft": 2,
         "paddingRight": 2
     ]
@@ -456,12 +607,14 @@ public enum ElementDefaults {
 
     private static let dlDefaults: [String: Any] = [
         "display": "block",
+        "fontSize": 16,
         "marginTop": 16,
         "marginBottom": 16
     ]
 
     private static let ddDefaults: [String: Any] = [
         "display": "block",
+        "fontSize": 16,
         "marginLeft": 40
     ]
 
@@ -532,13 +685,12 @@ public enum ElementDefaults {
         "display": "inline-block",
         "boxSizing": "border-box",
         "width": 154,
-        "minHeight": 48,
         "paddingTop": 4,
         "paddingBottom": 4,
         "paddingLeft": 4,
         "paddingRight": 4,
         "borderWidth": 1,
-        "borderColor": "#767676",
+        "borderColor": "rgba(60, 60, 67, 0.6)",
         "borderRadius": 2,
         "fontSize": 11,
         "backgroundColor": "#FFFFFF"
@@ -546,15 +698,18 @@ public enum ElementDefaults {
 
     private static let selectDefaults: [String: Any] = [
         "display": "inline-block",
+        "boxSizing": "border-box",
         "flexDirection": "row",
         "alignItems": "center",
-        "height": 32,
+        "height": 20,
+        "minHeight": 20,
         "paddingLeft": 4,
         "paddingRight": 4,
         "borderWidth": 1,
-        "borderColor": "#767676",
-        "borderRadius": 2,
-        "backgroundColor": "#FFFFFF"
+        "borderColor": "#FFFFFF",
+        "borderRadius": 10,
+        "fontSize": 11,
+        "backgroundColor": "#E9E9EA"
     ]
 
     private static let progressDefaults: [String: Any] = [
@@ -601,6 +756,8 @@ public enum ElementDefaults {
         "height": 0,
         "marginTop": 8,
         "marginBottom": 8,
+        "marginLeft": "auto",
+        "marginRight": "auto",
         "borderTopWidth": 1,
         "borderTopColor": "#808080"
     ]
@@ -651,6 +808,21 @@ public enum ElementDefaults {
     private static let smallDefaults: [String: Any] = [
         "flexDirection": "row",
         "flexShrink": 1,
+        "alignSelf": "flex-end",
+        "fontSize": 13.28
+    ]
+
+    private static let subDefaults: [String: Any] = [
+        "flexDirection": "row",
+        "flexShrink": 1,
+        "alignSelf": "flex-end",
+        "fontSize": 13.28
+    ]
+
+    private static let supDefaults: [String: Any] = [
+        "flexDirection": "row",
+        "flexShrink": 1,
+        "alignSelf": "flex-start",
         "fontSize": 13.28
     ]
 

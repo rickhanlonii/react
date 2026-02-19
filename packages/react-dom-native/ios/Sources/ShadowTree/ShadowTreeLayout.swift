@@ -111,18 +111,22 @@ public enum ShadowTreeLayout {
         let overflow = style["overflow"] as? String
 
         if overflow == "scroll" || overflow == "auto" {
-            // Create temp root with same width but unbounded height
+            // Create temp root that mirrors the scroll container's styles
+            // but with unbounded height for natural content measurement
             let tempRoot = YGNodeNewWithConfig(YogaConfig.shared)!
-            YGNodeStyleSetFlexDirection(tempRoot, YGNodeStyleGetFlexDirection(node.yogaNode))
-            YGNodeStyleSetWidth(tempRoot, Float(node.layoutFrame.width))
+            YGNodeCopyStyle(tempRoot, node.yogaNode)
 
-            // Copy gap from original node
-            let gap = YGNodeStyleGetGap(node.yogaNode, .all)
-            if gap.unit == .point {
-                YGNodeStyleSetGap(tempRoot, .all, gap.value)
-            } else if gap.unit == .percent {
-                YGNodeStyleSetGapPercent(tempRoot, .all, gap.value)
-            }
+            // Override boxSizing to border-box BEFORE setting width.
+            // node.layoutFrame.width is the total outer width (including
+            // padding + border), which is what YGNodeLayoutGetWidth returns
+            // regardless of box-sizing. With border-box, setWidth interprets
+            // the value as total outer width, giving correct content area.
+            YGNodeStyleSetBoxSizing(tempRoot, .borderBox)
+            YGNodeStyleSetWidth(tempRoot, Float(node.layoutFrame.width))
+            // Override: unbounded height for content measurement
+            YGNodeStyleSetHeightAuto(tempRoot)
+            // Override: don't constrain children to container height
+            YGNodeStyleSetOverflow(tempRoot, .visible)
 
             // Reparent children to temp root
             for (index, child) in node.children.enumerated() {
@@ -143,6 +147,9 @@ public enum ShadowTreeLayout {
                 contentHeight = max(contentHeight, bottom)
                 readLayoutFrames(node: child)
             }
+            // Add bottom padding to content height
+            let paddingBottom = CGFloat(YGNodeLayoutGetPadding(tempRoot, .bottom))
+            contentHeight += paddingBottom
             node.scrollContentSize = CGSize(
                 width: node.layoutFrame.width,
                 height: contentHeight

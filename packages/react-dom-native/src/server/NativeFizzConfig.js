@@ -218,6 +218,13 @@ exports.writeCompletedRoot = function writeCompletedRoot(
 };
 
 // -- Suspense boundaries (inline in shell) --
+//
+// These write* functions are used by Fizz's flush loop as flow-control
+// signals. Functions that write to the destination MUST return the result
+// of destination.write() (boolean). No-op write functions that don't
+// produce output MUST return true to indicate "no back-pressure."
+// Returning undefined (implicit) is treated as false by Fizz, which
+// causes the flush to bail out and can leave boundaries stuck.
 
 exports.writeStartCompletedSuspenseBoundary = function writeStartCompletedSuspenseBoundary(
   destination,
@@ -262,7 +269,6 @@ exports.writeStartClientRenderedSuspenseBoundary = function writeStartClientRend
   errorStack,
   errorComponentStack,
 ) {
-  // Client-rendered boundaries are handled via the E instruction
   return true;
 };
 
@@ -358,14 +364,14 @@ exports.writePreambleStart = function writePreambleStart(
   renderState,
   willFlushAllSegments,
 ) {
-  // No-op
+  // No-op — return value not checked by Fizz
 };
 
 exports.writePreambleEnd = function writePreambleEnd(
   destination,
   renderState,
 ) {
-  // No-op
+  // No-op — return value not checked by Fizz
 };
 
 exports.writeHoistables = function writeHoistables(
@@ -373,7 +379,7 @@ exports.writeHoistables = function writeHoistables(
   resumableState,
   renderState,
 ) {
-  // No-op
+  // No-op — return value not checked by Fizz
 };
 
 exports.writeHoistablesForBoundary = function writeHoistablesForBoundary(
@@ -381,14 +387,18 @@ exports.writeHoistablesForBoundary = function writeHoistablesForBoundary(
   hoistableState,
   renderState,
 ) {
-  // No-op
+  // No-op but must return true — Fizz uses the return value as a
+  // flow-control signal in the flush loop. Returning undefined (falsy)
+  // causes the flush to bail out and sets request.destination = null,
+  // leaving remaining boundaries stuck and the stream open forever.
+  return true;
 };
 
 exports.writePostamble = function writePostamble(
   destination,
   resumableState,
 ) {
-  // No-op
+  // No-op — return value not checked by Fizz
 };
 
 // -- Resource management (all no-ops for native) --

@@ -169,26 +169,38 @@ public enum YogaStyleApplier {
             YGNodeStyleSetMargin(node, .vertical, mv)
         }
 
-        // width / height
+        // width / height (numeric or percentage string like "100%")
         if let w = toFloat(style["width"]) {
             YGNodeStyleSetWidth(node, w)
+        } else if let wp = toPercent(style["width"]) {
+            YGNodeStyleSetWidthPercent(node, wp)
         }
         if let h = toFloat(style["height"]) {
             YGNodeStyleSetHeight(node, h)
+        } else if let hp = toPercent(style["height"]) {
+            YGNodeStyleSetHeightPercent(node, hp)
         }
 
         // minWidth / minHeight / maxWidth / maxHeight
         if let mw = toFloat(style["minWidth"]) {
             YGNodeStyleSetMinWidth(node, mw)
+        } else if let mwp = toPercent(style["minWidth"]) {
+            YGNodeStyleSetMinWidthPercent(node, mwp)
         }
         if let mh = toFloat(style["minHeight"]) {
             YGNodeStyleSetMinHeight(node, mh)
+        } else if let mhp = toPercent(style["minHeight"]) {
+            YGNodeStyleSetMinHeightPercent(node, mhp)
         }
         if let mw = toFloat(style["maxWidth"]) {
             YGNodeStyleSetMaxWidth(node, mw)
+        } else if let mwp = toPercent(style["maxWidth"]) {
+            YGNodeStyleSetMaxWidthPercent(node, mwp)
         }
         if let mh = toFloat(style["maxHeight"]) {
             YGNodeStyleSetMaxHeight(node, mh)
+        } else if let mhp = toPercent(style["maxHeight"]) {
+            YGNodeStyleSetMaxHeightPercent(node, mhp)
         }
 
         // flex
@@ -369,5 +381,14 @@ public enum YogaStyleApplier {
             return Float(i)
         }
         return nil
+    }
+
+    /// Extract percentage value from a string like "100%" → 100.
+    private static func toPercent(_ value: Any?) -> Float? {
+        guard let str = value as? String, str.hasSuffix("%") else {
+            return nil
+        }
+        let numStr = String(str.dropLast())
+        return Float(numStr)
     }
 }
