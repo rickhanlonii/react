@@ -178,14 +178,56 @@ app.get('/bundle-version', function (req, res) {
   res.json({ version: getLatestVersion() });
 });
 
-app.get('/', function (req, res) {
-  // Clear require cache so edits to server components are picked up
+// Discover fixtures from the fixtures directory
+var FIXTURES_DIR = path.resolve(__dirname, 'src/fixtures');
+
+app.get('/fixtures', function (req, res) {
+  clearServerSourceCache();
+  var files = fs.readdirSync(FIXTURES_DIR)
+    .filter(function(f) { return f.endsWith('.js'); })
+    .sort();
+
+  var fixtures = files.map(function(f) {
+    var mod = require(path.join(FIXTURES_DIR, f));
+    var meta = mod.fixture || {};
+    var name = f.replace('.js', '');
+    return {
+      name: name,
+      title: meta.title || name,
+      description: meta.description || '',
+    };
+  });
+
+  res.json(fixtures);
+});
+
+app.get('/fixtures/:name', function (req, res) {
   clearServerSourceCache();
 
-  // Dynamic import to ensure babel + node-register hooks are active
-  var App = require('./src/App');
-  // Handle both default export styles
-  var AppComponent = App.default || App;
+  var fixturePath = path.join(FIXTURES_DIR, req.params.name + '.js');
+  if (!fs.existsSync(fixturePath)) {
+    res.status(404).send('Fixture not found: ' + req.params.name);
+    return;
+  }
+
+  var mod = require(fixturePath);
+  var FixtureComponent = mod.default || mod;
+  var element = React.createElement(FixtureComponent);
+
+  res.setHeader('Content-Type', 'text/x-component');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
+  var renderToPipeableStream =
+    require('react-server-dom-webpack/server').renderToPipeableStream;
+  var stream = renderToPipeableStream(element, buildClientManifest());
+  stream.pipe(res);
+});
+
+app.get('/', function (req, res) {
+  clearServerSourceCache();
+
+  var mod = require('./src/fixtures/kitchen-sink');
+  var AppComponent = mod.default || mod;
   var element = React.createElement(AppComponent);
 
   res.setHeader('Content-Type', 'text/x-component');
