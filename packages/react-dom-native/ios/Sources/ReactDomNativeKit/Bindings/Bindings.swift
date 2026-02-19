@@ -117,6 +117,7 @@ public class Bindings {
         rootView.addSubview(scrollView)
         rootViews[surfaceId] = scrollView
         currentTrees[surfaceId] = []
+        mutationApplier.installRootTapGesture(on: scrollView)
     }
 
     /// Returns the current shadow tree for a surface, or nil if not registered.
@@ -159,6 +160,7 @@ public class Bindings {
         rootViews[surfaceId] = scrollView
         currentTrees[surfaceId] = ssrTree
         viewRegistry.merge(from: ssrViewRegistry)
+        mutationApplier.installRootTapGesture(on: scrollView)
     }
 
     /// Registers an SSR tree for hydration traversal.
@@ -548,6 +550,17 @@ public class Bindings {
                 ) {
                     child.props["style"] = updated
                     YogaStyleApplier.apply(updated, to: child.yogaNode)
+                    // Update Yoga minHeight for text containers whose fontSize
+                    // changed due to inheritance (e.g. <p> inside <address
+                    // style="fontSize:14">). The minHeight was set during
+                    // createElementNode using the default fontSize, but now
+                    // the inherited fontSize is different.
+                    if let newFS = (updated["fontSize"] as? NSNumber)?.doubleValue
+                        ?? (updated["fontSize"] as? Double),
+                       let minH = ElementDefaults.yogaTextContainerMinHeight(
+                           for: child.family.elementType, fontSize: CGFloat(newFS)) {
+                        YGNodeStyleSetMinHeight(child.yogaNode, Float(minH))
+                    }
                 }
             }
 
@@ -1129,7 +1142,7 @@ public class Bindings {
             return nil
         }
 
-        // $$setInstanceHandle(nodeId, instanceHandle) -> void
+        // $$setInstanceHandle(nodeId, instanceHandle, hasClickHandler) -> void
         // Called during hydration to attach the React fiber reference to an
         // SSR-created node's family so that event dispatch works.
         engine.setGlobalFunction("$$setInstanceHandle") { [weak self, weak engine] args in
@@ -1139,6 +1152,9 @@ public class Bindings {
             let instanceHandle = args[1]
             engine.protect(instanceHandle)
             node.family.instanceHandle = instanceHandle
+            if args.count > 2, engine.toBool(args[2]) == true {
+                node.family.hasClickHandler = true
+            }
             return nil
         }
     }

@@ -47,6 +47,7 @@ public class UIKitMutationApplier: NSObject {
                 // children with negative zIndex can render behind the background
                 // (matching CSS stacking context behavior).
                 applyBackgroundLayerIfNeeded(to: view, props: node.props)
+                node.family.hasClickHandler = node.props["onClick"] != nil
                 print("[\(logPrefix)]   frame: \(view.frame)")
                 viewRegistry.register(view: view, family: node.family)
 
@@ -86,6 +87,7 @@ public class UIKitMutationApplier: NSObject {
                 }
                 updateView(view, elementType: node.family.elementType, props: newProps)
                 view.frame = node.layoutFrame
+                node.family.hasClickHandler = newProps["onClick"] != nil
                 applyBackgroundLayerIfNeeded(to: view, props: newProps)
                 if let scrollView = view as? UIScrollView, let contentSize = node.scrollContentSize {
                     scrollView.contentSize = contentSize
@@ -506,6 +508,36 @@ public class UIKitMutationApplier: NSObject {
     }
 
     // MARK: - Event Handlers
+
+    /// Installs a root-level tap gesture recognizer for event delegation.
+    /// Like web React, a single listener on the root captures all taps and
+    /// dispatches click events to the correct element by hit-testing.
+    /// This works for both SSR and CSR views.
+    public func installRootTapGesture(on view: UIView) {
+        let tap = UITapGestureRecognizer(target: self, action: #selector(handleRootTap(_:)))
+        tap.cancelsTouchesInView = false
+        view.addGestureRecognizer(tap)
+    }
+
+    @objc private func handleRootTap(_ sender: UITapGestureRecognizer) {
+        guard let rootView = sender.view else { return }
+        let point = sender.location(in: rootView)
+        guard let hitView = rootView.hitTest(point, with: nil) else { return }
+
+        // Walk up the view hierarchy from the hit view, dispatching click
+        // events for each registered element that has a click handler (event
+        // bubbling). Skip UIButton and UITextField — they handle their own
+        // events via addTarget.
+        var current: UIView? = hitView
+        while let view = current, view !== rootView {
+            if !(view is UIButton) && !(view is UITextField),
+               let family = viewRegistry.family(for: view),
+               family.hasClickHandler {
+                dispatchEvent?(view, "click", [:])
+            }
+            current = view.superview
+        }
+    }
 
     @objc private func handleButtonTap(_ sender: UIButton) {
         dispatchEvent?(sender, "click", [:])

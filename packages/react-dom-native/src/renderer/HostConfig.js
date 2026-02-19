@@ -19,6 +19,21 @@ const ContinuousEventPriority = 8;
 let currentUpdatePriority = DefaultEventPriority;
 
 // ---------------------------------------------------------------------------
+// Event handler bridging
+// ---------------------------------------------------------------------------
+// JSC's toDictionary() drops function values, so event handlers like onClick
+// vanish when props cross the bridge. Replace them with `true` canary values
+// so the native side can check which elements have handlers and skip
+// dispatching events for those that don't.
+function replaceEventHandlers(props) {
+  for (var key in props) {
+    if (key.length > 2 && key[0] === 'o' && key[1] === 'n' && typeof props[key] === 'function') {
+      props[key] = true;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Suspense boundary tracking — maps SSR boundary IDs to suspense instances
 // so $$notifyBoundaryRevealed can fire retry callbacks when the Swift side
 // reveals a boundary after hydration has already registered retry callbacks.
@@ -107,6 +122,10 @@ exports.createInstance = function createInstance(
     resolvedProps = {...props, style: style._init(style._payload)};
   }
   const {children, ...nativeProps} = resolvedProps;
+  // Replace event handler functions with `true` so they survive toDictionary()
+  // across the JSC bridge. The native side uses these canary values to skip
+  // dispatching events for views without handlers.
+  replaceEventHandlers(nativeProps);
   const nativeNode = $$createNode(
     type,
     rootContainer.surfaceId,
@@ -179,6 +198,7 @@ exports.cloneInstance = function cloneInstance(
     resolvedNewProps = {...newProps, style: newStyle._init(newStyle._payload)};
   }
   const {children, ...nativeNewProps} = resolvedNewProps;
+  replaceEventHandlers(nativeNewProps);
   let newNativeNode;
   if (keepChildren) {
     newNativeNode = $$cloneNodeWithNewProps(instance._nativeNode, nativeNewProps);
@@ -523,7 +543,9 @@ exports.hydrateInstance = function(instance, type, props, hostContext, internalH
   instance.props = props;
   instance.children = [];
   // Sync the fiber reference back to the Swift ShadowNodeFamily so event dispatch works.
-  $$setInstanceHandle(instance._ssrNodeRef, internalHandle);
+  // Also pass whether this element has a click handler so the native tap gesture
+  // can skip dispatching for elements without handlers.
+  $$setInstanceHandle(instance._ssrNodeRef, internalHandle, typeof props.onClick === 'function');
   // Return truthy = hydration succeeded (reconciler checks `hydrateInstance(...) || throwOnHydrationMismatch`)
   return true;
 };

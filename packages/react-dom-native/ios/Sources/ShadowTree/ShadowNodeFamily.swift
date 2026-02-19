@@ -23,6 +23,10 @@ public class ShadowNodeFamily {
     /// this family is alive.
     public var instanceHandle: AnyObject?
 
+    /// Whether the element has a click event handler (onClick prop).
+    /// Updated during CREATE/UPDATE mutations from the canary value in props.
+    public var hasClickHandler: Bool = false
+
     public init(elementType: String, surfaceId: Int, instanceHandle: AnyObject?) {
         self.elementType = elementType
         self.surfaceId = surfaceId

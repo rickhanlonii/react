@@ -59,10 +59,12 @@ function resolveClientReference(bundlerConfig, metadata) {
     exportName = metadata[2] || 'default';
   }
 
-  // bundlerConfig is the server base URL
+  // bundlerConfig is the server URL (may include a path like /fixtures/name).
+  // Extract origin (protocol + host + port) since modules always live at /modules/.
   var serverURL = typeof bundlerConfig === 'string' ? bundlerConfig : '';
+  var origin = serverURL.replace(/^(https?:\/\/[^\/]+).*$/, '$1');
   return {
-    url: serverURL + '/modules/' + moduleId + '.js',
+    url: origin + '/modules/' + moduleId + '.js',
     name: exportName,
     id: moduleId,
   };
