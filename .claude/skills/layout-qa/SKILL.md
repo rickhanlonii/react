@@ -130,16 +130,37 @@ When a fixer completes and the reviewer approves, you'll get a "Re-QA fixture" t
 3. If still failing → create new fix task with updated diffs
 4. If passing → mark task complete, send a message to layout-builder that QA passed
 
-## State File Format
+## State Files
 
-**APPEND-ONLY.** Never overwrite `docs/plans/agent-state/layout-qa.md` — always append new entries at the bottom. The team lead will compact the file when asked.
+You maintain two files — a **current** file and a **log** file.
 
-Each entry should be timestamped:
+### Current file: `docs/plans/agent-state/layout-qa.md`
+
+**OVERWRITE** this file every time you update. It always reflects your latest state. Use this exact template:
+
+```markdown
+# Layout QA — Current State
+
+**Status**: idle | testing
+**Current task**: <description or "none">
+**Blocked on**: <what, if anything>
+
+## Latest Results
+- Passing: X/Y
+- Failing: <list with diff counts>
+
+## Next
+- Awaiting: <what fixture to test next>
+```
+
+### Log file: `docs/plans/agent-state/layout-qa.log.md`
+
+**APPEND** a timestamped entry after completing each task. Never overwrite this file. This is an audit trail — you never need to read it.
+
 ```markdown
 ---
 ### <timestamp>
-- Ran all fixtures: X/Y passing
-- Failing: `fixture-a` (N diffs), `fixture-b` (N diffs)
-- Created fix tasks: #N, #N
-- Visual review: <any issues spotted>
+- Completed: <what was done>
+- Result: <outcome — pass/fail, metrics>
+- Files: <created or changed>
 ```

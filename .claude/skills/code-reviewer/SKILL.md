@@ -81,16 +81,39 @@ When reviewing SSR fixes, verify:
 - Check that Suspense boundary states are correct (pending/fallback)
 - Verify hydration traversal functions return correct node types
 
-## State File Format
+## State Files
 
-**APPEND-ONLY.** Never overwrite `docs/plans/agent-state/reviewer.md` — always append new entries at the bottom. The team lead will compact the file when asked.
+You maintain two files — a **current** file and a **log** file.
 
-Each entry should be timestamped:
+### Current file: `docs/plans/agent-state/reviewer.md`
+
+**OVERWRITE** this file every time you update. It always reflects your latest state. Use this exact template:
+
+```markdown
+# Reviewer — Current State
+
+**Status**: idle | reviewing
+**Current task**: <what's being reviewed>
+**Blocked on**: <what, if anything>
+
+## Current Review
+- Fix by: <which agent>
+- Fixture/feature: <name>
+- Decision: pending | APPROVED | REJECTED
+- Rationale: <if decided>
+
+## Next
+- Awaiting: <next review assignment>
+```
+
+### Log file: `docs/plans/agent-state/reviewer.log.md`
+
+**APPEND** a timestamped entry after completing each task. Never overwrite this file. This is an audit trail — you never need to read it.
+
 ```markdown
 ---
 ### <timestamp>
-- Reviewed: `fixture/feature` by `agent`
-- Decision: APPROVED / REJECTED
-- Rationale: <why>
-- Recurring pattern: <if applicable>
+- Completed: <what was done>
+- Result: <outcome — pass/fail, metrics>
+- Files: <created or changed>
 ```

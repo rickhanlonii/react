@@ -77,7 +77,7 @@ Do NOT edit fixtures, example app, flight-client, renderer.js, or SSR code.
 
    Fantom tests (`npm run test:fantom`) are optional — run them if your change is in HostConfig.js or the renderer.
 7. Send a message to the team lead with what you fixed and why
-8. Append to your state file
+8. Update your state files: append to `layout-fixer.log.md`, then overwrite `layout-fixer.md` with current state
 9. **Go idle.** Wait for the team lead to assign your next task.
 
 ## Task Discipline
@@ -101,17 +101,39 @@ DO:
 - Check if the fix applies correctly to similar elements
 - Explain in your review task WHY this is the right fix
 
-## State File Format
+## State Files
 
-**APPEND-ONLY.** Never overwrite `docs/plans/agent-state/layout-fixer.md` — always append new entries at the bottom. The team lead will compact the file when asked.
+You maintain two files — a **current** file and a **log** file.
 
-Each entry should be timestamped:
+### Current file: `docs/plans/agent-state/layout-fixer.md`
+
+**OVERWRITE** this file every time you update. It always reflects your latest state. Use this exact template:
+
+```markdown
+# Layout Fixer — Current State
+
+**Status**: idle | fixing
+**Current task**: <fixture/feature and what's wrong>
+**Blocked on**: <what, if anything>
+**Attempt**: N
+
+## Current Fix
+- Root cause: <analysis>
+- Files changed: <list>
+- Tests: npm test PASS/FAIL, npm run test:swift PASS/FAIL
+
+## Next
+- Awaiting: <next assignment>
+```
+
+### Log file: `docs/plans/agent-state/layout-fixer.log.md`
+
+**APPEND** a timestamped entry after completing each task. Never overwrite this file. This is an audit trail — you never need to read it.
+
 ```markdown
 ---
 ### <timestamp>
-- Working on: `fixture-name` / `property`
-- Analysis: <what's wrong and why>
-- Fix: <what was changed> (file:line)
-- Tests: npm test PASS/FAIL, npm run test:swift PASS/FAIL
-- Attempt: N (if retrying)
+- Completed: <what was done>
+- Result: <outcome — pass/fail, metrics>
+- Files: <created or changed>
 ```

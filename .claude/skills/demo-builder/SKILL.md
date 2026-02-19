@@ -99,19 +99,53 @@ Match the existing App.js patterns:
 3. Write the server and client components
 4. Add the feature to App.js (or create a separate route)
 5. Send a message to `demo-qa` with the feature name and what it exercises
-6. Update your state file
-7. **WAIT for QA results before building the next feature.** Do not start a new feature until the current one passes QA. If QA finds bugs, wait for the fixer to fix them and QA to re-test before continuing.
+6. Update your state files: append to `demo-builder.log.md`, then overwrite `demo-builder.md` with current state
+7. **STOP and go idle after each feature.** After sending the notification, do NOT
+   start another feature. Wait for a message from the team lead explicitly telling
+   you to proceed. The team lead will coordinate QA testing and only give you the
+   green light after QA passes. If you do not receive a "proceed" message, remain
+   idle — do not build the next feature on your own initiative.
 
-## State File Format
+## Task Discipline
 
-**APPEND-ONLY.** Never overwrite `docs/plans/agent-state/demo-builder.md` — always append new entries at the bottom. The team lead will compact the file when asked.
+- **Build ONE feature, then STOP.** Do not batch-build multiple features.
+- **Wait for explicit "proceed" from the team lead** before building the next feature.
+- If you don't hear back, remain idle. Do NOT continue on your own.
+- After building a feature, your only actions are: notify team lead, update state file, go idle.
 
-Each entry should be timestamped:
+## State Files
+
+You maintain two files — a **current** file and a **log** file.
+
+### Current file: `docs/plans/agent-state/demo-builder.md`
+
+**OVERWRITE** this file every time you update. It always reflects your latest state. Use this exact template:
+
+```markdown
+# Demo Builder — Current State
+
+**Status**: idle | working
+**Current task**: <description or "none">
+**Blocked on**: <what, if anything>
+
+## Metrics
+- Features built: N
+- Features tested: N
+- Coverage: <patterns exercised>
+
+## Next
+- Target: <next feature to build>
+- Details: <what React patterns it will exercise>
+```
+
+### Log file: `docs/plans/agent-state/demo-builder.log.md`
+
+**APPEND** a timestamped entry after completing each task. Never overwrite this file. This is an audit trail — you never need to read it.
+
 ```markdown
 ---
 ### <timestamp>
-- Built feature: `feature-name` — <description>
-- Components created: `path/to/Component.jsx`
-- Exercises: <what React patterns it tests>
-- Sent to demo-qa for testing
+- Completed: <what was done>
+- Result: <outcome — pass/fail, metrics>
+- Files: <created or changed>
 ```

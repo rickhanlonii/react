@@ -68,7 +68,7 @@ hydrateRoot() called → reconciler.createHydrationContainer()
 4. Identify the root cause — which layer, which function, which condition
 5. Write the diagnosis report (see Report Format below)
 6. Send the report to the team lead
-7. Append to your state file
+7. Update your state files: append to `demo-fixer.log.md`, then overwrite `demo-fixer.md` with current state
 8. **Go idle.** Wait for the team lead to assign your next task.
 
 ## Report Format
@@ -116,16 +116,38 @@ Write each diagnosis report to `docs/plans/agent-state/demo-diagnosis-<feature-n
 - **Do NOT edit source files.** You are read-only. Your output is the diagnosis report.
 - After completing a diagnosis, your only action is: message the team lead, update state file, go idle.
 
-## State File Format
+## State Files
 
-**APPEND-ONLY.** Never overwrite `docs/plans/agent-state/demo-fixer.md` — always append new entries at the bottom. The team lead will compact the file when asked.
+You maintain two files — a **current** file and a **log** file.
 
-Each entry should be timestamped:
+### Current file: `docs/plans/agent-state/demo-fixer.md`
+
+**OVERWRITE** this file every time you update. It always reflects your latest state. Use this exact template:
+
+```markdown
+# Demo Diagnoser — Current State
+
+**Status**: idle | diagnosing
+**Current task**: <feature/error being diagnosed>
+**Blocked on**: <what, if anything>
+
+## Current Diagnosis
+- Symptom: <what QA reported>
+- Root cause: <analysis so far>
+- Report: <path to diagnosis report, if written>
+
+## Next
+- Awaiting: <next assignment>
+```
+
+### Log file: `docs/plans/agent-state/demo-fixer.log.md`
+
+**APPEND** a timestamped entry after completing each task. Never overwrite this file. This is an audit trail — you never need to read it.
+
 ```markdown
 ---
 ### <timestamp>
-- Diagnosed: `feature` / `error-type`
-- Root cause: <concise summary>
-- Report: `docs/plans/agent-state/demo-diagnosis-<feature-name>.md`
-- Severity: high / medium / low
+- Completed: <what was done>
+- Result: <outcome — pass/fail, metrics>
+- Files: <created or changed>
 ```

@@ -29,8 +29,8 @@ Configure XcodeBuildMCP for the example app on a SEPARATE simulator from Layout 
 session_set_defaults:
   projectPath: example/Falcon/Falcon.xcodeproj
   scheme: Falcon
-  simulatorName: iPhone 17 Pro
-  simulatorId: 195F992B-E1D2-4355-95EB-3A178E3357D8
+  simulatorName: Falcon Demo
+  simulatorId: 61F83D8B-36DF-474F-9AAD-61DC6D60FFED
 ```
 
 ## Workflow: Test a Demo Feature
@@ -125,16 +125,38 @@ Task format: "Diagnose demo: `<feature>` — `<error type>`: `<details>`"
 
 When the diagnoser completes its report, the demo-builder can continue to the next feature. You do NOT need to re-test — the user will fix the diagnosed issues manually and can re-run QA themselves.
 
-## State File Format
+## State Files
 
-**APPEND-ONLY.** Never overwrite `docs/plans/agent-state/demo-qa.md` — always append new entries at the bottom. The team lead will compact the file when asked.
+You maintain two files — a **current** file and a **log** file.
 
-Each entry should be timestamped:
+### Current file: `docs/plans/agent-state/demo-qa.md`
+
+**OVERWRITE** this file every time you update. It always reflects your latest state. Use this exact template:
+
+```markdown
+# Demo QA — Current State
+
+**Status**: idle | testing
+**Current task**: <description or "none">
+**Blocked on**: <what, if anything>
+
+## Latest Results
+- Feature: <last tested feature>
+- Verdict: PASS / FAIL
+- Issues: <description or "none">
+
+## Next
+- Awaiting: <what feature to test next>
+```
+
+### Log file: `docs/plans/agent-state/demo-qa.log.md`
+
+**APPEND** a timestamped entry after completing each task. Never overwrite this file. This is an audit trail — you never need to read it.
+
 ```markdown
 ---
 ### <timestamp>
-- Tested feature: `feature-name` — PASS / FAIL
-- Issues found: <description or "none">
-- Created tasks: #N (assigned to demo-fixer / layout-builder)
-- Hydration errors: <any error signatures found>
+- Completed: <what was done>
+- Result: <outcome — pass/fail, metrics>
+- Files: <created or changed>
 ```

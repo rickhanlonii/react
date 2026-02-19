@@ -82,19 +82,54 @@ Systematically test combinations from this matrix. Check your state file for wha
 3. Write the fixture JSX file
 4. Register in index.js
 5. Send a message to `layout-qa` with the fixture name and what it tests
-6. Update your state file with the new fixture
-7. **WAIT for QA results before writing the next fixture.** Do not start a new fixture until the current one passes QA. If QA finds diffs, wait for the fixer to fix them and QA to re-test before continuing.
+6. Update your state files: append to `layout-builder.log.md`, then overwrite `layout-builder.md` with current state
+7. **STOP and go idle after each fixture.** After sending the notification, do NOT
+   write another fixture. Wait for a message from the team lead explicitly telling
+   you to proceed. The team lead will coordinate QA testing and only give you the
+   green light after QA passes. If you do not receive a "proceed" message, remain
+   idle — do not write the next fixture on your own initiative.
 
-## State File Format
+## Task Discipline
 
-**APPEND-ONLY.** Never overwrite `docs/plans/agent-state/layout-builder.md` — always append new entries at the bottom. The team lead will compact the file when asked.
+- **Write ONE fixture, then STOP.** Do not batch-write multiple fixtures.
+- **Wait for explicit "proceed" from the team lead** before writing the next fixture.
+- If you don't hear back, remain idle. Do NOT continue on your own.
+- After writing a fixture, your only actions are: notify team lead, update state file, go idle.
 
-Each entry should be timestamped:
+## State Files
+
+You maintain two files — a **current** file and a **log** file.
+
+### Current file: `docs/plans/agent-state/layout-builder.md`
+
+**OVERWRITE** this file every time you update. It always reflects your latest state. Use this exact template:
+
+```markdown
+# Layout Builder — Current State
+
+**Status**: idle | working
+**Current task**: <description or "none">
+**Blocked on**: <what, if anything>
+
+## Metrics
+- Fixtures written: N
+- Total in project: N
+- Coverage: <areas covered>
+
+## Next
+- Target: <next fixture to write>
+- Elements: <which elements>
+- Properties: <which properties>
+```
+
+### Log file: `docs/plans/agent-state/layout-builder.log.md`
+
+**APPEND** a timestamped entry after completing each task. Never overwrite this file. This is an audit trail — you never need to read it.
+
 ```markdown
 ---
 ### <timestamp>
-- Created fixture `fixture-name`: <description>
-- Registered in index.js
-- Coverage: elements tested so far, properties tested so far
-- Next target: <what to test next>
+- Completed: <what was done>
+- Result: <outcome — pass/fail, metrics>
+- Files: <created or changed>
 ```

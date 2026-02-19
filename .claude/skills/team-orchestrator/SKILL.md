@@ -13,22 +13,36 @@ The **demo pipeline** has a diagnosis loop: builder → QA → diagnoser → rep
 
 ## Quick Start
 
-1. **Pre-flight check** — verify XcodeBuildMCP can build and launch both apps
-2. **Assess current state** — check LayoutCompare results and Falcon app logs for existing issues
-3. Call `TeamCreate` with `team_name: "react-dom-native-qa"`
+1. **Team cleanup** — delete and recreate the team (preserves state files)
+2. **Pre-flight check** — verify XcodeBuildMCP can build and launch both apps
+3. **Assess current state** — check LayoutCompare results and Falcon app logs for existing issues
 4. Spawn 7 teammates (see Spawn section below)
 5. Seed tasks based on assessment (see Seeding section below)
 6. Enter monitoring loop
+
+## Team Cleanup
+
+Before spawning agents, clean up any stale team from a prior session. Stale teams accumulate terminated agents with suffixed names, causing message routing failures.
+
+1. Call `TeamDelete` to remove the existing `react-dom-native-qa` team (if one exists). This is safe — agent state is preserved in `docs/plans/agent-state/*.md` (current state) and `docs/plans/agent-state/*.log.md` (audit history), so no work is lost.
+2. Call `TeamCreate` with `team_name: "react-dom-native-qa"` to start fresh with a clean member list.
+
+If `TeamDelete` fails because no team exists, that's fine — proceed to `TeamCreate`.
 
 ## Pre-flight Check (REQUIRED)
 
 Before spawning any teammates, verify you can build and launch both apps. Subagents cannot build due to sandbox restrictions — only the lead agent can build.
 
-1. Start dev servers (use the Bash tool's `run_in_background: true` parameter — do NOT use `&`, redirects, `echo`, or any other shell tricks):
-   ```
-   Bash(command: "npm run dev:e2e", run_in_background: true)
-   Bash(command: "cd /Users/rickhanlonii/oss/falcon/example && npm run dev", run_in_background: true)
-   ```
+**Do NOT wrap commands** in custom bash — no `echo`, `2>&1`, `2>/dev/null`, `sleep`, `&`, `; echo "EXIT CODE: $?"`, piping through `python3 -c`, or similar. Run each command directly using the Bash tool. To run commands in the background, use the Bash tool's `run_in_background: true` parameter.
+
+1. Check if dev servers are already running:
+   - `curl -s http://localhost:6100/bundle-version` — E2E server
+   - `curl -s http://localhost:6000/bundle-version` — Flight server
+   - `curl -s http://localhost:6001/healthz` — SSR server
+   Only start servers that aren't already responding (use the Bash tool's `run_in_background: true` parameter — do NOT use `&`, redirects, `echo`, or any other shell tricks):
+   - If E2E server is not responding: `Bash(command: "npm run dev:e2e", run_in_background: true)`
+   - If Flight/SSR servers are not responding: `Bash(command: "cd /Users/rickhanlonii/oss/falcon/example && npm run dev", run_in_background: true)`
+   Wait 5 seconds after starting, then re-check health endpoints to confirm they're up.
 2. Build and launch **LayoutCompare** on Falcon E2E:
    ```
    session_set_defaults: projectPath=tests/e2e/LayoutCompare/LayoutCompare/LayoutCompare.xcodeproj, scheme=LayoutCompare, simulatorId=50E9E48E-D7F7-4338-9873-3EB801137EE7, bundleId=com.react.LayoutCompare
@@ -39,8 +53,12 @@ Before spawning any teammates, verify you can build and launch both apps. Subage
    session_set_defaults: simulatorId=195F992B-E1D2-4355-95EB-3A178E3357D8, projectPath=example/Falcon/Falcon.xcodeproj, scheme=Falcon, bundleId=com.react.Falcon
    build_run_sim
    ```
-4. Verify both apps are running:
-   - `curl -s http://localhost:6101/results` (via Bash) — LayoutCompare results endpoint
+4. Trigger LayoutCompare tests and verify results:
+   - `curl -X POST http://localhost:6101/run-all` (via Bash) — triggers test execution
+   - Wait 5 seconds for tests to run
+   - `curl -s http://localhost:6101/results` (via Bash) — if `status` is `"running"`, wait 2s and poll again until `"complete"`
+   - Verify results JSON has fixtures and a non-zero `total` — if `total` is 0 or `status` is `"idle"`, tests didn't run; re-trigger
+5. Verify Falcon app is running:
    - `screenshot` on iPhone 17 Pro — Falcon app renders
 
 **If either build fails: STOP. Tell the user.** Do not spawn teammates until both apps are confirmed running. The QA agents cannot build — they can only inspect already-running apps.
@@ -50,9 +68,11 @@ Before spawning any teammates, verify you can build and launch both apps. Subage
 If you see a message about compaction recovery:
 1. Read `docs/plans/agent-team-state.md` for overall progress
 2. Read all files in `docs/plans/agent-state/` for per-agent state
-3. Call `TeamCreate` with `team_name: "react-dom-native-qa"`
-4. Spawn all 7 teammates (same as fresh start)
-5. Seed tasks based on where each pipeline left off (use state files)
+3. Delete the existing team with `TeamDelete` (if one exists)
+4. Call `TeamCreate` with `team_name: "react-dom-native-qa"`
+5. Spawn all 7 teammates (same as fresh start)
+6. Note actual spawned names and update your name mapping (see Name Tracking)
+7. Seed tasks based on where each pipeline left off (use state files)
 
 ## Spawn Teammates
 
@@ -68,14 +88,30 @@ Spawn all 7 using the `Task` tool with `team_name: "react-dom-native-qa"` and `s
 | `demo-fixer` | `You are the Demo Diagnoser. Invoke the /demo-fixer skill. Read docs/plans/agent-state/demo-fixer.md if it exists. Check TaskList for work.` |
 | `reviewer` | `You are the Reviewer. Invoke the /code-reviewer skill. Read docs/plans/agent-state/reviewer.md if it exists. Check TaskList for work.` |
 
+## Name Tracking
+
+> ⚠️ **CRITICAL: Agent names may be auto-suffixed (e.g., "layout-builder" → "layout-builder-2").**
+> Always use the actual name returned by the Task tool, never the base role name.
+> Messages sent to wrong names are silently dropped.
+
+After each `Task` spawn call returns, the result includes the **actual agent name** assigned by the system. This name may differ from the requested name if an agent with that name existed previously.
+
+1. After each spawn, note the actual agent name from the Task tool result
+2. Maintain a mapping of role → actual name (e.g., `layout-builder → layout-builder-2`)
+3. **Always use the actual spawned name** for all `SendMessage` `recipient` fields, `shutdown_request` targets, and task `owner` fields
+4. When restarting an agent, the new instance will get a new suffixed name — update your mapping
+
 ## Assess Current State (after pre-flight, before spawning)
 
 After both apps are running, assess the current state of each pipeline BEFORE spawning teammates. This determines what tasks to seed.
 
 ### Layout Pipeline Assessment
-1. Fetch LayoutCompare results: `curl -s http://localhost:6101/results` (via Bash)
-2. Note which fixtures exist, which pass, which fail
-3. For each failing fixture, prepare a "Fix layout" task with the diff details
+1. Trigger test run: `curl -X POST http://localhost:6101/run-all` (via Bash)
+2. Wait 5 seconds for tests to complete
+3. Poll results: `curl -s http://localhost:6101/results` (via Bash) — if `status` is `"running"`, wait 2s and poll again until `"complete"`
+4. If `status` is `"idle"` or `total` is 0, tests didn't trigger — re-POST and poll again
+5. Note which fixtures exist, which pass, which fail
+6. For each failing fixture, prepare a "Fix layout" task with the diff details
 
 ### Demo Pipeline Assessment
 1. Switch to Falcon simulator: `session_set_defaults: simulatorId=195F992B-E1D2-4355-95EB-3A178E3357D8, bundleId=com.react.Falcon`
@@ -87,7 +123,7 @@ After both apps are running, assess the current state of each pipeline BEFORE sp
 7. Note any rendering issues or errors for fix tasks
 
 ### Record Assessment
-Write findings to `docs/plans/agent-team-state.md` before spawning teammates.
+Overwrite `docs/plans/agent-team-state.md` with findings before spawning teammates.
 
 ## Seed Tasks Based on Assessment
 
@@ -117,7 +153,7 @@ After seeding tasks, continuously:
 1. Check `TaskList` for stalled/blocked work
 2. **Enforce sequential pipeline flow** (see Pipeline Flow Rules below)
 3. When a builder reports completion, tell the QA agent to test — do NOT tell the builder to start the next item yet
-4. Write `docs/plans/agent-team-state.md` after every significant milestone
+4. Overwrite `docs/plans/agent-team-state.md` and append to `docs/plans/agent-team-state.log.md` after every significant milestone
 5. If teammates report issues, triage and redirect
 6. When rebuilds are needed (Swift changes), build the app yourself — subagents cannot build
 
@@ -159,11 +195,44 @@ The user will read these reports and fix the issues manually. Once the diagnosis
 
 ## State File Updates
 
-After every milestone, update `docs/plans/agent-team-state.md` with:
-- Current fixture count and pass rate
-- Demo features built and tested
-- Bugs found and fixed
-- What each pipeline is working on
+After every milestone, **overwrite** `docs/plans/agent-team-state.md` with current state using this template:
+
+```markdown
+# Agent Team State
+
+**Last updated**: <timestamp>
+
+## Metrics
+- Fixtures: X total, Y passing
+- Demo features: N built, M tested
+
+## Pipeline Status
+- Layout: <what's happening>
+- Demo: <what's happening>
+
+## Agent Status
+| Role | Actual Name | Status | Current Task |
+|------|-------------|--------|-------------|
+| layout-builder | <actual-name> | idle/working | <task or "—"> |
+| layout-qa | <actual-name> | idle/testing | <task or "—"> |
+| layout-fixer | <actual-name> | idle/fixing | <task or "—"> |
+| demo-builder | <actual-name> | idle/working | <task or "—"> |
+| demo-qa | <actual-name> | idle/testing | <task or "—"> |
+| demo-fixer | <actual-name> | idle/diagnosing | <task or "—"> |
+| reviewer | <actual-name> | idle/reviewing | <task or "—"> |
+```
+
+Also **append** a summary entry to `docs/plans/agent-team-state.log.md` at each milestone:
+
+```markdown
+---
+### <timestamp>
+- Milestone: <what happened>
+- Metrics: <current numbers>
+- Key changes: <fixes, features, etc.>
+```
+
+Do NOT read the log files. They are for the user's audit trail only.
 
 ## Agent Health & Restarts
 
@@ -192,10 +261,12 @@ When any signal is detected, restart immediately using the procedure below.
 ### Restart Procedure
 
 1. Note the agent's current task (if any) in `docs/plans/agent-team-state.md`
-2. Send `shutdown_request` to the agent
-3. Respawn with same name, skill, and `mode: "bypassPermissions"`
-4. The new agent reads its append-only state file and picks up where the old one left off
-5. Re-assign the incomplete task (if any)
+2. Send `shutdown_request` to the agent (using its current actual name)
+3. Respawn with same role name, skill, and `mode: "bypassPermissions"`
+4. Note the actual name returned — it may be suffixed (e.g., "layout-fixer-2")
+5. Update your name mapping for this role
+6. The new agent reads its current state file and picks up where the old one left off
+7. Re-assign the incomplete task using the new agent name
 
 ## Shutdown
 
