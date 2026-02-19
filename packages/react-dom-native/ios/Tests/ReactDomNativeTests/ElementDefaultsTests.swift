@@ -83,6 +83,9 @@ final class ElementDefaultsTests: XCTestCase {
         let defaults = ElementDefaults.defaults(for: "span")
         XCTAssertEqual(defaults["flexDirection"] as? String, "row")
         XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["fontSize"] as? Int, 16)
+        XCTAssertNil(defaults["display"])
+        XCTAssertNil(defaults["alignItems"])
     }
 
     // MARK: - defaults(for:) — Interactive
@@ -90,25 +93,31 @@ final class ElementDefaultsTests: XCTestCase {
     func testButtonDefaults() {
         let defaults = ElementDefaults.defaults(for: "button")
         XCTAssertEqual(defaults["display"] as? String, "inline-block")
+        XCTAssertEqual(defaults["boxSizing"] as? String, "border-box")
         XCTAssertEqual(defaults["flexDirection"] as? String, "row")
         XCTAssertEqual(defaults["alignItems"] as? String, "center")
         XCTAssertEqual(defaults["justifyContent"] as? String, "center")
-        XCTAssertEqual(defaults["paddingTop"] as? Int, 2)
-        XCTAssertEqual(defaults["paddingBottom"] as? Int, 3)
-        XCTAssertEqual(defaults["paddingLeft"] as? Int, 6)
-        XCTAssertEqual(defaults["paddingRight"] as? Int, 6)
-        XCTAssertEqual(defaults["borderWidth"] as? Int, 2)
+        XCTAssertEqual(defaults["paddingTop"] as? Int, 1)
+        XCTAssertEqual(defaults["paddingBottom"] as? Int, 1)
+        XCTAssertEqual(defaults["paddingLeft"] as? Int, 11)
+        XCTAssertEqual(defaults["paddingRight"] as? Int, 11)
+        XCTAssertEqual(defaults["borderWidth"] as? Int, 1)
         XCTAssertEqual(defaults["borderColor"] as? String, "#767676")
-        XCTAssertEqual(defaults["borderRadius"] as? Int, 4)
+        XCTAssertEqual(defaults["borderRadius"] as? Int, 10)
         XCTAssertEqual(defaults["backgroundColor"] as? String, "#EFEFEF")
-        XCTAssertEqual(defaults["fontSize"] as? Double, 13.3)
+        XCTAssertEqual(defaults["minHeight"] as? Int, 20)
+        XCTAssertEqual(defaults["fontSize"] as? Int, 11)
     }
 
     func testInputDefaults() {
         let defaults = ElementDefaults.defaults(for: "input")
-        XCTAssertEqual(defaults["height"] as? Int, 32)
+        XCTAssertEqual(defaults["display"] as? String, "inline-block")
+        XCTAssertEqual(defaults["boxSizing"] as? String, "border-box")
+        XCTAssertEqual(defaults["width"] as? Int, 154)
+        XCTAssertEqual(defaults["height"] as? Int, 20)
         XCTAssertEqual(defaults["borderWidth"] as? Int, 1)
         XCTAssertEqual(defaults["borderColor"] as? String, "#767676")
+        XCTAssertEqual(defaults["fontSize"] as? Int, 11)
     }
 
     // MARK: - defaults(for:) — Lists
@@ -136,6 +145,8 @@ final class ElementDefaultsTests: XCTestCase {
         XCTAssertEqual(defaults["textDecorationLine"] as? String, "underline")
         XCTAssertEqual(defaults["flexDirection"] as? String, "row")
         XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["fontSize"] as? Int, 16)
+        XCTAssertNil(defaults["alignItems"])
     }
 
     // MARK: - P2 Inline Text
@@ -235,8 +246,11 @@ final class ElementDefaultsTests: XCTestCase {
 
     func testLabelDefaults() {
         let defaults = ElementDefaults.defaults(for: "label")
+        XCTAssertEqual(defaults["display"] as? String, "inline")
         XCTAssertEqual(defaults["flexDirection"] as? String, "row")
         XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["fontSize"] as? Int, 16)
+        XCTAssertNil(defaults["alignSelf"])
     }
 
     // MARK: - Table Elements
@@ -391,6 +405,7 @@ final class ElementDefaultsTests: XCTestCase {
     func testBlockquoteDefaults() {
         let defaults = ElementDefaults.defaults(for: "blockquote")
         XCTAssertEqual(defaults["display"] as? String, "block")
+        XCTAssertEqual(defaults["fontSize"] as? Int, 16)
         XCTAssertEqual(defaults["marginTop"] as? Int, 16)
         XCTAssertEqual(defaults["marginBottom"] as? Int, 16)
         XCTAssertEqual(defaults["marginLeft"] as? Int, 40)
@@ -425,50 +440,84 @@ final class ElementDefaultsTests: XCTestCase {
         let defaults = ElementDefaults.defaults(for: "b")
         XCTAssertEqual(defaults["flexDirection"] as? String, "row")
         XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["fontSize"] as? Int, 16)
         XCTAssertEqual(defaults["fontWeight"] as? String, "bold")
+        XCTAssertNil(defaults["alignItems"])
+    }
+
+    func testStrongDefaults() {
+        let defaults = ElementDefaults.defaults(for: "strong")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+        XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["fontSize"] as? Int, 16)
+        XCTAssertEqual(defaults["fontWeight"] as? String, "bold")
+        XCTAssertNil(defaults["display"])
+        XCTAssertNil(defaults["alignItems"])
     }
 
     func testIDefaults() {
         let defaults = ElementDefaults.defaults(for: "i")
         XCTAssertEqual(defaults["flexDirection"] as? String, "row")
         XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["fontSize"] as? Int, 16)
         XCTAssertEqual(defaults["fontStyle"] as? String, "italic")
+        XCTAssertNil(defaults["alignItems"])
+    }
+
+    func testEmDefaults() {
+        let defaults = ElementDefaults.defaults(for: "em")
+        XCTAssertEqual(defaults["flexDirection"] as? String, "row")
+        XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["fontSize"] as? Int, 16)
+        XCTAssertEqual(defaults["fontStyle"] as? String, "italic")
+        XCTAssertNil(defaults["display"])
+        XCTAssertNil(defaults["alignItems"])
     }
 
     func testUDefaults() {
         let defaults = ElementDefaults.defaults(for: "u")
         XCTAssertEqual(defaults["flexDirection"] as? String, "row")
         XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["fontSize"] as? Int, 16)
         XCTAssertEqual(defaults["textDecorationLine"] as? String, "underline")
+        XCTAssertNil(defaults["alignItems"])
     }
 
     func testSDefaults() {
         let defaults = ElementDefaults.defaults(for: "s")
         XCTAssertEqual(defaults["flexDirection"] as? String, "row")
         XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["fontSize"] as? Int, 16)
         XCTAssertEqual(defaults["textDecorationLine"] as? String, "line-through")
+        XCTAssertNil(defaults["alignItems"])
     }
 
     func testDelDefaults() {
         let defaults = ElementDefaults.defaults(for: "del")
         XCTAssertEqual(defaults["flexDirection"] as? String, "row")
         XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["fontSize"] as? Int, 16)
         XCTAssertEqual(defaults["textDecorationLine"] as? String, "line-through")
+        XCTAssertNil(defaults["alignItems"])
     }
 
     func testInsDefaults() {
         let defaults = ElementDefaults.defaults(for: "ins")
         XCTAssertEqual(defaults["flexDirection"] as? String, "row")
         XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["fontSize"] as? Int, 16)
         XCTAssertEqual(defaults["textDecorationLine"] as? String, "underline")
+        XCTAssertNil(defaults["alignItems"])
     }
 
     func testMarkDefaults() {
         let defaults = ElementDefaults.defaults(for: "mark")
         XCTAssertEqual(defaults["flexDirection"] as? String, "row")
         XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["fontSize"] as? Int, 16)
         XCTAssertEqual(defaults["backgroundColor"] as? String, "#FFFF00")
         XCTAssertEqual(defaults["color"] as? String, "#000000")
+        XCTAssertNil(defaults["alignItems"])
     }
 
     func testSmallDefaults() {
@@ -480,10 +529,12 @@ final class ElementDefaultsTests: XCTestCase {
 
     func testCodeDefaults() {
         let defaults = ElementDefaults.defaults(for: "code")
-        XCTAssertEqual(defaults["display"] as? String, "inline-block")
+        XCTAssertNil(defaults["display"])
         XCTAssertEqual(defaults["flexDirection"] as? String, "row")
         XCTAssertEqual(defaults["flexShrink"] as? Int, 1)
+        XCTAssertEqual(defaults["fontSize"] as? Int, 13)
         XCTAssertEqual(defaults["fontFamily"] as? String, "Menlo")
+        XCTAssertNil(defaults["alignItems"])
     }
 
     // MARK: - defaults(for:) — Unknown element

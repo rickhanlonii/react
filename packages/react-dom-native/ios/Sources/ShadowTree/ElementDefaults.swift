@@ -49,13 +49,15 @@ public enum ElementDefaults {
             return h6Defaults
 
         // Inline
-        case "span", "label":
+        case "span":
             return spanDefaults
+        case "label":
+            return labelDefaults
 
         // Inline text (bold/italic/underline/strikethrough/etc.)
-        case "b":
+        case "strong", "b":
             return boldDefaults
-        case "i":
+        case "em", "i":
             return italicDefaults
         case "u":
             return underlineDefaults
@@ -156,6 +158,7 @@ public enum ElementDefaults {
 
     /// Merges element-type defaults with user-supplied style.
     /// User style overrides defaults. CSS `border` shorthand is expanded.
+    /// Em-relative margins are recomputed when fontSize is overridden.
     public static func mergedStyle(
         for elementType: String,
         userStyle: [String: Any]?
@@ -171,7 +174,46 @@ public enum ElementDefaults {
         for (key, value) in userStyle {
             merged[key] = value
         }
+
+        // CSS margins specified in `em` units scale with fontSize.
+        // When the user overrides fontSize but not margins, recompute
+        // margins to match CSS behavior (e.g., <p> margin = 1em).
+        if let multiplier = emMarginMultiplier[elementType],
+           let userFontSize = userStyle["fontSize"],
+           let fontSize = toDouble(userFontSize) {
+            if userStyle["marginTop"] == nil {
+                merged["marginTop"] = fontSize * multiplier
+            }
+            if userStyle["marginBottom"] == nil {
+                merged["marginBottom"] = fontSize * multiplier
+            }
+        }
+
         return expandBorderShorthand(merged)
+    }
+
+    /// Em multiplier for default vertical margins. CSS uses `em` units for
+    /// element default margins, which scale with fontSize.
+    private static let emMarginMultiplier: [String: Double] = [
+        "p": 1.0,
+        "h1": 0.67,
+        "h2": 0.83,
+        "h3": 1.0,
+        "h4": 1.33,
+        "h5": 1.67,
+        "h6": 2.33,
+        "ul": 1.0,
+        "ol": 1.0,
+        "dl": 1.0,
+        "blockquote": 1.0,
+    ]
+
+    /// Convert numeric style values (Int, Double, or NSNumber) to Double.
+    private static func toDouble(_ value: Any) -> Double? {
+        if let d = value as? Double { return d }
+        if let i = value as? Int { return Double(i) }
+        if let n = value as? NSNumber { return n.doubleValue }
+        return nil
     }
 
     /// Expands CSS `border` shorthand (e.g. "1px solid red") into individual
@@ -250,6 +292,7 @@ public enum ElementDefaults {
 
     private static let blockquoteDefaults: [String: Any] = [
         "display": "block",
+        "fontSize": 16,
         "marginTop": 16,
         "marginBottom": 16,
         "marginLeft": 40,
@@ -368,10 +411,16 @@ public enum ElementDefaults {
     ]
 
     private static let spanDefaults: [String: Any] = [
-        "display": "inline-block",
         "flexDirection": "row",
         "flexShrink": 1,
-        "alignItems": "center"
+        "fontSize": 16
+    ]
+
+    private static let labelDefaults: [String: Any] = [
+        "display": "inline",
+        "flexDirection": "row",
+        "flexShrink": 1,
+        "fontSize": 16
     ]
 
     private static let inlineBlockDefaults: [String: Any] = [
@@ -432,36 +481,40 @@ public enum ElementDefaults {
 
     private static let buttonDefaults: [String: Any] = [
         "display": "inline-block",
+        "boxSizing": "border-box",
         "flexDirection": "row",
         "alignItems": "center",
         "justifyContent": "center",
-        "paddingTop": 2,
-        "paddingBottom": 3,
-        "paddingLeft": 6,
-        "paddingRight": 6,
-        "borderRadius": 4,
-        "borderWidth": 2,
+        "paddingTop": 1,
+        "paddingBottom": 1,
+        "paddingLeft": 11,
+        "paddingRight": 11,
+        "borderRadius": 10,
+        "borderWidth": 1,
         "borderColor": "#767676",
         "backgroundColor": "#EFEFEF",
-        "fontSize": 13.3
+        "fontSize": 11,
+        "minHeight": 20
     ]
 
     private static let inputDefaults: [String: Any] = [
         "display": "inline-block",
-        "width": 139,
-        "height": 32,
+        "boxSizing": "border-box",
+        "width": 154,
+        "height": 20,
         "paddingLeft": 4,
         "paddingRight": 4,
         "borderWidth": 1,
         "borderColor": "#767676",
         "borderRadius": 2,
-        "fontSize": 13.3,
+        "fontSize": 11,
         "backgroundColor": "#FFFFFF"
     ]
 
     private static let textareaDefaults: [String: Any] = [
         "display": "inline-block",
-        "width": 139,
+        "boxSizing": "border-box",
+        "width": 154,
         "minHeight": 48,
         "paddingTop": 4,
         "paddingBottom": 4,
@@ -470,7 +523,7 @@ public enum ElementDefaults {
         "borderWidth": 1,
         "borderColor": "#767676",
         "borderRadius": 2,
-        "fontSize": 13.3,
+        "fontSize": 11,
         "backgroundColor": "#FFFFFF"
     ]
 
@@ -527,6 +580,7 @@ public enum ElementDefaults {
 
     private static let hrDefaults: [String: Any] = [
         "display": "block",
+        "fontSize": 16,
         "height": 0,
         "marginTop": 8,
         "marginBottom": 8,
@@ -537,7 +591,7 @@ public enum ElementDefaults {
     private static let aDefaults: [String: Any] = [
         "flexDirection": "row",
         "flexShrink": 1,
-        "alignItems": "center",
+        "fontSize": 16,
         "color": "#007AFF",
         "textDecorationLine": "underline"
     ]
@@ -545,35 +599,35 @@ public enum ElementDefaults {
     private static let boldDefaults: [String: Any] = [
         "flexDirection": "row",
         "flexShrink": 1,
-        "alignItems": "center",
+        "fontSize": 16,
         "fontWeight": "bold"
     ]
 
     private static let italicDefaults: [String: Any] = [
         "flexDirection": "row",
         "flexShrink": 1,
-        "alignItems": "center",
+        "fontSize": 16,
         "fontStyle": "italic"
     ]
 
     private static let underlineDefaults: [String: Any] = [
         "flexDirection": "row",
         "flexShrink": 1,
-        "alignItems": "center",
+        "fontSize": 16,
         "textDecorationLine": "underline"
     ]
 
     private static let strikethroughDefaults: [String: Any] = [
         "flexDirection": "row",
         "flexShrink": 1,
-        "alignItems": "center",
+        "fontSize": 16,
         "textDecorationLine": "line-through"
     ]
 
     private static let markDefaults: [String: Any] = [
         "flexDirection": "row",
         "flexShrink": 1,
-        "alignItems": "center",
+        "fontSize": 16,
         "backgroundColor": "#FFFF00",
         "color": "#000000"
     ]
@@ -581,15 +635,13 @@ public enum ElementDefaults {
     private static let smallDefaults: [String: Any] = [
         "flexDirection": "row",
         "flexShrink": 1,
-        "alignItems": "center",
         "fontSize": 13.28
     ]
 
     private static let monospaceDefaults: [String: Any] = [
-        "display": "inline-block",
         "flexDirection": "row",
         "flexShrink": 1,
-        "alignItems": "center",
+        "fontSize": 13,
         "fontFamily": "Menlo"
     ]
 }
