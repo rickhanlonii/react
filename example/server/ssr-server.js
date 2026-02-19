@@ -64,9 +64,9 @@ function buildSSRModuleMap() {
 //           → Flight client → React elements → Fizz → instruction stream
 // ---------------------------------------------------------------------------
 
-app.get('/ssr', function (req, res) {
+function handleSSR(flightURL, req, res) {
   // Fetch the Flight stream from the RSC server
-  http.get(FLIGHT_SERVER + '/', function (flightRes) {
+  http.get(flightURL, function (flightRes) {
     if (flightRes.statusCode !== 200) {
       res.status(502).send('Flight server returned status ' + flightRes.statusCode);
       return;
@@ -229,6 +229,14 @@ app.get('/ssr', function (req, res) {
     console.error('[SSR] Failed to fetch Flight stream:', err.message);
     res.status(502).send('Failed to connect to Flight server: ' + err.message);
   });
+}
+
+app.get('/ssr/:name', function (req, res) {
+  handleSSR(FLIGHT_SERVER + '/fixtures/' + req.params.name, req, res);
+});
+
+app.get('/ssr', function (req, res) {
+  handleSSR(FLIGHT_SERVER + '/', req, res);
 });
 
 app.get('/healthz', function(req, res) {
