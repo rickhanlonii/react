@@ -427,7 +427,7 @@ public class Root {
         }
 
         // Start streaming SSR data
-        guard let ssrURL = URL(string: serverURL + "/ssr") else {
+        guard let ssrURL = URL(string: serverURL) else {
             completion?(RootError.downloadFailed(NSError(domain: "ReactDomNativeKit", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid SSR URL"])))
             return
         }

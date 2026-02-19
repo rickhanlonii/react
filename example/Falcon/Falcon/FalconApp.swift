@@ -58,11 +58,12 @@ class FixtureStore: ObservableObject {
 struct FalconApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var store = FixtureStore()
+    @State private var path = NavigationPath()
 
     var body: some Scene {
         WindowGroup {
-            NavigationStack {
-                FixtureListView()
+            NavigationStack(path: $path) {
+                FixtureListView(path: $path)
                     .environmentObject(store)
             }
         }
@@ -71,7 +72,8 @@ struct FalconApp: App {
 
 struct FixtureListView: View {
     @EnvironmentObject var store: FixtureStore
-    @State private var navigateToFixture: String?
+    @Binding var path: NavigationPath
+    @State private var hasAutoNavigated = false
 
     var body: some View {
         List(store.fixtures) { fixture in
@@ -93,17 +95,14 @@ struct FixtureListView: View {
         }
         .onAppear {
             store.fetchFixtures()
-            if let last = store.lastViewedFixture {
-                navigateToFixture = last
+            if !hasAutoNavigated, path.isEmpty, let last = store.lastViewedFixture {
+                hasAutoNavigated = true
+                path.append(last)
             }
         }
-        .navigationDestination(isPresented: Binding(
-            get: { navigateToFixture != nil },
-            set: { if !$0 { navigateToFixture = nil; store.lastViewedFixture = nil } }
-        )) {
-            if let name = navigateToFixture {
-                FixtureDetailView(fixtureName: name)
-                    .environmentObject(store)
+        .onChange(of: path) { newPath in
+            if newPath.isEmpty {
+                store.lastViewedFixture = nil
             }
         }
     }
@@ -115,7 +114,7 @@ struct FixtureDetailView: View {
 
     var body: some View {
         FixtureRootView(fixtureName: fixtureName)
-            .ignoresSafeArea()
+            .background(Color(red: 0xF2/255.0, green: 0xF2/255.0, blue: 0xF7/255.0).ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 store.lastViewedFixture = fixtureName

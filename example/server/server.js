@@ -226,7 +226,7 @@ app.get('/fixtures/:name', function (req, res) {
 app.get('/', function (req, res) {
   clearServerSourceCache();
 
-  var mod = require('./src/fixtures/kitchen-sink');
+  var mod = require('./src/fixtures/06-kitchen-sink');
   var AppComponent = mod.default || mod;
   var element = React.createElement(AppComponent);
 
