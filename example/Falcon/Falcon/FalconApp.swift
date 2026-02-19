@@ -2,31 +2,146 @@ import SwiftUI
 import UIKit
 import ReactDomNativeKit
 
+struct Fixture: Identifiable, Codable {
+    var id: String { name }
+    let name: String
+    let title: String
+    let description: String
+}
+
+@MainActor
+class FixtureStore: ObservableObject {
+    @Published var fixtures: [Fixture] = []
+    @Published var isLoading = false
+
+    private static let cacheKey = "cachedFixtures"
+    private static let lastFixtureKey = "lastViewedFixture"
+
+    var lastViewedFixture: String? {
+        get { UserDefaults.standard.string(forKey: Self.lastFixtureKey) }
+        set { UserDefaults.standard.set(newValue, forKey: Self.lastFixtureKey) }
+    }
+
+    init() {
+        loadCached()
+    }
+
+    private func loadCached() {
+        guard let data = UserDefaults.standard.data(forKey: Self.cacheKey),
+              let cached = try? JSONDecoder().decode([Fixture].self, from: data) else { return }
+        fixtures = cached
+    }
+
+    private func saveCache() {
+        guard let data = try? JSONEncoder().encode(fixtures) else { return }
+        UserDefaults.standard.set(data, forKey: Self.cacheKey)
+    }
+
+    func fetchFixtures() {
+        isLoading = true
+        let url = URL(string: "http://localhost:6000/fixtures")!
+        URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.isLoading = false
+                guard let data = data, error == nil else { return }
+                guard let decoded = try? JSONDecoder().decode([Fixture].self, from: data) else { return }
+                self.fixtures = decoded
+                self.saveCache()
+            }
+        }.resume()
+    }
+}
+
 @main
 struct FalconApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @StateObject private var store = FixtureStore()
 
     var body: some Scene {
         WindowGroup {
-            RootView()
-                .ignoresSafeArea()
-                .background(Color(red: 0xF2/255.0, green: 0xF2/255.0, blue: 0xF7/255.0).ignoresSafeArea())
+            NavigationStack {
+                FixtureListView()
+                    .environmentObject(store)
+            }
         }
     }
 }
 
-struct RootView: UIViewControllerRepresentable {
-    func makeUIViewController(context: Context) -> FalconRootViewController {
-        return FalconRootViewController()
-    }
+struct FixtureListView: View {
+    @EnvironmentObject var store: FixtureStore
+    @State private var navigateToFixture: String?
 
-    func updateUIViewController(_ uiViewController: FalconRootViewController, context: Context) {}
+    var body: some View {
+        List(store.fixtures) { fixture in
+            NavigationLink(value: fixture.name) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(fixture.title)
+                        .font(.headline)
+                    Text(fixture.description)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.vertical, 4)
+            }
+        }
+        .navigationTitle("Fixtures")
+        .navigationDestination(for: String.self) { name in
+            FixtureDetailView(fixtureName: name)
+                .environmentObject(store)
+        }
+        .onAppear {
+            store.fetchFixtures()
+            if let last = store.lastViewedFixture {
+                navigateToFixture = last
+            }
+        }
+        .navigationDestination(isPresented: Binding(
+            get: { navigateToFixture != nil },
+            set: { if !$0 { navigateToFixture = nil; store.lastViewedFixture = nil } }
+        )) {
+            if let name = navigateToFixture {
+                FixtureDetailView(fixtureName: name)
+                    .environmentObject(store)
+            }
+        }
+    }
 }
 
-/// Root view controller for the Falcon app.
-/// Uses createRoot/render API directly, mirroring react-dom/client.
-class FalconRootViewController: UIViewController {
+struct FixtureDetailView: View {
+    let fixtureName: String
+    @EnvironmentObject var store: FixtureStore
+
+    var body: some View {
+        FixtureRootView(fixtureName: fixtureName)
+            .ignoresSafeArea()
+            .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                store.lastViewedFixture = fixtureName
+            }
+    }
+}
+
+struct FixtureRootView: UIViewControllerRepresentable {
+    let fixtureName: String
+
+    func makeUIViewController(context: Context) -> FixtureViewController {
+        return FixtureViewController(fixtureName: fixtureName)
+    }
+
+    func updateUIViewController(_ vc: FixtureViewController, context: Context) {}
+}
+
+class FixtureViewController: UIViewController {
+    private let fixtureName: String
     private var root: Root?
+
+    init(fixtureName: String) {
+        self.fixtureName = fixtureName
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -36,7 +151,6 @@ class FalconRootViewController: UIViewController {
         Root.devBundleURL = URL(string: "http://localhost:6000/bundle.js")
         #endif
 
-        // Create root (like react-dom's createRoot)
         root = createRoot(view)
         renderAndHydrate()
 
@@ -46,17 +160,18 @@ class FalconRootViewController: UIViewController {
     }
 
     private func renderAndHydrate() {
-        root?.renderWithSSR(serverURL: ssrServerURL()) { [weak self] error in
+        let ssrURL = "http://localhost:6001/ssr/\(fixtureName)"
+        let flightURL = "http://localhost:6000/fixtures/\(fixtureName)"
+
+        root?.renderWithSSR(serverURL: ssrURL) { [weak self] error in
             if let error = error {
-                print("[Falcon] Render failed: \(error)")
-                self?.showError(error)
+                print("[Falcon] Render failed for \(self?.fixtureName ?? ""): \(error)")
             } else {
-                 // SSR content is on screen — now hydrate to make it interactive
-                self?.root?.hydrateRoot(serverURL: self?.serverURL() ?? "") { error in
+                self?.root?.hydrateRoot(serverURL: flightURL) { error in
                     if let error = error {
                         print("[Falcon] Hydration failed: \(error)")
                     } else {
-                        print("[Falcon] Hydration complete — app is interactive")
+                        print("[Falcon] Hydration complete for \(self?.fixtureName ?? "")")
                     }
                 }
             }
@@ -67,26 +182,11 @@ class FalconRootViewController: UIViewController {
     private var reloadTimer: Timer?
     private var lastBundleVersion: Double = 0
 
-    override var keyCommands: [UIKeyCommand]? {
-        return [
-            UIKeyCommand(input: "r", modifierFlags: [.command, .shift], action: #selector(reloadBundle))
-        ]
-    }
-
-    @objc private func reloadBundle() {
-        print("[Falcon] Manual reload (Cmd+Shift+R)...")
-        root?.unmount()
-        root = createRoot(view)
-        renderAndHydrate()
-    }
-
     private func startDevReloadPolling() {
         let versionURL = URL(string: "http://localhost:6000/bundle-version")!
-        // Fetch initial version
         fetchBundleVersion(from: versionURL) { [weak self] version in
             self?.lastBundleVersion = version
         }
-        // Poll every 2 seconds
         reloadTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
             self?.checkForBundleUpdate(versionURL: versionURL)
         }
@@ -96,7 +196,7 @@ class FalconRootViewController: UIViewController {
         fetchBundleVersion(from: versionURL) { [weak self] version in
             guard let self = self, version > 0, version != self.lastBundleVersion else { return }
             self.lastBundleVersion = version
-            print("[Falcon] Bundle updated, reloading...")
+            print("[Falcon] Bundle updated, reloading fixture \(self.fixtureName)...")
             self.root?.unmount()
             self.root = createRoot(self.view)
             self.renderAndHydrate()
@@ -118,34 +218,10 @@ class FalconRootViewController: UIViewController {
     }
     #endif
 
-    private func serverURL() -> String {
-        #if DEBUG
-        return "http://localhost:6000"
-        #else
-        // In release builds, the server URL should be configured for production
-        return "http://localhost:6000"
-        #endif
-    }
-
-    private func ssrServerURL() -> String {
-        #if DEBUG
-        return "http://localhost:6001"
-        #else
-        return "http://localhost:6001"
-        #endif
-    }
-
-    private func showError(_ error: Error) {
-        let alert = UIAlertController(
-            title: "Failed to Load",
-            message: error.localizedDescription,
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
-    }
-
     deinit {
+        #if DEBUG
+        reloadTimer?.invalidate()
+        #endif
         root?.unmount()
     }
 }
