@@ -19,14 +19,18 @@ Builds and runs the LayoutCompare e2e app on the **Falcon E2E** simulator using 
    ```
 
 2. **Start e2e dev server** (if not already running):
+
+   **Do NOT wrap commands** in custom bash — no `echo`, `2>&1`, `2>/dev/null`, `sleep`, `&`, `; echo "EXIT CODE: $?"`, piping through `python3 -c`, or similar. Run each command directly using the Bash tool.
+
+   Check if the server is already running:
    ```bash
    curl -s http://localhost:6100/bundle-version
    ```
    If that fails, start it:
-   ```bash
-   cd /Users/rickhanlonii/oss/falcon && npm run dev:e2e &
    ```
-   Wait for the server to be ready before proceeding.
+   Bash(command: "cd /Users/rickhanlonii/oss/falcon && npm run dev:e2e", run_in_background: true)
+   ```
+   Wait 5 seconds, then re-check the health endpoint to confirm it's up.
 
 ## Build Decision
 
@@ -37,9 +41,15 @@ Builds and runs the LayoutCompare e2e app on the **Falcon E2E** simulator using 
 ## Verification
 
 1. Wait 3-5 seconds after launch for the app to start and auto-run fixtures
-2. Poll for results:
+2. Trigger test run:
+   ```bash
+   curl -X POST http://localhost:6101/run-all
    ```
-   WebFetch http://localhost:6101/results
+3. Wait 5 seconds, then poll for results:
+   ```bash
+   curl -s http://localhost:6101/results
    ```
-3. If `status` is `"running"`, wait 2s and poll again
-4. When `status` is `"complete"`, report `passed` / `total` and any failing fixtures
+4. If `status` is `"running"`, wait 2s and poll again
+5. When `status` is `"complete"`, report `passed` / `total` and any failing fixtures
+
+**Note:** Do NOT use `WebFetch` for localhost URLs — it doesn't work. Use `curl` via the Bash tool instead.

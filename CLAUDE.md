@@ -71,7 +71,12 @@ Next.js (RSC server) → Flight stream (HTTP) → Native iOS client
 
 ## Skills
 
-`/test-unit`, `/test-e2e`, `/e2e`
+`/test-unit`, `/test-e2e`, `/e2e`, `/build-demo`, `/build-e2e`
+
+### Required Skills
+
+- **Building/running the Falcon demo app**: ALWAYS use `/build-demo`. Do NOT manually start dev servers or run `build_run_sim` without it.
+- **Building/running the LayoutCompare e2e app**: ALWAYS use `/build-e2e`. Do NOT manually start dev servers or run `build_run_sim` without it.
 
 ## Superpowers
 
@@ -118,7 +123,7 @@ Server component changes (e.g. `server/src/App.js`) are picked up automatically 
 To iterate on layout differences between web and native:
 
 1. Start the dev server: `cd example && npm run dev`
-2. Build and run the app in the simulator (via Xcode or `build_run_sim` MCP tool)
+2. Build and run the app with `/build-demo`
 3. Take a screenshot with the `screenshot` MCP tool (XcodeBuildMCP)
 4. Compare against web rendering (save web screenshot as `web.png`)
 5. Make changes to JS files (auto-reloads) or Swift files (requires rebuild via `build_run_sim`)

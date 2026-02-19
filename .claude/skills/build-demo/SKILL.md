@@ -19,14 +19,21 @@ Builds and runs the Falcon example app on the **Falcon Demo** simulator using Xc
    ```
 
 2. **Start dev server** (if not already running):
+
+   **Do NOT wrap commands** in custom bash — no `echo`, `2>&1`, `2>/dev/null`, `sleep`, `&`, `; echo "EXIT CODE: $?"`, piping through `python3 -c`, or similar. Run each command directly using the Bash tool.
+
+   Check if the servers are already running before starting:
    ```bash
    curl -s http://localhost:6000/bundle-version
    ```
-   If that fails, start it:
    ```bash
-   cd /Users/rickhanlonii/oss/falcon/example && npm run dev &
+   curl -s http://localhost:6001/healthz
    ```
-   Wait for the server to be ready before proceeding.
+   If **either** fails, start the dev server (it runs both Flight on 6000 and SSR on 6001):
+   ```
+   Bash(command: "cd /Users/rickhanlonii/oss/falcon/example && npm run dev", run_in_background: true)
+   ```
+   Wait 5 seconds, then re-check both health endpoints to confirm they're up.
 
 ## Build Decision
 

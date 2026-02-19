@@ -13,18 +13,21 @@ description: Run end-to-end test — start RSC server, build iOS app, verify nat
 
 ## Instructions
 
-1. **Start RSC server**:
-   ```bash
-   cd /Users/rickhanlonii/oss/falcon/example/server && node server.js &
-   ```
-   Wait for "Ready" message.
+1. **Start RSC server** (if not already running):
 
-2. **Build JS bundle**:
-   ```bash
-   cd /Users/rickhanlonii/oss/falcon && npm run build
-   ```
+   **Do NOT wrap commands** in custom bash — no `echo`, `2>&1`, `2>/dev/null`, `sleep`, `&`, `; echo "EXIT CODE: $?"`, piping through `python3 -c`, or similar. Run each command directly using the Bash tool.
 
-3. **Set XcodeBuildMCP session defaults** and **build the iOS app**:
+   Check if the server is already running:
+   ```bash
+   curl -s http://localhost:6000/bundle-version
+   ```
+   If that fails, start it:
+   ```
+   Bash(command: "cd /Users/rickhanlonii/oss/falcon/example && npm run dev", run_in_background: true)
+   ```
+   Wait 5 seconds, then re-check the health endpoint to confirm it's up.
+
+2. **Set XcodeBuildMCP session defaults** and **build the iOS app**:
    ```
    session_set_defaults:
      projectPath: example/Falcon/Falcon.xcodeproj
@@ -34,15 +37,15 @@ description: Run end-to-end test — start RSC server, build iOS app, verify nat
    ```
    Then use `build_run_sim` to build and launch the app.
 
-4. **Verify**:
+3. **Verify**:
    - Check build succeeded
    - Use the `screenshot` tool to capture the simulator screen
    - Use the `snapshot_ui` tool to inspect the view hierarchy
    - Verify the app connects to the RSC server and renders content
 
-5. **Cleanup**:
-   - Kill the RSC dev server
+4. **Cleanup**:
    - Use `stop_app_sim` to stop the app
+   - Do NOT kill the dev server — other sessions may be using it
    - Report build results
 
-6. If anything fails, document the failure and suggest what needs to be fixed.
+5. If anything fails, document the failure and suggest what needs to be fixed.

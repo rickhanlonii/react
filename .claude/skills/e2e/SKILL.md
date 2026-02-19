@@ -34,19 +34,29 @@ session_set_defaults:
   simulatorId: 50E9E48E-D7F7-4338-9873-3EB801137EE7
 ```
 
-Start the dev server and build/launch the app:
+Start the dev server (if not already running) and build/launch the app:
+
+**Do NOT wrap commands** in custom bash — no `echo`, `2>&1`, `2>/dev/null`, `sleep`, `&`, `; echo "EXIT CODE: $?"`, piping through `python3 -c`, or similar. Run each command directly using the Bash tool.
+
+Check if the server is already running:
 ```bash
-cd /Users/rickhanlonii/oss/falcon && npm run dev:e2e &
+curl -s http://localhost:6100/bundle-version
 ```
+If that fails, start it:
+```
+Bash(command: "cd /Users/rickhanlonii/oss/falcon && npm run dev:e2e", run_in_background: true)
+```
+Wait 5 seconds, then re-check the health endpoint to confirm it's up.
+
 Then `build_run_sim` to build and launch the app.
 
 ## Workflow: Run All Tests
 
 ### After JS-only changes (fastest — ~2s)
 1. Edit the JS file — esbuild auto-rebuilds, the app detects the version change and auto-reruns
-2. Poll for results:
-   ```
-   WebFetch http://localhost:6101/results
+2. Poll for results (use `curl` via Bash — `WebFetch` does not work for localhost):
+   ```bash
+   curl -s http://localhost:6101/results
    ```
 3. If `status` is `"running"`, wait 2s and poll again
 4. When `status` is `"complete"`, read `passed`, `total`, and `fixtures` for details
@@ -54,13 +64,19 @@ Then `build_run_sim` to build and launch the app.
 ### After Swift changes (~12s)
 1. `build_run_sim` — rebuild and relaunch the app
 2. Wait 3-5s for the app to start and auto-run fixtures
-3. Poll for results: `WebFetch http://localhost:6101/results`
+3. Poll for results:
+   ```bash
+   curl -s http://localhost:6101/results
+   ```
 
 ### Force rerun (no file changes)
 ```bash
 curl -X POST http://localhost:6101/run-all
 ```
-Then poll `WebFetch http://localhost:6101/results` for completion.
+Then poll for results:
+```bash
+curl -s http://localhost:6101/results
+```
 
 ### Launch with auto-run (no UI interaction needed)
 Build the app with `build_sim`, then:
@@ -91,7 +107,7 @@ Each diff in the `diffs` array has: `path`, `property`, `web`, `native`, `delta`
 1. Build and run the app if not already running
 2. Tap the target fixture in the list
 3. Take a `screenshot` for visual side-by-side comparison
-4. Check `WebFetch http://localhost:6101/results` for structured diff data
+4. Check results via `curl -s http://localhost:6101/results`
 
 ## Workflow: Add Fixture
 
