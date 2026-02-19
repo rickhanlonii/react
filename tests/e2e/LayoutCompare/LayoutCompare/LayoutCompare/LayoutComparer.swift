@@ -95,7 +95,10 @@ enum LayoutComparer {
             "flexGrow", "flexShrink", "flexBasis",
             "minWidth", "maxWidth", "minHeight", "maxHeight",
             "top", "right", "bottom", "left",
-            "borderRadius", "opacity"
+            "borderRadius",
+            "borderTopLeftRadius", "borderTopRightRadius",
+            "borderBottomRightRadius", "borderBottomLeftRadius",
+            "opacity"
         ]
 
         for prop in numericStyleProps {
