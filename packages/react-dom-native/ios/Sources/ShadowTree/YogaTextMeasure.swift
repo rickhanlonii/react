@@ -26,14 +26,16 @@ public enum YogaTextMeasure {
         var fontWeight: String?
         var fontFamily: String?
         var fontStyle: String?
+        var lineHeight: CGFloat?
         var lastMeasuredWidth: Float = 0
 
-        init(text: String, fontSize: CGFloat, fontWeight: String? = nil, fontFamily: String? = nil, fontStyle: String? = nil) {
+        init(text: String, fontSize: CGFloat, fontWeight: String? = nil, fontFamily: String? = nil, fontStyle: String? = nil, lineHeight: CGFloat? = nil) {
             self.text = text
             self.fontSize = fontSize
             self.fontWeight = fontWeight
             self.fontFamily = fontFamily
             self.fontStyle = fontStyle
+            self.lineHeight = lineHeight
         }
     }
 
@@ -45,19 +47,23 @@ public enum YogaTextMeasure {
     ///   - fontWeight: CSS font weight string (e.g. "bold", "700").
     ///   - fontFamily: Font family name (e.g. "Menlo").
     ///   - fontStyle: CSS font style (e.g. "italic").
+    ///   - lineHeight: CSS line-height override. When set, caps the per-line
+    ///     measured height to match web rendering (e.g. monospace fonts).
     public static func setupMeasureFunc(
         on node: ShadowNodeWrapper,
         fontSize: CGFloat = 16,
         fontWeight: String? = nil,
         fontFamily: String? = nil,
-        fontStyle: String? = nil
+        fontStyle: String? = nil,
+        lineHeight: CGFloat? = nil
     ) {
         let context = TextMeasureContext(
             text: node.text ?? "",
             fontSize: fontSize,
             fontWeight: fontWeight,
             fontFamily: fontFamily,
-            fontStyle: fontStyle
+            fontStyle: fontStyle,
+            lineHeight: lineHeight
         )
 
         // Store context as unmanaged retained pointer on the yogaNode
@@ -185,7 +191,19 @@ private func textMeasureFunc(
     case .exactly:
         measuredHeight = height
     default:
-        measuredHeight = Float(ceil(measuredRect.height))
+        // When lineHeight is specified (e.g. monospace elements), use it
+        // to cap the per-line measured height to match CSS line-height.
+        if let lh = context.lineHeight {
+            #if canImport(UIKit)
+            let fontLineHeight = font.lineHeight
+            #else
+            let fontLineHeight = font.ascender - font.descender + font.leading
+            #endif
+            let lineCount = max(1, Int(round(measuredRect.height / fontLineHeight)))
+            measuredHeight = Float(ceil(CGFloat(lineCount) * lh))
+        } else {
+            measuredHeight = Float(ceil(measuredRect.height))
+        }
     }
 
     context.lastMeasuredWidth = measuredWidth

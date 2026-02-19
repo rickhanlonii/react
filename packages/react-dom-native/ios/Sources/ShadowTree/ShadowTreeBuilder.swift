@@ -113,6 +113,7 @@ public class ShadowTreeBuilder {
         var fontWeight: String? = nil
         var fontFamily: String? = nil
         var fontStyle: String? = nil
+        var lineHeight: CGFloat? = nil
 
         if let parent = nodeStack.last {
             let parentStyle = parent.props["style"] as? [String: Any] ?? [:]
@@ -123,6 +124,10 @@ public class ShadowTreeBuilder {
             fontWeight = parentStyle["fontWeight"] as? String
             fontFamily = parentStyle["fontFamily"] as? String
             fontStyle = parentStyle["fontStyle"] as? String
+            if let lh = parentStyle["lineHeight"] {
+                if let d = lh as? Double { lineHeight = CGFloat(d) }
+                else if let i = lh as? Int { lineHeight = CGFloat(i) }
+            }
         }
 
         YogaTextMeasure.setupMeasureFunc(
@@ -130,7 +135,8 @@ public class ShadowTreeBuilder {
             fontSize: fontSize,
             fontWeight: fontWeight,
             fontFamily: fontFamily,
-            fontStyle: fontStyle
+            fontStyle: fontStyle,
+            lineHeight: lineHeight
         )
 
         // Append to current parent or root

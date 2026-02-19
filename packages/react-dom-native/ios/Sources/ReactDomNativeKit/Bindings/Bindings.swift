@@ -501,6 +501,12 @@ public class Bindings {
                 let fontWeight = style["fontWeight"] as? String
                 let fontFamily = style["fontFamily"] as? String
                 let fontStyle = style["fontStyle"] as? String
+                let lineHeight: CGFloat?
+                if let lh = style["lineHeight"] as? NSNumber {
+                    lineHeight = CGFloat(lh.doubleValue)
+                } else {
+                    lineHeight = nil
+                }
 
                 YogaTextMeasure.cleanupMeasureContext(for: child.yogaNode)
                 YogaTextMeasure.setupMeasureFunc(
@@ -508,7 +514,8 @@ public class Bindings {
                     fontSize: fontSize,
                     fontWeight: fontWeight,
                     fontFamily: fontFamily,
-                    fontStyle: fontStyle
+                    fontStyle: fontStyle,
+                    lineHeight: lineHeight
                 )
             }
             return nil

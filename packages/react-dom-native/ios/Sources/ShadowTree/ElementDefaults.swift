@@ -592,7 +592,6 @@ public enum ElementDefaults {
         "flexDirection": "row",
         "flexShrink": 1,
         "fontSize": 16,
-        "color": "#007AFF",
         "textDecorationLine": "underline"
     ]
 
@@ -641,7 +640,9 @@ public enum ElementDefaults {
     private static let monospaceDefaults: [String: Any] = [
         "flexDirection": "row",
         "flexShrink": 1,
+        "alignSelf": "flex-start",
         "fontSize": 13,
-        "fontFamily": "Menlo"
+        "fontFamily": "Menlo",
+        "lineHeight": 14
     ]
 }
