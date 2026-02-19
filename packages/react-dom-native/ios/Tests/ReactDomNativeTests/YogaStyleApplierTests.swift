@@ -146,11 +146,9 @@ final class YogaStyleApplierTests: XCTestCase {
         //   </div>
         // </div>
         //
-        // Note: blockDefaults adds display:"block" to each child div.
-        // Yoga's Display.block prevents children from respecting flexGrow
-        // ratios inside a flex parent — they distribute space equally instead.
-        // This is a known Yoga limitation (CSS would give 1:2:1 ratios).
-        // We keep Display.block because it's needed for margin collapsing.
+        // With the flex context override applied at insertion time, block
+        // children of flex parents get their Yoga display overridden from
+        // .block to .flex, so flexGrow distributes space by ratio (1:2:1).
 
         let outer = ShadowNodeWrapper.createElementNode(
             type: "div",
@@ -180,19 +178,148 @@ final class YogaStyleApplierTests: XCTestCase {
             surfaceId: 0
         )
 
+        // Insert children with flex context override (simulates appendChild)
+        let rowStyle = row.props["style"] as? [String: Any] ?? [:]
+
         YGNodeInsertChild(row.yogaNode, child1.yogaNode, 0)
+        let child1Style = child1.props["style"] as? [String: Any] ?? [:]
+        YogaStyleApplier.applyFlexContextOverride(parent: row.yogaNode, child: child1.yogaNode, parentStyle: rowStyle, childStyle: child1Style)
+
         YGNodeInsertChild(row.yogaNode, child2.yogaNode, 1)
+        let child2Style = child2.props["style"] as? [String: Any] ?? [:]
+        YogaStyleApplier.applyFlexContextOverride(parent: row.yogaNode, child: child2.yogaNode, parentStyle: rowStyle, childStyle: child2Style)
+
         YGNodeInsertChild(row.yogaNode, child3.yogaNode, 2)
+        let child3Style = child3.props["style"] as? [String: Any] ?? [:]
+        YogaStyleApplier.applyFlexContextOverride(parent: row.yogaNode, child: child3.yogaNode, parentStyle: rowStyle, childStyle: child3Style)
+
         YGNodeInsertChild(outer.yogaNode, row.yogaNode, 0)
 
         YGNodeCalculateLayout(outer.yogaNode, 390, Float.nan, .LTR)
 
-        // Yoga Display.block children distribute space equally (374/3 ≈ 124.67)
-        // rather than by flex-grow ratio (CSS would give 93.5, 187, 93.5).
-        let equalWidth: Float = (390 - 2 * 8) / 3  // ≈ 124.67
-        XCTAssertEqual(YGNodeLayoutGetWidth(child1.yogaNode), equalWidth, accuracy: 1.0)
-        XCTAssertEqual(YGNodeLayoutGetWidth(child2.yogaNode), equalWidth, accuracy: 1.0)
-        XCTAssertEqual(YGNodeLayoutGetWidth(child3.yogaNode), equalWidth, accuracy: 1.0)
+        // Available space = 390 - 2*8 (gap) = 374
+        // Ratio 1:2:1 => child1=93.5, child2=187, child3=93.5
+        XCTAssertEqual(YGNodeLayoutGetWidth(child1.yogaNode), 93.5, accuracy: 0.5)
+        XCTAssertEqual(YGNodeLayoutGetWidth(child2.yogaNode), 187, accuracy: 0.5)
+        XCTAssertEqual(YGNodeLayoutGetWidth(child3.yogaNode), 93.5, accuracy: 0.5)
+    }
+
+    // MARK: - Flex context override
+
+    func testFlexContextOverrideBlockChildInFlexParent() {
+        // Block child in explicit flex parent: display should be overridden to .flex
+        let parent = YGNodeNewWithConfig(YogaConfig.shared)!
+        YGNodeStyleSetDisplay(parent, .flex)
+
+        let child = YGNodeNewWithConfig(YogaConfig.shared)!
+        YGNodeStyleSetDisplay(child, .block)
+
+        YGNodeInsertChild(parent, child, 0)
+        YogaStyleApplier.applyFlexContextOverride(
+            parent: parent, child: child,
+            parentStyle: ["display": "flex"], childStyle: [:]
+        )
+
+        XCTAssertEqual(YGNodeStyleGetDisplay(child), .flex)
+        XCTAssertEqual(YGNodeStyleGetFlexDirection(child), .column)
+
+        YGNodeRemoveAllChildren(parent)
+        YGNodeFree(child)
+        YGNodeFree(parent)
+    }
+
+    func testFlexContextOverrideBlockChildInBlockParent() {
+        // Block child in block parent: no override (preserves margin collapsing)
+        let parent = YGNodeNewWithConfig(YogaConfig.shared)!
+        YGNodeStyleSetDisplay(parent, .block)
+
+        let child = YGNodeNewWithConfig(YogaConfig.shared)!
+        YGNodeStyleSetDisplay(child, .block)
+
+        YGNodeInsertChild(parent, child, 0)
+        YogaStyleApplier.applyFlexContextOverride(
+            parent: parent, child: child,
+            parentStyle: ["display": "block"], childStyle: [:]
+        )
+
+        XCTAssertEqual(YGNodeStyleGetDisplay(child), .block)
+
+        YGNodeRemoveAllChildren(parent)
+        YGNodeFree(child)
+        YGNodeFree(parent)
+    }
+
+    func testFlexContextOverrideBlockChildInImplicitFlexParent() {
+        // Block child in parent with NO explicit display (Yoga defaults to
+        // .flex but style dict has no "display" key): no override.
+        // This is the key regression fix — the root fixture container
+        // never sets display explicitly, so its block children must
+        // NOT be converted to flex.
+        let parent = YGNodeNewWithConfig(YogaConfig.shared)!
+        // Don't set display — Yoga defaults to .flex
+
+        let child = YGNodeNewWithConfig(YogaConfig.shared)!
+        YGNodeStyleSetDisplay(child, .block)
+
+        YGNodeInsertChild(parent, child, 0)
+        YogaStyleApplier.applyFlexContextOverride(
+            parent: parent, child: child,
+            parentStyle: [:], childStyle: [:]
+        )
+
+        XCTAssertEqual(YGNodeStyleGetDisplay(child), .block)
+
+        YGNodeRemoveAllChildren(parent)
+        YGNodeFree(child)
+        YGNodeFree(parent)
+    }
+
+    func testFlexContextOverridePreservesExplicitFlexDirection() {
+        // Block child with explicit flexDirection:row in style dict should
+        // NOT have its flexDirection overridden to column
+        let parent = YGNodeNewWithConfig(YogaConfig.shared)!
+        YGNodeStyleSetDisplay(parent, .flex)
+
+        let child = YGNodeNewWithConfig(YogaConfig.shared)!
+        YGNodeStyleSetDisplay(child, .block)
+        YGNodeStyleSetFlexDirection(child, .row)
+
+        YGNodeInsertChild(parent, child, 0)
+        YogaStyleApplier.applyFlexContextOverride(
+            parent: parent, child: child,
+            parentStyle: ["display": "flex"],
+            childStyle: ["flexDirection": "row"]
+        )
+
+        XCTAssertEqual(YGNodeStyleGetDisplay(child), .flex)
+        XCTAssertEqual(YGNodeStyleGetFlexDirection(child), .row)
+
+        YGNodeRemoveAllChildren(parent)
+        YGNodeFree(child)
+        YGNodeFree(parent)
+    }
+
+    func testFlexContextOverrideFlexChildUnchanged() {
+        // Child with display:flex should NOT be affected
+        let parent = YGNodeNewWithConfig(YogaConfig.shared)!
+        YGNodeStyleSetDisplay(parent, .flex)
+
+        let child = YGNodeNewWithConfig(YogaConfig.shared)!
+        YGNodeStyleSetDisplay(child, .flex)
+        YGNodeStyleSetFlexDirection(child, .row)
+
+        YGNodeInsertChild(parent, child, 0)
+        YogaStyleApplier.applyFlexContextOverride(
+            parent: parent, child: child,
+            parentStyle: ["display": "flex"], childStyle: [:]
+        )
+
+        XCTAssertEqual(YGNodeStyleGetDisplay(child), .flex)
+        XCTAssertEqual(YGNodeStyleGetFlexDirection(child), .row)
+
+        YGNodeRemoveAllChildren(parent)
+        YGNodeFree(child)
+        YGNodeFree(parent)
     }
 
     func testBlockDefaultsStackVerticallyAndStretch() {
@@ -224,5 +351,29 @@ final class YogaStyleApplierTests: XCTestCase {
         XCTAssertEqual(YGNodeLayoutGetWidth(child1.yogaNode), 390, accuracy: 0.1)
         XCTAssertEqual(YGNodeLayoutGetWidth(child2.yogaNode), 390, accuracy: 0.1)
         XCTAssertEqual(YGNodeLayoutGetHeight(outer.yogaNode), 100, accuracy: 0.1)
+    }
+
+    func testMarginAutoCentersHorizontally() {
+        // A fixed-width child with marginLeft/marginRight auto should be centered.
+        let outer = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["width": 390]],
+            surfaceId: 0
+        )
+        let child = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["width": 200, "height": 50, "marginLeft": "auto", "marginRight": "auto"]],
+            surfaceId: 0
+        )
+
+        YGNodeInsertChild(outer.yogaNode, child.yogaNode, 0)
+        YGNodeCalculateLayout(outer.yogaNode, 390, Float.nan, .LTR)
+
+        // Child should be centered: (390 - 200) / 2 = 95
+        XCTAssertEqual(YGNodeLayoutGetLeft(child.yogaNode), 95, accuracy: 0.1)
+        XCTAssertEqual(YGNodeLayoutGetWidth(child.yogaNode), 200, accuracy: 0.1)
+        // Note: YGNodeLayoutGetMargin returns 0 for auto margins, not the
+        // computed value. The LayoutExtractor must compute auto margins from
+        // layout position and parent width instead.
     }
 }

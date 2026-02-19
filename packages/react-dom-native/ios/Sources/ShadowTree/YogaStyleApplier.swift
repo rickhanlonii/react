@@ -132,26 +132,40 @@ public enum YogaStyleApplier {
             YGNodeStyleSetPadding(node, .vertical, pv)
         }
 
-        // margin (all edges)
-        if let margin = toFloat(style["margin"]) {
+        // margin (all edges) — supports numeric values and "auto"
+        if let margin = style["margin"] as? String, margin == "auto" {
+            YGNodeStyleSetMarginAuto(node, .all)
+        } else if let margin = toFloat(style["margin"]) {
             YGNodeStyleSetMargin(node, .all, margin)
         }
-        if let mt = toFloat(style["marginTop"]) {
+        if let mt = style["marginTop"] as? String, mt == "auto" {
+            YGNodeStyleSetMarginAuto(node, .top)
+        } else if let mt = toFloat(style["marginTop"]) {
             YGNodeStyleSetMargin(node, .top, mt)
         }
-        if let mr = toFloat(style["marginRight"]) {
+        if let mr = style["marginRight"] as? String, mr == "auto" {
+            YGNodeStyleSetMarginAuto(node, .right)
+        } else if let mr = toFloat(style["marginRight"]) {
             YGNodeStyleSetMargin(node, .right, mr)
         }
-        if let mb = toFloat(style["marginBottom"]) {
+        if let mb = style["marginBottom"] as? String, mb == "auto" {
+            YGNodeStyleSetMarginAuto(node, .bottom)
+        } else if let mb = toFloat(style["marginBottom"]) {
             YGNodeStyleSetMargin(node, .bottom, mb)
         }
-        if let ml = toFloat(style["marginLeft"]) {
+        if let ml = style["marginLeft"] as? String, ml == "auto" {
+            YGNodeStyleSetMarginAuto(node, .left)
+        } else if let ml = toFloat(style["marginLeft"]) {
             YGNodeStyleSetMargin(node, .left, ml)
         }
-        if let mh = toFloat(style["marginHorizontal"]) {
+        if let mh = style["marginHorizontal"] as? String, mh == "auto" {
+            YGNodeStyleSetMarginAuto(node, .horizontal)
+        } else if let mh = toFloat(style["marginHorizontal"]) {
             YGNodeStyleSetMargin(node, .horizontal, mh)
         }
-        if let mv = toFloat(style["marginVertical"]) {
+        if let mv = style["marginVertical"] as? String, mv == "auto" {
+            YGNodeStyleSetMarginAuto(node, .vertical)
+        } else if let mv = toFloat(style["marginVertical"]) {
             YGNodeStyleSetMargin(node, .vertical, mv)
         }
 
@@ -272,6 +286,51 @@ public enum YogaStyleApplier {
         }
         if let blw = toFloat(style["borderLeftWidth"]) {
             YGNodeStyleSetBorder(node, .left, blw)
+        }
+    }
+
+    // MARK: - Flex Context Override
+
+    /// When a block child is inserted into an explicit flex parent, CSS
+    /// treats the child as a flex item (its outer display becomes `flex`).
+    /// Yoga does NOT do this automatically — `display: block` uses
+    /// `calculateBlockLayout()` which ignores flexGrow/flexShrink.
+    ///
+    /// Call this after `YGNodeInsertChild` to emulate the CSS behavior:
+    /// override the child's Yoga display from `.block` to `.flex` and set
+    /// `flexDirection: column` to preserve block-like vertical stacking.
+    ///
+    /// - Parameters:
+    ///   - parentYogaNode: The parent's Yoga node.
+    ///   - childYogaNode: The child's Yoga node.
+    ///   - parentStyle: The parent's merged style dict. Used to check whether
+    ///     the parent is an explicit flex container (display: "flex"/"inline-flex").
+    ///   - childStyle: The child's merged style dict. Used to check whether
+    ///     flexDirection was explicitly set (element defaults or user style).
+    public static func applyFlexContextOverride(
+        parent parentYogaNode: YGNodeRef,
+        child childYogaNode: YGNodeRef,
+        parentStyle: [String: Any],
+        childStyle: [String: Any]
+    ) {
+        // Only override when the parent EXPLICITLY declares display:flex
+        // or display:inline-flex. Yoga defaults to .flex for all nodes,
+        // so checking the Yoga property would incorrectly match block
+        // parents that never set display, breaking margin collapsing.
+        let parentDisplayStr = parentStyle["display"] as? String
+        let childDisplay = YGNodeStyleGetDisplay(childYogaNode)
+
+        guard parentDisplayStr == "flex" || parentDisplayStr == "inline-flex",
+              childDisplay == .block else {
+            return
+        }
+
+        YGNodeStyleSetDisplay(childYogaNode, .flex)
+        // Only set flexDirection:column if the style dict doesn't already
+        // have an explicit flexDirection (e.g. p/h1-h6 use flexDirection:row
+        // for inline text wrapping and should keep it)
+        if childStyle["flexDirection"] == nil {
+            YGNodeStyleSetFlexDirection(childYogaNode, .column)
         }
     }
 

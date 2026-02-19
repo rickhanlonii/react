@@ -475,6 +475,18 @@ public class Bindings {
             }
             YGNodeInsertChild(parent.yogaNode, child.yogaNode, index)
 
+            // CSS: block children of flex parents participate in flex layout.
+            // Yoga doesn't do this automatically — override display:block to
+            // display:flex + flexDirection:column so flexGrow/flexShrink work.
+            let parentStyle = parent.props["style"] as? [String: Any] ?? [:]
+            let childStyle = child.props["style"] as? [String: Any] ?? [:]
+            YogaStyleApplier.applyFlexContextOverride(
+                parent: parent.yogaNode,
+                child: child.yogaNode,
+                parentStyle: parentStyle,
+                childStyle: childStyle
+            )
+
             // If the child is a #text node, inherit font properties from parent for
             // accurate Yoga measurement. Without this, text nodes default to
             // 16pt regular and get clipped inside larger elements (e.g. h1 at 32pt bold).

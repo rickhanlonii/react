@@ -283,6 +283,16 @@ public class ShadowTreeBuilder {
             YGNodeRemoveChild(owner, child.yogaNode)
         }
         YGNodeInsertChild(parent.yogaNode, child.yogaNode, index)
+
+        // CSS: block children of flex parents participate in flex layout
+        let parentStyle = parent.props["style"] as? [String: Any] ?? [:]
+        let childStyle = child.props["style"] as? [String: Any] ?? [:]
+        YogaStyleApplier.applyFlexContextOverride(
+            parent: parent.yogaNode,
+            child: child.yogaNode,
+            parentStyle: parentStyle,
+            childStyle: childStyle
+        )
     }
 
 }
