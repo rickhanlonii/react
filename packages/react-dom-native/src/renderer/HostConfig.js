@@ -454,10 +454,11 @@ exports.isSuspenseInstanceFallback = function(instance) {
 };
 exports.getSuspenseInstanceFallbackErrorDetails = function() { return null; };
 exports.registerSuspenseInstanceRetry = function(instance, callback) {
-  // If boundary is already revealed (not pending), fire retry immediately
-  // so hydration runs at HydrationLane before other re-renders interfere.
+  // If boundary was already revealed before hydration started, the content
+  // was hydrated during the initial pass — no retry needed. Firing the
+  // callback would cause React to re-render the children as a client-side
+  // render, creating duplicate views and tearing down the hydrated ones.
   if (instance.pending !== true) {
-    callback();
     return;
   }
   if (instance._retryCallbacks) {

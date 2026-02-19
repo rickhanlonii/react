@@ -37,6 +37,10 @@ public class Bindings {
     /// Set via $$registerEventHandler. Protected via engine.protect().
     private var eventHandler: JSValueRef?
 
+    /// Callback invoked when JS calls $$sendInspectorMessage.
+    /// Wired by Root to send messages to the dev server via HotReloadClient.
+    public var sendInspectorMessage: ((String) -> Void)?
+
     /// Current tree per surface. Keyed by surfaceId.
     private var currentTrees: [Int: [ShadowNodeWrapper]] = [:]
 
@@ -319,6 +323,7 @@ public class Bindings {
         registerEventHandling()
         registerNetworking()
         registerHydrationTraversal()
+        registerDevTools()
     }
 
     // MARK: - Node Creation
@@ -556,10 +561,35 @@ public class Bindings {
                     // createElementNode using the default fontSize, but now
                     // the inherited fontSize is different.
                     if let newFS = (updated["fontSize"] as? NSNumber)?.doubleValue
-                        ?? (updated["fontSize"] as? Double),
-                       let minH = ElementDefaults.yogaTextContainerMinHeight(
-                           for: child.family.elementType, fontSize: CGFloat(newFS)) {
-                        YGNodeStyleSetMinHeight(child.yogaNode, Float(minH))
+                        ?? (updated["fontSize"] as? Double) {
+                        if let minH = ElementDefaults.yogaTextContainerMinHeight(
+                            for: child.family.elementType, fontSize: CGFloat(newFS)) {
+                            YGNodeStyleSetMinHeight(child.yogaNode, Float(minH))
+                        }
+                        // Re-measure text children with inherited fontSize.
+                        // Text nodes were measured when appended to the child
+                        // (before fontSize changed), so they use the old size.
+                        let fontSize = CGFloat(newFS)
+                        let fontWeight = updated["fontWeight"] as? String
+                        let fontFamily = updated["fontFamily"] as? String
+                        let fontStyle = updated["fontStyle"] as? String
+                        let lineHeight: CGFloat?
+                        if let lh = updated["lineHeight"] as? NSNumber {
+                            lineHeight = CGFloat(lh.doubleValue)
+                        } else {
+                            lineHeight = ElementDefaults.textLineHeight(for: child.family.elementType)
+                        }
+                        for textChild in child.children where textChild.family.elementType == "#text" {
+                            YogaTextMeasure.cleanupMeasureContext(for: textChild.yogaNode)
+                            YogaTextMeasure.setupMeasureFunc(
+                                on: textChild,
+                                fontSize: fontSize,
+                                fontWeight: fontWeight,
+                                fontFamily: fontFamily,
+                                fontStyle: fontStyle,
+                                lineHeight: lineHeight
+                            )
+                        }
                     }
                 }
             }
@@ -576,6 +606,12 @@ public class Bindings {
             // top border, not inside the content area. Apply a negative top
             // margin to pull it up by (borderTop + paddingTop), centering it
             // on the border edge.
+            //
+            // CSS also positions content after the legend starting at
+            // legendBottom + paddingTop. The negative margin consumes the
+            // paddingTop for the legend's position, so we add paddingTop
+            // as the legend's marginBottom to restore the gap between the
+            // legend and subsequent content.
             if parent.family.elementType == "fieldset",
                child.family.elementType == "legend" {
                 let borderTopVal = YGNodeStyleGetBorder(parent.yogaNode, .top)
@@ -594,6 +630,7 @@ public class Bindings {
                 }
                 let offset = borderTop + paddingTop
                 YGNodeStyleSetMargin(child.yogaNode, .top, -offset)
+                YGNodeStyleSetMargin(child.yogaNode, .bottom, paddingTop)
             }
 
             // If the child is a #text node, inherit font properties from parent for
@@ -672,6 +709,21 @@ public class Bindings {
 
             // 1. Get old tree (empty on first commit)
             let oldChildren = self.currentTrees[surfaceId] ?? []
+
+            // 1b. Unwrap revealed #suspense nodes from old tree before diffing.
+            // The hydration commit preserves #suspense wrapper nodes from SSR,
+            // but React's retry render produces trees WITHOUT these wrappers
+            // (Suspense children are placed directly). Unwrapping here aligns
+            // the old tree structure with the new tree, so the diff sees matching
+            // families and produces 0 content mutations instead of redundant
+            // CREATE+DELETE pairs for the entire subtree.
+            //
+            // Only run on post-hydration commits (retry render). During the
+            // hydration commit itself, #suspense must stay in the old tree to
+            // match the new hydrated tree (which also has #suspense wrappers).
+            if !self.hydrationInProgress.contains(surfaceId) {
+                self.unwrapRevealedSuspenseNodesInTree(oldChildren)
+            }
 
             // 2. Calculate layout using Yoga
             var contentSize: CGSize = .zero
@@ -840,6 +892,54 @@ public class Bindings {
         // Remove the #suspense view itself
         suspenseView.removeFromSuperview()
         viewRegistry.unregister(family: suspenseNode.family)
+    }
+
+    /// Recursively unwraps revealed #suspense nodes from the committed tree.
+    ///
+    /// After the hydration commit, the stored tree may contain #suspense wrapper
+    /// nodes from SSR. React's retry render produces a tree WITHOUT these wrappers
+    /// (Suspense children are placed directly). This structural mismatch causes
+    /// the Differentiator to treat the entire subtree as a replacement, generating
+    /// redundant CREATE/DELETE mutations.
+    ///
+    /// This method aligns the stored tree with what the retry render will produce
+    /// by replacing each revealed #suspense node with its children. Only revealed
+    /// boundaries (pending=false) are unwrapped — pending boundaries keep their
+    /// #suspense wrapper until the content arrives.
+    private func unwrapRevealedSuspenseNodes(in parent: ShadowNodeWrapper) {
+        var i = 0
+        while i < parent.children.count {
+            let child = parent.children[i]
+            if child.family.elementType == "#suspense" {
+                let pending = (child.props["pending"] as? Bool) ?? false
+                if !pending {
+                    // Only modify the children array — NOT Yoga nodes or UIKit views.
+                    // In persistent mode, leaf nodes are shared between old and new trees.
+                    // Their Yoga nodes are already parented in the new tree (via $appendChild
+                    // during React's clone pass). Touching Yoga here would corrupt the
+                    // new tree's layout hierarchy. The mutation applier and syncAllFrames
+                    // handle UIKit views and Yoga layout for the new tree independently.
+                    parent.children.remove(at: i)
+                    for (j, grandchild) in child.children.enumerated() {
+                        parent.children.insert(grandchild, at: i + j)
+                    }
+                    // Don't increment i — check inserted children for nested #suspense
+                    continue
+                }
+            }
+            // Recurse into non-#suspense children
+            unwrapRevealedSuspenseNodes(in: child)
+            i += 1
+        }
+    }
+
+    /// Walks the root-level children and unwraps revealed #suspense nodes.
+    /// Called after the hydration commit to align the stored tree with what
+    /// React's retry render will produce.
+    private func unwrapRevealedSuspenseNodesInTree(_ roots: [ShadowNodeWrapper]) {
+        for root in roots {
+            unwrapRevealedSuspenseNodes(in: root)
+        }
     }
 
     /// Recursively syncs every UIView's frame to match its node's layoutFrame.
@@ -1217,5 +1317,30 @@ public class Bindings {
             }
         }
         return nil
+    }
+
+    // MARK: - DevTools
+
+    private func registerDevTools() {
+        // $$performanceNow() -> milliseconds (high-resolution)
+        engine.setGlobalFunction("$$performanceNow") { [weak engine] _ in
+            return engine?.makeNumber(CACurrentMediaTime() * 1000.0)
+        }
+
+        // $$sendInspectorMessage(data) -> void
+        // Sends a string message from JS to the dev server via the hot reload WebSocket.
+        engine.setGlobalFunction("$$sendInspectorMessage") { [weak self, weak engine] args in
+            guard let self = self, let engine = engine else { return nil }
+            guard let data = engine.toString(args[0]) else { return nil }
+            self.sendInspectorMessage?(data)
+            return nil
+        }
+    }
+
+    /// Delivers an inspector message from the dev server to JS.
+    /// Calls the global $$onInspectorMessage function if it exists.
+    public func deliverInspectorMessage(_ json: String) {
+        guard let handler = engine.getGlobalProperty("$$onInspectorMessage") else { return }
+        _ = engine.callFunction(handler, args: [engine.makeString(json)])
     }
 }
