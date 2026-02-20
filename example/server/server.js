@@ -195,10 +195,30 @@ app.get('/fixtures', function (req, res) {
       name: name,
       title: meta.title || name,
       description: meta.description || '',
+      category: meta.category || 'Other',
     };
   });
 
-  res.json(fixtures);
+  var categoryOrder = [];
+  var categoryMap = {};
+  for (var i = 0; i < fixtures.length; i++) {
+    var cat = fixtures[i].category;
+    if (!categoryMap[cat]) {
+      categoryMap[cat] = [];
+      categoryOrder.push(cat);
+    }
+    categoryMap[cat].push({
+      name: fixtures[i].name,
+      title: fixtures[i].title,
+      description: fixtures[i].description,
+    });
+  }
+
+  var grouped = categoryOrder.map(function(cat) {
+    return { category: cat, fixtures: categoryMap[cat] };
+  });
+
+  res.json(grouped);
 });
 
 app.get('/fixtures/:name', function (req, res) {
