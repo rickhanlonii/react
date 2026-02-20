@@ -53,12 +53,31 @@ public enum ShadowTreeLayout {
     /// Uses local (parent-relative) coordinates since UIKit subview frames
     /// are relative to their superview, not the root.
     public static func readLayoutFrames(node: ShadowNodeWrapper) {
-        node.layoutFrame = CGRect(
-            x: CGFloat(YGNodeLayoutGetLeft(node.yogaNode)),
-            y: CGFloat(YGNodeLayoutGetTop(node.yogaNode)),
-            width: CGFloat(YGNodeLayoutGetWidth(node.yogaNode)),
-            height: CGFloat(YGNodeLayoutGetHeight(node.yogaNode))
-        )
+        var x = CGFloat(YGNodeLayoutGetLeft(node.yogaNode))
+        var y = CGFloat(YGNodeLayoutGetTop(node.yogaNode))
+        let width = CGFloat(YGNodeLayoutGetWidth(node.yogaNode))
+        let height = CGFloat(YGNodeLayoutGetHeight(node.yogaNode))
+
+        // Yoga's calculateBlockLayout() does NOT apply position:relative
+        // offsets (top/left/right/bottom), unlike flex layout which does.
+        // When a block-display node has position:relative, manually apply
+        // the offsets to match CSS behavior.
+        if YGNodeStyleGetDisplay(node.yogaNode) == .block &&
+           YGNodeStyleGetPositionType(node.yogaNode) == .relative {
+            let style = node.props["style"] as? [String: Any]
+            if let top = style?["top"] as? NSNumber {
+                y += CGFloat(top.doubleValue)
+            } else if let bottom = style?["bottom"] as? NSNumber {
+                y -= CGFloat(bottom.doubleValue)
+            }
+            if let left = style?["left"] as? NSNumber {
+                x += CGFloat(left.doubleValue)
+            } else if let right = style?["right"] as? NSNumber {
+                x -= CGFloat(right.doubleValue)
+            }
+        }
+
+        node.layoutFrame = CGRect(x: x, y: y, width: width, height: height)
 
         for child in node.children {
             readLayoutFrames(node: child)
@@ -155,6 +174,11 @@ public enum ShadowTreeLayout {
                 height: contentHeight
             )
 
+            // Save layout margins BEFORE reparenting. Yoga's
+            // YGNodeRemoveAllChildren calls setLayout({}) on each child,
+            // clearing cached layout results including margins.
+            saveLayoutMargins(for: node.children)
+
             // Restore children to original parent
             YGNodeRemoveAllChildren(tempRoot)
             for (index, child) in node.children.enumerated() {
@@ -166,6 +190,20 @@ public enum ShadowTreeLayout {
         // Recurse (children may also be scroll containers)
         for child in node.children {
             computeScrollContentSizes(for: child)
+        }
+    }
+
+    /// Recursively save layout margins from Yoga nodes to ShadowNodeWrappers.
+    /// Called before YGNodeRemoveAllChildren which clears layout data.
+    private static func saveLayoutMargins(for children: [ShadowNodeWrapper]) {
+        for child in children {
+            child.layoutMargins = (
+                top: CGFloat(YGNodeLayoutGetMargin(child.yogaNode, .top)),
+                right: CGFloat(YGNodeLayoutGetMargin(child.yogaNode, .right)),
+                bottom: CGFloat(YGNodeLayoutGetMargin(child.yogaNode, .bottom)),
+                left: CGFloat(YGNodeLayoutGetMargin(child.yogaNode, .left))
+            )
+            saveLayoutMargins(for: child.children)
         }
     }
 }

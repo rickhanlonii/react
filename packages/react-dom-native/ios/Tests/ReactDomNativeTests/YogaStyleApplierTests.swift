@@ -65,7 +65,7 @@ final class YogaStyleApplierTests: XCTestCase {
     // MARK: - Border width (new properties)
 
     func testBorderWidthAllEdges() {
-        YogaStyleApplier.apply(["borderWidth": 2], to: node)
+        YogaStyleApplier.apply(["borderWidth": 2, "borderStyle": "solid"], to: node)
         XCTAssertEqual(YGNodeStyleGetBorder(node, .all), 2)
     }
 
@@ -74,7 +74,8 @@ final class YogaStyleApplierTests: XCTestCase {
             "borderTopWidth": 1,
             "borderRightWidth": 2,
             "borderBottomWidth": 3,
-            "borderLeftWidth": 4
+            "borderLeftWidth": 4,
+            "borderStyle": "solid"
         ], to: node)
         XCTAssertEqual(YGNodeStyleGetBorder(node, .top), 1)
         XCTAssertEqual(YGNodeStyleGetBorder(node, .right), 2)
@@ -82,7 +83,84 @@ final class YogaStyleApplierTests: XCTestCase {
         XCTAssertEqual(YGNodeStyleGetBorder(node, .left), 4)
     }
 
+    func testBorderWidthSkippedWhenBorderStyleNone() {
+        YogaStyleApplier.apply(["borderWidth": 2, "borderStyle": "none"], to: node)
+        XCTAssertTrue(YGNodeStyleGetBorder(node, .all).isNaN, "borderWidth should not be set when borderStyle is none")
+    }
+
+    func testBorderWidthSkippedWhenBorderStyleAbsent() {
+        YogaStyleApplier.apply(["borderWidth": 2], to: node)
+        XCTAssertTrue(YGNodeStyleGetBorder(node, .all).isNaN, "borderWidth should not be set when borderStyle is absent")
+    }
+
+    func testBorderStyleWithoutBorderWidthDefaultsToMedium() {
+        // CSS initial border-width is "medium" (3px). When borderStyle is set
+        // without an explicit borderWidth, all edges should default to 3.
+        YogaStyleApplier.apply(["borderStyle": "solid"], to: node)
+        XCTAssertEqual(YGNodeStyleGetBorder(node, .all), 3, "border-width should default to medium (3px) when borderStyle is set")
+    }
+
+    func testBorderStyleWithPerSideWidthOverridesDefault() {
+        // When borderStyle is set with only borderBottomWidth, the other edges
+        // should still get the CSS initial 3px, and bottom should be overridden.
+        YogaStyleApplier.apply(["borderStyle": "solid", "borderBottomWidth": 1], to: node)
+        XCTAssertEqual(YGNodeStyleGetBorder(node, .all), 3, "unset edges should default to medium (3px)")
+        XCTAssertEqual(YGNodeStyleGetBorder(node, .bottom), 1, "per-side value should override the default")
+    }
+
     // MARK: - Existing properties (regression coverage)
+
+    func testRelativePositionOffset() {
+        // Test 1: Flex parent — Yoga includes relative offset in layout
+        let flexParent = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["display": "flex", "flexDirection": "column", "width": 300, "height": 60, "padding": 10]],
+            surfaceId: 0
+        )
+        let flexChild = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": [
+                "width": 60, "height": 40,
+                "position": "relative", "top": 10, "left": 20
+            ]],
+            surfaceId: 0
+        )
+        let flexParentStyle = flexParent.props["style"] as? [String: Any] ?? [:]
+        YGNodeInsertChild(flexParent.yogaNode, flexChild.yogaNode, 0)
+        YogaStyleApplier.applyFlexContextOverride(
+            parent: flexParent.yogaNode, child: flexChild.yogaNode,
+            parentStyle: flexParentStyle, childStyle: flexChild.props["style"] as? [String: Any] ?? [:]
+        )
+        YGNodeCalculateLayout(flexParent.yogaNode, 300, 60, .LTR)
+        // Flex layout: Yoga already includes the relative offset
+        ShadowTreeLayout.readLayoutFrames(node: flexChild)
+        XCTAssertEqual(flexChild.layoutFrame.origin.x, 30, accuracy: 0.01, "flex: relative left:20 applied (10+20=30)")
+        XCTAssertEqual(flexChild.layoutFrame.origin.y, 20, accuracy: 0.01, "flex: relative top:10 applied (10+10=20)")
+        YGNodeRemoveAllChildren(flexParent.yogaNode)
+
+        // Test 2: Block parent — readLayoutFrames applies the offset manually
+        let blockParent = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["width": 300, "height": 60, "padding": 10]],
+            surfaceId: 0
+        )
+        let blockChild = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": [
+                "width": 60, "height": 40,
+                "position": "relative", "top": 10, "left": 20
+            ]],
+            surfaceId: 0
+        )
+        YGNodeInsertChild(blockParent.yogaNode, blockChild.yogaNode, 0)
+        YGNodeCalculateLayout(blockParent.yogaNode, 300, 60, .LTR)
+        // Block layout: Yoga does NOT apply relative offsets.
+        // readLayoutFrames should add them manually.
+        ShadowTreeLayout.readLayoutFrames(node: blockChild)
+        XCTAssertEqual(blockChild.layoutFrame.origin.x, 30, accuracy: 0.01, "block: relative left:20 manually applied (10+20=30)")
+        XCTAssertEqual(blockChild.layoutFrame.origin.y, 20, accuracy: 0.01, "block: relative top:10 manually applied (10+10=20)")
+        YGNodeRemoveAllChildren(blockParent.yogaNode)
+    }
 
     func testFlexDirectionColumn() {
         YogaStyleApplier.apply(["flexDirection": "column"], to: node)
@@ -423,5 +501,242 @@ final class YogaStyleApplierTests: XCTestCase {
 
         // Verify lineHeight is NOT in the style dict (no false comparison diff)
         XCTAssertNil(style["lineHeight"], "lineHeight should not appear in style dict")
+    }
+
+    func testContentBoxFlexGrowWithDifferentPadding() {
+        // CSS flexbox with content-box: flex space is distributed to INNER
+        // (content) size equally, then padding/border is added outside.
+        // Matches the e2e fixture hierarchy:
+        // <div style={{width: 390}}>           — root (block)
+        //   <div style={{display: 'flex', flexDirection: 'row', gap: 8, marginTop: 10}}>
+        //     <div style={{flexGrow: 1, padding: 8, borderWidth: 2, borderStyle: 'solid', borderColor: '#aaa', backgroundColor: '#ffeedd'}}>
+        //       <div style={{height: 30, backgroundColor: '#ddbb99'}} />
+        //     </div>
+        //     <div style={{flexGrow: 1, padding: 16, borderWidth: 2, borderStyle: 'solid', borderColor: '#aaa', backgroundColor: '#ddeeff'}}>
+        //       <div style={{height: 30, backgroundColor: '#99bbdd'}} />
+        //     </div>
+        //   </div>
+        // </div>
+
+        // Root container
+        let root = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["width": 390]],
+            surfaceId: 0
+        )
+
+        // Flex row (no explicit width — stretches from parent)
+        let row = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["display": "flex", "flexDirection": "row", "gap": 8, "marginTop": 10]],
+            surfaceId: 0
+        )
+
+        // Insert row into root
+        YGNodeInsertChild(root.yogaNode, row.yogaNode, 0)
+        let rootStyle = root.props["style"] as? [String: Any] ?? [:]
+        let rowStyle = row.props["style"] as? [String: Any] ?? [:]
+        YogaStyleApplier.applyFlexContextOverride(
+            parent: root.yogaNode, child: row.yogaNode,
+            parentStyle: rootStyle, childStyle: rowStyle
+        )
+
+        let child1 = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["flexGrow": 1, "padding": 8, "borderWidth": 2, "borderStyle": "solid", "borderColor": "#aaaaaa", "backgroundColor": "#ffeedd"]],
+            surfaceId: 0
+        )
+        let innerDiv1 = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["height": 30, "backgroundColor": "#ddbb99"]],
+            surfaceId: 0
+        )
+        // innerDiv1 is inserted into child1 before child1 is overridden to
+        // flex. The cascade in applyFlexContextOverride should retroactively
+        // override innerDiv1 when child1 is promoted to flex.
+        YGNodeInsertChild(child1.yogaNode, innerDiv1.yogaNode, 0)
+
+        let child2 = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["flexGrow": 1, "padding": 16, "borderWidth": 2, "borderStyle": "solid", "borderColor": "#aaaaaa", "backgroundColor": "#ddeeff"]],
+            surfaceId: 0
+        )
+        let innerDiv2 = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["height": 30, "backgroundColor": "#99bbdd"]],
+            surfaceId: 0
+        )
+        YGNodeInsertChild(child2.yogaNode, innerDiv2.yogaNode, 0)
+
+        // Insert children into row with flex context override + cascade
+        let child1Style = child1.props["style"] as? [String: Any] ?? [:]
+        let child1DisplayBefore = YGNodeStyleGetDisplay(child1.yogaNode)
+        YGNodeInsertChild(row.yogaNode, child1.yogaNode, 0)
+        YogaStyleApplier.applyFlexContextOverride(
+            parent: row.yogaNode, child: child1.yogaNode,
+            parentStyle: rowStyle, childStyle: child1Style
+        )
+        // Cascade to child1's existing children
+        if child1DisplayBefore != YGNodeStyleGetDisplay(child1.yogaNode) {
+            let overriddenParentStyle: [String: Any] = ["display": "flex"]
+            let gcStyle = innerDiv1.props["style"] as? [String: Any] ?? [:]
+            YogaStyleApplier.applyFlexContextOverride(
+                parent: child1.yogaNode, child: innerDiv1.yogaNode,
+                parentStyle: overriddenParentStyle, childStyle: gcStyle
+            )
+        }
+
+        let child2Style = child2.props["style"] as? [String: Any] ?? [:]
+        let child2DisplayBefore = YGNodeStyleGetDisplay(child2.yogaNode)
+        YGNodeInsertChild(row.yogaNode, child2.yogaNode, 1)
+        YogaStyleApplier.applyFlexContextOverride(
+            parent: row.yogaNode, child: child2.yogaNode,
+            parentStyle: rowStyle, childStyle: child2Style
+        )
+        // Cascade to child2's existing children
+        if child2DisplayBefore != YGNodeStyleGetDisplay(child2.yogaNode) {
+            let overriddenParentStyle: [String: Any] = ["display": "flex"]
+            let gcStyle = innerDiv2.props["style"] as? [String: Any] ?? [:]
+            YogaStyleApplier.applyFlexContextOverride(
+                parent: child2.yogaNode, child: innerDiv2.yogaNode,
+                parentStyle: overriddenParentStyle, childStyle: gcStyle
+            )
+        }
+
+        // Calculate layout
+        YGNodeCalculateLayout(root.yogaNode, 390, Float.nan, .LTR)
+
+        let w1 = YGNodeLayoutGetWidth(child1.yogaNode)
+        let w2 = YGNodeLayoutGetWidth(child2.yogaNode)
+        let rowW = YGNodeLayoutGetWidth(row.yogaNode)
+
+        print("Row width: \(rowW)")
+        print("Child 1 width: \(w1)")
+        print("Child 2 width: \(w2)")
+        print("Child 1 display: \(YGNodeStyleGetDisplay(child1.yogaNode))")
+        print("Child 1 box-sizing: \(YGNodeStyleGetBoxSizing(child1.yogaNode))")
+        print("Row display: \(YGNodeStyleGetDisplay(row.yogaNode))")
+        print("Root display: \(YGNodeStyleGetDisplay(root.yogaNode))")
+
+        // CSS: available = 390 - 8 gap = 382. Overhead: 20 + 36 = 56.
+        // Free = 382 - 56 = 326. Each gets 163 content → outer 183, 199.
+        XCTAssertEqual(w1, 183, accuracy: 1, "Child 1 should be 183 (163 content + 16 padding + 4 border)")
+        XCTAssertEqual(w2, 199, accuracy: 1, "Child 2 should be 199 (163 content + 32 padding + 4 border)")
+    }
+
+    func testFlexGrowVsFlexShorthandColumnWidths() {
+        // Test table column distribution with display:block cells vs display:flex cells.
+        // ShadowNodeWrapper references must be retained (deinit frees the yoga node).
+        let config = YogaConfig.shared
+        let family = ShadowNodeFamily(elementType: "#text", surfaceId: 0, instanceHandle: nil)
+        var textWrappers: [ShadowNodeWrapper] = [] // retain wrappers
+
+        // --- Test 1: cells with display:block + flex:1 ---
+        let row1 = YGNodeNewWithConfig(config)!
+        YGNodeStyleSetFlexDirection(row1, .row)
+        YGNodeStyleSetWidth(row1, 370)
+
+        var cells1: [YGNodeRef] = []
+        for (i, text) in ["Name", "Subject", "Grade"].enumerated() {
+            let cell = YGNodeNewWithConfig(config)!
+            YGNodeStyleSetDisplay(cell, .block)
+            YGNodeStyleSetFlex(cell, 1)
+            let tn = ShadowNodeWrapper(props: [:], family: family, text: text)
+            YogaTextMeasure.setupMeasureFunc(on: tn, fontSize: 16, fontWeight: "bold")
+            textWrappers.append(tn)
+            YGNodeInsertChild(cell, tn.yogaNode, 0)
+            YGNodeInsertChild(row1, cell, i)
+            cells1.append(cell)
+        }
+        YGNodeCalculateLayout(row1, 370, Float.nan, .LTR)
+
+        let block_w1 = YGNodeLayoutGetWidth(cells1[0])
+        let block_w2 = YGNodeLayoutGetWidth(cells1[1])
+        let block_w3 = YGNodeLayoutGetWidth(cells1[2])
+        print("block + flex:1 widths: \(block_w1), \(block_w2), \(block_w3)")
+
+        // --- Test 2: cells with display:flex + flex:1 ---
+        let row2 = YGNodeNewWithConfig(config)!
+        YGNodeStyleSetFlexDirection(row2, .row)
+        YGNodeStyleSetWidth(row2, 370)
+
+        var cells2: [YGNodeRef] = []
+        for (i, text) in ["Name", "Subject", "Grade"].enumerated() {
+            let cell = YGNodeNewWithConfig(config)!
+            YGNodeStyleSetDisplay(cell, .flex)
+            YGNodeStyleSetFlexDirection(cell, .column)
+            YGNodeStyleSetFlex(cell, 1)
+            let tn = ShadowNodeWrapper(props: [:], family: family, text: text)
+            YogaTextMeasure.setupMeasureFunc(on: tn, fontSize: 16, fontWeight: "bold")
+            textWrappers.append(tn)
+            YGNodeInsertChild(cell, tn.yogaNode, 0)
+            YGNodeInsertChild(row2, cell, i)
+            cells2.append(cell)
+        }
+        YGNodeCalculateLayout(row2, 370, Float.nan, .LTR)
+
+        let flex_w1 = YGNodeLayoutGetWidth(cells2[0])
+        let flex_w2 = YGNodeLayoutGetWidth(cells2[1])
+        let flex_w3 = YGNodeLayoutGetWidth(cells2[2])
+        print("flex + flex:1 widths: \(flex_w1), \(flex_w2), \(flex_w3)")
+
+        // --- Test 3: cells with display:block + flexGrow:1 ---
+        let row3 = YGNodeNewWithConfig(config)!
+        YGNodeStyleSetFlexDirection(row3, .row)
+        YGNodeStyleSetWidth(row3, 370)
+
+        var cells3: [YGNodeRef] = []
+        for (i, text) in ["Name", "Subject", "Grade"].enumerated() {
+            let cell = YGNodeNewWithConfig(config)!
+            YGNodeStyleSetDisplay(cell, .block)
+            YGNodeStyleSetFlexGrow(cell, 1)
+            let tn = ShadowNodeWrapper(props: [:], family: family, text: text)
+            YogaTextMeasure.setupMeasureFunc(on: tn, fontSize: 16, fontWeight: "bold")
+            textWrappers.append(tn)
+            YGNodeInsertChild(cell, tn.yogaNode, 0)
+            YGNodeInsertChild(row3, cell, i)
+            cells3.append(cell)
+        }
+        YGNodeCalculateLayout(row3, 370, Float.nan, .LTR)
+
+        let block_grow_w1 = YGNodeLayoutGetWidth(cells3[0])
+        let block_grow_w2 = YGNodeLayoutGetWidth(cells3[1])
+        let block_grow_w3 = YGNodeLayoutGetWidth(cells3[2])
+        print("block + flexGrow:1 widths: \(block_grow_w1), \(block_grow_w2), \(block_grow_w3)")
+
+        // --- Test 4: cells with display:flex + flexGrow:1 (flexBasis:auto) ---
+        let row4 = YGNodeNewWithConfig(config)!
+        YGNodeStyleSetFlexDirection(row4, .row)
+        YGNodeStyleSetWidth(row4, 370)
+
+        var cells4: [YGNodeRef] = []
+        for (i, text) in ["Name", "Subject", "Grade"].enumerated() {
+            let cell = YGNodeNewWithConfig(config)!
+            YGNodeStyleSetDisplay(cell, .flex)
+            YGNodeStyleSetFlexDirection(cell, .column)
+            YGNodeStyleSetFlexGrow(cell, 1)
+            let tn = ShadowNodeWrapper(props: [:], family: family, text: text)
+            YogaTextMeasure.setupMeasureFunc(on: tn, fontSize: 16, fontWeight: "bold")
+            textWrappers.append(tn)
+            YGNodeInsertChild(cell, tn.yogaNode, 0)
+            YGNodeInsertChild(row4, cell, i)
+            cells4.append(cell)
+        }
+        YGNodeCalculateLayout(row4, 370, Float.nan, .LTR)
+
+        let flex_grow_w1 = YGNodeLayoutGetWidth(cells4[0])
+        let flex_grow_w2 = YGNodeLayoutGetWidth(cells4[1])
+        let flex_grow_w3 = YGNodeLayoutGetWidth(cells4[2])
+        print("flex + flexGrow:1 widths: \(flex_grow_w1), \(flex_grow_w2), \(flex_grow_w3)")
+
+        // Document the actual behavior
+        XCTAssertTrue(true, "Test documents flex distribution behavior")
+
+        // Clean up wrappers first (before freeing rows)
+        textWrappers.removeAll()
+        YGNodeFree(row1)
+        YGNodeFree(row2)
+        YGNodeFree(row3)
+        YGNodeFree(row4)
     }
 }
