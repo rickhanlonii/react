@@ -1,5 +1,15 @@
-import App from '../../example/server/src/App';
-
 export default function Page() {
-  return <App />;
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        color: '#8e8e93',
+        fontSize: 16,
+      }}>
+      Select a fixture from the sidebar
+    </div>
+  );
 }
