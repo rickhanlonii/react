@@ -43,6 +43,9 @@ public enum ShadowTreeLayout {
             }
         }
 
+        // 3b. Adjust for CSS margin collapse-through
+        adjustMarginCollapseThrough(children: children)
+
         // 4. Compute scroll content sizes for overflow:scroll/auto elements
         for child in children {
             computeScrollContentSizes(for: child)

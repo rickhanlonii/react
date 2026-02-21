@@ -1048,6 +1048,9 @@ public class Bindings {
             ShadowTreeLayout.readLayoutFrames(node: child)
         }
 
+        // 4a. Adjust for CSS margin collapse-through
+        ShadowTreeLayout.adjustMarginCollapseThrough(children: children)
+
         let actualHeight = ShadowTreeLayout.computeActualContentHeight(for: children)
         let contentSize = CGSize(
             width: CGFloat(YGNodeLayoutGetWidth(rootNode)),
