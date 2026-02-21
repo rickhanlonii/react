@@ -221,4 +221,103 @@ public enum ShadowTreeLayout {
             saveLayoutMargins(for: child.children)
         }
     }
+
+    // MARK: - CSS Margin Collapse-Through
+
+    /// Whether a node is a block-level element for margin collapse purposes.
+    private static func isBlockLevelForCollapse(_ node: ShadowNodeWrapper) -> Bool {
+        let style = node.props["style"] as? [String: Any]
+        let display = style?["display"] as? String ?? "block"
+        return display == "block" || display == "list-item"
+    }
+
+    /// Whether a node acts as a block formatting parent (block display, lays out
+    /// children in block flow — not flex).
+    private static func isBlockFormattingParent(_ node: ShadowNodeWrapper) -> Bool {
+        let style = node.props["style"] as? [String: Any]
+        let display = style?["display"] as? String ?? "block"
+        return display == "block" || display == "list-item"
+    }
+
+    /// Recursively compute the effective top margin that would collapse through
+    /// nested first children in CSS. Mirrors LayoutExtractor.computeCollapseTopMargin.
+    static func computeCollapseTopMargin(_ node: ShadowNodeWrapper) -> CGFloat {
+        let style = node.props["style"] as? [String: Any] ?? [:]
+        let margin = CGFloat((style["marginTop"] as? NSNumber)?.doubleValue ?? 0)
+        let padding = CGFloat((style["paddingTop"] as? NSNumber)?.doubleValue ?? 0)
+        let border = CGFloat((style["borderTopWidth"] as? NSNumber)?.doubleValue ?? 0)
+
+        guard padding == 0 && border == 0 &&
+              isBlockFormattingParent(node) &&
+              !node.children.isEmpty else {
+            return margin
+        }
+
+        // Find first in-flow block child
+        guard let firstChild = node.children.first(where: {
+            $0.family.elementType != "#text" && isBlockLevelForCollapse($0)
+        }) else {
+            return margin
+        }
+
+        return max(margin, computeCollapseTopMargin(firstChild))
+    }
+
+    /// Same for bottom margin through nested last children.
+    static func computeCollapseBottomMargin(_ node: ShadowNodeWrapper) -> CGFloat {
+        let style = node.props["style"] as? [String: Any] ?? [:]
+        let margin = CGFloat((style["marginBottom"] as? NSNumber)?.doubleValue ?? 0)
+        let padding = CGFloat((style["paddingBottom"] as? NSNumber)?.doubleValue ?? 0)
+        let border = CGFloat((style["borderBottomWidth"] as? NSNumber)?.doubleValue ?? 0)
+
+        guard padding == 0 && border == 0 &&
+              isBlockFormattingParent(node) &&
+              !node.children.isEmpty else {
+            return margin
+        }
+
+        guard let lastChild = node.children.last(where: {
+            $0.family.elementType != "#text" && isBlockLevelForCollapse($0)
+        }) else {
+            return margin
+        }
+
+        return max(margin, computeCollapseBottomMargin(lastChild))
+    }
+
+    /// Post-layout pass: adjust layoutFrame values for CSS margin collapse-through.
+    ///
+    /// Yoga's calculateBlockLayout positions first children at Y=0 when parent
+    /// has no padding/border (correctly "collapsing"), but doesn't propagate the
+    /// collapsed margin to the parent's position. This pass pushes block parents
+    /// down by their effective collapsed top margin, matching CSS behavior.
+    ///
+    /// Only adjusts root-level nodes (those directly in the `children` array).
+    /// Nested collapse-through is handled by the recursive computeCollapseTopMargin
+    /// which finds the deepest collapsed margin and propagates it to the outermost
+    /// container in one step.
+    public static func adjustMarginCollapseThrough(children: [ShadowNodeWrapper]) {
+        for node in children {
+            guard isBlockFormattingParent(node) && !node.children.isEmpty else { continue }
+
+            let style = node.props["style"] as? [String: Any] ?? [:]
+            let paddingTop = CGFloat((style["paddingTop"] as? NSNumber)?.doubleValue ?? 0)
+            let borderTop = CGFloat((style["borderTopWidth"] as? NSNumber)?.doubleValue ?? 0)
+            let ownMarginTop = CGFloat((style["marginTop"] as? NSNumber)?.doubleValue ?? 0)
+
+            // Top margin collapse-through
+            if paddingTop == 0 && borderTop == 0 {
+                if let firstChild = node.children.first(where: {
+                    $0.family.elementType != "#text" && isBlockLevelForCollapse($0)
+                }) {
+                    let effectiveTop = computeCollapseTopMargin(firstChild)
+                    let delta = max(0, effectiveTop - ownMarginTop)
+                    if delta > 0 {
+                        // Push this node down by the escaped margin
+                        node.layoutFrame.origin.y += delta
+                    }
+                }
+            }
+        }
+    }
 }
