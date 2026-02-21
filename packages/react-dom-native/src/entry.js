@@ -18,8 +18,13 @@ if (__DEV__) {
   require('./devtools/PerformanceTracer');
   require('./devtools/PerformancePolyfill');
   require('./devtools/ConsoleTimeStamp');
+  // RemoteObject is loaded as a dependency by modules below (no explicit require)
   require('./devtools/ConsoleForwarding');
-  require('./devtools/InspectorMessageHandler');
+  require('./devtools/RuntimeAgent');             // CDP Runtime.evaluate/getProperties in JSC
+  require('./devtools/NetworkAgent');             // CDP Network via fetch interception
+  require('./devtools/ExceptionReporter');        // Uncaught exception → Runtime.exceptionThrown
+  require('./devtools/ReactDevToolsAgent');       // $$getComponentTree() for Fiber inspection
+  require('./devtools/InspectorMessageHandler'); // Must be last — dispatches to all above
 }
 
 var React = require('react');
