@@ -523,6 +523,32 @@ function createLogDomain() {
 }
 
 // ---------------------------------------------------------------------------
+// Network domain
+// ---------------------------------------------------------------------------
+
+function createNetworkDomain() {
+  function handle(method, params, ctx) {
+    switch (method) {
+      case 'enable':
+        return {};
+      case 'disable':
+        return {};
+      case 'setCacheDisabled':
+        return {};
+      case 'setExtraHTTPHeaders':
+        return {};
+      default:
+        return {};
+    }
+  }
+
+  return {
+    name: 'Network',
+    handle: handle,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // createInspectorProxy
 // ---------------------------------------------------------------------------
 
@@ -563,6 +589,7 @@ function createInspectorProxy(options) {
   var pageDomain = createPageDomain(targetId);
   var domDomain = createDOMDomain();
   var logDomain = createLogDomain();
+  var networkDomain = createNetworkDomain();
 
   var router = createDomainRouter([
     tracingDomain,
@@ -572,6 +599,7 @@ function createInspectorProxy(options) {
     pageDomain,
     domDomain,
     logDomain,
+    networkDomain,
   ]);
 
   // -----------------------------------------------------------------------
