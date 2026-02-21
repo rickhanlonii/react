@@ -138,6 +138,16 @@ enum LayoutComparer {
         }
     }
 
+    /// Normalize textAlign values to physical directions.
+    /// CSS uses logical "start"/"end" which map to "left"/"right" in LTR.
+    private static func normalizeTextAlign(_ value: String) -> String {
+        switch value {
+        case "start": return "left"
+        case "end": return "right"
+        default: return value
+        }
+    }
+
     static func compare(
         web: LayoutNode,
         native: LayoutNode,
@@ -202,7 +212,7 @@ enum LayoutComparer {
         let stringStyleProps = [
             "display", "flexDirection", "alignItems", "justifyContent",
             "flexWrap", "fontWeight",
-            "overflow", "position", "textAlign",
+            "overflow", "position", "textAlign", "textOverflow",
             "color", "backgroundColor", "borderColor"
         ]
 
@@ -239,6 +249,10 @@ enum LayoutComparer {
                     // (Yoga can't do table layout, renders table elements as block)
                     webNorm = normalizeDisplay(webStr)
                     nativeNorm = normalizeDisplay(nativeStr)
+                } else if prop == "textAlign" {
+                    // CSS uses logical "start"/"end", UIKit uses "left"/"right"
+                    webNorm = normalizeTextAlign(webStr)
+                    nativeNorm = normalizeTextAlign(nativeStr)
                 } else {
                     webNorm = webStr
                     nativeNorm = nativeStr

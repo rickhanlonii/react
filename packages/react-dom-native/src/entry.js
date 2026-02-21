@@ -11,6 +11,17 @@
 //   globalThis.__REACT_DOM_NATIVE__.renderFromURL(serverURL, {surfaceId: N})
 // ---------------------------------------------------------------------------
 
+// DevTools polyfills must load BEFORE React so React detects `performance`
+// and `console.timeStamp` during its module initialization.
+if (__DEV__) {
+  require('./devtools/DevToolsHookShim');        // Must be first — sets __REACT_DEVTOOLS_GLOBAL_HOOK__
+  require('./devtools/PerformanceTracer');
+  require('./devtools/PerformancePolyfill');
+  require('./devtools/ConsoleTimeStamp');
+  require('./devtools/ConsoleForwarding');
+  require('./devtools/InspectorMessageHandler');
+}
+
 var React = require('react');
 var renderer = require('./renderer/index');
 var createRoot = renderer.createRoot;

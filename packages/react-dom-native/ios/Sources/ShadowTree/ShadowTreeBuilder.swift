@@ -299,12 +299,30 @@ public class ShadowTreeBuilder {
         let parentStyle = parent.props["style"] as? [String: Any] ?? [:]
         let childStyle = child.props["style"] as? [String: Any] ?? [:]
         let childDisplayBefore = childStyle["display"] as? String
+        let childDisplayYogaBefore = YGNodeStyleGetDisplay(child.yogaNode)
         YogaStyleApplier.applyFlexContextOverride(
             parent: parent.yogaNode,
             child: child.yogaNode,
             parentStyle: parentStyle,
             childStyle: childStyle
         )
+        // Cascade: if the child was just promoted from block→flex, its
+        // existing block grandchildren that are simple containers (no
+        // explicit flexDirection) also need the override. Without this,
+        // Yoga's content-box flex distribution computes incorrectly when
+        // a flex item (display:flex) contains display:block children.
+        if childDisplayYogaBefore != YGNodeStyleGetDisplay(child.yogaNode) {
+            let overriddenParentStyle: [String: Any] = ["display": "flex"]
+            for grandchild in child.children {
+                let gcStyle = grandchild.props["style"] as? [String: Any] ?? [:]
+                YogaStyleApplier.applyFlexContextOverride(
+                    parent: child.yogaNode,
+                    child: grandchild.yogaNode,
+                    parentStyle: overriddenParentStyle,
+                    childStyle: gcStyle
+                )
+            }
+        }
         // Update style dict to reflect CSS blockification
         if childDisplayBefore == "inline-block",
            (parentStyle["display"] as? String == "flex" || parentStyle["display"] as? String == "inline-flex") {
@@ -320,6 +338,48 @@ public class ShadowTreeBuilder {
             childType: child.family.elementType
         )
 
+        // CSS font-size inheritance for em-relative margins.
+        if let parentFS = (parentStyle["fontSize"] as? NSNumber)?.doubleValue
+            ?? (parentStyle["fontSize"] as? Double) {
+            if let updated = ElementDefaults.recomputeEmMargins(
+                childType: child.family.elementType,
+                childStyle: childStyle,
+                parentFontSize: parentFS
+            ) {
+                child.props["style"] = updated
+                YogaStyleApplier.apply(updated, to: child.yogaNode)
+                if let newFS = (updated["fontSize"] as? NSNumber)?.doubleValue
+                    ?? (updated["fontSize"] as? Double) {
+                    if let minH = ElementDefaults.yogaTextContainerMinHeight(
+                        for: child.family.elementType, fontSize: CGFloat(newFS)) {
+                        YGNodeStyleSetMinHeight(child.yogaNode, Float(minH))
+                    }
+                    // Re-measure text children with inherited fontSize.
+                    let fontSize = CGFloat(newFS)
+                    let fontWeight = updated["fontWeight"] as? String
+                    let fontFamily = updated["fontFamily"] as? String
+                    let fontStyle = updated["fontStyle"] as? String
+                    let lineHeight: CGFloat?
+                    if let lh = updated["lineHeight"] as? NSNumber {
+                        lineHeight = CGFloat(lh.doubleValue)
+                    } else {
+                        lineHeight = ElementDefaults.textLineHeight(for: child.family.elementType)
+                    }
+                    for textChild in child.children where textChild.family.elementType == "#text" {
+                        YogaTextMeasure.cleanupMeasureContext(for: textChild.yogaNode)
+                        YogaTextMeasure.setupMeasureFunc(
+                            on: textChild,
+                            fontSize: fontSize,
+                            fontWeight: fontWeight,
+                            fontFamily: fontFamily,
+                            fontStyle: fontStyle,
+                            lineHeight: lineHeight
+                        )
+                    }
+                }
+            }
+        }
+
         // HTML <details> without `open` hides all children except <summary>.
         if parent.family.elementType == "details",
            parent.props["open"] == nil,
@@ -328,6 +388,9 @@ public class ShadowTreeBuilder {
         }
 
         // CSS <legend> inside <fieldset>: pull legend up to sit on border.
+        // Also add paddingTop as legend's marginBottom to restore the gap
+        // between legend and subsequent content (CSS positions content at
+        // legendBottom + paddingTop).
         if parent.family.elementType == "fieldset",
            child.family.elementType == "legend" {
             let borderTopVal = YGNodeStyleGetBorder(parent.yogaNode, .top)
@@ -346,6 +409,7 @@ public class ShadowTreeBuilder {
             }
             let offset = borderTop + paddingTop
             YGNodeStyleSetMargin(child.yogaNode, .top, -offset)
+            YGNodeStyleSetMargin(child.yogaNode, .bottom, paddingTop)
         }
     }
 

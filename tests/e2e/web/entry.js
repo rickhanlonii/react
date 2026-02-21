@@ -7,6 +7,19 @@ var fixtures = require('../fixtures');
 
 var root = null;
 
+// Resolve border-radius from computed style. Safari/WKWebView may return
+// percentage strings (e.g. "50%") instead of resolved pixel values.
+function resolveRadius(value, width, height) {
+  if (!value) return 0;
+  if (value.indexOf('%') !== -1) {
+    // CSS resolves horizontal radius = pct * width / 100.
+    // For comparison we use the horizontal axis (matches native LayoutExtractor).
+    var pct = parseFloat(value);
+    return pct * width / 100;
+  }
+  return parseFloat(value) || 0;
+}
+
 function extractNode(el, rootRect) {
   if (!el) return null;
   var rect = el.getBoundingClientRect();
@@ -61,13 +74,13 @@ function extractNode(el, rootRect) {
         // borderRadius shorthand may be non-uniform (e.g. "20px 0px").
         // Only report the uniform value; per-corner values are separate.
         var br = style.borderRadius;
-        if (br && br.indexOf(' ') === -1) return parseFloat(br) || 0;
+        if (br && br.indexOf(' ') === -1) return resolveRadius(br, rect.width, rect.height);
         return 0;
       })(),
-      borderTopLeftRadius: parseFloat(style.borderTopLeftRadius) || 0,
-      borderTopRightRadius: parseFloat(style.borderTopRightRadius) || 0,
-      borderBottomRightRadius: parseFloat(style.borderBottomRightRadius) || 0,
-      borderBottomLeftRadius: parseFloat(style.borderBottomLeftRadius) || 0,
+      borderTopLeftRadius: resolveRadius(style.borderTopLeftRadius, rect.width, rect.height),
+      borderTopRightRadius: resolveRadius(style.borderTopRightRadius, rect.width, rect.height),
+      borderBottomRightRadius: resolveRadius(style.borderBottomRightRadius, rect.width, rect.height),
+      borderBottomLeftRadius: resolveRadius(style.borderBottomLeftRadius, rect.width, rect.height),
       opacity: parseFloat(style.opacity),
       overflow: style.overflow,
       position: style.position,
@@ -75,6 +88,7 @@ function extractNode(el, rootRect) {
       color: style.color,
       backgroundColor: style.backgroundColor,
       borderColor: style.borderColor,
+      textOverflow: style.textOverflow,
     },
     children: children
   };

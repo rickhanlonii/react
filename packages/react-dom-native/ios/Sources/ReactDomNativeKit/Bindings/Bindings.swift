@@ -519,12 +519,32 @@ public class Bindings {
             let parentStyle = parent.props["style"] as? [String: Any] ?? [:]
             let childStyle = child.props["style"] as? [String: Any] ?? [:]
             let childDisplayBefore = childStyle["display"] as? String
+            let childDisplayYogaBefore = YGNodeStyleGetDisplay(child.yogaNode)
             YogaStyleApplier.applyFlexContextOverride(
                 parent: parent.yogaNode,
                 child: child.yogaNode,
                 parentStyle: parentStyle,
                 childStyle: childStyle
             )
+            // Cascade: if the child was just promoted from block→flex, its
+            // existing block grandchildren that are simple containers (no
+            // explicit flexDirection) also need the override. Without this,
+            // Yoga's content-box flex distribution computes incorrectly when
+            // a flex item (display:flex) contains display:block children.
+            // Skip text containers (p, h1-h6, etc.) that have explicit
+            // flexDirection — they use row+wrap for inline text flow.
+            if childDisplayYogaBefore != YGNodeStyleGetDisplay(child.yogaNode) {
+                let overriddenParentStyle: [String: Any] = ["display": "flex"]
+                for grandchild in child.children {
+                    let gcStyle = grandchild.props["style"] as? [String: Any] ?? [:]
+                    YogaStyleApplier.applyFlexContextOverride(
+                        parent: child.yogaNode,
+                        child: grandchild.yogaNode,
+                        parentStyle: overriddenParentStyle,
+                        childStyle: gcStyle
+                    )
+                }
+            }
             // Update style dict to reflect CSS blockification
             if childDisplayBefore == "inline-block",
                (parentStyle["display"] as? String == "flex" || parentStyle["display"] as? String == "inline-flex") {

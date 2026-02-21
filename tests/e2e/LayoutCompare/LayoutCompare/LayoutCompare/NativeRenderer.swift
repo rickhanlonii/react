@@ -53,13 +53,15 @@ class NativeRendererModel {
             return nil
         }
 
+        let registry = runtime.bindings.viewRegistry
+
         let raw: LayoutNode
         if trees.count == 1 {
-            raw = LayoutExtractor.extract(from: trees[0])
+            raw = LayoutExtractor.extract(from: trees[0], viewRegistry: registry)
         } else {
             var children: [LayoutNode] = []
             for node in trees {
-                children.append(LayoutExtractor.extract(from: node))
+                children.append(LayoutExtractor.extract(from: node, viewRegistry: registry))
             }
             raw = LayoutNode(
                 type: "root",

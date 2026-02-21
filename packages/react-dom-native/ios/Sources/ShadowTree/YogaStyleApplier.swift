@@ -75,6 +75,27 @@ public enum YogaStyleApplier {
             }
         }
 
+        // alignContent
+        if let ac = style["alignContent"] as? String {
+            switch ac {
+            case "center":
+                YGNodeStyleSetAlignContent(node, .center)
+            case "flex-start", "flexStart":
+                YGNodeStyleSetAlignContent(node, .flexStart)
+            case "flex-end", "flexEnd":
+                YGNodeStyleSetAlignContent(node, .flexEnd)
+            case "stretch":
+                YGNodeStyleSetAlignContent(node, .stretch)
+            case "space-between", "spaceBetween":
+                YGNodeStyleSetAlignContent(node, .spaceBetween)
+            case "space-around", "spaceAround":
+                YGNodeStyleSetAlignContent(node, .spaceAround)
+            case "space-evenly", "spaceEvenly":
+                YGNodeStyleSetAlignContent(node, .spaceEvenly)
+            default: break
+            }
+        }
+
         // justifyContent
         if let jc = style["justifyContent"] as? String {
             switch jc {
@@ -203,10 +224,38 @@ public enum YogaStyleApplier {
             YGNodeStyleSetMaxHeightPercent(node, mhp)
         }
 
-        // flex
-        if let f = toFloat(style["flex"]) {
-            YGNodeStyleSetFlex(node, f)
+        // Yoga bug workaround: when both height and maxHeight are set as
+        // point values, Yoga's flex layout incorrectly uses the unclamped
+        // height when computing the auto height of an ancestor container.
+        // Pre-compute the clamped height so the ancestor sees the correct
+        // value. Same for width/maxWidth.
+        if let h = toFloat(style["height"]),
+           let maxH = toFloat(style["maxHeight"]),
+           h > maxH {
+            YGNodeStyleSetHeight(node, maxH)
         }
+        if let w = toFloat(style["width"]),
+           let maxW = toFloat(style["maxWidth"]),
+           w > maxW {
+            YGNodeStyleSetWidth(node, maxW)
+        }
+
+        // flex shorthand — expand to flexGrow/flexShrink/flexBasis per CSS spec.
+        // CSS `flex: <number>` means `flex: <number> 1 0%` (basis is always 0%).
+        // Yoga's YGNodeStyleSetFlex only sets basis to 0 when flex > 0, leaving
+        // flex-basis as auto when flex: 0 — which is wrong (CSS collapses the item).
+        //
+        // Use YGNodeStyleSetFlexBasis(0) instead of YGNodeStyleSetFlexBasisPercent(0)
+        // because Yoga's percentage flex-basis incorrectly falls back to auto sizing
+        // in content-box mode when the item also has minWidth set. This causes the
+        // item to use its intrinsic content size as the flex base instead of 0,
+        // resulting in incorrect flex distribution.
+        if let f = toFloat(style["flex"]) {
+            YGNodeStyleSetFlexGrow(node, f)
+            YGNodeStyleSetFlexShrink(node, 1)
+            YGNodeStyleSetFlexBasis(node, 0)
+        }
+        // Explicit flexGrow/flexShrink/flexBasis override the shorthand
         if let fg = toFloat(style["flexGrow"]) {
             YGNodeStyleSetFlexGrow(node, fg)
         }
@@ -215,6 +264,34 @@ public enum YogaStyleApplier {
         }
         if let fb = toFloat(style["flexBasis"]) {
             YGNodeStyleSetFlexBasis(node, fb)
+        }
+
+        // aspectRatio
+        if let ar = toFloat(style["aspectRatio"]) {
+            // Yoga's calculateBlockLayout does NOT apply aspectRatio when
+            // computing child dimensions. It only works in the flex layout
+            // path. Pre-compute the missing dimension here so block-layout
+            // children get the correct height/width from aspectRatio.
+            //
+            // When we can pre-compute (exactly one dimension is set), we set
+            // the missing dimension explicitly and do NOT call
+            // YGNodeStyleSetAspectRatio. Yoga's native aspect ratio in flex
+            // layout computes the missing dimension from the total box size
+            // (including padding) in content-box mode, producing incorrect
+            // values. The pre-compute uses the content-box dimension directly,
+            // matching CSS behavior.
+            //
+            // When we can't pre-compute (neither or both dimensions set),
+            // fall back to Yoga's native aspect ratio.
+            let hasWidth = toFloat(style["width"]) != nil || toPercent(style["width"]) != nil
+            let hasHeight = toFloat(style["height"]) != nil || toPercent(style["height"]) != nil
+            if hasWidth && !hasHeight, let w = toFloat(style["width"]) {
+                YGNodeStyleSetHeight(node, w / ar)
+            } else if hasHeight && !hasWidth, let h = toFloat(style["height"]) {
+                YGNodeStyleSetWidth(node, h * ar)
+            } else {
+                YGNodeStyleSetAspectRatio(node, ar)
+            }
         }
 
         // flexWrap
@@ -284,20 +361,30 @@ public enum YogaStyleApplier {
         }
 
         // borderWidth (all edges)
-        if let bw = toFloat(style["borderWidth"]) {
-            YGNodeStyleSetBorder(node, .all, bw)
-        }
-        if let btw = toFloat(style["borderTopWidth"]) {
-            YGNodeStyleSetBorder(node, .top, btw)
-        }
-        if let brw = toFloat(style["borderRightWidth"]) {
-            YGNodeStyleSetBorder(node, .right, brw)
-        }
-        if let bbw = toFloat(style["borderBottomWidth"]) {
-            YGNodeStyleSetBorder(node, .bottom, bbw)
-        }
-        if let blw = toFloat(style["borderLeftWidth"]) {
-            YGNodeStyleSetBorder(node, .left, blw)
+        // CSS quirk: borderWidth computes to 0 when borderStyle is "none"
+        // (the default). Only allocate border space in Yoga when borderStyle
+        // is explicitly set to a visible value.
+        // CSS initial border-width is "medium" (3px). When borderStyle is set
+        // without an explicit borderWidth, each edge defaults to 3px.
+        let borderStyle = style["borderStyle"] as? String
+        let hasBorderStyle = borderStyle != nil && borderStyle != "none"
+        if hasBorderStyle {
+            // CSS initial border-width is "medium" = 3px
+            let cssInitialBorderWidth: Float = 3
+            let uniform = toFloat(style["borderWidth"]) ?? cssInitialBorderWidth
+            YGNodeStyleSetBorder(node, .all, uniform)
+            if let btw = toFloat(style["borderTopWidth"]) {
+                YGNodeStyleSetBorder(node, .top, btw)
+            }
+            if let brw = toFloat(style["borderRightWidth"]) {
+                YGNodeStyleSetBorder(node, .right, brw)
+            }
+            if let bbw = toFloat(style["borderBottomWidth"]) {
+                YGNodeStyleSetBorder(node, .bottom, bbw)
+            }
+            if let blw = toFloat(style["borderLeftWidth"]) {
+                YGNodeStyleSetBorder(node, .left, blw)
+            }
         }
     }
 
@@ -344,6 +431,35 @@ public enum YogaStyleApplier {
         if childStyle["flexDirection"] == nil {
             YGNodeStyleSetFlexDirection(childYogaNode, .column)
         }
+
+        // CSS: alignItems / justifyContent are flex-only properties. They have
+        // no effect on block containers. When we convert a block child to flex
+        // for flex-item participation, any user-supplied values for these
+        // properties must be neutralised so the inner layout still behaves like
+        // CSS block flow (children stretch to fill width, stack from top).
+        // Only apply to display:block children — inline-block elements (e.g.
+        // <button>) use alignItems/justifyContent for their internal layout.
+        if childDisplay == .block {
+            if childStyle["alignItems"] != nil {
+                YGNodeStyleSetAlignItems(childYogaNode, .stretch)
+            }
+            if childStyle["justifyContent"] != nil {
+                YGNodeStyleSetJustifyContent(childYogaNode, .flexStart)
+            }
+
+            // CSS block children don't flex-shrink. After promoting this
+            // block container to flex, its existing children become flex
+            // items that would flex-shrink by default (Yoga web defaults
+            // set flexShrink: 1). Set flexShrink: 0 on each existing child
+            // to preserve block layout behavior where children keep their
+            // explicit sizes and overflow is clipped rather than shrunk.
+            let childCount = YGNodeGetChildCount(childYogaNode)
+            for i in 0..<childCount {
+                if let grandchild = YGNodeGetChild(childYogaNode, i) {
+                    YGNodeStyleSetFlexShrink(grandchild, 0)
+                }
+            }
+        }
     }
 
     // MARK: - Nested List Override
@@ -372,13 +488,16 @@ public enum YogaStyleApplier {
 
     // MARK: - Helpers
 
-    /// Convert numeric style values (Int or Double) to Float.
+    /// Convert numeric style values (Int, Double, or NSNumber) to Float.
     private static func toFloat(_ value: Any?) -> Float? {
         if let d = value as? Double {
             return Float(d)
         }
         if let i = value as? Int {
             return Float(i)
+        }
+        if let n = value as? NSNumber {
+            return n.floatValue
         }
         return nil
     }

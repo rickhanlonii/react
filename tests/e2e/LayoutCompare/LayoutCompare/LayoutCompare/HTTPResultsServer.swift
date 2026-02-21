@@ -16,6 +16,9 @@ class HTTPResultsServer {
     /// Callback triggered when a POST /run-all request is received
     var onRunAllRequested: (() -> Void)?
 
+    /// Callback triggered when a POST /run/<fixture> request is received
+    var onRunFixtureRequested: ((String) -> Void)?
+
     /// Callback triggered when a POST /reload-bundles request is received
     var onReloadBundlesRequested: (() -> Void)?
 
@@ -77,6 +80,11 @@ class HTTPResultsServer {
                 response = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n" + String(data: json, encoding: .utf8)!
             } else if request.hasPrefix("POST /run-all") {
                 DispatchQueue.main.async { self.onRunAllRequested?() }
+                response = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{\"ok\":true}"
+            } else if request.hasPrefix("POST /run/") {
+                let pathComponent = String(request.split(separator: " ")[1])
+                let fixtureName = String(pathComponent.dropFirst("/run/".count))
+                DispatchQueue.main.async { self.onRunFixtureRequested?(fixtureName) }
                 response = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{\"ok\":true}"
             } else if request.hasPrefix("POST /reload-bundles") {
                 DispatchQueue.main.async { self.onReloadBundlesRequested?() }

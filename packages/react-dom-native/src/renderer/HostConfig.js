@@ -261,6 +261,7 @@ exports.finalizeContainerChildren = function finalizeContainerChildren(container
 };
 
 exports.replaceContainerChildren = function replaceContainerChildren(container, newChildren) {
+  if (newChildren == null) return;
   const childNodes = newChildren.map(c => c._nativeNode);
   $$completeRoot(container.surfaceId, childNodes);
   container.currentTree = container.pendingTree;

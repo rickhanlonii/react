@@ -86,6 +86,9 @@ public class Root {
     /// Layout observer for viewport size changes.
     private var layoutObserver: NSKeyValueObservation?
 
+    /// Hot reload client for dev server communication (devtools, tracing).
+    private var hotReloadClient: HotReloadClient?
+
     // MARK: - Initialization
 
     /// Creates a new root. Use `ReactDomNativeKit.createRoot()` instead.
@@ -135,6 +138,9 @@ public class Root {
 
             // Observe layout changes
             setupLayoutObserver()
+
+            // Connect devtools (tracing, inspector) via hot reload WebSocket
+            setupDevToolsConnection()
         }
 
         // Load and execute bundle, then trigger renderFromURL
@@ -186,6 +192,10 @@ public class Root {
         ssrStreamComplete = false
         pendingHydration = nil
 
+        // Disconnect devtools
+        hotReloadClient?.disconnect()
+        hotReloadClient = nil
+
         // Release runtime
         runtime = nil
 
@@ -216,6 +226,8 @@ public class Root {
         // Tear down existing runtime
         runtime?.bindings.unregisterSurface(surfaceId: options.surfaceId)
         container.subviews.forEach { $0.removeFromSuperview() }
+        hotReloadClient?.disconnect()
+        hotReloadClient = nil
         runtime = nil
 
         // Clean up SSR state (if any)
@@ -241,6 +253,9 @@ public class Root {
         }
         runtime?.bindings.registerSurface(surfaceId: options.surfaceId, rootView: container)
         updateViewportSize()
+
+        // Reconnect devtools
+        setupDevToolsConnection()
 
         // Load and execute new bundle, then trigger renderFromURL
         let bundleURL = resolveBundleURL()
@@ -492,6 +507,9 @@ public class Root {
 
             setupLayoutObserver()
 
+            // Connect devtools (tracing, inspector) via hot reload WebSocket
+            setupDevToolsConnection()
+
             // Wire hydration completion callback to clean up SSR infrastructure
             runtime?.bindings.onHydrationComplete = { [weak self] surfaceId in
                 self?.cleanupSSRState()
@@ -728,6 +746,33 @@ public class Root {
 
         // Initial size update
         updateViewportSize()
+    }
+
+    /// Sets up the devtools WebSocket connection for tracing/inspector support.
+    /// Reuses the hot reload WebSocket (port 8082) to relay messages between
+    /// the dev server (CDP proxy) and the JS runtime.
+    private func setupDevToolsConnection() {
+        #if DEBUG
+        guard let bindings = runtime?.bindings else { return }
+
+        // Disconnect previous client if any (e.g. on reload)
+        hotReloadClient?.disconnect()
+
+        let client = HotReloadClient(root: self, serverURL: "")
+        hotReloadClient = client
+
+        // JS → dev server: $$sendInspectorMessage calls this
+        bindings.sendInspectorMessage = { [weak client] data in
+            client?.send(data)
+        }
+
+        // Dev server → JS: tracing commands forwarded to $$onInspectorMessage
+        client.onInspectorMessage = { [weak bindings] json in
+            bindings?.deliverInspectorMessage(json)
+        }
+
+        client.connect()
+        #endif
     }
 
     private func loadBundle(from url: URL, completion: @escaping (Result<String, Error>) -> Void) {

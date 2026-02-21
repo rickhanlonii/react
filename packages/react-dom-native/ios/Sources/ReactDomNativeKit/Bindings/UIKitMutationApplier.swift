@@ -15,6 +15,16 @@ public class UIKitMutationApplier: NSObject {
     private let viewRegistry: ViewRegistry
     public var dispatchEvent: EventDispatcher?
 
+    /// Tracks inherited textAlign per view for CSS textAlign inheritance.
+    /// textAlign is an inherited CSS property — parent containers pass it
+    /// to all descendant text elements.
+    private var inheritedTextAlign: [ObjectIdentifier: NSTextAlignment] = [:]
+
+    /// Tracks inherited text color per view for CSS color inheritance.
+    /// color is an inherited CSS property — parent containers pass it
+    /// to all descendant text elements.
+    private var inheritedTextColor: [ObjectIdentifier: UIColor] = [:]
+
     /// Label used in log output to distinguish SSR vs CSR mutations.
     /// Defaults to "MutationApplier" for the reconciler (CSR) path.
     private let logPrefix: String
@@ -43,6 +53,8 @@ public class UIKitMutationApplier: NSObject {
                 print("[\(logPrefix)] [\(index)] CREATE: \(node.family.elementType)")
                 let view = createView(for: node)
                 view.frame = node.layoutFrame
+                // Apply bounds-dependent props (borders, border-radius) now that frame is set
+                applyBoundsDependentProps(to: view, props: node.props)
                 // Promote backgroundColor to a sublayer for positioned elements so
                 // children with negative zIndex can render behind the background
                 // (matching CSS stacking context behavior).
@@ -54,6 +66,8 @@ public class UIKitMutationApplier: NSObject {
             case .delete(let node):
                 print("[\(logPrefix)] [\(index)] DELETE: \(node.family.elementType)")
                 if let view = viewRegistry.view(for: node.family) {
+                    inheritedTextAlign.removeValue(forKey: ObjectIdentifier(view))
+                    inheritedTextColor.removeValue(forKey: ObjectIdentifier(view))
                     view.removeFromSuperview()
                 }
                 viewRegistry.unregister(family: node.family)
@@ -67,7 +81,44 @@ public class UIKitMutationApplier: NSObject {
                 }
                 // Inherit font properties from parent text elements to #text children
                 if child.family.elementType == "#text", let childLabel = childView as? UILabel {
-                    applyInheritedTextStyle(to: childLabel, parentType: parent.family.elementType, parentProps: parent.props)
+                    applyInheritedTextStyle(to: childLabel, parentType: parent.family.elementType, parentProps: parent.props, inheritedColor: inheritedTextColor[ObjectIdentifier(parentView)])
+                }
+                // CSS textAlign inheritance — cascades from ancestors to descendants
+                let childStyle = child.props["style"] as? [String: Any] ?? [:]
+                if let textAlign = childStyle["textAlign"] as? String {
+                    inheritedTextAlign[ObjectIdentifier(childView)] = parseTextAlignment(textAlign)
+                } else {
+                    let parentStyle = parent.props["style"] as? [String: Any] ?? [:]
+                    let inherited: NSTextAlignment?
+                    if let textAlign = parentStyle["textAlign"] as? String {
+                        inherited = parseTextAlignment(textAlign)
+                    } else {
+                        inherited = inheritedTextAlign[ObjectIdentifier(parentView)]
+                    }
+                    if let alignment = inherited {
+                        inheritedTextAlign[ObjectIdentifier(childView)] = alignment
+                        if let label = childView as? UILabel {
+                            label.textAlignment = alignment
+                        }
+                    }
+                }
+                // CSS color inheritance — cascades from ancestors to descendants
+                if let color = childStyle["color"] as? String {
+                    inheritedTextColor[ObjectIdentifier(childView)] = parseColor(color)
+                } else {
+                    let parentStyle = parent.props["style"] as? [String: Any] ?? [:]
+                    let inherited: UIColor?
+                    if let color = parentStyle["color"] as? String {
+                        inherited = parseColor(color)
+                    } else {
+                        inherited = inheritedTextColor[ObjectIdentifier(parentView)]
+                    }
+                    if let color = inherited {
+                        inheritedTextColor[ObjectIdentifier(childView)] = color
+                        if let label = childView as? UILabel {
+                            label.textColor = color
+                        }
+                    }
                 }
                 let clampedIndex = min(index, parentView.subviews.count)
                 parentView.insertSubview(childView, at: clampedIndex)
@@ -87,6 +138,8 @@ public class UIKitMutationApplier: NSObject {
                 }
                 updateView(view, elementType: node.family.elementType, props: newProps)
                 view.frame = node.layoutFrame
+                // Apply bounds-dependent props (borders, border-radius) now that frame is set
+                applyBoundsDependentProps(to: view, props: newProps)
                 node.family.hasClickHandler = newProps["onClick"] != nil
                 applyBackgroundLayerIfNeeded(to: view, props: newProps)
                 if let scrollView = view as? UIScrollView, let contentSize = node.scrollContentSize {
@@ -128,6 +181,9 @@ public class UIKitMutationApplier: NSObject {
              "cite", "dfn", "var", "sub", "sup", "q", "time", "abbr", "data":
             let label = UILabel()
             label.numberOfLines = 0
+            if elementType == "pre" {
+                label.lineBreakMode = .byCharWrapping
+            }
             applyTextProps(to: label, props: props, elementType: elementType)
             applyCommonProps(to: label, props: props)
             return label
@@ -245,13 +301,9 @@ public class UIKitMutationApplier: NSObject {
             if let bgColor = style["backgroundColor"] as? String {
                 view.backgroundColor = parseColor(bgColor)
             }
-            // Border properties (per-side or uniform)
-            applyBorderProps(to: view, style: style)
-            if let borderRadius = style["borderRadius"] as? NSNumber {
-                view.layer.cornerRadius = CGFloat(borderRadius.doubleValue)
-                // Don't set clipsToBounds here — it conflicts with boxShadow.
-                // Only overflow:hidden should set clipsToBounds.
-            }
+            // NOTE: Border props, border radius, and background layer depend on
+            // view.bounds and are applied separately via applyBoundsDependent()
+            // after view.frame is set.
 
             // opacity
             if let opacity = style["opacity"] as? NSNumber {
@@ -326,9 +378,25 @@ public class UIKitMutationApplier: NSObject {
         }
     }
 
+    /// Applies bounds-dependent styling (borders, border radius) to a view.
+    /// Must be called AFTER view.frame is set, because these operations use
+    /// view.bounds to compute sublayer frames and shape paths.
+    private func applyBoundsDependentProps(to view: UIView, props: [String: Any]) {
+        if let style = props["style"] as? [String: Any] {
+            applyBorderProps(to: view, style: style)
+            applyBorderRadius(to: view, style: style)
+        }
+    }
+
     /// Removes any previously-added border-edge sublayers and adds new ones
     /// for per-side border widths. Falls back to CALayer.borderWidth for uniform borders.
     private func applyBorderProps(to view: UIView, style: [String: Any]) {
+        // CSS initial border-width is "medium" (3px) when borderStyle is visible.
+        // When borderStyle is not set or "none", no borders render.
+        let borderStyle = style["borderStyle"] as? String
+        let hasBorderStyle = borderStyle != nil && borderStyle != "none"
+        let cssInitialBorderWidth: Double = 3
+
         // Read per-side values (nil = not set)
         let top = (style["borderTopWidth"] as? NSNumber)?.doubleValue
         let right = (style["borderRightWidth"] as? NSNumber)?.doubleValue
@@ -336,11 +404,13 @@ public class UIKitMutationApplier: NSObject {
         let left = (style["borderLeftWidth"] as? NSNumber)?.doubleValue
         let uniform = (style["borderWidth"] as? NSNumber)?.doubleValue
 
-        // Resolve each edge: per-side overrides uniform
-        let t = top ?? uniform ?? 0
-        let r = right ?? uniform ?? 0
-        let b = bottom ?? uniform ?? 0
-        let l = left ?? uniform ?? 0
+        // Resolve each edge: per-side overrides uniform, which defaults to
+        // CSS initial "medium" (3px) when borderStyle is visible
+        let defaultWidth = hasBorderStyle ? (uniform ?? cssInitialBorderWidth) : (uniform ?? 0)
+        let t = top ?? defaultWidth
+        let r = right ?? defaultWidth
+        let b = bottom ?? defaultWidth
+        let l = left ?? defaultWidth
 
         // Parse border color — uniform and per-side
         let uniformColor: CGColor
@@ -355,7 +425,8 @@ public class UIKitMutationApplier: NSObject {
         let leftColor = (style["borderLeftColor"] as? String).map { parseColor($0).cgColor } ?? uniformColor
 
         // Remove old border layers
-        view.layer.sublayers?.removeAll { $0.name == "__border_edge__" }
+        view.layer.sublayers?.filter { $0.name == "__border_edge__" }
+            .forEach { $0.removeFromSuperlayer() }
 
         // If all zero, clear CALayer border too and return
         if t == 0 && r == 0 && b == 0 && l == 0 {
@@ -399,6 +470,106 @@ public class UIKitMutationApplier: NSObject {
         if r > 0 {
             addEdge(frame: CGRect(x: bounds.width - CGFloat(r), y: 0, width: CGFloat(r), height: bounds.height), color: rightColor)
         }
+    }
+
+    /// Resolves a border-radius value from the style dict. Handles both numeric
+    /// pixel values (NSNumber) and percentage strings (e.g. "50%"). Percentage
+    /// values are resolved relative to the element's width, matching CSS
+    /// getComputedStyle which reports the horizontal radius first (parseFloat
+    /// extracts it). UIKit's cornerRadius auto-clamps when radius exceeds the
+    /// smaller dimension.
+    private func resolveBorderRadius(_ value: Any?, width: Double, height: Double) -> Double? {
+        if let num = value as? NSNumber {
+            return num.doubleValue
+        }
+        if let str = value as? String, str.hasSuffix("%"),
+           let pct = Double(str.dropLast()) {
+            // CSS resolves percentage border-radius to horizontal=pct*width/100.
+            // Web extractor uses parseFloat(getComputedStyle().borderTopLeftRadius)
+            // which extracts the horizontal radius. UIKit cornerRadius auto-clamps
+            // to min(width, height)/2 when the value exceeds bounds.
+            return pct * width / 100
+        }
+        return nil
+    }
+
+    /// Applies border-radius to a view. Supports both uniform borderRadius and
+    /// per-corner values (borderTopLeftRadius, borderTopRightRadius, etc.).
+    /// Uses CALayer.cornerRadius for uniform radii and a CAShapeLayer mask
+    /// for per-corner radii.
+    private func applyBorderRadius(to view: UIView, style: [String: Any]) {
+        let w = Double(view.bounds.width)
+        let h = Double(view.bounds.height)
+        let uniform = resolveBorderRadius(style["borderRadius"], width: w, height: h)
+        let tl = resolveBorderRadius(style["borderTopLeftRadius"], width: w, height: h) ?? uniform ?? 0
+        let tr = resolveBorderRadius(style["borderTopRightRadius"], width: w, height: h) ?? uniform ?? 0
+        let bl = resolveBorderRadius(style["borderBottomLeftRadius"], width: w, height: h) ?? uniform ?? 0
+        let br = resolveBorderRadius(style["borderBottomRightRadius"], width: w, height: h) ?? uniform ?? 0
+
+        // Remove any existing corner mask from a previous apply
+        view.layer.mask = (view.layer.mask?.name == "__corner_mask__") ? nil : view.layer.mask
+
+        if tl == 0 && tr == 0 && bl == 0 && br == 0 {
+            view.layer.cornerRadius = 0
+            return
+        }
+
+        // If all corners are the same, use the simpler CALayer API
+        if tl == tr && tr == bl && bl == br {
+            view.layer.cornerRadius = CGFloat(tl)
+            return
+        }
+
+        // Per-corner: use a UIBezierPath mask
+        view.layer.cornerRadius = 0
+        let bounds = view.bounds
+        let path = UIBezierPath()
+
+        // Start at top-left, after the top-left radius
+        path.move(to: CGPoint(x: CGFloat(tl), y: 0))
+
+        // Top edge -> top-right corner
+        path.addLine(to: CGPoint(x: bounds.width - CGFloat(tr), y: 0))
+        if tr > 0 {
+            path.addArc(
+                withCenter: CGPoint(x: bounds.width - CGFloat(tr), y: CGFloat(tr)),
+                radius: CGFloat(tr), startAngle: -.pi / 2, endAngle: 0, clockwise: true
+            )
+        }
+
+        // Right edge -> bottom-right corner
+        path.addLine(to: CGPoint(x: bounds.width, y: bounds.height - CGFloat(br)))
+        if br > 0 {
+            path.addArc(
+                withCenter: CGPoint(x: bounds.width - CGFloat(br), y: bounds.height - CGFloat(br)),
+                radius: CGFloat(br), startAngle: 0, endAngle: .pi / 2, clockwise: true
+            )
+        }
+
+        // Bottom edge -> bottom-left corner
+        path.addLine(to: CGPoint(x: CGFloat(bl), y: bounds.height))
+        if bl > 0 {
+            path.addArc(
+                withCenter: CGPoint(x: CGFloat(bl), y: bounds.height - CGFloat(bl)),
+                radius: CGFloat(bl), startAngle: .pi / 2, endAngle: .pi, clockwise: true
+            )
+        }
+
+        // Left edge -> top-left corner
+        path.addLine(to: CGPoint(x: 0, y: CGFloat(tl)))
+        if tl > 0 {
+            path.addArc(
+                withCenter: CGPoint(x: CGFloat(tl), y: CGFloat(tl)),
+                radius: CGFloat(tl), startAngle: .pi, endAngle: 3 * .pi / 2, clockwise: true
+            )
+        }
+
+        path.close()
+
+        let shapeLayer = CAShapeLayer()
+        shapeLayer.name = "__corner_mask__"
+        shapeLayer.path = path.cgPath
+        view.layer.mask = shapeLayer
     }
 
     private func applyTextProps(to label: UILabel, props: [String: Any], elementType: String) {
@@ -472,7 +643,9 @@ public class UIKitMutationApplier: NSObject {
 
     /// Applies inherited text styling from a parent text element to a #text child label.
     /// In CSS, text nodes inherit font-size, font-weight, and color from their parent element.
-    private func applyInheritedTextStyle(to label: UILabel, parentType: String, parentProps: [String: Any]) {
+    /// The `inheritedColor` parameter carries the cascaded color from ancestor containers
+    /// (CSS color inheritance goes up the entire ancestor chain, not just the immediate parent).
+    private func applyInheritedTextStyle(to label: UILabel, parentType: String, parentProps: [String: Any], inheritedColor: UIColor? = nil) {
         let style = parentProps["style"] as? [String: Any] ?? [:]
 
         // 1. Text is already set on #text nodes during CREATE
@@ -493,9 +666,11 @@ public class UIKitMutationApplier: NSObject {
         // 3. Set font via resolveFont()
         label.font = resolveFont(style: style, elementType: parentType)
 
-        // 4. Set textColor
+        // 4. Set textColor — from parent's explicit color, or cascaded from ancestors
         if let color = style["color"] as? String {
             label.textColor = parseColor(color)
+        } else if let color = inheritedColor {
+            label.textColor = color
         }
 
         // 5. Set textAlignment
@@ -505,6 +680,11 @@ public class UIKitMutationApplier: NSObject {
 
         // 6-8. Apply attributed text properties (decoration, lineHeight, letterSpacing)
         applyAttributedTextProps(to: label, style: style)
+
+        // Pre elements: preserve whitespace and prevent truncation
+        if parentType == "pre" {
+            label.lineBreakMode = .byCharWrapping
+        }
     }
 
     // MARK: - Event Handlers
@@ -690,18 +870,27 @@ public class UIKitMutationApplier: NSObject {
     /// still appears above the background.
     ///
     /// To match CSS behavior, this method "promotes" the background color into
-    /// a separate sublayer with `zPosition = 0`. Child layers with negative
-    /// `zPosition` will then render behind this background sublayer, matching
-    /// the CSS stacking context paint order.
+    /// a separate sublayer with `zPosition = -0.5`. Normal child views
+    /// (default `zPosition = 0`) render on top of this background. Child layers
+    /// with negative `zPosition` (from `zIndex: -1` etc.) render behind this
+    /// background sublayer, matching the CSS stacking context paint order.
     private func applyBackgroundLayerIfNeeded(to view: UIView, props: [String: Any]) {
         let style = props["style"] as? [String: Any] ?? [:]
         let position = style["position"] as? String
 
-        // Remove any existing promoted background layer
-        view.layer.sublayers?.removeAll { $0.name == "__bg_layer__" }
+        // Remove any existing promoted background layer.
+        // Use removeFromSuperlayer() instead of sublayers?.removeAll — the
+        // latter sets layer.sublayers which re-parents ALL sublayers and can
+        // disrupt subview layer ordering.
+        view.layer.sublayers?.filter { $0.name == "__bg_layer__" }
+            .forEach { $0.removeFromSuperlayer() }
 
-        // Only promote for positioned elements that create a stacking context
-        guard position == "relative" || position == "absolute",
+        // Only promote for position:relative elements. CSS stacking context
+        // allows children with negative z-index to render behind the parent's
+        // background — this requires the background in a sublayer. Absolute
+        // children don't need this promotion and it can cause their backgrounds
+        // to not render when the sublayer frame doesn't match.
+        guard position == "relative",
               let bgColorStr = style["backgroundColor"] as? String else {
             return
         }
@@ -711,16 +900,47 @@ public class UIKitMutationApplier: NSObject {
         // Clear the view's own backgroundColor so it doesn't paint behind everything
         view.backgroundColor = .clear
 
-        // Add a background sublayer at zPosition 0
+        // Add a background sublayer behind normal children but above
+        // children with negative zIndex. Using zPosition -0.5 ensures:
+        // - Normal children (zPosition 0) render ON TOP of the background
+        // - Children with zIndex: -1 (zPosition -1) render BEHIND the background
+        // Previously zPosition was 0, which caused the bgLayer to cover
+        // child views due to UIKit sublayer ordering when subviews are
+        // inserted (insertSubview places the subview's layer before
+        // manually-added sublayers at the same zPosition).
         let bgLayer = CALayer()
         bgLayer.name = "__bg_layer__"
         bgLayer.backgroundColor = bgColor.cgColor
         bgLayer.frame = view.bounds
-        bgLayer.zPosition = 0
+        bgLayer.zPosition = -0.5
 
         // Apply corner radius to match the view
-        if let borderRadius = style["borderRadius"] as? NSNumber {
-            bgLayer.cornerRadius = CGFloat(borderRadius.doubleValue)
+        let w = Double(view.bounds.width)
+        let h = Double(view.bounds.height)
+        let uniform = resolveBorderRadius(style["borderRadius"], width: w, height: h)
+        let tl = resolveBorderRadius(style["borderTopLeftRadius"], width: w, height: h) ?? uniform ?? 0
+        let tr = resolveBorderRadius(style["borderTopRightRadius"], width: w, height: h) ?? uniform ?? 0
+        let bl = resolveBorderRadius(style["borderBottomLeftRadius"], width: w, height: h) ?? uniform ?? 0
+        let br = resolveBorderRadius(style["borderBottomRightRadius"], width: w, height: h) ?? uniform ?? 0
+
+        if tl == tr && tr == bl && bl == br && tl > 0 {
+            bgLayer.cornerRadius = CGFloat(tl)
+        } else if tl > 0 || tr > 0 || bl > 0 || br > 0 {
+            let bounds = view.bounds
+            let path = UIBezierPath()
+            path.move(to: CGPoint(x: CGFloat(tl), y: 0))
+            path.addLine(to: CGPoint(x: bounds.width - CGFloat(tr), y: 0))
+            if tr > 0 { path.addArc(withCenter: CGPoint(x: bounds.width - CGFloat(tr), y: CGFloat(tr)), radius: CGFloat(tr), startAngle: -.pi / 2, endAngle: 0, clockwise: true) }
+            path.addLine(to: CGPoint(x: bounds.width, y: bounds.height - CGFloat(br)))
+            if br > 0 { path.addArc(withCenter: CGPoint(x: bounds.width - CGFloat(br), y: bounds.height - CGFloat(br)), radius: CGFloat(br), startAngle: 0, endAngle: .pi / 2, clockwise: true) }
+            path.addLine(to: CGPoint(x: CGFloat(bl), y: bounds.height))
+            if bl > 0 { path.addArc(withCenter: CGPoint(x: CGFloat(bl), y: bounds.height - CGFloat(bl)), radius: CGFloat(bl), startAngle: .pi / 2, endAngle: .pi, clockwise: true) }
+            path.addLine(to: CGPoint(x: 0, y: CGFloat(tl)))
+            if tl > 0 { path.addArc(withCenter: CGPoint(x: CGFloat(tl), y: CGFloat(tl)), radius: CGFloat(tl), startAngle: .pi, endAngle: 3 * .pi / 2, clockwise: true) }
+            path.close()
+            let mask = CAShapeLayer()
+            mask.path = path.cgPath
+            bgLayer.mask = mask
         }
 
         // Insert at position 0 so it's behind existing sublayers

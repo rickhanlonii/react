@@ -5,9 +5,9 @@
     return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
   };
 
-  // node_modules/react/cjs/react.development.js
+  // ../../node_modules/react/cjs/react.development.js
   var require_react_development = __commonJS({
-    "node_modules/react/cjs/react.development.js"(exports, module) {
+    "../../node_modules/react/cjs/react.development.js"(exports, module) {
       "use strict";
       (function() {
         function defineDeprecationWarning(methodName, info) {
@@ -977,9 +977,9 @@
     }
   });
 
-  // node_modules/react/index.js
+  // ../../node_modules/react/index.js
   var require_react = __commonJS({
-    "node_modules/react/index.js"(exports, module) {
+    "../../node_modules/react/index.js"(exports, module) {
       "use strict";
       if (false) {
         module.exports = null;
@@ -989,9 +989,9 @@
     }
   });
 
-  // node_modules/react-reconciler/node_modules/scheduler/cjs/scheduler.development.js
+  // ../../node_modules/react-reconciler/node_modules/scheduler/cjs/scheduler.development.js
   var require_scheduler_development = __commonJS({
-    "node_modules/react-reconciler/node_modules/scheduler/cjs/scheduler.development.js"(exports) {
+    "../../node_modules/react-reconciler/node_modules/scheduler/cjs/scheduler.development.js"(exports) {
       "use strict";
       (function() {
         function performWorkUntilDeadline() {
@@ -1248,9 +1248,9 @@
     }
   });
 
-  // node_modules/react-reconciler/node_modules/scheduler/index.js
+  // ../../node_modules/react-reconciler/node_modules/scheduler/index.js
   var require_scheduler = __commonJS({
-    "node_modules/react-reconciler/node_modules/scheduler/index.js"(exports, module) {
+    "../../node_modules/react-reconciler/node_modules/scheduler/index.js"(exports, module) {
       "use strict";
       if (false) {
         module.exports = null;
@@ -1260,9 +1260,9 @@
     }
   });
 
-  // node_modules/react-reconciler/cjs/react-reconciler.development.js
+  // ../../node_modules/react-reconciler/cjs/react-reconciler.development.js
   var require_react_reconciler_development = __commonJS({
-    "node_modules/react-reconciler/cjs/react-reconciler.development.js"(exports, module) {
+    "../../node_modules/react-reconciler/cjs/react-reconciler.development.js"(exports, module) {
       "use strict";
       module.exports = function($$$config) {
         function findHook(fiber, id) {
@@ -13136,9 +13136,9 @@
     }
   });
 
-  // node_modules/react-reconciler/index.js
+  // ../../node_modules/react-reconciler/index.js
   var require_react_reconciler = __commonJS({
-    "node_modules/react-reconciler/index.js"(exports, module) {
+    "../../node_modules/react-reconciler/index.js"(exports, module) {
       "use strict";
       if (false) {
         module.exports = null;
@@ -13148,12 +13148,19 @@
     }
   });
 
-  // packages/react-dom-native/src/renderer/HostConfig.js
+  // ../../packages/react-dom-native/src/renderer/HostConfig.js
   var require_HostConfig = __commonJS({
-    "packages/react-dom-native/src/renderer/HostConfig.js"(exports) {
+    "../../packages/react-dom-native/src/renderer/HostConfig.js"(exports) {
       "use strict";
       var DefaultEventPriority = 32;
       var currentUpdatePriority = DefaultEventPriority;
+      function replaceEventHandlers(props) {
+        for (var key in props) {
+          if (key.length > 2 && key[0] === "o" && key[1] === "n" && typeof props[key] === "function") {
+            props[key] = true;
+          }
+        }
+      }
       var pendingSuspenseByBoundary = /* @__PURE__ */ new Map();
       var TEXT_CONTEXT_ELEMENTS = /* @__PURE__ */ new Set([
         "p",
@@ -13188,38 +13195,11 @@
         "h5",
         "h6",
         "label",
-        "li"
+        "legend",
+        "li",
+        "pre",
+        "summary"
       ]);
-      function expandStyleShorthands(props) {
-        let style = props.style;
-        if (style != null && typeof style === "object" && typeof style._init === "function") {
-          style = style._init(style._payload);
-          props = { ...props, style };
-        }
-        if (style == null || typeof style.border !== "string") {
-          return props;
-        }
-        const border = style.border;
-        const expanded = {};
-        const match = border.match(
-          /^(\d+(?:\.\d+)?(?:px|em|rem)?)\s+(\w+)\s+(.+)$/
-        );
-        if (match) {
-          expanded.borderWidth = parseFloat(match[1]);
-          expanded.borderColor = match[3];
-        } else {
-          const simple = border.match(/^(\d+(?:\.\d+)?(?:px|em|rem)?)(?:\s+(.+))?$/);
-          if (simple) {
-            expanded.borderWidth = parseFloat(simple[1]);
-            if (simple[2]) {
-              expanded.borderColor = simple[2];
-            }
-          }
-        }
-        const { border: _removed, ...restStyle } = style;
-        const newStyle = { ...expanded, ...restStyle };
-        return { ...props, style: newStyle };
-      }
       exports.supportsPersistence = true;
       exports.supportsMutation = false;
       exports.supportsHydration = true;
@@ -13230,7 +13210,13 @@
       exports.rendererVersion = "0.0.1";
       exports.extraDevToolsConfig = null;
       exports.createInstance = function createInstance(type, props, rootContainer, hostContext, internalHandle) {
-        const { children, ...nativeProps } = expandStyleShorthands(props);
+        let resolvedProps = props;
+        const style = props.style;
+        if (style != null && typeof style === "object" && typeof style._init === "function") {
+          resolvedProps = { ...props, style: style._init(style._payload) };
+        }
+        const { children, ...nativeProps } = resolvedProps;
+        replaceEventHandlers(nativeProps);
         const nativeNode = $$createNode(
           type,
           rootContainer.surfaceId,
@@ -13271,7 +13257,13 @@
         return false;
       };
       exports.cloneInstance = function cloneInstance(instance, type, oldProps, newProps, keepChildren, recyclable) {
-        const { children, ...nativeNewProps } = expandStyleShorthands(newProps);
+        let resolvedNewProps = newProps;
+        const newStyle = newProps.style;
+        if (newStyle != null && typeof newStyle === "object" && typeof newStyle._init === "function") {
+          resolvedNewProps = { ...newProps, style: newStyle._init(newStyle._payload) };
+        }
+        const { children, ...nativeNewProps } = resolvedNewProps;
+        replaceEventHandlers(nativeNewProps);
         let newNativeNode;
         if (keepChildren) {
           newNativeNode = $$cloneNodeWithNewProps(instance._nativeNode, nativeNewProps);
@@ -13525,7 +13517,6 @@
       };
       exports.registerSuspenseInstanceRetry = function(instance, callback) {
         if (instance.pending !== true) {
-          callback();
           return;
         }
         if (instance._retryCallbacks) {
@@ -13606,7 +13597,7 @@
         instance._internalInstanceHandle = internalHandle;
         instance.props = props;
         instance.children = [];
-        $$setInstanceHandle(instance._ssrNodeRef, internalHandle);
+        $$setInstanceHandle(instance._ssrNodeRef, internalHandle, typeof props.onClick === "function");
         return true;
       };
       exports.hydrateTextInstance = function(textInstance, text, internalHandle) {
@@ -13809,9 +13800,9 @@
     }
   });
 
-  // packages/react-dom-native/src/renderer/renderer.js
+  // ../../packages/react-dom-native/src/renderer/renderer.js
   var require_renderer = __commonJS({
-    "packages/react-dom-native/src/renderer/renderer.js"(exports, module) {
+    "../../packages/react-dom-native/src/renderer/renderer.js"(exports, module) {
       "use strict";
       var Reconciler = require_react_reconciler();
       var HostConfig = require_HostConfig();
@@ -13847,16 +13838,20 @@
           // concurrentUpdatesByDefaultOverride
           "",
           // identifierPrefix
-          null,
-          // onUncaughtError
-          null
-          // onCaughtError
+          function(error) {
+            console.error("[Renderer] Uncaught error: " + error.message);
+            if (error.stack) console.error("[Renderer] Stack: " + error.stack);
+          },
+          function(error, errorInfo) {
+            console.error("[Renderer] Caught error: " + error.message);
+            if (error.stack) console.error("[Renderer] Stack: " + error.stack);
+          }
         );
         console.log("[Renderer] Container created for surfaceId: " + surfaceId);
         return {
-          render(element) {
+          render(element, callback) {
             console.log("[Renderer] render called with element type: " + (element ? element.$$typeof ? String(element.$$typeof) : typeof element : "null"));
-            reconciler.updateContainer(element, root, null, null);
+            reconciler.updateContainer(element, root, null, callback || null);
             console.log("[Renderer] updateContainer completed");
           },
           unmount() {
@@ -13893,16 +13888,16 @@
           "",
           // identifierPrefix
           options && options.onUncaughtError ? options.onUncaughtError : function(error) {
-            console.log("[Hydration] Uncaught error: " + error.message);
-            if (error.stack) console.log("[Hydration] Stack: " + error.stack);
+            console.error("[Hydration] Uncaught error: " + error.message);
+            if (error.stack) console.error("[Hydration] Stack: " + error.stack);
           },
           options && options.onCaughtError ? options.onCaughtError : function(error, errorInfo) {
-            console.log("[Hydration] Caught error: " + error.message);
-            if (error.stack) console.log("[Hydration] Stack: " + error.stack);
+            console.error("[Hydration] Caught error: " + error.message);
+            if (error.stack) console.error("[Hydration] Stack: " + error.stack);
           },
           options && options.onRecoverableError ? options.onRecoverableError : function(error, errorInfo) {
-            console.log("[Hydration] Recoverable error: " + error.message);
-            if (error.stack) console.log("[Hydration] Stack: " + error.stack);
+            console.error("[Hydration] Recoverable error: " + error.message);
+            if (error.stack) console.error("[Hydration] Stack: " + error.stack);
           },
           noop,
           // onDefaultTransitionIndicator
@@ -13925,9 +13920,9 @@
     }
   });
 
-  // tests/e2e/fixtures/div-basic.jsx
+  // fixtures/div-basic.jsx
   var require_div_basic = __commonJS({
-    "tests/e2e/fixtures/div-basic.jsx"(exports, module) {
+    "fixtures/div-basic.jsx"(exports, module) {
       "use strict";
       var React2 = require_react();
       module.exports = function DivBasic() {
@@ -13936,9 +13931,9 @@
     }
   });
 
-  // tests/e2e/fixtures/div-nested.jsx
+  // fixtures/div-nested.jsx
   var require_div_nested = __commonJS({
-    "tests/e2e/fixtures/div-nested.jsx"(exports, module) {
+    "fixtures/div-nested.jsx"(exports, module) {
       "use strict";
       var React2 = require_react();
       module.exports = function DivNested() {
@@ -13947,9 +13942,9 @@
     }
   });
 
-  // tests/e2e/fixtures/p-text.jsx
+  // fixtures/p-text.jsx
   var require_p_text = __commonJS({
-    "tests/e2e/fixtures/p-text.jsx"(exports, module) {
+    "fixtures/p-text.jsx"(exports, module) {
       "use strict";
       var React2 = require_react();
       module.exports = function PText() {
@@ -13958,9 +13953,9 @@
     }
   });
 
-  // tests/e2e/fixtures/headings.jsx
+  // fixtures/headings.jsx
   var require_headings = __commonJS({
-    "tests/e2e/fixtures/headings.jsx"(exports, module) {
+    "fixtures/headings.jsx"(exports, module) {
       "use strict";
       var React2 = require_react();
       module.exports = function Headings() {
@@ -13969,9 +13964,9 @@
     }
   });
 
-  // tests/e2e/fixtures/flex-row.jsx
+  // fixtures/flex-row.jsx
   var require_flex_row = __commonJS({
-    "tests/e2e/fixtures/flex-row.jsx"(exports, module) {
+    "fixtures/flex-row.jsx"(exports, module) {
       "use strict";
       var React2 = require_react();
       module.exports = function FlexRow() {
@@ -13980,9 +13975,9 @@
     }
   });
 
-  // tests/e2e/fixtures/flex-align.jsx
+  // fixtures/flex-align.jsx
   var require_flex_align = __commonJS({
-    "tests/e2e/fixtures/flex-align.jsx"(exports, module) {
+    "fixtures/flex-align.jsx"(exports, module) {
       "use strict";
       var React2 = require_react();
       module.exports = function FlexAlign() {
@@ -13998,9 +13993,9 @@
     }
   });
 
-  // tests/e2e/fixtures/flex-layout.jsx
+  // fixtures/flex-layout.jsx
   var require_flex_layout = __commonJS({
-    "tests/e2e/fixtures/flex-layout.jsx"(exports, module) {
+    "fixtures/flex-layout.jsx"(exports, module) {
       "use strict";
       var React2 = require_react();
       module.exports = function FlexLayout() {
@@ -14012,9 +14007,9 @@
     }
   });
 
-  // tests/e2e/fixtures/box-model.jsx
+  // fixtures/box-model.jsx
   var require_box_model = __commonJS({
-    "tests/e2e/fixtures/box-model.jsx"(exports, module) {
+    "fixtures/box-model.jsx"(exports, module) {
       "use strict";
       var React2 = require_react();
       module.exports = function BoxModel() {
@@ -14037,9 +14032,9 @@
     }
   });
 
-  // tests/e2e/fixtures/border-basic.jsx
+  // fixtures/border-basic.jsx
   var require_border_basic = __commonJS({
-    "tests/e2e/fixtures/border-basic.jsx"(exports, module) {
+    "fixtures/border-basic.jsx"(exports, module) {
       "use strict";
       var React2 = require_react();
       module.exports = function BorderBasic() {
@@ -14065,9 +14060,9 @@
     }
   });
 
-  // tests/e2e/fixtures/border-padding.jsx
+  // fixtures/border-padding.jsx
   var require_border_padding = __commonJS({
-    "tests/e2e/fixtures/border-padding.jsx"(exports, module) {
+    "fixtures/border-padding.jsx"(exports, module) {
       "use strict";
       var React2 = require_react();
       module.exports = function BorderPadding() {
@@ -14097,9 +14092,2840 @@
     }
   });
 
-  // tests/e2e/fixtures/index.js
+  // fixtures/text-inline.jsx
+  var require_text_inline = __commonJS({
+    "fixtures/text-inline.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function TextInline() {
+        return /* @__PURE__ */ React2.createElement("div", null, /* @__PURE__ */ React2.createElement("p", null, "Normal text with ", /* @__PURE__ */ React2.createElement("b", null, "bold"), " and ", /* @__PURE__ */ React2.createElement("i", null, "italic"), " and ", /* @__PURE__ */ React2.createElement("u", null, "underline"), " words."), /* @__PURE__ */ React2.createElement("p", null, "Mixed ", /* @__PURE__ */ React2.createElement("strong", null, "strong"), " and ", /* @__PURE__ */ React2.createElement("em", null, "emphasis"), " and ", /* @__PURE__ */ React2.createElement("s", null, "strikethrough"), " text."), /* @__PURE__ */ React2.createElement("p", null, "Some ", /* @__PURE__ */ React2.createElement("code", null, "inline code"), " in a sentence."));
+      };
+    }
+  });
+
+  // fixtures/list-basic.jsx
+  var require_list_basic = __commonJS({
+    "fixtures/list-basic.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function ListBasic() {
+        return /* @__PURE__ */ React2.createElement("div", null, /* @__PURE__ */ React2.createElement("ul", null, /* @__PURE__ */ React2.createElement("li", null, "First item"), /* @__PURE__ */ React2.createElement("li", null, "Second item"), /* @__PURE__ */ React2.createElement("li", null, "Third item")), /* @__PURE__ */ React2.createElement("ol", null, /* @__PURE__ */ React2.createElement("li", null, "One"), /* @__PURE__ */ React2.createElement("li", null, "Two"), /* @__PURE__ */ React2.createElement("li", null, "Three")));
+      };
+    }
+  });
+
+  // fixtures/position-absolute.jsx
+  var require_position_absolute = __commonJS({
+    "fixtures/position-absolute.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function PositionAbsolute() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 300, height: 200, backgroundColor: "#eeeeee", position: "relative" } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 60,
+          height: 60,
+          backgroundColor: "#ff9999",
+          position: "absolute",
+          top: 10,
+          left: 10
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 60,
+          height: 60,
+          backgroundColor: "#99ff99",
+          position: "absolute",
+          top: 10,
+          right: 10
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 60,
+          height: 60,
+          backgroundColor: "#9999ff",
+          position: "absolute",
+          bottom: 10,
+          left: 10
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 80,
+          height: 30,
+          backgroundColor: "#ffcc99",
+          position: "absolute",
+          bottom: 10,
+          right: 10
+        } }));
+      };
+    }
+  });
+
+  // fixtures/flex-wrap.jsx
+  var require_flex_wrap = __commonJS({
+    "fixtures/flex-wrap.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function FlexWrap() {
+        return /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          display: "flex",
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: 8,
+          padding: 10,
+          backgroundColor: "#eeeeee"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 40, backgroundColor: "#ff9999" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 40, backgroundColor: "#99ff99" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 40, backgroundColor: "#9999ff" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 40, backgroundColor: "#ffcc99" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 40, backgroundColor: "#cc99ff" } }));
+      };
+    }
+  });
+
+  // fixtures/flex-grow.jsx
+  var require_flex_grow = __commonJS({
+    "fixtures/flex-grow.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function FlexGrow() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row", gap: 8 } }, /* @__PURE__ */ React2.createElement("div", { style: { flexGrow: 1, height: 50, backgroundColor: "#ff9999" } }), /* @__PURE__ */ React2.createElement("div", { style: { flexGrow: 2, height: 50, backgroundColor: "#99ff99" } }), /* @__PURE__ */ React2.createElement("div", { style: { flexGrow: 1, height: 50, backgroundColor: "#9999ff" } })), /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row", marginTop: 10 } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 40, backgroundColor: "#ffcc99" } }), /* @__PURE__ */ React2.createElement("div", { style: { flexGrow: 1, height: 40, backgroundColor: "#cc99ff" } })));
+      };
+    }
+  });
+
+  // fixtures/semantic-layout.jsx
+  var require_semantic_layout = __commonJS({
+    "fixtures/semantic-layout.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function SemanticLayout() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("header", { style: { padding: 10, backgroundColor: "#e0e0ff" } }, /* @__PURE__ */ React2.createElement("h2", null, "Page Title")), /* @__PURE__ */ React2.createElement("nav", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 16,
+          padding: 10,
+          backgroundColor: "#f0f0f0"
+        } }, /* @__PURE__ */ React2.createElement("span", null, "Home"), /* @__PURE__ */ React2.createElement("span", null, "About"), /* @__PURE__ */ React2.createElement("span", null, "Contact")), /* @__PURE__ */ React2.createElement("main", { style: { padding: 10 } }, /* @__PURE__ */ React2.createElement("section", { style: { marginBottom: 10 } }, /* @__PURE__ */ React2.createElement("h3", null, "Section One"), /* @__PURE__ */ React2.createElement("p", null, "Main content goes here.")), /* @__PURE__ */ React2.createElement("aside", { style: {
+          padding: 10,
+          backgroundColor: "#fff8e0",
+          borderWidth: 1,
+          borderStyle: "solid",
+          borderColor: "#cccccc"
+        } }, /* @__PURE__ */ React2.createElement("p", null, "Sidebar content"))), /* @__PURE__ */ React2.createElement("footer", { style: { padding: 10, backgroundColor: "#e0e0e0" } }, /* @__PURE__ */ React2.createElement("p", null, "Footer text")));
+      };
+    }
+  });
+
+  // fixtures/table-basic.jsx
+  var require_table_basic = __commonJS({
+    "fixtures/table-basic.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function TableBasic() {
+        var rowStyle = { display: "flex", flexDirection: "row" };
+        var cellStyle = { flexGrow: 1, flexShrink: 1, flexBasis: 0, padding: 1, fontSize: 16 };
+        var headerCellStyle = { flexGrow: 1, flexShrink: 1, flexBasis: 0, padding: 1, fontSize: 16, fontWeight: "bold" };
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390, padding: 10 } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 370 } }, /* @__PURE__ */ React2.createElement("div", { style: rowStyle }, /* @__PURE__ */ React2.createElement("div", { style: headerCellStyle }, "Name"), /* @__PURE__ */ React2.createElement("div", { style: headerCellStyle }, "Age"), /* @__PURE__ */ React2.createElement("div", { style: headerCellStyle }, "City")), /* @__PURE__ */ React2.createElement("div", { style: rowStyle }, /* @__PURE__ */ React2.createElement("div", { style: cellStyle }, "Alice"), /* @__PURE__ */ React2.createElement("div", { style: cellStyle }, "30"), /* @__PURE__ */ React2.createElement("div", { style: cellStyle }, "New York")), /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row", backgroundColor: "#f5f5f5" } }, /* @__PURE__ */ React2.createElement("div", { style: cellStyle }, "Bob"), /* @__PURE__ */ React2.createElement("div", { style: cellStyle }, "25"), /* @__PURE__ */ React2.createElement("div", { style: cellStyle }, "London")), /* @__PURE__ */ React2.createElement("div", { style: rowStyle }, /* @__PURE__ */ React2.createElement("div", { style: cellStyle }, "Charlie"), /* @__PURE__ */ React2.createElement("div", { style: cellStyle }, "35"), /* @__PURE__ */ React2.createElement("div", { style: cellStyle }, "Tokyo"))));
+      };
+    }
+  });
+
+  // fixtures/form-basic.jsx
+  var require_form_basic = __commonJS({
+    "fixtures/form-basic.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function FormBasic() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390, padding: 10 } }, /* @__PURE__ */ React2.createElement("form", null, /* @__PURE__ */ React2.createElement("div", { style: { marginBottom: 12 } }, /* @__PURE__ */ React2.createElement("label", null, "Username"), /* @__PURE__ */ React2.createElement("input", { placeholder: "Enter username" })), /* @__PURE__ */ React2.createElement("div", { style: { marginBottom: 12 } }, /* @__PURE__ */ React2.createElement("label", null, "Email"), /* @__PURE__ */ React2.createElement("input", { placeholder: "Enter email" })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 10
+        } }, /* @__PURE__ */ React2.createElement("button", null, "Submit"), /* @__PURE__ */ React2.createElement("button", null, "Cancel"))));
+      };
+    }
+  });
+
+  // fixtures/article-content.jsx
+  var require_article_content = __commonJS({
+    "fixtures/article-content.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function ArticleContent() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("article", { style: { padding: 16 } }, /* @__PURE__ */ React2.createElement("h1", null, "Article Title"), /* @__PURE__ */ React2.createElement("p", null, "This is an introductory paragraph with ", /* @__PURE__ */ React2.createElement("strong", null, "bold"), " and ", /* @__PURE__ */ React2.createElement("em", null, "italic"), " text."), /* @__PURE__ */ React2.createElement("blockquote", null, /* @__PURE__ */ React2.createElement("p", null, "A notable quote from someone important.")), /* @__PURE__ */ React2.createElement("p", null, "Here is some ", /* @__PURE__ */ React2.createElement("code", null, "inline code"), " in a paragraph, followed by a horizontal rule."), /* @__PURE__ */ React2.createElement("hr", null), /* @__PURE__ */ React2.createElement("p", null, "Final paragraph with a ", /* @__PURE__ */ React2.createElement("a", null, "link"), " inside it.")));
+      };
+    }
+  });
+
+  // fixtures/overflow-hidden.jsx
+  var require_overflow_hidden = __commonJS({
+    "fixtures/overflow-hidden.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function OverflowHidden() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          height: 100,
+          overflow: "hidden",
+          backgroundColor: "#eeeeee"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 300, height: 150, backgroundColor: "#ff9999" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          height: 100,
+          marginTop: 20,
+          backgroundColor: "#dddddd"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 300, height: 150, backgroundColor: "#99ccff" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 150,
+          height: 40,
+          overflow: "hidden",
+          marginTop: 20,
+          backgroundColor: "#eeeedd"
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { height: 100 } }, "This is a long paragraph that should be clipped by the overflow hidden container.")));
+      };
+    }
+  });
+
+  // fixtures/flex-shrink.jsx
+  var require_flex_shrink = __commonJS({
+    "fixtures/flex-shrink.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function FlexShrink() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row", width: 300 } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 200, height: 50, backgroundColor: "#ff9999" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 200, height: 50, backgroundColor: "#99ff99" } })), /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row", width: 300, marginTop: 10 } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 200, flexShrink: 0, height: 50, backgroundColor: "#ffcc99" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 200, height: 50, backgroundColor: "#cc99ff" } })), /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row", width: 300, marginTop: 10 } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 250, flexShrink: 1, height: 50, backgroundColor: "#99ccff" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 250, flexShrink: 3, height: 50, backgroundColor: "#ffcc99" } })), /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row", width: 300, marginTop: 10 } }, /* @__PURE__ */ React2.createElement("div", { style: { flexBasis: 100, flexGrow: 1, height: 50, backgroundColor: "#ccff99" } }), /* @__PURE__ */ React2.createElement("div", { style: { flexBasis: 50, flexGrow: 2, height: 50, backgroundColor: "#ff99cc" } })));
+      };
+    }
+  });
+
+  // fixtures/margin-auto.jsx
+  var require_margin_auto = __commonJS({
+    "fixtures/margin-auto.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function MarginAuto() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          height: 50,
+          marginLeft: "auto",
+          marginRight: "auto",
+          backgroundColor: "#ff9999"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 150,
+          height: 50,
+          marginLeft: "auto",
+          marginTop: 10,
+          backgroundColor: "#99ff99"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 150,
+          height: 50,
+          marginRight: "auto",
+          marginTop: 10,
+          backgroundColor: "#9999ff"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          height: 80,
+          marginTop: 10,
+          backgroundColor: "#eeeeee"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 60,
+          height: 40,
+          marginTop: "auto",
+          marginBottom: "auto",
+          backgroundColor: "#ffcc99"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 60,
+          height: 40,
+          marginLeft: "auto",
+          backgroundColor: "#cc99ff"
+        } })));
+      };
+    }
+  });
+
+  // fixtures/text-style-overrides.jsx
+  var require_text_style_overrides = __commonJS({
+    "fixtures/text-style-overrides.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function TextStyleOverrides() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 24 } }, "Large text (24px)"), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12 } }, "Small text (12px)"), /* @__PURE__ */ React2.createElement("p", { style: { color: "#cc0000", marginTop: 10 } }, "Red text"), /* @__PURE__ */ React2.createElement("p", { style: { color: "#0066cc" } }, "Blue text"), /* @__PURE__ */ React2.createElement("p", { style: { fontWeight: "bold", marginTop: 10 } }, "Bold paragraph"), /* @__PURE__ */ React2.createElement("p", { style: { fontWeight: "300" } }, "Light weight paragraph"), /* @__PURE__ */ React2.createElement("p", { style: { textAlign: "center", marginTop: 10, backgroundColor: "#eeeeee" } }, "Centered text"), /* @__PURE__ */ React2.createElement("p", { style: { textAlign: "right", backgroundColor: "#dddddd" } }, "Right-aligned text"), /* @__PURE__ */ React2.createElement("p", { style: {
+          fontSize: 20,
+          fontWeight: "bold",
+          color: "#006600",
+          textAlign: "center",
+          marginTop: 10,
+          backgroundColor: "#eeffee"
+        } }, "Combined: large, bold, green, centered"), /* @__PURE__ */ React2.createElement("h2", { style: { color: "#660066" } }, "Purple heading"));
+      };
+    }
+  });
+
+  // fixtures/border-radius.jsx
+  var require_border_radius = __commonJS({
+    "fixtures/border-radius.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function BorderRadius() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 100,
+          height: 100,
+          borderRadius: 10,
+          backgroundColor: "#ff9999"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 80,
+          height: 80,
+          borderRadius: 40,
+          marginTop: 10,
+          backgroundColor: "#99ff99"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 120,
+          height: 80,
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 0,
+          borderBottomRightRadius: 20,
+          borderBottomLeftRadius: 0,
+          marginTop: 10,
+          backgroundColor: "#9999ff"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 100,
+          height: 60,
+          borderRadius: 12,
+          borderWidth: 3,
+          borderStyle: "solid",
+          borderColor: "#333333",
+          marginTop: 10,
+          backgroundColor: "#ffcc99"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          height: 40,
+          borderRadius: 20,
+          marginTop: 10,
+          backgroundColor: "#cc99ff"
+        } }));
+      };
+    }
+  });
+
+  // fixtures/opacity.jsx
+  var require_opacity = __commonJS({
+    "fixtures/opacity.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function Opacity() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          height: 50,
+          backgroundColor: "#ff0000",
+          opacity: 1
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          height: 50,
+          marginTop: 10,
+          backgroundColor: "#ff0000",
+          opacity: 0.5
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          height: 50,
+          marginTop: 10,
+          backgroundColor: "#ff0000",
+          opacity: 0.2
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          padding: 10,
+          marginTop: 10,
+          backgroundColor: "#0000ff",
+          opacity: 0.5
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 100, height: 40, backgroundColor: "#ffff00" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          height: 50,
+          marginTop: 10,
+          backgroundColor: "#00ff00",
+          opacity: 0
+        } }));
+      };
+    }
+  });
+
+  // fixtures/display-none.jsx
+  var require_display_none = __commonJS({
+    "fixtures/display-none.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function DisplayNone() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          height: 50,
+          backgroundColor: "#ff9999"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "none",
+          width: 200,
+          height: 50,
+          backgroundColor: "#00ff00"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          height: 50,
+          backgroundColor: "#9999ff"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row", gap: 10, marginTop: 10 } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 40, backgroundColor: "#ffcc99" } }), /* @__PURE__ */ React2.createElement("div", { style: { display: "none", width: 80, height: 40, backgroundColor: "#cc99ff" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 40, backgroundColor: "#99ffcc" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "none",
+          marginTop: 10,
+          padding: 20,
+          backgroundColor: "#eeeeee"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 100, height: 40, backgroundColor: "#ff0000" } }), /* @__PURE__ */ React2.createElement("p", null, "This text should not be visible")), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          height: 50,
+          marginTop: 10,
+          backgroundColor: "#ffff99"
+        } }));
+      };
+    }
+  });
+
+  // fixtures/flex-direction-reverse.jsx
+  var require_flex_direction_reverse = __commonJS({
+    "fixtures/flex-direction-reverse.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function FlexDirectionReverse() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row-reverse", gap: 8 } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 50, backgroundColor: "#ff9999" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 50, backgroundColor: "#99ff99" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 50, backgroundColor: "#9999ff" } })), /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "column-reverse", marginTop: 10 } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 200, height: 40, backgroundColor: "#ffcc99" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 200, height: 40, backgroundColor: "#cc99ff" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 200, height: 40, backgroundColor: "#99ffcc" } })), /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row-reverse", marginTop: 10 } }, /* @__PURE__ */ React2.createElement("div", { style: { flexGrow: 1, height: 40, backgroundColor: "#ffaaaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 40, backgroundColor: "#aaffaa" } })), /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "column-reverse", gap: 8, marginTop: 10 } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 150, height: 30, backgroundColor: "#aaaaff" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 150, height: 30, backgroundColor: "#ffddaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 150, height: 30, backgroundColor: "#ddaaff" } })));
+      };
+    }
+  });
+
+  // fixtures/flex-align-extras.jsx
+  var require_flex_align_extras = __commonJS({
+    "fixtures/flex-align-extras.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function FlexAlignExtras() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          justifyContent: "space-around",
+          height: 50,
+          backgroundColor: "#eeeeee"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 50, height: 30, backgroundColor: "#ff9999" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 50, height: 30, backgroundColor: "#99ff99" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 50, height: 30, backgroundColor: "#9999ff" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          justifyContent: "space-evenly",
+          height: 50,
+          marginTop: 10,
+          backgroundColor: "#eeeeee"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 50, height: 30, backgroundColor: "#ffcc99" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 50, height: 30, backgroundColor: "#cc99ff" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 50, height: 30, backgroundColor: "#99ffcc" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "flex-start",
+          height: 100,
+          marginTop: 10,
+          backgroundColor: "#eeeeee"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 40, backgroundColor: "#ff9999" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 40, alignSelf: "center", backgroundColor: "#99ff99" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 40, alignSelf: "flex-end", backgroundColor: "#9999ff" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 60, alignSelf: "stretch", backgroundColor: "#ffff99" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-start",
+          marginTop: 10,
+          backgroundColor: "#eeeeee"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 100, height: 30, backgroundColor: "#ffaaaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 100, height: 30, alignSelf: "center", backgroundColor: "#aaffaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 100, height: 30, alignSelf: "flex-end", backgroundColor: "#aaaaff" } }), /* @__PURE__ */ React2.createElement("div", { style: { height: 30, alignSelf: "stretch", backgroundColor: "#ffddaa" } })));
+      };
+    }
+  });
+
+  // fixtures/min-max-size.jsx
+  var require_min_max_size = __commonJS({
+    "fixtures/min-max-size.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function MinMaxSize() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          minWidth: 200,
+          height: 40,
+          backgroundColor: "#ff9999"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          maxWidth: 150,
+          height: 40,
+          marginTop: 10,
+          backgroundColor: "#99ff99"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 300, height: 20, backgroundColor: "#66cc66" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          minHeight: 80,
+          marginTop: 10,
+          backgroundColor: "#9999ff"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 50, height: 20, backgroundColor: "#6666cc" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          maxHeight: 60,
+          marginTop: 10,
+          overflow: "hidden",
+          backgroundColor: "#ffcc99"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 50, height: 30, backgroundColor: "#cc9966" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 50, height: 30, backgroundColor: "#996633" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 50, height: 30, backgroundColor: "#663300" } })), /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row", gap: 8, marginTop: 10 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          minWidth: 80,
+          maxWidth: 120,
+          flexGrow: 1,
+          height: 40,
+          backgroundColor: "#ffaaaa"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          flexGrow: 1,
+          height: 40,
+          backgroundColor: "#aaffaa"
+        } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          minHeight: 50,
+          maxHeight: 100,
+          marginTop: 10,
+          backgroundColor: "#aaaaff"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 20, backgroundColor: "#8888cc" } })));
+      };
+    }
+  });
+
+  // fixtures/nested-lists.jsx
+  var require_nested_lists = __commonJS({
+    "fixtures/nested-lists.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function NestedLists() {
+        return /* @__PURE__ */ React2.createElement("div", null, /* @__PURE__ */ React2.createElement("ul", null, /* @__PURE__ */ React2.createElement("li", null, "Top-level A"), /* @__PURE__ */ React2.createElement("li", null, "Top-level B", /* @__PURE__ */ React2.createElement("ul", null, /* @__PURE__ */ React2.createElement("li", null, "Nested B.1"), /* @__PURE__ */ React2.createElement("li", null, "Nested B.2"))), /* @__PURE__ */ React2.createElement("li", null, "Top-level C")), /* @__PURE__ */ React2.createElement("ol", null, /* @__PURE__ */ React2.createElement("li", null, "First"), /* @__PURE__ */ React2.createElement("li", null, "Second", /* @__PURE__ */ React2.createElement("ol", null, /* @__PURE__ */ React2.createElement("li", null, "Second-A"), /* @__PURE__ */ React2.createElement("li", null, "Second-B"))), /* @__PURE__ */ React2.createElement("li", null, "Third")), /* @__PURE__ */ React2.createElement("ul", null, /* @__PURE__ */ React2.createElement("li", null, "Mixed parent", /* @__PURE__ */ React2.createElement("ol", null, /* @__PURE__ */ React2.createElement("li", null, "Ordered inside unordered A"), /* @__PURE__ */ React2.createElement("li", null, "Ordered inside unordered B")))));
+      };
+    }
+  });
+
+  // fixtures/relative-position.jsx
+  var require_relative_position = __commonJS({
+    "fixtures/relative-position.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function RelativePosition() {
+        return /* @__PURE__ */ React2.createElement("div", null, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 300,
+          height: 60,
+          backgroundColor: "#eeeeee",
+          padding: 10
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 60,
+          height: 40,
+          backgroundColor: "#ff9999",
+          position: "relative",
+          top: 10,
+          left: 20
+        } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 300,
+          height: 60,
+          backgroundColor: "#dddddd",
+          padding: 10,
+          marginTop: 10
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 60,
+          height: 40,
+          backgroundColor: "#99ff99",
+          position: "relative",
+          top: -5,
+          left: -10
+        } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 300,
+          backgroundColor: "#cccccc",
+          padding: 10,
+          marginTop: 10,
+          display: "flex",
+          flexDirection: "row",
+          gap: 10
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 40, backgroundColor: "#9999ff" } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 60,
+          height: 40,
+          backgroundColor: "#ffcc99",
+          position: "relative",
+          top: 15,
+          left: 10
+        } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 40, backgroundColor: "#cc99ff" } })));
+      };
+    }
+  });
+
+  // fixtures/border-color-sides.jsx
+  var require_border_color_sides = __commonJS({
+    "fixtures/border-color-sides.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function BorderColorSides() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { padding: 10 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          height: 100,
+          borderWidth: 4,
+          borderStyle: "solid",
+          borderTopColor: "#ff0000",
+          borderRightColor: "#00ff00",
+          borderBottomColor: "#0000ff",
+          borderLeftColor: "#ff9900",
+          backgroundColor: "#f5f5f5"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          height: 80,
+          borderWidth: 3,
+          borderStyle: "solid",
+          borderColor: "#999999",
+          borderTopColor: "#ff0000",
+          backgroundColor: "#f0f0f0",
+          marginTop: 10
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 150,
+          height: 150,
+          borderTopWidth: 8,
+          borderRightWidth: 4,
+          borderBottomWidth: 8,
+          borderLeftWidth: 4,
+          borderStyle: "solid",
+          borderTopColor: "#333333",
+          borderRightColor: "#666666",
+          borderBottomColor: "#999999",
+          borderLeftColor: "#cccccc",
+          backgroundColor: "#ffffff",
+          marginTop: 10
+        } }));
+      };
+    }
+  });
+
+  // fixtures/flex-wrap-reverse.jsx
+  var require_flex_wrap_reverse = __commonJS({
+    "fixtures/flex-wrap-reverse.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function FlexWrapReverse() {
+        return /* @__PURE__ */ React2.createElement("div", null, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          display: "flex",
+          flexDirection: "row",
+          flexWrap: "wrap-reverse",
+          gap: 8,
+          padding: 10,
+          backgroundColor: "#eeeeee"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 40, backgroundColor: "#ff9999" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 40, backgroundColor: "#99ff99" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 40, backgroundColor: "#9999ff" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 40, backgroundColor: "#ffcc99" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          display: "flex",
+          flexDirection: "row",
+          flexWrap: "wrap-reverse",
+          alignItems: "center",
+          gap: 6,
+          padding: 10,
+          backgroundColor: "#dddddd",
+          marginTop: 10
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 30, backgroundColor: "#cc99ff" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 50, backgroundColor: "#99ccff" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 40, backgroundColor: "#ffcc99" } })));
+      };
+    }
+  });
+
+  // fixtures/z-index.jsx
+  var require_z_index = __commonJS({
+    "fixtures/z-index.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function ZIndex() {
+        return /* @__PURE__ */ React2.createElement("div", null, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 250,
+          height: 150,
+          backgroundColor: "#eeeeee",
+          position: "relative"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 100,
+          height: 100,
+          backgroundColor: "#ff9999",
+          position: "absolute",
+          top: 10,
+          left: 10,
+          zIndex: 1
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 100,
+          height: 100,
+          backgroundColor: "#99ff99",
+          position: "absolute",
+          top: 30,
+          left: 50,
+          zIndex: 3
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 100,
+          height: 100,
+          backgroundColor: "#9999ff",
+          position: "absolute",
+          top: 50,
+          left: 90,
+          zIndex: 2
+        } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          height: 100,
+          backgroundColor: "#dddddd",
+          position: "relative",
+          marginTop: 10,
+          padding: 10
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 80,
+          height: 80,
+          backgroundColor: "#ffcc99",
+          position: "absolute",
+          top: 10,
+          left: 10,
+          zIndex: -1
+        } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 60, backgroundColor: "#cc99ff" } })));
+      };
+    }
+  });
+
+  // fixtures/gap-properties.jsx
+  var require_gap_properties = __commonJS({
+    "fixtures/gap-properties.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function GapProperties() {
+        return /* @__PURE__ */ React2.createElement("div", null, /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "column",
+          rowGap: 12,
+          padding: 10,
+          backgroundColor: "#eeeeee"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 30, backgroundColor: "#ff9999" } }), /* @__PURE__ */ React2.createElement("div", { style: { height: 30, backgroundColor: "#99ff99" } }), /* @__PURE__ */ React2.createElement("div", { style: { height: 30, backgroundColor: "#9999ff" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          columnGap: 16,
+          padding: 10,
+          backgroundColor: "#dddddd",
+          marginTop: 10
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 40, backgroundColor: "#ffcc99" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 40, backgroundColor: "#cc99ff" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 40, backgroundColor: "#99ccff" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          display: "flex",
+          flexDirection: "row",
+          flexWrap: "wrap",
+          rowGap: 20,
+          columnGap: 8,
+          padding: 10,
+          backgroundColor: "#cccccc",
+          marginTop: 10
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 40, backgroundColor: "#ff9999" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 40, backgroundColor: "#99ff99" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 40, backgroundColor: "#9999ff" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 40, backgroundColor: "#ffcc99" } })));
+      };
+    }
+  });
+
+  // fixtures/text-decoration-transform.jsx
+  var require_text_decoration_transform = __commonJS({
+    "fixtures/text-decoration-transform.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function TextDecorationTransform() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390, padding: 10 } }, /* @__PURE__ */ React2.createElement("p", { style: { textDecorationLine: "underline" } }, "Underlined text"), /* @__PURE__ */ React2.createElement("p", { style: { textDecorationLine: "line-through" } }, "Strikethrough text"), /* @__PURE__ */ React2.createElement("p", { style: { textTransform: "uppercase" } }, "uppercase text"), /* @__PURE__ */ React2.createElement("p", { style: { textTransform: "lowercase" } }, "LOWERCASE TEXT"), /* @__PURE__ */ React2.createElement("p", { style: { textTransform: "capitalize" } }, "capitalize each word"), /* @__PURE__ */ React2.createElement("p", { style: { lineHeight: 2, fontSize: 16 } }, "Line height 32 with font size 16. This text has extra vertical spacing between lines when it wraps."), /* @__PURE__ */ React2.createElement("p", { style: { letterSpacing: 4 } }, "Spaced out letters"), /* @__PURE__ */ React2.createElement("p", { style: {
+          textDecorationLine: "underline",
+          textTransform: "uppercase",
+          letterSpacing: 2,
+          fontSize: 14
+        } }, "combined styles"));
+      };
+    }
+  });
+
+  // fixtures/pre-element.jsx
+  var require_pre_element = __commonJS({
+    "fixtures/pre-element.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function PreElement() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390, padding: 10 } }, /* @__PURE__ */ React2.createElement("pre", null, "function hello() ", '{\n  console.log("Hello!");\n}'), /* @__PURE__ */ React2.createElement("pre", { style: {
+          backgroundColor: "#f4f4f4",
+          padding: 12,
+          borderRadius: 4
+        } }, "const x = 42;\nconst y = x * 2;\nreturn y;"), /* @__PURE__ */ React2.createElement("div", null, /* @__PURE__ */ React2.createElement("p", null, "Some paragraph text before the code block."), /* @__PURE__ */ React2.createElement("pre", { style: {
+          backgroundColor: "#1e1e1e",
+          color: "#d4d4d4",
+          padding: 16,
+          borderRadius: 8
+        } }, '<div style={{color: "red"}}>\n  <p>Hello World</p>\n</div>'), /* @__PURE__ */ React2.createElement("p", null, "Some paragraph text after the code block.")), /* @__PURE__ */ React2.createElement("pre", { style: {
+          backgroundColor: "#eef",
+          padding: 8,
+          overflow: "hidden",
+          maxHeight: 60
+        } }, "Line 1: short\nLine 2: a much longer line that might extend beyond the container width\nLine 3: short\nLine 4: another line\nLine 5: yet another line"));
+      };
+    }
+  });
+
+  // fixtures/inline-text-extras.jsx
+  var require_inline_text_extras = __commonJS({
+    "fixtures/inline-text-extras.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function InlineTextExtras() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390, padding: 10 } }, /* @__PURE__ */ React2.createElement("p", null, "This has a ", /* @__PURE__ */ React2.createElement("mark", null, "highlighted"), " word in it."), /* @__PURE__ */ React2.createElement("p", null, "Normal text and ", /* @__PURE__ */ React2.createElement("small", null, "small text"), " together."), /* @__PURE__ */ React2.createElement("p", null, "H", /* @__PURE__ */ React2.createElement("sub", null, "2"), "O is water."), /* @__PURE__ */ React2.createElement("p", null, "E = mc", /* @__PURE__ */ React2.createElement("sup", null, "2"), " is famous."), /* @__PURE__ */ React2.createElement("p", null, /* @__PURE__ */ React2.createElement("mark", null, "Highlighted"), " and ", /* @__PURE__ */ React2.createElement("small", null, "small"), " and", " ", /* @__PURE__ */ React2.createElement("sub", null, "sub"), " and ", /* @__PURE__ */ React2.createElement("sup", null, "sup"), " in one paragraph."), /* @__PURE__ */ React2.createElement("p", null, /* @__PURE__ */ React2.createElement("mark", { style: { backgroundColor: "#90EE90", color: "#006400" } }, "Custom green highlight")), /* @__PURE__ */ React2.createElement("p", null, /* @__PURE__ */ React2.createElement("mark", null, /* @__PURE__ */ React2.createElement("small", null, "Small highlighted text"))), /* @__PURE__ */ React2.createElement("p", null, "The ", /* @__PURE__ */ React2.createElement("mark", null, "quick"), " brown fox ", /* @__PURE__ */ React2.createElement("mark", null, "jumps"), " over the", " ", /* @__PURE__ */ React2.createElement("mark", null, "lazy"), " dog."));
+      };
+    }
+  });
+
+  // fixtures/fieldset-legend.jsx
+  var require_fieldset_legend = __commonJS({
+    "fixtures/fieldset-legend.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function FieldsetLegend() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390, padding: 10 } }, /* @__PURE__ */ React2.createElement("fieldset", null, /* @__PURE__ */ React2.createElement("legend", null, "Personal Info"), /* @__PURE__ */ React2.createElement("div", { style: { marginBottom: 8 } }, /* @__PURE__ */ React2.createElement("label", null, "Name"), /* @__PURE__ */ React2.createElement("input", { style: { marginLeft: 8 } })), /* @__PURE__ */ React2.createElement("div", null, /* @__PURE__ */ React2.createElement("label", null, "Email"), /* @__PURE__ */ React2.createElement("input", { style: { marginLeft: 8 } }))), /* @__PURE__ */ React2.createElement("fieldset", { style: { borderColor: "#3366cc", marginTop: 16 } }, /* @__PURE__ */ React2.createElement("legend", null, "Preferences"), /* @__PURE__ */ React2.createElement("p", null, "Option A"), /* @__PURE__ */ React2.createElement("p", null, "Option B")), /* @__PURE__ */ React2.createElement("fieldset", { style: { marginTop: 16 } }, /* @__PURE__ */ React2.createElement("p", null, "Fieldset without a legend element.")), /* @__PURE__ */ React2.createElement("fieldset", { style: { marginTop: 16 } }, /* @__PURE__ */ React2.createElement("legend", null, "Outer Group"), /* @__PURE__ */ React2.createElement("p", null, "Outer content"), /* @__PURE__ */ React2.createElement("fieldset", { style: { marginTop: 8 } }, /* @__PURE__ */ React2.createElement("legend", null, "Inner Group"), /* @__PURE__ */ React2.createElement("p", null, "Inner content"))));
+      };
+    }
+  });
+
+  // fixtures/overflow-scroll.jsx
+  var require_overflow_scroll = __commonJS({
+    "fixtures/overflow-scroll.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function OverflowScroll() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390, padding: 10 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          height: 120,
+          overflow: "scroll",
+          backgroundColor: "#f0f0f0",
+          padding: 8
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 40, backgroundColor: "#ff9999", marginBottom: 8 } }), /* @__PURE__ */ React2.createElement("div", { style: { height: 40, backgroundColor: "#99ff99", marginBottom: 8 } }), /* @__PURE__ */ React2.createElement("div", { style: { height: 40, backgroundColor: "#9999ff", marginBottom: 8 } }), /* @__PURE__ */ React2.createElement("div", { style: { height: 40, backgroundColor: "#ffff99", marginBottom: 8 } }), /* @__PURE__ */ React2.createElement("div", { style: { height: 40, backgroundColor: "#ff99ff" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          height: 80,
+          marginTop: 16,
+          overflow: "scroll",
+          backgroundColor: "#e8e8e8"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          width: 800
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 150, height: 60, backgroundColor: "#ffaaaa", margin: 4 } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 150, height: 60, backgroundColor: "#aaffaa", margin: 4 } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 150, height: 60, backgroundColor: "#aaaaff", margin: 4 } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 150, height: 60, backgroundColor: "#ffffaa", margin: 4 } }))), /* @__PURE__ */ React2.createElement("div", { style: {
+          height: 80,
+          marginTop: 16,
+          overflow: "scroll",
+          padding: 8,
+          backgroundColor: "#fff8e8",
+          borderWidth: 1,
+          borderColor: "#cccccc"
+        } }, /* @__PURE__ */ React2.createElement("p", null, "Line one of scrollable text."), /* @__PURE__ */ React2.createElement("p", null, "Line two of scrollable text."), /* @__PURE__ */ React2.createElement("p", null, "Line three of scrollable text."), /* @__PURE__ */ React2.createElement("p", null, "Line four of scrollable text."), /* @__PURE__ */ React2.createElement("p", null, "Line five of scrollable text.")), /* @__PURE__ */ React2.createElement("div", { style: {
+          height: 80,
+          marginTop: 16,
+          overflow: "scroll",
+          backgroundColor: "#e8f8e8",
+          padding: 8
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 100, height: 30, backgroundColor: "#66cc66" } })));
+      };
+    }
+  });
+
+  // fixtures/textarea-select.jsx
+  var require_textarea_select = __commonJS({
+    "fixtures/textarea-select.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function TextareaSelect() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390, padding: 10 } }, /* @__PURE__ */ React2.createElement("label", null, "Comment"), /* @__PURE__ */ React2.createElement("textarea", null), /* @__PURE__ */ React2.createElement("label", { style: { marginTop: 16 } }, "Description"), /* @__PURE__ */ React2.createElement("textarea", { style: { width: 300, minHeight: 80 } }), /* @__PURE__ */ React2.createElement("textarea", { style: {
+          width: 300,
+          minHeight: 60,
+          marginTop: 16,
+          borderColor: "#3366cc",
+          borderWidth: 2,
+          borderRadius: 8,
+          padding: 8,
+          backgroundColor: "#f8f8ff"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: { marginTop: 16 } }, /* @__PURE__ */ React2.createElement("label", null, "Category"), /* @__PURE__ */ React2.createElement("select", { style: { marginLeft: 8 } })), /* @__PURE__ */ React2.createElement("div", { style: { marginTop: 12 } }, /* @__PURE__ */ React2.createElement("label", null, "Priority"), /* @__PURE__ */ React2.createElement("select", { style: { width: 200, marginLeft: 8 } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 12,
+          marginTop: 16
+        } }, /* @__PURE__ */ React2.createElement("textarea", { style: { flexGrow: 1, minHeight: 60 } }), /* @__PURE__ */ React2.createElement("div", null, /* @__PURE__ */ React2.createElement("select", { style: { width: 100 } }), /* @__PURE__ */ React2.createElement("select", { style: { width: 100, marginTop: 8 } }))), /* @__PURE__ */ React2.createElement("div", { style: {
+          marginTop: 16,
+          padding: 12,
+          backgroundColor: "#f5f5f5",
+          borderRadius: 8
+        } }, /* @__PURE__ */ React2.createElement("label", { style: { fontWeight: "bold" } }, "Feedback Form"), /* @__PURE__ */ React2.createElement("textarea", { style: { width: "100%", minHeight: 50, marginTop: 8 } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+          marginTop: 8
+        } }, /* @__PURE__ */ React2.createElement("select", { style: { flexGrow: 1 } }), /* @__PURE__ */ React2.createElement("button", null, "Submit"))));
+      };
+    }
+  });
+
+  // fixtures/dl-dt-dd.jsx
+  var require_dl_dt_dd = __commonJS({
+    "fixtures/dl-dt-dd.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function DlDtDd() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390, padding: 10 } }, /* @__PURE__ */ React2.createElement("dl", null, /* @__PURE__ */ React2.createElement("dt", null, /* @__PURE__ */ React2.createElement("strong", null, "HTML")), /* @__PURE__ */ React2.createElement("dd", null, "HyperText Markup Language"), /* @__PURE__ */ React2.createElement("dt", null, /* @__PURE__ */ React2.createElement("strong", null, "CSS")), /* @__PURE__ */ React2.createElement("dd", null, "Cascading Style Sheets"), /* @__PURE__ */ React2.createElement("dt", null, /* @__PURE__ */ React2.createElement("strong", null, "JS")), /* @__PURE__ */ React2.createElement("dd", null, "JavaScript")), /* @__PURE__ */ React2.createElement("dl", { style: { backgroundColor: "#f9f9f9", padding: 10, marginTop: 16 } }, /* @__PURE__ */ React2.createElement("dt", { style: { color: "#333333", fontWeight: "bold" } }, "Term A"), /* @__PURE__ */ React2.createElement("dd", { style: { color: "#666666" } }, "Description for Term A with more detail."), /* @__PURE__ */ React2.createElement("dt", { style: { color: "#333333", fontWeight: "bold" } }, "Term B"), /* @__PURE__ */ React2.createElement("dd", { style: { color: "#666666" } }, "Description for Term B with more detail.")), /* @__PURE__ */ React2.createElement("dl", { style: { marginTop: 16 } }, /* @__PURE__ */ React2.createElement("dt", null, /* @__PURE__ */ React2.createElement("strong", null, "React")), /* @__PURE__ */ React2.createElement("dd", null, "A JavaScript library for building user interfaces."), /* @__PURE__ */ React2.createElement("dd", null, "Created by Meta (formerly Facebook).")));
+      };
+    }
+  });
+
+  // fixtures/details-summary.jsx
+  var require_details_summary = __commonJS({
+    "fixtures/details-summary.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function DetailsSummary() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390, padding: 10 } }, /* @__PURE__ */ React2.createElement("details", { open: true }, /* @__PURE__ */ React2.createElement("summary", null, "Click to expand"), /* @__PURE__ */ React2.createElement("p", null, "This is the hidden content that appears when details is open.")), /* @__PURE__ */ React2.createElement("details", { open: true, style: {
+          marginTop: 16,
+          borderWidth: 1,
+          borderColor: "#cccccc",
+          borderRadius: 4,
+          padding: 10
+        } }, /* @__PURE__ */ React2.createElement("summary", { style: { fontWeight: "bold", color: "#333333" } }, "Styled Section"), /* @__PURE__ */ React2.createElement("p", null, "Content with styled container and summary.")), /* @__PURE__ */ React2.createElement("details", { open: true, style: { marginTop: 16, backgroundColor: "#f0f8ff", padding: 8 } }, /* @__PURE__ */ React2.createElement("summary", null, "Section One"), /* @__PURE__ */ React2.createElement("p", null, "First section content.")), /* @__PURE__ */ React2.createElement("details", { open: true, style: { marginTop: 8, backgroundColor: "#fff0f0", padding: 8 } }, /* @__PURE__ */ React2.createElement("summary", null, "Section Two"), /* @__PURE__ */ React2.createElement("p", null, "Second section content.")), /* @__PURE__ */ React2.createElement("details", { open: true, style: { marginTop: 16 } }, /* @__PURE__ */ React2.createElement("summary", null, "Outer Details"), /* @__PURE__ */ React2.createElement("div", { style: { paddingLeft: 16 } }, /* @__PURE__ */ React2.createElement("p", null, "Outer content."), /* @__PURE__ */ React2.createElement("details", { open: true }, /* @__PURE__ */ React2.createElement("summary", null, "Inner Details"), /* @__PURE__ */ React2.createElement("p", null, "Nested inner content.")))));
+      };
+    }
+  });
+
+  // fixtures/dialog-element.jsx
+  var require_dialog_element = __commonJS({
+    "fixtures/dialog-element.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function DialogElement() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390, padding: 10 } }, /* @__PURE__ */ React2.createElement("dialog", null, /* @__PURE__ */ React2.createElement("p", null, "This is a basic dialog box.")), /* @__PURE__ */ React2.createElement("dialog", { style: {
+          marginTop: 16,
+          borderColor: "#3366cc",
+          borderWidth: 2,
+          borderRadius: 8,
+          backgroundColor: "#f0f0ff",
+          paddingTop: 20,
+          paddingBottom: 20,
+          paddingLeft: 24,
+          paddingRight: 24
+        } }, /* @__PURE__ */ React2.createElement("h3", { style: { marginTop: 0 } }, "Dialog Title"), /* @__PURE__ */ React2.createElement("p", null, "Dialog content with custom border and background.")), /* @__PURE__ */ React2.createElement("dialog", { style: { marginTop: 16, width: 300 } }, /* @__PURE__ */ React2.createElement("p", { style: { fontWeight: "bold", marginTop: 0 } }, "Confirm Action"), /* @__PURE__ */ React2.createElement("p", null, "Are you sure you want to proceed?"), /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row", gap: 8, justifyContent: "flex-end" } }, /* @__PURE__ */ React2.createElement("button", null, "Cancel"), /* @__PURE__ */ React2.createElement("button", { style: { backgroundColor: "#3366cc", color: "#ffffff" } }, "OK"))));
+      };
+    }
+  });
+
+  // fixtures/table-semantic.jsx
+  var require_table_semantic = __commonJS({
+    "fixtures/table-semantic.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function TableSemantic() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390, padding: 10 } }, /* @__PURE__ */ React2.createElement("table", { style: { width: 370 } }, /* @__PURE__ */ React2.createElement("caption", null, "Student Grades"), /* @__PURE__ */ React2.createElement("thead", null, /* @__PURE__ */ React2.createElement("tr", { style: { backgroundColor: "#e0e0e0" } }, /* @__PURE__ */ React2.createElement("th", null, "Name"), /* @__PURE__ */ React2.createElement("th", null, "Subject"), /* @__PURE__ */ React2.createElement("th", null, "Grade"))), /* @__PURE__ */ React2.createElement("tbody", null, /* @__PURE__ */ React2.createElement("tr", null, /* @__PURE__ */ React2.createElement("td", null, "Alice"), /* @__PURE__ */ React2.createElement("td", null, "Math"), /* @__PURE__ */ React2.createElement("td", null, "A")), /* @__PURE__ */ React2.createElement("tr", { style: { backgroundColor: "#f5f5f5" } }, /* @__PURE__ */ React2.createElement("td", null, "Bob"), /* @__PURE__ */ React2.createElement("td", null, "Science"), /* @__PURE__ */ React2.createElement("td", null, "B+")), /* @__PURE__ */ React2.createElement("tr", null, /* @__PURE__ */ React2.createElement("td", null, "Carol"), /* @__PURE__ */ React2.createElement("td", null, "English"), /* @__PURE__ */ React2.createElement("td", null, "A-")))), /* @__PURE__ */ React2.createElement("table", { style: { width: 370, marginTop: 20 } }, /* @__PURE__ */ React2.createElement("thead", null, /* @__PURE__ */ React2.createElement("tr", { style: { backgroundColor: "#333333" } }, /* @__PURE__ */ React2.createElement("th", { style: { color: "#ffffff" } }, "Item"), /* @__PURE__ */ React2.createElement("th", { style: { color: "#ffffff" } }, "Price"))), /* @__PURE__ */ React2.createElement("tbody", null, /* @__PURE__ */ React2.createElement("tr", null, /* @__PURE__ */ React2.createElement("td", null, "Widget"), /* @__PURE__ */ React2.createElement("td", null, "$10")), /* @__PURE__ */ React2.createElement("tr", null, /* @__PURE__ */ React2.createElement("td", null, "Gadget"), /* @__PURE__ */ React2.createElement("td", null, "$25"))), /* @__PURE__ */ React2.createElement("tfoot", { style: { backgroundColor: "#f0f0f0" } }, /* @__PURE__ */ React2.createElement("tr", null, /* @__PURE__ */ React2.createElement("td", { style: { fontWeight: "bold" } }, "Total"), /* @__PURE__ */ React2.createElement("td", { style: { fontWeight: "bold" } }, "$35")))));
+      };
+    }
+  });
+
+  // fixtures/blockquote-figure.jsx
+  var require_blockquote_figure = __commonJS({
+    "fixtures/blockquote-figure.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function BlockquoteFigure() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390, padding: 10 } }, /* @__PURE__ */ React2.createElement("blockquote", null, /* @__PURE__ */ React2.createElement("p", null, "The only way to do great work is to love what you do.")), /* @__PURE__ */ React2.createElement("blockquote", { style: {
+          borderLeftWidth: 4,
+          borderLeftColor: "#3366cc",
+          backgroundColor: "#f0f4ff",
+          paddingTop: 10,
+          paddingBottom: 10,
+          paddingLeft: 16,
+          paddingRight: 16,
+          marginLeft: 0,
+          marginRight: 0
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontStyle: "italic", color: "#333333" } }, "Innovation distinguishes between a leader and a follower.")), /* @__PURE__ */ React2.createElement("figure", null, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          height: 120,
+          backgroundColor: "#ccddee",
+          alignItems: "center",
+          justifyContent: "center"
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { color: "#666666" } }, "[Image placeholder]")), /* @__PURE__ */ React2.createElement("figcaption", null, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14, color: "#888888" } }, "Figure 1: A placeholder image"))), /* @__PURE__ */ React2.createElement("figure", { style: { marginLeft: 0, marginRight: 0, marginTop: 16 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: "100%",
+          height: 80,
+          backgroundColor: "#eeddcc"
+        } }), /* @__PURE__ */ React2.createElement("figcaption", null, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, color: "#999999", textAlign: "center" } }, "Figure 2: Full-width placeholder with centered caption"))));
+      };
+    }
+  });
+
+  // fixtures/hr-standalone.jsx
+  var require_hr_standalone = __commonJS({
+    "fixtures/hr-standalone.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function HrStandalone() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390, padding: 10 } }, /* @__PURE__ */ React2.createElement("p", null, "Content above the default hr."), /* @__PURE__ */ React2.createElement("hr", null), /* @__PURE__ */ React2.createElement("p", null, "Content below the default hr."), /* @__PURE__ */ React2.createElement("hr", { style: {
+          borderTopWidth: 3,
+          borderTopColor: "#3366cc",
+          marginTop: 16,
+          marginBottom: 16
+        } }), /* @__PURE__ */ React2.createElement("hr", { style: {
+          borderTopWidth: 1,
+          borderTopColor: "#e0e0e0",
+          marginTop: 8,
+          marginBottom: 8
+        } }), /* @__PURE__ */ React2.createElement("hr", { style: {
+          width: 200,
+          borderTopWidth: 2,
+          borderTopColor: "#cc3333",
+          marginTop: 16,
+          marginBottom: 16
+        } }), /* @__PURE__ */ React2.createElement("p", null, "Section A content."), /* @__PURE__ */ React2.createElement("hr", { style: { borderTopColor: "#999999" } }), /* @__PURE__ */ React2.createElement("p", null, "Section B content."), /* @__PURE__ */ React2.createElement("hr", { style: { borderTopColor: "#999999" } }), /* @__PURE__ */ React2.createElement("p", null, "Section C content."));
+      };
+    }
+  });
+
+  // fixtures/address-element.jsx
+  var require_address_element = __commonJS({
+    "fixtures/address-element.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function AddressElement() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390, padding: 10 } }, /* @__PURE__ */ React2.createElement("address", null, /* @__PURE__ */ React2.createElement("p", null, "123 Main Street"), /* @__PURE__ */ React2.createElement("p", null, "Springfield, IL 62701")), /* @__PURE__ */ React2.createElement("address", { style: { marginTop: 16 } }, /* @__PURE__ */ React2.createElement("p", null, "Written by ", /* @__PURE__ */ React2.createElement("a", null, "John Doe")), /* @__PURE__ */ React2.createElement("p", null, "Contact: ", /* @__PURE__ */ React2.createElement("a", null, "john@example.com"))), /* @__PURE__ */ React2.createElement("footer", { style: {
+          marginTop: 16,
+          padding: 10,
+          backgroundColor: "#f5f5f5",
+          borderTopWidth: 1,
+          borderTopColor: "#cccccc"
+        } }, /* @__PURE__ */ React2.createElement("address", { style: { fontSize: 14, color: "#666666" } }, /* @__PURE__ */ React2.createElement("p", null, "Company Inc."), /* @__PURE__ */ React2.createElement("p", null, "456 Corporate Ave, Suite 100"), /* @__PURE__ */ React2.createElement("p", null, "Business City, CA 90210"))));
+      };
+    }
+  });
+
+  // fixtures/percentage-sizes.jsx
+  var require_percentage_sizes = __commonJS({
+    "fixtures/percentage-sizes.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function PercentageSizes() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: "100%",
+          height: 30,
+          backgroundColor: "#ccddff"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: "50%",
+          height: 30,
+          marginTop: 8,
+          backgroundColor: "#aabbee"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: "25%",
+          height: 30,
+          marginTop: 8,
+          backgroundColor: "#8899dd"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row", marginTop: 12 } }, /* @__PURE__ */ React2.createElement("div", { style: { width: "33%", height: 40, backgroundColor: "#ffaaaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: "34%", height: 40, backgroundColor: "#aaffaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: "33%", height: 40, backgroundColor: "#aaaaff" } })), /* @__PURE__ */ React2.createElement("div", { style: { height: 120, marginTop: 12, backgroundColor: "#f0f0f0" } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 80,
+          height: "50%",
+          backgroundColor: "#dd99dd"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 80,
+          height: "25%",
+          backgroundColor: "#bb77bb"
+        } })), /* @__PURE__ */ React2.createElement("div", { style: { width: "50%", marginTop: 12, backgroundColor: "#eeeedd" } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: "50%",
+          height: 30,
+          backgroundColor: "#ddddaa"
+        } })), /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row", gap: 8, marginTop: 12 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          minWidth: "30%",
+          height: 40,
+          backgroundColor: "#ffccaa"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          maxWidth: "40%",
+          flexGrow: 1,
+          height: 40,
+          backgroundColor: "#aaccff"
+        } })));
+      };
+    }
+  });
+
+  // fixtures/nested-flex-contexts.jsx
+  var require_nested_flex_contexts = __commonJS({
+    "fixtures/nested-flex-contexts.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function NestedFlexContexts() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: { backgroundColor: "#f0f0f0", padding: 8 } }, /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row", gap: 8 } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 40, backgroundColor: "#ff9999" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 40, backgroundColor: "#99ff99" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 40, backgroundColor: "#9999ff" } }))), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 10,
+          marginTop: 12,
+          backgroundColor: "#e8e8e8",
+          padding: 8
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { flexGrow: 1 } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 30, backgroundColor: "#ffaaaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { height: 30, marginTop: 6, backgroundColor: "#ffcccc" } })), /* @__PURE__ */ React2.createElement("div", { style: { flexGrow: 1 } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 30, backgroundColor: "#aaaaff" } }), /* @__PURE__ */ React2.createElement("div", { style: { height: 30, marginTop: 6, backgroundColor: "#ccccff" } }))), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 8,
+          marginTop: 12,
+          backgroundColor: "#f5f5dc",
+          padding: 8
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 4,
+          flexGrow: 1,
+          backgroundColor: "#eeeeaa",
+          padding: 4
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 30, height: 30, backgroundColor: "#dddd66" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 30, height: 30, backgroundColor: "#cccc44" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 4,
+          flexGrow: 1,
+          backgroundColor: "#aaddaa",
+          padding: 4
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 30, height: 30, backgroundColor: "#66cc66" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 30, height: 30, backgroundColor: "#44aa44" } }))), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          justifyContent: "space-between",
+          marginTop: 12,
+          height: 100,
+          backgroundColor: "#f0e0f0",
+          padding: 8
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-start",
+          width: 80,
+          backgroundColor: "#e0c0e0"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 20, backgroundColor: "#cc88cc" } }), /* @__PURE__ */ React2.createElement("div", { style: { height: 20, marginTop: 4, backgroundColor: "#bb66bb" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          width: 80,
+          backgroundColor: "#c0e0c0"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 20, backgroundColor: "#88cc88" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-end",
+          width: 80,
+          backgroundColor: "#c0c0e0"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 20, backgroundColor: "#8888cc" } }), /* @__PURE__ */ React2.createElement("div", { style: { height: 20, marginTop: 4, backgroundColor: "#6666bb" } }))), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
+          marginTop: 12,
+          backgroundColor: "#e8f0e8",
+          padding: 8
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 6
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "column",
+          gap: 4,
+          flexGrow: 1,
+          backgroundColor: "#c0ddc0",
+          padding: 4
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 20, backgroundColor: "#88bb88" } }), /* @__PURE__ */ React2.createElement("div", { style: { height: 20, backgroundColor: "#66aa66" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "column",
+          gap: 4,
+          flexGrow: 2,
+          backgroundColor: "#ddc0c0",
+          padding: 4
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 20, backgroundColor: "#bb8888" } }), /* @__PURE__ */ React2.createElement("div", { style: { height: 20, backgroundColor: "#aa6666" } }))), /* @__PURE__ */ React2.createElement("div", { style: { height: 30, backgroundColor: "#aabbcc" } })));
+      };
+    }
+  });
+
+  // fixtures/absolute-in-flex.jsx
+  var require_absolute_in_flex = __commonJS({
+    "fixtures/absolute-in-flex.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function AbsoluteInFlex() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 8,
+          height: 80,
+          backgroundColor: "#f0f0f0",
+          padding: 8,
+          position: "relative"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 60, backgroundColor: "#ff9999" } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          top: 10,
+          right: 10,
+          width: 40,
+          height: 40,
+          backgroundColor: "#9999ff"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 60, backgroundColor: "#99ff99" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "relative",
+          marginTop: 12,
+          padding: 10,
+          backgroundColor: "#e8e8e8"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 30, backgroundColor: "#ffaaaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { height: 30, marginTop: 6, backgroundColor: "#aaffaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { height: 30, marginTop: 6, backgroundColor: "#aaaaff" } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "#00000022"
+        } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "relative",
+          height: 120,
+          marginTop: 12,
+          backgroundColor: "#f5f5dc"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          top: 4,
+          left: 4,
+          width: 30,
+          height: 30,
+          backgroundColor: "#ff6666"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          top: 4,
+          right: 4,
+          width: 30,
+          height: 30,
+          backgroundColor: "#66ff66"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          bottom: 4,
+          left: 4,
+          width: 30,
+          height: 30,
+          backgroundColor: "#6666ff"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          bottom: 4,
+          right: 4,
+          width: 30,
+          height: 30,
+          backgroundColor: "#ffff66"
+        } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          marginTop: 12,
+          position: "relative",
+          backgroundColor: "#e0f0e0",
+          padding: 8
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { flexGrow: 1, height: 50, backgroundColor: "#88cc88" } }), /* @__PURE__ */ React2.createElement("div", { style: { flexGrow: 1, height: 50, backgroundColor: "#66aa66" } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          top: 0,
+          left: 175,
+          width: 40,
+          height: 40,
+          backgroundColor: "#cc4444"
+        } })));
+      };
+    }
+  });
+
+  // fixtures/card-layout.jsx
+  var require_card_layout = __commonJS({
+    "fixtures/card-layout.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function CardLayout() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390, padding: 16 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          backgroundColor: "#ffffff",
+          borderWidth: 1,
+          borderStyle: "solid",
+          borderColor: "#dddddd",
+          borderRadius: 8,
+          padding: 16
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          height: 120,
+          backgroundColor: "#eeeeee",
+          borderRadius: 4
+        } }), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 18, fontWeight: "bold", marginTop: 12 } }, "Card Title"), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14, color: "#666666", marginTop: 4 } }, "A short description that explains the card content.")), /* @__PURE__ */ React2.createElement("div", { style: {
+          backgroundColor: "#ffffff",
+          borderWidth: 1,
+          borderStyle: "solid",
+          borderColor: "#dddddd",
+          borderRadius: 8,
+          padding: 16,
+          marginTop: 16
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 16, fontWeight: "bold" } }, "Action Card"), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14, color: "#888888", marginTop: 4 } }, "Card with buttons at the bottom."), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 8,
+          marginTop: 12
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          flexGrow: 1,
+          height: 36,
+          backgroundColor: "#4488ff",
+          borderRadius: 4,
+          justifyContent: "center",
+          alignItems: "center"
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { color: "#ffffff", fontSize: 14, textAlign: "center" } }, "Primary")), /* @__PURE__ */ React2.createElement("div", { style: {
+          flexGrow: 1,
+          height: 36,
+          borderWidth: 1,
+          borderStyle: "solid",
+          borderColor: "#cccccc",
+          borderRadius: 4,
+          justifyContent: "center",
+          alignItems: "center"
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14, textAlign: "center" } }, "Secondary")))), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          backgroundColor: "#ffffff",
+          borderWidth: 1,
+          borderStyle: "solid",
+          borderColor: "#dddddd",
+          borderRadius: 8,
+          overflow: "hidden",
+          marginTop: 16
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 100,
+          backgroundColor: "#ddddee"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: { flexGrow: 1, padding: 12 } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 16, fontWeight: "bold" } }, "Horizontal Card"), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 13, color: "#777777", marginTop: 4 } }, "Image on the left, content on the right."))), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 12,
+          marginTop: 16
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          flexGrow: 1,
+          backgroundColor: "#ffffff",
+          borderWidth: 1,
+          borderStyle: "solid",
+          borderColor: "#dddddd",
+          borderRadius: 8,
+          padding: 12
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 60, backgroundColor: "#ffeeee", borderRadius: 4 } }), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14, fontWeight: "bold", marginTop: 8 } }, "Card A")), /* @__PURE__ */ React2.createElement("div", { style: {
+          flexGrow: 1,
+          backgroundColor: "#ffffff",
+          borderWidth: 1,
+          borderStyle: "solid",
+          borderColor: "#dddddd",
+          borderRadius: 8,
+          padding: 12
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 60, backgroundColor: "#eeeeff", borderRadius: 4 } }), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14, fontWeight: "bold", marginTop: 8 } }, "Card B"))));
+      };
+    }
+  });
+
+  // fixtures/padding-margin-shorthands.jsx
+  var require_padding_margin_shorthands = __commonJS({
+    "fixtures/padding-margin-shorthands.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function BoxSizingInteractions() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          padding: 10,
+          paddingLeft: 30,
+          paddingRight: 30,
+          backgroundColor: "#ffeeee"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 30, backgroundColor: "#ff9999" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          margin: 10,
+          marginTop: 20,
+          marginBottom: 5,
+          height: 30,
+          backgroundColor: "#eeffee"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          padding: 15,
+          borderWidth: 3,
+          borderStyle: "solid",
+          borderColor: "#999999",
+          backgroundColor: "#eeeeff",
+          marginTop: 10
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 30, backgroundColor: "#9999ff" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          paddingTop: 5,
+          paddingRight: 40,
+          paddingBottom: 25,
+          paddingLeft: 40,
+          marginTop: 10,
+          backgroundColor: "#ffffee"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 30, backgroundColor: "#dddd88" } })), /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row", gap: 8, marginTop: 10 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          flexGrow: 1,
+          padding: 8,
+          borderWidth: 2,
+          borderStyle: "solid",
+          borderColor: "#aaaaaa",
+          backgroundColor: "#ffeedd"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 30, backgroundColor: "#ddbb99" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          flexGrow: 1,
+          padding: 16,
+          borderWidth: 2,
+          borderStyle: "solid",
+          borderColor: "#aaaaaa",
+          backgroundColor: "#ddeeff"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 30, backgroundColor: "#99bbdd" } }))), /* @__PURE__ */ React2.createElement("div", { style: {
+          padding: 12,
+          marginTop: 10,
+          backgroundColor: "#f0f0f0"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          padding: 12,
+          backgroundColor: "#dddddd"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          padding: 12,
+          backgroundColor: "#bbbbbb"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 20, backgroundColor: "#999999" } })))), /* @__PURE__ */ React2.createElement("div", { style: {
+          padding: 0,
+          margin: 0,
+          marginTop: 10,
+          backgroundColor: "#ffcccc"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 30, backgroundColor: "#ee9999" } })));
+      };
+    }
+  });
+
+  // fixtures/flex-basis-sizes.jsx
+  var require_flex_basis_sizes = __commonJS({
+    "fixtures/flex-basis-sizes.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function FlexBasisSizes() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row" } }, /* @__PURE__ */ React2.createElement("div", { style: { flexBasis: 100, height: 40, backgroundColor: "#ff9999" } }), /* @__PURE__ */ React2.createElement("div", { style: { flexBasis: 200, height: 40, backgroundColor: "#99ff99" } })), /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row", marginTop: 12 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          flexBasis: 50,
+          flexGrow: 1,
+          height: 40,
+          backgroundColor: "#ffaaaa"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          flexBasis: 150,
+          flexGrow: 1,
+          height: 40,
+          backgroundColor: "#aaffaa"
+        } })), /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row", marginTop: 12 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          flexBasis: 0,
+          flexGrow: 1,
+          height: 40,
+          backgroundColor: "#aaaaff"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          flexBasis: 0,
+          flexGrow: 2,
+          height: 40,
+          backgroundColor: "#ffaaff"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          flexBasis: 0,
+          flexGrow: 1,
+          height: 40,
+          backgroundColor: "#aaffff"
+        } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "column",
+          height: 150,
+          marginTop: 12,
+          backgroundColor: "#f0f0f0"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          flexBasis: 40,
+          backgroundColor: "#ffccaa"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          flexBasis: 60,
+          backgroundColor: "#aaccff"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          flexGrow: 1,
+          backgroundColor: "#ccffaa"
+        } })), /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row", marginTop: 12 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 200,
+          flexBasis: 100,
+          height: 40,
+          backgroundColor: "#ddaa88"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          flexGrow: 1,
+          height: 40,
+          backgroundColor: "#88aadd"
+        } })), /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row", marginTop: 12 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          flexBasis: 250,
+          flexShrink: 1,
+          height: 40,
+          backgroundColor: "#ee9988"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          flexBasis: 250,
+          flexShrink: 2,
+          height: 40,
+          backgroundColor: "#8899ee"
+        } })));
+      };
+    }
+  });
+
+  // fixtures/holy-grail-layout.jsx
+  var require_holy_grail_layout = __commonJS({
+    "fixtures/holy-grail-layout.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function HolyGrailLayout() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390, height: 600 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          height: 50,
+          backgroundColor: "#334455",
+          justifyContent: "center",
+          alignItems: "center"
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { color: "#ffffff", fontSize: 18, fontWeight: "bold" } }, "Header")), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          flexGrow: 1
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 80,
+          backgroundColor: "#ddeeff",
+          padding: 8
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, fontWeight: "bold" } }, "Nav"), /* @__PURE__ */ React2.createElement("div", { style: { height: 20, marginTop: 8, backgroundColor: "#aaccee" } }), /* @__PURE__ */ React2.createElement("div", { style: { height: 20, marginTop: 6, backgroundColor: "#aaccee" } }), /* @__PURE__ */ React2.createElement("div", { style: { height: 20, marginTop: 6, backgroundColor: "#aaccee" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          flexGrow: 1,
+          backgroundColor: "#ffffff",
+          padding: 12
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 16, fontWeight: "bold" } }, "Main Content"), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 13, color: "#666666", marginTop: 8 } }, "This is the main content area that grows to fill available space."), /* @__PURE__ */ React2.createElement("div", { style: {
+          height: 60,
+          marginTop: 12,
+          backgroundColor: "#f0f0f0",
+          borderRadius: 4
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          height: 60,
+          marginTop: 8,
+          backgroundColor: "#f0f0f0",
+          borderRadius: 4
+        } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 70,
+          backgroundColor: "#ffeedd",
+          padding: 8
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, fontWeight: "bold" } }, "Aside"), /* @__PURE__ */ React2.createElement("div", { style: { height: 30, marginTop: 8, backgroundColor: "#eeccaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { height: 30, marginTop: 6, backgroundColor: "#eeccaa" } }))), /* @__PURE__ */ React2.createElement("div", { style: {
+          height: 40,
+          backgroundColor: "#334455",
+          justifyContent: "center",
+          alignItems: "center"
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { color: "#ffffff", fontSize: 12 } }, "Footer")));
+      };
+    }
+  });
+
+  // fixtures/text-in-flex.jsx
+  var require_text_in_flex = __commonJS({
+    "fixtures/text-in-flex.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function TextInFlex() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 10,
+          padding: 8,
+          backgroundColor: "#f0f0f0"
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14, backgroundColor: "#ffcccc", padding: 4 } }, "Short"), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14, backgroundColor: "#ccffcc", padding: 4 } }, "Medium text"), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14, backgroundColor: "#ccccff", padding: 4 } }, "Longer text here")), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 8,
+          marginTop: 12,
+          padding: 8,
+          backgroundColor: "#e8e8e8"
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { flexGrow: 1, fontSize: 14, backgroundColor: "#ffdddd", padding: 4 } }, "A"), /* @__PURE__ */ React2.createElement("p", { style: { flexGrow: 1, fontSize: 14, backgroundColor: "#ddffdd", padding: 4 } }, "Longer B"), /* @__PURE__ */ React2.createElement("p", { style: { flexGrow: 1, fontSize: 14, backgroundColor: "#ddddff", padding: 4 } }, "C")), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
+          marginTop: 12,
+          padding: 8,
+          backgroundColor: "#fff8ee"
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14, textAlign: "left" } }, "Left aligned"), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14, textAlign: "center" } }, "Center aligned"), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14, textAlign: "right" } }, "Right aligned")), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+          marginTop: 12,
+          padding: 8,
+          backgroundColor: "#eef0ee"
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 24, fontWeight: "bold" } }, "Title"), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, color: "#888888" } }, "subtitle text")), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 10,
+          marginTop: 12,
+          padding: 8,
+          backgroundColor: "#f5f5f5"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 60, backgroundColor: "#ddcccc" } }), /* @__PURE__ */ React2.createElement("div", { style: { flexGrow: 1, flexShrink: 1 } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14, fontWeight: "bold" } }, "Heading"), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, color: "#666666", marginTop: 4 } }, "This text should wrap within the remaining space after the fixed-width element."))), /* @__PURE__ */ React2.createElement("div", { style: {
+          marginTop: 12,
+          padding: 12,
+          borderWidth: 1,
+          borderColor: "#dddddd",
+          borderRadius: 6
+        } }, /* @__PURE__ */ React2.createElement("h2", { style: { fontSize: 20, fontWeight: "bold" } }, "Section Title"), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14, color: "#555555", marginTop: 6 } }, "Body text below the heading inside a bordered container.")));
+      };
+    }
+  });
+
+  // fixtures/flex-shorthand.jsx
+  var require_flex_shorthand = __commonJS({
+    "fixtures/flex-shorthand.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function FlexShorthand() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row", height: 40 } }, /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, backgroundColor: "#ff9999" } }), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, backgroundColor: "#99ff99" } }), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, backgroundColor: "#9999ff" } })), /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row", height: 40, marginTop: 12 } }, /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, backgroundColor: "#ffaaaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { flex: 2, backgroundColor: "#aaffaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, backgroundColor: "#aaaaff" } })), /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row", height: 40, marginTop: 12 } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 80, flex: 0, backgroundColor: "#ffccaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, backgroundColor: "#aaccff" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "column",
+          height: 150,
+          marginTop: 12,
+          backgroundColor: "#f5f5f5"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, backgroundColor: "#eecccc" } }), /* @__PURE__ */ React2.createElement("div", { style: { flex: 2, backgroundColor: "#cceecc" } }), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, backgroundColor: "#ccccee" } })), /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row", height: 50, marginTop: 12 } }, /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, padding: 8, backgroundColor: "#ffe0e0" } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 20, backgroundColor: "#cc8888" } })), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, padding: 8, backgroundColor: "#e0ffe0" } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 20, backgroundColor: "#88cc88" } }))), /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row", height: 40, marginTop: 12 } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 60, backgroundColor: "#ddaadd" } }), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, backgroundColor: "#aaddaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 60, backgroundColor: "#aadddd" } })));
+      };
+    }
+  });
+
+  // fixtures/stacked-sections.jsx
+  var require_stacked_sections = __commonJS({
+    "fixtures/stacked-sections.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function StackedSections() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("section", { style: {
+          height: 120,
+          backgroundColor: "#2244aa",
+          justifyContent: "center",
+          alignItems: "center",
+          padding: 16
+        } }, /* @__PURE__ */ React2.createElement("h1", { style: { fontSize: 22, fontWeight: "bold", color: "#ffffff" } }, "Welcome"), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14, color: "#ccddff", marginTop: 4 } }, "A subtitle goes here")), /* @__PURE__ */ React2.createElement("section", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 12,
+          padding: 16,
+          backgroundColor: "#f8f8f8"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          flex: 1,
+          padding: 12,
+          backgroundColor: "#ffffff",
+          borderRadius: 6,
+          borderWidth: 1,
+          borderColor: "#eeeeee",
+          alignItems: "center"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 36,
+          height: 36,
+          borderRadius: 18,
+          backgroundColor: "#ddeeff"
+        } }), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 13, fontWeight: "bold", marginTop: 8 } }, "Feature A")), /* @__PURE__ */ React2.createElement("div", { style: {
+          flex: 1,
+          padding: 12,
+          backgroundColor: "#ffffff",
+          borderRadius: 6,
+          borderWidth: 1,
+          borderColor: "#eeeeee",
+          alignItems: "center"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 36,
+          height: 36,
+          borderRadius: 18,
+          backgroundColor: "#ffeedd"
+        } }), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 13, fontWeight: "bold", marginTop: 8 } }, "Feature B")), /* @__PURE__ */ React2.createElement("div", { style: {
+          flex: 1,
+          padding: 12,
+          backgroundColor: "#ffffff",
+          borderRadius: 6,
+          borderWidth: 1,
+          borderColor: "#eeeeee",
+          alignItems: "center"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 36,
+          height: 36,
+          borderRadius: 18,
+          backgroundColor: "#eeffdd"
+        } }), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 13, fontWeight: "bold", marginTop: 8 } }, "Feature C"))), /* @__PURE__ */ React2.createElement("section", { style: { padding: 16 } }, /* @__PURE__ */ React2.createElement("h2", { style: { fontSize: 18, fontWeight: "bold" } }, "About"), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14, color: "#555555", marginTop: 8 } }, "A paragraph of body text in a content section below the features."), /* @__PURE__ */ React2.createElement("div", { style: {
+          height: 80,
+          marginTop: 12,
+          backgroundColor: "#f0f0f0",
+          borderRadius: 4
+        } })), /* @__PURE__ */ React2.createElement("section", { style: {
+          padding: 16,
+          backgroundColor: "#eef4ff",
+          alignItems: "center"
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 16, fontWeight: "bold" } }, "Ready to start?"), /* @__PURE__ */ React2.createElement("div", { style: {
+          marginTop: 10,
+          paddingTop: 10,
+          paddingBottom: 10,
+          paddingLeft: 24,
+          paddingRight: 24,
+          backgroundColor: "#2244aa",
+          borderRadius: 6
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { color: "#ffffff", fontSize: 14, fontWeight: "bold" } }, "Get Started"))), /* @__PURE__ */ React2.createElement("footer", { style: {
+          padding: 12,
+          backgroundColor: "#333333",
+          alignItems: "center"
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 11, color: "#999999" } }, "Footer content")));
+      };
+    }
+  });
+
+  // fixtures/sidebar-content.jsx
+  var require_sidebar_content = __commonJS({
+    "fixtures/sidebar-content.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function SidebarContent() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390, height: 500 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          height: 44,
+          backgroundColor: "#2255aa",
+          justifyContent: "center",
+          paddingLeft: 16
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { color: "#ffffff", fontSize: 16, fontWeight: "bold" } }, "App")), /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row", flexGrow: 1 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 100,
+          backgroundColor: "#f4f4f4",
+          borderRightWidth: 1,
+          borderColor: "#dddddd",
+          padding: 10
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          height: 32,
+          backgroundColor: "#ddeeff",
+          borderRadius: 4,
+          marginBottom: 6
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          height: 32,
+          backgroundColor: "#ffffff",
+          borderRadius: 4,
+          marginBottom: 6
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          height: 32,
+          backgroundColor: "#ffffff",
+          borderRadius: 4,
+          marginBottom: 6
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          height: 32,
+          backgroundColor: "#ffffff",
+          borderRadius: 4
+        } })), /* @__PURE__ */ React2.createElement("div", { style: { flexGrow: 1, padding: 16 } }, /* @__PURE__ */ React2.createElement("h2", { style: { fontSize: 18, fontWeight: "bold" } }, "Dashboard"), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 13, color: "#777777", marginTop: 4 } }, "Overview of recent activity"), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 10,
+          marginTop: 16
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          flex: 1,
+          padding: 10,
+          backgroundColor: "#eef4ff",
+          borderRadius: 6
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 20, fontWeight: "bold", color: "#2255aa" } }, "42"), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 11, color: "#888888", marginTop: 2 } }, "Items")), /* @__PURE__ */ React2.createElement("div", { style: {
+          flex: 1,
+          padding: 10,
+          backgroundColor: "#eeffee",
+          borderRadius: 6
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 20, fontWeight: "bold", color: "#22aa55" } }, "98"), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 11, color: "#888888", marginTop: 2 } }, "Score"))), /* @__PURE__ */ React2.createElement("div", { style: {
+          height: 80,
+          marginTop: 12,
+          backgroundColor: "#f8f8f8",
+          borderRadius: 4,
+          borderWidth: 1,
+          borderColor: "#eeeeee"
+        } }))));
+      };
+    }
+  });
+
+  // fixtures/form-grid.jsx
+  var require_form_grid = __commonJS({
+    "fixtures/form-grid.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function FormGrid() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390, padding: 16 } }, /* @__PURE__ */ React2.createElement("h2", { style: { fontSize: 18, fontWeight: "bold" } }, "Registration"), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 12,
+          marginTop: 16
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React2.createElement("label", { style: { fontSize: 12, color: "#555555", fontWeight: "bold" } }, "First Name"), /* @__PURE__ */ React2.createElement("input", { style: {
+          width: "100%",
+          height: 36,
+          marginTop: 4,
+          borderWidth: 1,
+          borderColor: "#cccccc",
+          borderRadius: 4,
+          paddingLeft: 8,
+          paddingRight: 8
+        } })), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React2.createElement("label", { style: { fontSize: 12, color: "#555555", fontWeight: "bold" } }, "Last Name"), /* @__PURE__ */ React2.createElement("input", { style: {
+          width: "100%",
+          height: 36,
+          marginTop: 4,
+          borderWidth: 1,
+          borderColor: "#cccccc",
+          borderRadius: 4,
+          paddingLeft: 8,
+          paddingRight: 8
+        } }))), /* @__PURE__ */ React2.createElement("div", { style: { marginTop: 12 } }, /* @__PURE__ */ React2.createElement("label", { style: { fontSize: 12, color: "#555555", fontWeight: "bold" } }, "Email"), /* @__PURE__ */ React2.createElement("input", { style: {
+          width: "100%",
+          height: 36,
+          marginTop: 4,
+          borderWidth: 1,
+          borderColor: "#cccccc",
+          borderRadius: 4,
+          paddingLeft: 8,
+          paddingRight: 8
+        } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 12,
+          marginTop: 12
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { flex: 2 } }, /* @__PURE__ */ React2.createElement("label", { style: { fontSize: 12, color: "#555555", fontWeight: "bold" } }, "City"), /* @__PURE__ */ React2.createElement("input", { style: {
+          width: "100%",
+          height: 36,
+          marginTop: 4,
+          borderWidth: 1,
+          borderColor: "#cccccc",
+          borderRadius: 4,
+          paddingLeft: 8,
+          paddingRight: 8
+        } })), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React2.createElement("label", { style: { fontSize: 12, color: "#555555", fontWeight: "bold" } }, "Zip"), /* @__PURE__ */ React2.createElement("input", { style: {
+          width: "100%",
+          height: 36,
+          marginTop: 4,
+          borderWidth: 1,
+          borderColor: "#cccccc",
+          borderRadius: 4,
+          paddingLeft: 8,
+          paddingRight: 8
+        } }))), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          justifyContent: "flex-end",
+          gap: 8,
+          marginTop: 20
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          paddingTop: 8,
+          paddingBottom: 8,
+          paddingLeft: 16,
+          paddingRight: 16,
+          borderWidth: 1,
+          borderColor: "#cccccc",
+          borderRadius: 4
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14 } }, "Cancel")), /* @__PURE__ */ React2.createElement("div", { style: {
+          paddingTop: 8,
+          paddingBottom: 8,
+          paddingLeft: 16,
+          paddingRight: 16,
+          backgroundColor: "#2255aa",
+          borderRadius: 4
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14, color: "#ffffff", fontWeight: "bold" } }, "Submit"))));
+      };
+    }
+  });
+
+  // fixtures/list-with-actions.jsx
+  var require_list_with_actions = __commonJS({
+    "fixtures/list-with-actions.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function ListWithActions() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390, padding: 12 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          padding: 12,
+          backgroundColor: "#ffffff",
+          borderBottomWidth: 1,
+          borderColor: "#eeeeee"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 36,
+          height: 36,
+          borderRadius: 18,
+          backgroundColor: "#ddeeff"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, marginLeft: 10 } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 15, fontWeight: "bold" } }, "Item One"), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, color: "#888888" } }, "Description text")), /* @__PURE__ */ React2.createElement("div", { style: {
+          paddingTop: 4,
+          paddingBottom: 4,
+          paddingLeft: 10,
+          paddingRight: 10,
+          backgroundColor: "#eef4ff",
+          borderRadius: 4
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, color: "#2255aa" } }, "View"))), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          padding: 12,
+          backgroundColor: "#ffffff",
+          borderBottomWidth: 1,
+          borderColor: "#eeeeee"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 36,
+          height: 36,
+          borderRadius: 18,
+          backgroundColor: "#ffeedd"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, marginLeft: 10 } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 15, fontWeight: "bold" } }, "Item Two"), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, color: "#888888" } }, "Another description")), /* @__PURE__ */ React2.createElement("div", { style: {
+          paddingTop: 4,
+          paddingBottom: 4,
+          paddingLeft: 10,
+          paddingRight: 10,
+          backgroundColor: "#eef4ff",
+          borderRadius: 4
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, color: "#2255aa" } }, "View"))), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          padding: 12,
+          backgroundColor: "#ffffff",
+          borderBottomWidth: 1,
+          borderColor: "#eeeeee"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 36,
+          height: 36,
+          borderRadius: 18,
+          backgroundColor: "#eeffdd"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, marginLeft: 10 } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 15, fontWeight: "bold" } }, "Item Three"), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, color: "#888888" } }, "Third item details")), /* @__PURE__ */ React2.createElement("div", { style: { display: "flex", flexDirection: "row", gap: 6 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          paddingTop: 4,
+          paddingBottom: 4,
+          paddingLeft: 10,
+          paddingRight: 10,
+          backgroundColor: "#ffeeee",
+          borderRadius: 4
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, color: "#cc3333" } }, "Delete")), /* @__PURE__ */ React2.createElement("div", { style: {
+          paddingTop: 4,
+          paddingBottom: 4,
+          paddingLeft: 10,
+          paddingRight: 10,
+          backgroundColor: "#eef4ff",
+          borderRadius: 4
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, color: "#2255aa" } }, "Edit")))), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          padding: 12,
+          backgroundColor: "#ffffff"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 36,
+          height: 36,
+          borderRadius: 18,
+          backgroundColor: "#ffeeff"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, marginLeft: 10 } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 15, fontWeight: "bold" } }, "Messages"), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, color: "#888888" } }, "Unread messages")), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 24,
+          height: 24,
+          borderRadius: 12,
+          backgroundColor: "#ff4444",
+          justifyContent: "center",
+          alignItems: "center"
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 11, color: "#ffffff", fontWeight: "bold" } }, "3"))));
+      };
+    }
+  });
+
+  // fixtures/nested-borders.jsx
+  var require_nested_borders = __commonJS({
+    "fixtures/nested-borders.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function NestedBorders() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          borderWidth: 2,
+          borderColor: "#cc0000",
+          padding: 10
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          borderWidth: 2,
+          borderColor: "#00cc00",
+          padding: 10
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          borderWidth: 2,
+          borderColor: "#0000cc",
+          padding: 10
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 30, backgroundColor: "#eeeeee" } })))), /* @__PURE__ */ React2.createElement("div", { style: {
+          borderWidth: 1,
+          borderColor: "#999999",
+          padding: 8,
+          marginTop: 12
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          borderWidth: 3,
+          borderColor: "#666666",
+          padding: 8
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          borderWidth: 5,
+          borderColor: "#333333",
+          padding: 8
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 20, backgroundColor: "#dddddd" } })))), /* @__PURE__ */ React2.createElement("div", { style: {
+          borderWidth: 2,
+          borderColor: "#aa4444",
+          borderRadius: 12,
+          padding: 12,
+          marginTop: 12
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          borderWidth: 2,
+          borderColor: "#4444aa",
+          borderRadius: 8,
+          padding: 12
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 30, backgroundColor: "#f0f0f0", borderRadius: 4 } }))), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 8,
+          marginTop: 12
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          flex: 1,
+          borderWidth: 2,
+          borderColor: "#cc6600",
+          padding: 8
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          borderWidth: 1,
+          borderColor: "#ffaa44",
+          padding: 6
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 20, backgroundColor: "#fff0dd" } }))), /* @__PURE__ */ React2.createElement("div", { style: {
+          flex: 1,
+          borderWidth: 2,
+          borderColor: "#0066cc",
+          padding: 8
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          borderWidth: 1,
+          borderColor: "#44aaff",
+          padding: 6
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 20, backgroundColor: "#ddf0ff" } })))), /* @__PURE__ */ React2.createElement("div", { style: {
+          borderTopWidth: 4,
+          borderBottomWidth: 4,
+          borderColor: "#885588",
+          padding: 10,
+          marginTop: 12
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          borderLeftWidth: 4,
+          borderRightWidth: 4,
+          borderColor: "#558855",
+          padding: 10
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 30, backgroundColor: "#f5f5f5" } }))));
+      };
+    }
+  });
+
+  // fixtures/mixed-position.jsx
+  var require_mixed_position = __commonJS({
+    "fixtures/mixed-position.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function MixedPosition() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "relative",
+          height: 100,
+          backgroundColor: "#f0f0f0",
+          padding: 10
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 30, backgroundColor: "#cccccc" } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          top: 10,
+          right: 10,
+          width: 50,
+          height: 50,
+          backgroundColor: "#ff666666"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: { height: 30, marginTop: 6, backgroundColor: "#bbbbbb" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "relative",
+          top: -10,
+          height: 80,
+          marginTop: 20,
+          backgroundColor: "#eef0ee",
+          padding: 8
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14 } }, "Relative shifted up 10px"), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          bottom: 8,
+          right: 8,
+          width: 40,
+          height: 25,
+          backgroundColor: "#88aa88",
+          borderRadius: 4
+        } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "relative",
+          height: 120,
+          marginTop: 12,
+          backgroundColor: "#fff5ee"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          top: 10,
+          left: 10,
+          width: 100,
+          height: 60,
+          backgroundColor: "#ffcccc",
+          borderRadius: 4
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          top: 30,
+          left: 50,
+          width: 100,
+          height: 60,
+          backgroundColor: "#ccccff",
+          borderRadius: 4
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          top: 50,
+          left: 90,
+          width: 100,
+          height: 60,
+          backgroundColor: "#ccffcc",
+          borderRadius: 4
+        } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 8,
+          marginTop: 12,
+          padding: 8,
+          backgroundColor: "#f5f5f5"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          flex: 1,
+          height: 50,
+          backgroundColor: "#ffaaaa",
+          position: "relative",
+          top: -5
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          flex: 1,
+          height: 50,
+          backgroundColor: "#aaffaa"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          flex: 1,
+          height: 50,
+          backgroundColor: "#aaaaff",
+          position: "relative",
+          top: 5
+        } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "relative",
+          marginTop: 12,
+          padding: 10,
+          backgroundColor: "#eeeedd"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "relative",
+          left: 20,
+          padding: 10,
+          backgroundColor: "#ddddcc"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          top: 5,
+          right: 5,
+          width: 30,
+          height: 30,
+          backgroundColor: "#aa8844"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: { height: 40, backgroundColor: "#ccccbb" } }))));
+      };
+    }
+  });
+
+  // fixtures/overflow-with-absolute.jsx
+  var require_overflow_with_absolute = __commonJS({
+    "fixtures/overflow-with-absolute.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function OverflowWithAbsolute() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "relative",
+          width: 200,
+          height: 100,
+          overflow: "hidden",
+          backgroundColor: "#f0f0f0",
+          borderWidth: 1,
+          borderColor: "#cccccc"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          top: -20,
+          left: -20,
+          width: 80,
+          height: 80,
+          backgroundColor: "#ff999966",
+          borderRadius: 40
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          bottom: -20,
+          right: -20,
+          width: 80,
+          height: 80,
+          backgroundColor: "#9999ff66",
+          borderRadius: 40
+        } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "relative",
+          width: 200,
+          height: 100,
+          marginTop: 30,
+          backgroundColor: "#f0f0f0",
+          borderWidth: 1,
+          borderColor: "#cccccc"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          top: -15,
+          right: -15,
+          width: 50,
+          height: 50,
+          backgroundColor: "#66cc66"
+        } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          position: "relative",
+          height: 80,
+          overflow: "hidden",
+          marginTop: 30,
+          backgroundColor: "#eeeeff"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, backgroundColor: "#ddddff" } }), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, backgroundColor: "#ccccee" } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          top: -10,
+          left: 60,
+          width: 60,
+          height: 100,
+          backgroundColor: "#ff888866"
+        } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "relative",
+          width: 150,
+          height: 150,
+          overflow: "hidden",
+          borderRadius: 75,
+          marginTop: 12,
+          backgroundColor: "#ffeecc"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: 75,
+          height: 150,
+          backgroundColor: "#ffcc88"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          bottom: 0,
+          right: 0,
+          width: 75,
+          height: 75,
+          backgroundColor: "#ff9944"
+        } })));
+      };
+    }
+  });
+
+  // fixtures/flex-auto-margins.jsx
+  var require_flex_auto_margins = __commonJS({
+    "fixtures/flex-auto-margins.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function FlexAutoMargins() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          height: 40,
+          backgroundColor: "#f0f0f0",
+          padding: 4
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 50, backgroundColor: "#ff9999" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 50, backgroundColor: "#99ff99" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 50, marginLeft: "auto", backgroundColor: "#9999ff" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          height: 40,
+          marginTop: 12,
+          backgroundColor: "#e8e8e8",
+          padding: 4
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 50, marginRight: "auto", backgroundColor: "#ffaaaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 50, backgroundColor: "#aaffaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 50, backgroundColor: "#aaaaff" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          height: 40,
+          marginTop: 12,
+          backgroundColor: "#f5f5dc",
+          padding: 4
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 50, backgroundColor: "#eedd88" } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 50,
+          marginLeft: "auto",
+          marginRight: "auto",
+          backgroundColor: "#88ddee"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 50, backgroundColor: "#dd88ee" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "column",
+          height: 150,
+          marginTop: 12,
+          backgroundColor: "#eef0ee",
+          padding: 4
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 30, backgroundColor: "#aaccaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { height: 30, marginTop: "auto", backgroundColor: "#ccaacc" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "column",
+          height: 120,
+          marginTop: 12,
+          borderWidth: 1,
+          borderColor: "#dddddd",
+          padding: 8
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14, fontWeight: "bold" } }, "Title"), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, color: "#888888", marginTop: 4 } }, "Subtitle"), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 6,
+          marginTop: "auto"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          flex: 1,
+          height: 28,
+          backgroundColor: "#ddeeff",
+          borderRadius: 4
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          flex: 1,
+          height: 28,
+          backgroundColor: "#ffeedd",
+          borderRadius: 4
+        } }))));
+      };
+    }
+  });
+
+  // fixtures/input-varieties.jsx
+  var require_input_varieties = __commonJS({
+    "fixtures/input-varieties.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function InputVarieties() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390, padding: 16 } }, /* @__PURE__ */ React2.createElement("input", { style: {
+          width: "100%",
+          height: 40,
+          borderWidth: 1,
+          borderColor: "#cccccc",
+          borderRadius: 4,
+          paddingLeft: 10,
+          paddingRight: 10,
+          fontSize: 14
+        } }), /* @__PURE__ */ React2.createElement("input", { style: {
+          width: "100%",
+          height: 44,
+          marginTop: 12,
+          borderWidth: 2,
+          borderColor: "#2255aa",
+          borderRadius: 8,
+          paddingLeft: 12,
+          paddingRight: 12,
+          fontSize: 16
+        } }), /* @__PURE__ */ React2.createElement("input", { style: {
+          width: "100%",
+          height: 40,
+          marginTop: 12,
+          backgroundColor: "#f5f5f5",
+          borderWidth: 0,
+          borderRadius: 6,
+          paddingLeft: 10,
+          paddingRight: 10,
+          fontSize: 14
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 10,
+          marginTop: 12
+        } }, /* @__PURE__ */ React2.createElement("label", { style: { fontSize: 14, width: 60 } }, "Name"), /* @__PURE__ */ React2.createElement("input", { style: {
+          flex: 1,
+          height: 36,
+          borderWidth: 1,
+          borderColor: "#cccccc",
+          borderRadius: 4,
+          paddingLeft: 8,
+          paddingRight: 8
+        } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 10,
+          marginTop: 8
+        } }, /* @__PURE__ */ React2.createElement("label", { style: { fontSize: 14, width: 60 } }, "Email"), /* @__PURE__ */ React2.createElement("input", { style: {
+          flex: 1,
+          height: 36,
+          borderWidth: 1,
+          borderColor: "#cccccc",
+          borderRadius: 4,
+          paddingLeft: 8,
+          paddingRight: 8
+        } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 8,
+          marginTop: 12
+        } }, /* @__PURE__ */ React2.createElement("input", { style: {
+          flex: 1,
+          height: 32,
+          borderWidth: 1,
+          borderColor: "#dddddd",
+          borderRadius: 4,
+          paddingLeft: 6,
+          paddingRight: 6,
+          fontSize: 12
+        } }), /* @__PURE__ */ React2.createElement("input", { style: {
+          flex: 2,
+          height: 32,
+          borderWidth: 1,
+          borderColor: "#dddddd",
+          borderRadius: 4,
+          paddingLeft: 6,
+          paddingRight: 6,
+          fontSize: 12
+        } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          marginTop: 12
+        } }, /* @__PURE__ */ React2.createElement("input", { style: {
+          flex: 1,
+          height: 40,
+          borderWidth: 1,
+          borderColor: "#cccccc",
+          borderTopLeftRadius: 6,
+          borderBottomLeftRadius: 6,
+          paddingLeft: 10,
+          paddingRight: 10,
+          fontSize: 14
+        } }), /* @__PURE__ */ React2.createElement("button", { style: {
+          width: 80,
+          height: 40,
+          backgroundColor: "#2255aa",
+          borderWidth: 0,
+          borderTopRightRadius: 6,
+          borderBottomRightRadius: 6
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { color: "#ffffff", fontSize: 14, fontWeight: "bold" } }, "Go"))));
+      };
+    }
+  });
+
+  // fixtures/background-layers.jsx
+  var require_background_layers = __commonJS({
+    "fixtures/background-layers.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function BackgroundLayers() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: { padding: 16, backgroundColor: "#1a1a2e" } }, /* @__PURE__ */ React2.createElement("div", { style: { padding: 16, backgroundColor: "#16213e" } }, /* @__PURE__ */ React2.createElement("div", { style: { padding: 16, backgroundColor: "#0f3460" } }, /* @__PURE__ */ React2.createElement("div", { style: { padding: 16, backgroundColor: "#533483" } }, /* @__PURE__ */ React2.createElement("p", { style: { color: "#ffffff", fontSize: 14, textAlign: "center" } }, "Deep"))))), /* @__PURE__ */ React2.createElement("div", { style: { marginTop: 12 } }, /* @__PURE__ */ React2.createElement("div", { style: { padding: 10, backgroundColor: "#ffffff" } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14 } }, "Row 1")), /* @__PURE__ */ React2.createElement("div", { style: { padding: 10, backgroundColor: "#f5f5f5" } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14 } }, "Row 2")), /* @__PURE__ */ React2.createElement("div", { style: { padding: 10, backgroundColor: "#ffffff" } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14 } }, "Row 3")), /* @__PURE__ */ React2.createElement("div", { style: { padding: 10, backgroundColor: "#f5f5f5" } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14 } }, "Row 4")), /* @__PURE__ */ React2.createElement("div", { style: { padding: 10, backgroundColor: "#ffffff" } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14 } }, "Row 5"))), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          flexWrap: "wrap",
+          marginTop: 12
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: "25%", height: 60, backgroundColor: "#ff6b6b" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: "25%", height: 60, backgroundColor: "#feca57" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: "25%", height: 60, backgroundColor: "#48dbfb" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: "25%", height: 60, backgroundColor: "#ff9ff3" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: "25%", height: 60, backgroundColor: "#54a0ff" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: "25%", height: 60, backgroundColor: "#5f27cd" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: "25%", height: 60, backgroundColor: "#01a3a4" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: "25%", height: 60, backgroundColor: "#f368e0" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          marginTop: 12,
+          borderWidth: 1,
+          borderColor: "#dddddd",
+          borderRadius: 8,
+          overflow: "hidden"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          height: 40,
+          backgroundColor: "#ee5a24",
+          justifyContent: "center",
+          paddingLeft: 12
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { color: "#ffffff", fontSize: 14, fontWeight: "bold" } }, "Alert")), /* @__PURE__ */ React2.createElement("div", { style: { padding: 12, backgroundColor: "#ffffff" } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 13, color: "#555555" } }, "Card body with white background."))), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 8,
+          marginTop: 12,
+          padding: 8,
+          backgroundColor: "#f8f8f8"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, padding: 10, backgroundColor: "#eef4ff", borderRadius: 6 } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, color: "#2255aa" } }, "Info")), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, padding: 10, backgroundColor: "#eeffee", borderRadius: 6 } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, color: "#22aa55" } }, "Success")), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, padding: 10, backgroundColor: "#fff8ee", borderRadius: 6 } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, color: "#cc8800" } }, "Warning")), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, padding: 10, backgroundColor: "#ffeeee", borderRadius: 6 } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, color: "#cc3333" } }, "Error"))));
+      };
+    }
+  });
+
+  // fixtures/wrap-with-sizes.jsx
+  var require_wrap_with_sizes = __commonJS({
+    "fixtures/wrap-with-sizes.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function WrapWithSizes() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: 8,
+          padding: 8,
+          backgroundColor: "#f0f0f0"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 120, height: 40, backgroundColor: "#ff9999" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 40, backgroundColor: "#99ff99" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 150, height: 40, backgroundColor: "#9999ff" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 100, height: 40, backgroundColor: "#ffff99" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 90, height: 40, backgroundColor: "#ff99ff" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 130, height: 40, backgroundColor: "#99ffff" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: 6,
+          marginTop: 12,
+          padding: 8,
+          backgroundColor: "#e8e8e8"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 100, height: 30, backgroundColor: "#ffaaaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 100, height: 50, backgroundColor: "#aaffaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 100, height: 40, backgroundColor: "#aaaaff" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 100, height: 60, backgroundColor: "#ffffaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 100, height: 35, backgroundColor: "#ffaaff" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 100, height: 45, backgroundColor: "#aaffff" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: 8,
+          marginTop: 12,
+          padding: 8,
+          backgroundColor: "#f5f5dc"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          minWidth: 150,
+          flexGrow: 1,
+          height: 40,
+          backgroundColor: "#ddcc88"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          minWidth: 150,
+          flexGrow: 1,
+          height: 40,
+          backgroundColor: "#88ccdd"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          minWidth: 150,
+          flexGrow: 1,
+          height: 40,
+          backgroundColor: "#cc88dd"
+        } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: 6,
+          marginTop: 12,
+          padding: 8
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          paddingTop: 4,
+          paddingBottom: 4,
+          paddingLeft: 10,
+          paddingRight: 10,
+          backgroundColor: "#eef4ff",
+          borderRadius: 12
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, color: "#2255aa" } }, "React")), /* @__PURE__ */ React2.createElement("div", { style: {
+          paddingTop: 4,
+          paddingBottom: 4,
+          paddingLeft: 10,
+          paddingRight: 10,
+          backgroundColor: "#eeffee",
+          borderRadius: 12
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, color: "#22aa55" } }, "Swift")), /* @__PURE__ */ React2.createElement("div", { style: {
+          paddingTop: 4,
+          paddingBottom: 4,
+          paddingLeft: 10,
+          paddingRight: 10,
+          backgroundColor: "#fff8ee",
+          borderRadius: 12
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, color: "#cc8800" } }, "JavaScript")), /* @__PURE__ */ React2.createElement("div", { style: {
+          paddingTop: 4,
+          paddingBottom: 4,
+          paddingLeft: 10,
+          paddingRight: 10,
+          backgroundColor: "#ffeeee",
+          borderRadius: 12
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, color: "#cc3333" } }, "TypeScript")), /* @__PURE__ */ React2.createElement("div", { style: {
+          paddingTop: 4,
+          paddingBottom: 4,
+          paddingLeft: 10,
+          paddingRight: 10,
+          backgroundColor: "#f0eeff",
+          borderRadius: 12
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, color: "#5533cc" } }, "UIKit")), /* @__PURE__ */ React2.createElement("div", { style: {
+          paddingTop: 4,
+          paddingBottom: 4,
+          paddingLeft: 10,
+          paddingRight: 10,
+          backgroundColor: "#eef0ee",
+          borderRadius: 12
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, color: "#448844" } }, "Yoga"))));
+      };
+    }
+  });
+
+  // fixtures/zero-size-items.jsx
+  var require_zero_size_items = __commonJS({
+    "fixtures/zero-size-items.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function ZeroSizeItems() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 8,
+          padding: 8,
+          backgroundColor: "#f0f0f0"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 40, backgroundColor: "#ff9999" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 0, height: 40, backgroundColor: "#000000" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 40, backgroundColor: "#9999ff" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          padding: 8,
+          marginTop: 12,
+          backgroundColor: "#e8e8e8"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 30, backgroundColor: "#ffaaaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { height: 0, marginTop: 8, backgroundColor: "#000000" } }), /* @__PURE__ */ React2.createElement("div", { style: { height: 30, marginTop: 8, backgroundColor: "#aaaaff" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 10,
+          marginTop: 12,
+          padding: 8,
+          backgroundColor: "#f5f5dc"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 40, backgroundColor: "#ddcc88" } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 0,
+          height: 40,
+          borderLeftWidth: 2,
+          borderColor: "#cc0000"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 40, backgroundColor: "#88ccdd" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 8,
+          marginTop: 12,
+          padding: 8,
+          backgroundColor: "#eef0ee"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 40, backgroundColor: "#aaccaa" } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 0,
+          height: 0,
+          padding: 15,
+          backgroundColor: "#ccaacc"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 60, height: 40, backgroundColor: "#aacccc" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          height: 40,
+          marginTop: 12
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 0, flexGrow: 1, backgroundColor: "#ffcccc" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 0, flexGrow: 2, backgroundColor: "#ccffcc" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 0, flexGrow: 1, backgroundColor: "#ccccff" } })));
+      };
+    }
+  });
+
+  // fixtures/large-gap-values.jsx
+  var require_large_gap_values = __commonJS({
+    "fixtures/large-gap-values.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function LargeGapValues() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 50,
+          padding: 8,
+          backgroundColor: "#f0f0f0"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 40, backgroundColor: "#ff9999" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 40, backgroundColor: "#99ff99" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 80, height: 40, backgroundColor: "#9999ff" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          gap: 30,
+          marginTop: 12,
+          padding: 8,
+          backgroundColor: "#e8e8e8"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { height: 25, backgroundColor: "#ffaaaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { height: 25, backgroundColor: "#aaffaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { height: 25, backgroundColor: "#aaaaff" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 20,
+          padding: 20,
+          marginTop: 12,
+          backgroundColor: "#f5f5dc"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, height: 40, backgroundColor: "#ddcc88" } }), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, height: 40, backgroundColor: "#88ccdd" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          flexWrap: "wrap",
+          rowGap: 30,
+          columnGap: 4,
+          marginTop: 12,
+          padding: 8,
+          backgroundColor: "#eef0ee"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 120, height: 30, backgroundColor: "#aaccaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 120, height: 30, backgroundColor: "#ccaacc" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 120, height: 30, backgroundColor: "#ccccaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 120, height: 30, backgroundColor: "#aacccc" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          flexWrap: "wrap",
+          rowGap: 4,
+          columnGap: 40,
+          marginTop: 12,
+          padding: 8,
+          backgroundColor: "#f0eef0"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { width: 100, height: 30, backgroundColor: "#ccaadd" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 100, height: 30, backgroundColor: "#aaddcc" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 100, height: 30, backgroundColor: "#ddccaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { width: 100, height: 30, backgroundColor: "#aaccdd" } })));
+      };
+    }
+  });
+
+  // fixtures/flex-row-height.jsx
+  var require_flex_row_height = __commonJS({
+    "fixtures/flex-row-height.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function FlexRowHeight() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 8,
+          padding: 8,
+          backgroundColor: "#f0f0f0"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, height: 30, backgroundColor: "#ff9999" } }), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, height: 60, backgroundColor: "#99ff99" } }), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, height: 45, backgroundColor: "#9999ff" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "stretch",
+          gap: 8,
+          marginTop: 12,
+          padding: 8,
+          backgroundColor: "#e8e8e8"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, backgroundColor: "#ffaaaa" } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, padding: 4 } }, "Short")), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, backgroundColor: "#aaffaa" } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, padding: 4 } }, "Taller content that takes more vertical space")), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, backgroundColor: "#aaaaff" } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, padding: 4 } }, "Med"))), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "flex-start",
+          gap: 8,
+          marginTop: 12,
+          padding: 8,
+          backgroundColor: "#f5f5dc"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, height: 30, backgroundColor: "#ddcc88" } }), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, height: 60, backgroundColor: "#88ccdd" } }), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, height: 45, backgroundColor: "#cc88dd" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "flex-end",
+          gap: 8,
+          marginTop: 12,
+          padding: 8,
+          backgroundColor: "#eef0ee"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, height: 30, backgroundColor: "#aaccaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, height: 60, backgroundColor: "#ccaacc" } }), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, height: 45, backgroundColor: "#ccccaa" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+          marginTop: 12,
+          padding: 8,
+          backgroundColor: "#f0eef0"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, height: 20, backgroundColor: "#ddaadd" } }), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, height: 60, backgroundColor: "#aaddaa" } }), /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, height: 40, backgroundColor: "#aadddd" } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "flex-start",
+          gap: 8,
+          marginTop: 12,
+          padding: 8,
+          backgroundColor: "#fff5ee"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: { flex: 1, height: 30, backgroundColor: "#ffccaa" } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          flex: 1,
+          height: 30,
+          alignSelf: "center",
+          backgroundColor: "#aaccff"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          flex: 1,
+          height: 30,
+          alignSelf: "flex-end",
+          backgroundColor: "#ffaacc"
+        } })));
+      };
+    }
+  });
+
+  // fixtures/absolute-sizing.jsx
+  var require_absolute_sizing = __commonJS({
+    "fixtures/absolute-sizing.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function AbsoluteSizing() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390 } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "relative",
+          height: 100,
+          backgroundColor: "#f0f0f0"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          top: 10,
+          bottom: 10,
+          left: 20,
+          width: 60,
+          backgroundColor: "#ff9999"
+        } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "relative",
+          height: 60,
+          marginTop: 12,
+          backgroundColor: "#e8e8e8"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          left: 20,
+          right: 20,
+          top: 10,
+          height: 40,
+          backgroundColor: "#99ff99"
+        } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "relative",
+          height: 100,
+          marginTop: 12,
+          backgroundColor: "#f5f5dc"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          top: 15,
+          right: 15,
+          bottom: 15,
+          left: 15,
+          backgroundColor: "#ddcc88",
+          borderRadius: 6
+        } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "relative",
+          height: 120,
+          marginTop: 12,
+          backgroundColor: "#eef0ee"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          top: 0,
+          bottom: 0,
+          left: 0,
+          width: 4,
+          backgroundColor: "#2255aa"
+        } }), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          top: 10,
+          bottom: 10,
+          left: 14,
+          right: 10,
+          backgroundColor: "#ffffff",
+          borderRadius: 4,
+          padding: 8
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14, fontWeight: "bold" } }, "Card with accent"), /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 12, color: "#888888", marginTop: 4 } }, "Left border strip"))), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "relative",
+          height: 60,
+          marginTop: 12,
+          backgroundColor: "#f0eef0"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          right: 10,
+          top: 10,
+          width: 100,
+          height: 40,
+          backgroundColor: "#ccaadd"
+        } })), /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "relative",
+          height: 80,
+          marginTop: 12,
+          backgroundColor: "#fff5ee"
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          position: "absolute",
+          bottom: 8,
+          left: 8,
+          right: 8,
+          height: 30,
+          backgroundColor: "#ffccaa",
+          borderRadius: 4
+        } })));
+      };
+    }
+  });
+
+  // fixtures/button-styles.jsx
+  var require_button_styles = __commonJS({
+    "fixtures/button-styles.jsx"(exports, module) {
+      "use strict";
+      var React2 = require_react();
+      module.exports = function ButtonStyles() {
+        return /* @__PURE__ */ React2.createElement("div", { style: { width: 390, padding: 16 } }, /* @__PURE__ */ React2.createElement("button", { style: {
+          width: "100%",
+          height: 44,
+          backgroundColor: "#2255aa",
+          borderWidth: 0,
+          borderRadius: 6
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { color: "#ffffff", fontSize: 16, fontWeight: "bold", textAlign: "center" } }, "Primary Button")), /* @__PURE__ */ React2.createElement("button", { style: {
+          width: "100%",
+          height: 44,
+          marginTop: 10,
+          backgroundColor: "#ffffff",
+          borderWidth: 2,
+          borderColor: "#2255aa",
+          borderRadius: 6
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { color: "#2255aa", fontSize: 16, textAlign: "center" } }, "Outline Button")), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 10,
+          marginTop: 12
+        } }, /* @__PURE__ */ React2.createElement("button", { style: {
+          paddingTop: 4,
+          paddingBottom: 4,
+          paddingLeft: 10,
+          paddingRight: 10,
+          backgroundColor: "#22aa55",
+          borderWidth: 0,
+          borderRadius: 4
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { color: "#ffffff", fontSize: 12 } }, "Small")), /* @__PURE__ */ React2.createElement("button", { style: {
+          paddingTop: 8,
+          paddingBottom: 8,
+          paddingLeft: 20,
+          paddingRight: 20,
+          backgroundColor: "#22aa55",
+          borderWidth: 0,
+          borderRadius: 6
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { color: "#ffffff", fontSize: 14 } }, "Medium")), /* @__PURE__ */ React2.createElement("button", { style: {
+          paddingTop: 12,
+          paddingBottom: 12,
+          paddingLeft: 28,
+          paddingRight: 28,
+          backgroundColor: "#22aa55",
+          borderWidth: 0,
+          borderRadius: 8
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { color: "#ffffff", fontSize: 16 } }, "Large"))), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 8,
+          marginTop: 12
+        } }, /* @__PURE__ */ React2.createElement("button", { style: {
+          paddingTop: 6,
+          paddingBottom: 6,
+          paddingLeft: 16,
+          paddingRight: 16,
+          backgroundColor: "#ee5a24",
+          borderWidth: 0,
+          borderRadius: 20
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { color: "#ffffff", fontSize: 13 } }, "Danger")), /* @__PURE__ */ React2.createElement("button", { style: {
+          paddingTop: 6,
+          paddingBottom: 6,
+          paddingLeft: 16,
+          paddingRight: 16,
+          backgroundColor: "#f0f0f0",
+          borderWidth: 0,
+          borderRadius: 20
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 13, color: "#555555" } }, "Disabled"))), /* @__PURE__ */ React2.createElement("div", { style: { marginTop: 16, gap: 6 } }, /* @__PURE__ */ React2.createElement("button", { style: {
+          width: "100%",
+          height: 40,
+          backgroundColor: "#ffffff",
+          borderWidth: 1,
+          borderColor: "#dddddd",
+          borderRadius: 6
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14, textAlign: "center" } }, "Option A")), /* @__PURE__ */ React2.createElement("button", { style: {
+          width: "100%",
+          height: 40,
+          backgroundColor: "#ffffff",
+          borderWidth: 1,
+          borderColor: "#dddddd",
+          borderRadius: 6
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14, textAlign: "center" } }, "Option B")), /* @__PURE__ */ React2.createElement("button", { style: {
+          width: "100%",
+          height: 40,
+          backgroundColor: "#ffffff",
+          borderWidth: 1,
+          borderColor: "#dddddd",
+          borderRadius: 6
+        } }, /* @__PURE__ */ React2.createElement("p", { style: { fontSize: 14, textAlign: "center" } }, "Option C"))), /* @__PURE__ */ React2.createElement("div", { style: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 10,
+          marginTop: 16
+        } }, /* @__PURE__ */ React2.createElement("button", { style: {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 6,
+          paddingTop: 8,
+          paddingBottom: 8,
+          paddingLeft: 12,
+          paddingRight: 12,
+          backgroundColor: "#2255aa",
+          borderWidth: 0,
+          borderRadius: 6
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 16,
+          height: 16,
+          borderRadius: 8,
+          backgroundColor: "#ffffff44"
+        } }), /* @__PURE__ */ React2.createElement("p", { style: { color: "#ffffff", fontSize: 13 } }, "Add Item")), /* @__PURE__ */ React2.createElement("button", { style: {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 6,
+          paddingTop: 8,
+          paddingBottom: 8,
+          paddingLeft: 12,
+          paddingRight: 12,
+          backgroundColor: "#cc3333",
+          borderWidth: 0,
+          borderRadius: 6
+        } }, /* @__PURE__ */ React2.createElement("div", { style: {
+          width: 16,
+          height: 16,
+          borderRadius: 8,
+          backgroundColor: "#ffffff44"
+        } }), /* @__PURE__ */ React2.createElement("p", { style: { color: "#ffffff", fontSize: 13 } }, "Remove"))));
+      };
+    }
+  });
+
+  // fixtures/index.js
   var require_fixtures = __commonJS({
-    "tests/e2e/fixtures/index.js"(exports, module) {
+    "fixtures/index.js"(exports, module) {
       "use strict";
       module.exports = {
         "div-basic": { component: require_div_basic(), description: "Basic div with dimensions" },
@@ -14111,12 +16937,75 @@
         "flex-layout": { component: require_flex_layout(), description: "Padded container with block children" },
         "box-model": { component: require_box_model(), description: "Margin and padding combinations" },
         "border-basic": { component: require_border_basic(), description: "Border width (uniform and per-side)" },
-        "border-padding": { component: require_border_padding(), description: "Border width combined with padding" }
+        "border-padding": { component: require_border_padding(), description: "Border width combined with padding" },
+        "text-inline": { component: require_text_inline(), description: "Inline text styling (bold, italic, underline, code)" },
+        "list-basic": { component: require_list_basic(), description: "Unordered and ordered lists" },
+        "position-absolute": { component: require_position_absolute(), description: "Absolute positioning with top/left/right/bottom" },
+        "flex-wrap": { component: require_flex_wrap(), description: "Flex row with wrap and gap" },
+        "flex-grow": { component: require_flex_grow(), description: "Flex grow distribution" },
+        "semantic-layout": { component: require_semantic_layout(), description: "Semantic elements (header, nav, main, section, aside, footer)" },
+        "table-basic": { component: require_table_basic(), description: "Table with thead, tbody, tr, th, td" },
+        "form-basic": { component: require_form_basic(), description: "Form with label, input, and button elements" },
+        "article-content": { component: require_article_content(), description: "Article with blockquote, hr, code, and link" },
+        "overflow-hidden": { component: require_overflow_hidden(), description: "Overflow hidden clipping vs visible (default)" },
+        "flex-shrink": { component: require_flex_shrink(), description: "Flex shrink ratios, flexShrink 0, and flexBasis" },
+        "margin-auto": { component: require_margin_auto(), description: "Margin auto for centering and alignment" },
+        "text-style-overrides": { component: require_text_style_overrides(), description: "fontSize, color, fontWeight, textAlign overrides on text elements" },
+        "border-radius": { component: require_border_radius(), description: "Border radius: uniform, per-corner, circle, pill" },
+        "opacity": { component: require_opacity(), description: "Opacity: full, half, low, zero, on containers" },
+        "display-none": { component: require_display_none(), description: "Display none hides elements and removes from layout" },
+        "flex-direction-reverse": { component: require_flex_direction_reverse(), description: "Row-reverse and column-reverse flex directions" },
+        "flex-align-extras": { component: require_flex_align_extras(), description: "Space-around, space-evenly, alignSelf overrides" },
+        "min-max-size": { component: require_min_max_size(), description: "minWidth, maxWidth, minHeight, maxHeight constraints" },
+        "nested-lists": { component: require_nested_lists(), description: "Nested lists (ul in li, ol in li, mixed)" },
+        "relative-position": { component: require_relative_position(), description: "Relative positioning with top/left offsets" },
+        "border-color-sides": { component: require_border_color_sides(), description: "Per-side border colors (borderTopColor, etc.)" },
+        "flex-wrap-reverse": { component: require_flex_wrap_reverse(), description: "Flex wrap-reverse with items wrapping upward" },
+        "z-index": { component: require_z_index(), description: "Z-index stacking order with overlapping elements" },
+        "gap-properties": { component: require_gap_properties(), description: "rowGap vs columnGap separately and together" },
+        "text-decoration-transform": { component: require_text_decoration_transform(), description: "textDecorationLine, textTransform, lineHeight, letterSpacing" },
+        "pre-element": { component: require_pre_element(), description: "Pre element with monospace font and code blocks" },
+        "inline-text-extras": { component: require_inline_text_extras(), description: "mark, small, sub, sup inline text elements" },
+        "fieldset-legend": { component: require_fieldset_legend(), description: "Fieldset with legend, borders, and nested fieldsets" },
+        "overflow-scroll": { component: require_overflow_scroll(), description: "Overflow scroll with vertical and horizontal scrollable content" },
+        "textarea-select": { component: require_textarea_select(), description: "Textarea and select form elements with custom styling" },
+        "dl-dt-dd": { component: require_dl_dt_dd(), description: "Definition lists with dt/dd terms and descriptions" },
+        "details-summary": { component: require_details_summary(), description: "Details/summary collapsible sections" },
+        "dialog-element": { component: require_dialog_element(), description: "Dialog element with padding, border, and content" },
+        "table-semantic": { component: require_table_semantic(), description: "Table with caption, thead, tbody, tfoot, tr, th, td" },
+        "blockquote-figure": { component: require_blockquote_figure(), description: "Blockquote and figure/figcaption elements" },
+        "hr-standalone": { component: require_hr_standalone(), description: "HR element variations (thickness, color, width)" },
+        "address-element": { component: require_address_element(), description: "Address element with italic default style" },
+        "percentage-sizes": { component: require_percentage_sizes(), description: "Percentage-based width, height, minWidth, maxWidth" },
+        "nested-flex-contexts": { component: require_nested_flex_contexts(), description: "Nested flex containers with different directions and alignments" },
+        "absolute-in-flex": { component: require_absolute_in_flex(), description: "Absolute positioning inside flex containers" },
+        "card-layout": { component: require_card_layout(), description: "Real-world card patterns (simple, action buttons, horizontal, grid)" },
+        "padding-margin-shorthands": { component: require_padding_margin_shorthands(), description: "Padding/margin shorthand + per-side overrides, nested accumulation, with borders" },
+        "flex-basis-sizes": { component: require_flex_basis_sizes(), description: "flexBasis with grow, shrink, column direction, and vs width" },
+        "holy-grail-layout": { component: require_holy_grail_layout(), description: "Holy grail layout (header, sidebars, content, footer)" },
+        "text-in-flex": { component: require_text_in_flex(), description: "Text elements inside flex containers with alignment and wrapping" },
+        "flex-shorthand": { component: require_flex_shorthand(), description: "flex shorthand property (equal, proportional, mixed with fixed)" },
+        "stacked-sections": { component: require_stacked_sections(), description: "Stacked page sections (hero, features, content, CTA, footer)" },
+        "sidebar-content": { component: require_sidebar_content(), description: "Two-column sidebar + content layout with stats row" },
+        "form-grid": { component: require_form_grid(), description: "Form with label+input pairs in two-column and full-width rows" },
+        "list-with-actions": { component: require_list_with_actions(), description: "List items with avatar, text, and action buttons" },
+        "nested-borders": { component: require_nested_borders(), description: "Nested elements with borders at each level, border+radius, per-side" },
+        "mixed-position": { component: require_mixed_position(), description: "Relative and absolute positioning combined in same tree" },
+        "overflow-with-absolute": { component: require_overflow_with_absolute(), description: "Overflow hidden clipping absolute-positioned children" },
+        "flex-auto-margins": { component: require_flex_auto_margins(), description: "Margin auto inside flex for spacing (push right, center, push bottom)" },
+        "input-varieties": { component: require_input_varieties(), description: "Input styling patterns (bordered, bg, inline label, input+button combo)" },
+        "background-layers": { component: require_background_layers(), description: "Nested backgrounds, alternating rows, color grid, tinted status cards" },
+        "wrap-with-sizes": { component: require_wrap_with_sizes(), description: "Flex wrap with varying widths/heights, flexGrow items, tag/chip pattern" },
+        "zero-size-items": { component: require_zero_size_items(), description: "Zero-width and zero-height items in flex layout" },
+        "large-gap-values": { component: require_large_gap_values(), description: "Large gap values, gap+padding combined, asymmetric rowGap/columnGap" },
+        "flex-row-height": { component: require_flex_row_height(), description: "Flex row cross-axis height with stretch, start, end, center, alignSelf" },
+        "absolute-sizing": { component: require_absolute_sizing(), description: "Absolute positioning with top+bottom or left+right defining size" },
+        "button-styles": { component: require_button_styles(), description: "Button element patterns (primary, outline, sizes, pill, icon+text)" }
       };
     }
   });
 
-  // tests/e2e/native/entry.js
+  // native/entry.js
   var React = require_react();
   var renderer = require_renderer();
   var fixtures = require_fixtures();
@@ -14124,7 +17013,11 @@
     fixtureNames: Object.keys(fixtures),
     renderFixture: function(name, surfaceId) {
       var root = renderer.createRoot({ surfaceId, width: 390, height: 844 });
-      root.render(React.createElement(fixtures[name].component));
+      root.render(React.createElement(fixtures[name].component), function() {
+        if (typeof __onFixtureReady__ === "function") {
+          __onFixtureReady__();
+        }
+      });
     }
   };
 })();

@@ -9,6 +9,10 @@ public class HotReloadClient {
     private var isConnected = false
     private var reconnectTimer: Timer?
 
+    /// Callback invoked on the main thread when an inspector message arrives
+    /// from the dev server (e.g. start-tracing, stop-tracing).
+    public var onInspectorMessage: ((String) -> Void)?
+
     /// Creates a hot reload client connected to a Root.
     ///
     /// Example:
@@ -40,6 +44,15 @@ public class HotReloadClient {
 
         print("[HotReload] Connected to \(webSocketURL)")
         receiveMessage()
+    }
+
+    /// Sends a string message to the dev server via the WebSocket connection.
+    public func send(_ message: String) {
+        webSocketTask?.send(.string(message)) { error in
+            if let error = error {
+                print("[HotReload] Send failed: \(error)")
+            }
+        }
     }
 
     public func disconnect() {
@@ -109,6 +122,9 @@ public class HotReloadClient {
 
             case "clear-errors":
                 ErrorOverlay.shared.dismiss()
+
+            case "start-tracing", "stop-tracing":
+                self.onInspectorMessage?(text)
 
             default:
                 break

@@ -37,6 +37,13 @@ public class ShadowNodeWrapper {
     /// Computed during layout by re-laying-out children with unbounded height.
     public var scrollContentSize: CGSize? = nil
 
+    /// Cached layout margins (top, right, bottom, left), saved before Yoga
+    /// node reparenting clears them. Yoga's YGNodeRemoveAllChildren resets
+    /// layout data (setLayout({})), so margins computed during scroll content
+    /// re-layout would be lost. Set by computeScrollContentSizes; read by
+    /// LayoutExtractor.
+    public var layoutMargins: (top: CGFloat, right: CGFloat, bottom: CGFloat, left: CGFloat)? = nil
+
     /// Original child family ordering from the node this was cloned from.
     /// Used by $$appendChild to interleave reconciler children with
     /// preserved #suspense children at correct positions. Nil for non-clones.
@@ -125,11 +132,67 @@ public class ShadowNodeWrapper {
         if let minH = ElementDefaults.yogaMinHeight(for: type) {
             YGNodeStyleSetMinHeight(node.yogaNode, Float(minH))
         }
+        // Text container line-height: CSS block text containers have a
+        // minimum height from line-height: normal (~1.2 × fontSize).
+        // Yoga flex layout has no line-height, so we set minHeight.
+        let fontSize: CGFloat
+        if let fs = mergedStyle["fontSize"] as? Double {
+            fontSize = CGFloat(fs)
+        } else if let fs = mergedStyle["fontSize"] as? Int {
+            fontSize = CGFloat(fs)
+        } else if let fs = mergedStyle["fontSize"] as? NSNumber {
+            fontSize = CGFloat(fs.doubleValue)
+        } else {
+            fontSize = 16
+        }
+        if let lineMinH = ElementDefaults.yogaTextContainerMinHeight(for: type, fontSize: fontSize) {
+            YGNodeStyleSetMinHeight(node.yogaNode, Float(lineMinH))
+        }
         // Legend needs inline-block display for shrink-to-fit width inside
         // fieldset's block layout, but we don't put "display" in the style
         // dict to avoid comparison diffs (web reports display: block).
         if type == "legend" || ElementDefaults.needsInlineBlockDisplay(for: type) {
             YGNodeStyleSetDisplay(node.yogaNode, .inlineBlock)
+        }
+        // Pre/legend have flexWrap: "nowrap" in their style dict (matching
+        // CSS getComputedStyle) but need Yoga flexWrap: wrap to prevent
+        // calculateBlockLayout from stacking text children vertically.
+        if ElementDefaults.needsYogaFlexWrapOverride(for: type) {
+            YGNodeStyleSetFlexWrap(node.yogaNode, .wrap)
+        }
+        // CSS table layout: border-spacing: 2px (default) creates space
+        // between cells and between rows. We emulate this with Yoga gap
+        // and padding on table sections. The style dict keeps display:block
+        // (matching web after normalization), but we override Yoga to flex
+        // layout so gap works (block layout ignores gap).
+        switch type {
+        case "table":
+            // Override to flex column so gap works between sections
+            YGNodeStyleSetDisplay(node.yogaNode, .flex)
+            YGNodeStyleSetFlexDirection(node.yogaNode, .column)
+        case "thead":
+            // Override to flex column so rowGap works between rows
+            YGNodeStyleSetDisplay(node.yogaNode, .flex)
+            YGNodeStyleSetFlexDirection(node.yogaNode, .column)
+            // Edge spacing: border-spacing on top and bottom of first section
+            YGNodeStyleSetPadding(node.yogaNode, .top, 2)
+            YGNodeStyleSetPadding(node.yogaNode, .bottom, 2)
+            YGNodeStyleSetGap(node.yogaNode, .row, 2)
+        case "tbody", "tfoot":
+            // Override to flex column so rowGap works between rows
+            YGNodeStyleSetDisplay(node.yogaNode, .flex)
+            YGNodeStyleSetFlexDirection(node.yogaNode, .column)
+            // Bottom edge spacing only (top row abuts the previous section)
+            YGNodeStyleSetPadding(node.yogaNode, .bottom, 2)
+            YGNodeStyleSetGap(node.yogaNode, .row, 2)
+        case "tr":
+            // Horizontal cell spacing: border-spacing 2px between columns
+            // and at left/right edges of the row.
+            YGNodeStyleSetPadding(node.yogaNode, .left, 2)
+            YGNodeStyleSetPadding(node.yogaNode, .right, 2)
+            YGNodeStyleSetGap(node.yogaNode, .column, 2)
+        default:
+            break
         }
 
         return node

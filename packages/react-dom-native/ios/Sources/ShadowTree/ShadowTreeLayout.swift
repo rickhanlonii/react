@@ -58,22 +58,37 @@ public enum ShadowTreeLayout {
         let width = CGFloat(YGNodeLayoutGetWidth(node.yogaNode))
         let height = CGFloat(YGNodeLayoutGetHeight(node.yogaNode))
 
-        // Yoga's calculateBlockLayout() does NOT apply position:relative
-        // offsets (top/left/right/bottom), unlike flex layout which does.
-        // When a block-display node has position:relative, manually apply
-        // the offsets to match CSS behavior.
-        if YGNodeStyleGetDisplay(node.yogaNode) == .block &&
-           YGNodeStyleGetPositionType(node.yogaNode) == .relative {
-            let style = node.props["style"] as? [String: Any]
-            if let top = style?["top"] as? NSNumber {
-                y += CGFloat(top.doubleValue)
-            } else if let bottom = style?["bottom"] as? NSNumber {
-                y -= CGFloat(bottom.doubleValue)
+        // Yoga does NOT apply position:relative offsets in two layout modes:
+        // 1. calculateBlockLayout() — block-display nodes: misses ALL offsets
+        // 2. Wrapping flex (flexWrap: wrap/wrapReverse): misses only vertical
+        //    (top/bottom) offsets; horizontal (left/right) ARE applied by Yoga
+        // Manually apply the missing offsets to match CSS behavior.
+        if YGNodeStyleGetPositionType(node.yogaNode) == .relative {
+            let isBlock = YGNodeStyleGetDisplay(node.yogaNode) == .block
+            let isInWrappingFlex: Bool
+            if let owner = YGNodeGetOwner(node.yogaNode) {
+                let parentWrap = YGNodeStyleGetFlexWrap(owner)
+                isInWrappingFlex = parentWrap == .wrap || parentWrap == .wrapReverse
+            } else {
+                isInWrappingFlex = false
             }
-            if let left = style?["left"] as? NSNumber {
-                x += CGFloat(left.doubleValue)
-            } else if let right = style?["right"] as? NSNumber {
-                x -= CGFloat(right.doubleValue)
+
+            if isBlock || isInWrappingFlex {
+                let style = node.props["style"] as? [String: Any]
+                // Vertical offsets: missing in both block and wrapping flex
+                if let top = style?["top"] as? NSNumber {
+                    y += CGFloat(top.doubleValue)
+                } else if let bottom = style?["bottom"] as? NSNumber {
+                    y -= CGFloat(bottom.doubleValue)
+                }
+                // Horizontal offsets: only missing in block layout
+                if isBlock {
+                    if let left = style?["left"] as? NSNumber {
+                        x += CGFloat(left.doubleValue)
+                    } else if let right = style?["right"] as? NSNumber {
+                        x -= CGFloat(right.doubleValue)
+                    }
+                }
             }
         }
 

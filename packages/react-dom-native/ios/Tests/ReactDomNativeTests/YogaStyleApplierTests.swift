@@ -108,7 +108,184 @@ final class YogaStyleApplierTests: XCTestCase {
         XCTAssertEqual(YGNodeStyleGetBorder(node, .bottom), 1, "per-side value should override the default")
     }
 
+    // MARK: - Aspect ratio
+
+    func testAspectRatio() {
+        YogaStyleApplier.apply(["aspectRatio": 2], to: node)
+        XCTAssertEqual(YGNodeStyleGetAspectRatio(node), 2)
+    }
+
+    func testAspectRatioWithWidth() {
+        // width:200 + aspectRatio:2 → height should be 100
+        let n = YGNodeNewWithConfig(YogaConfig.shared)!
+        YogaStyleApplier.apply(["width": 200, "aspectRatio": 2], to: n)
+        YGNodeCalculateLayout(n, Float.nan, Float.nan, .LTR)
+        XCTAssertEqual(YGNodeLayoutGetWidth(n), 200, accuracy: 0.1)
+        XCTAssertEqual(YGNodeLayoutGetHeight(n), 100, accuracy: 0.1)
+        YGNodeFree(n)
+    }
+
+    func testAspectRatioSquare() {
+        // width:100 + aspectRatio:1 → height should be 100
+        let n = YGNodeNewWithConfig(YogaConfig.shared)!
+        YogaStyleApplier.apply(["width": 100, "aspectRatio": 1], to: n)
+        YGNodeCalculateLayout(n, Float.nan, Float.nan, .LTR)
+        XCTAssertEqual(YGNodeLayoutGetWidth(n), 100, accuracy: 0.1)
+        XCTAssertEqual(YGNodeLayoutGetHeight(n), 100, accuracy: 0.1)
+        YGNodeFree(n)
+    }
+
+    func testAspectRatioFractional() {
+        // width:200 + aspectRatio:0.5 → height should be 400
+        let n = YGNodeNewWithConfig(YogaConfig.shared)!
+        YogaStyleApplier.apply(["width": 200, "aspectRatio": 0.5], to: n)
+        YGNodeCalculateLayout(n, Float.nan, Float.nan, .LTR)
+        XCTAssertEqual(YGNodeLayoutGetWidth(n), 200, accuracy: 0.1)
+        XCTAssertEqual(YGNodeLayoutGetHeight(n), 400, accuracy: 0.1)
+        YGNodeFree(n)
+    }
+
+    func testAspectRatioInBlockParent() {
+        // Yoga's calculateBlockLayout does not handle aspectRatio.
+        // Pre-computing height in YogaStyleApplier works around this.
+        let parent = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["width": 390]],
+            surfaceId: 0
+        )
+        let child = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["width": 200, "aspectRatio": 2]],
+            surfaceId: 0
+        )
+        YGNodeInsertChild(parent.yogaNode, child.yogaNode, 0)
+        YGNodeCalculateLayout(parent.yogaNode, 390, Float.nan, .LTR)
+
+        XCTAssertEqual(YGNodeLayoutGetWidth(child.yogaNode), 200, accuracy: 0.1)
+        XCTAssertEqual(YGNodeLayoutGetHeight(child.yogaNode), 100, accuracy: 0.1,
+                       "width:200 / aspectRatio:2 should give height:100 in block layout")
+        YGNodeRemoveAllChildren(parent.yogaNode)
+    }
+
+    func testAspectRatioSquareInBlockParent() {
+        let parent = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["width": 390]],
+            surfaceId: 0
+        )
+        let child = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["width": 100, "aspectRatio": 1]],
+            surfaceId: 0
+        )
+        YGNodeInsertChild(parent.yogaNode, child.yogaNode, 0)
+        YGNodeCalculateLayout(parent.yogaNode, 390, Float.nan, .LTR)
+
+        XCTAssertEqual(YGNodeLayoutGetWidth(child.yogaNode), 100, accuracy: 0.1)
+        XCTAssertEqual(YGNodeLayoutGetHeight(child.yogaNode), 100, accuracy: 0.1,
+                       "width:100 / aspectRatio:1 should give height:100 in block layout")
+        YGNodeRemoveAllChildren(parent.yogaNode)
+    }
+
+    func testAspectRatioWithMaxHeightInBlockParent() {
+        // width:200 + aspectRatio:1 → computed height:200, clamped by maxHeight:80
+        let parent = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["width": 390]],
+            surfaceId: 0
+        )
+        let child = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["width": 200, "aspectRatio": 1, "maxHeight": 80]],
+            surfaceId: 0
+        )
+        YGNodeInsertChild(parent.yogaNode, child.yogaNode, 0)
+        YGNodeCalculateLayout(parent.yogaNode, 390, Float.nan, .LTR)
+
+        XCTAssertEqual(YGNodeLayoutGetWidth(child.yogaNode), 200, accuracy: 0.1)
+        XCTAssertEqual(YGNodeLayoutGetHeight(child.yogaNode), 80, accuracy: 0.1,
+                       "height from aspectRatio should be clamped by maxHeight")
+        YGNodeRemoveAllChildren(parent.yogaNode)
+    }
+
+    func testAspectRatioWithNSNumberValues() {
+        // Values from JSC arrive as NSNumber, not Swift Int/Double.
+        // Verify toFloat handles NSNumber correctly.
+        let n = YGNodeNewWithConfig(YogaConfig.shared)!
+        let style: [String: Any] = [
+            "width": NSNumber(value: 200),
+            "aspectRatio": NSNumber(value: 2)
+        ]
+        YogaStyleApplier.apply(style, to: n)
+        YGNodeCalculateLayout(n, Float.nan, Float.nan, .LTR)
+        XCTAssertEqual(YGNodeLayoutGetWidth(n), 200, accuracy: 0.1)
+        XCTAssertEqual(YGNodeLayoutGetHeight(n), 100, accuracy: 0.1,
+                       "aspectRatio with NSNumber values should compute height correctly")
+        YGNodeFree(n)
+    }
+
     // MARK: - Existing properties (regression coverage)
+
+    func testMaxHeightClampsHeightInFlexColumn() {
+        // Reproduces max-height-in-flex section 3 via ShadowTreeBuilder
+        // (the LayoutCompare code path).
+        let builder = ShadowTreeBuilder(surfaceId: 0, viewportWidth: 390, viewportHeight: 844)
+
+        // Root div with padding
+        builder.openElement(type: "div", props: ["style": ["padding": 8]])
+
+        // Flex column container with gap
+        builder.openElement(type: "div", props: ["style": [
+            "display": "flex",
+            "flexDirection": "column",
+            "width": 374,
+            "backgroundColor": "#d5e8d4",
+            "padding": 8,
+            "marginBottom": 8,
+            "gap": 4
+        ] as [String: Any]])
+
+        // Child 1: height:80, maxHeight:30
+        builder.openElement(type: "div", props: ["style": ["height": 80, "maxHeight": 30]])
+        builder.closeElement()
+
+        // Child 2: height:80, maxHeight:50
+        builder.openElement(type: "div", props: ["style": ["height": 80, "maxHeight": 50]])
+        builder.closeElement()
+
+        // Child 3: height:40
+        builder.openElement(type: "div", props: ["style": ["height": 40]])
+        builder.closeElement()
+
+        builder.closeElement() // flex column container
+        builder.closeElement() // root div
+
+        builder.rootComplete()
+
+        // Check the flex column container's children
+        let root = builder.rootChildren[0]
+        let container = root.children[0]
+        let c1 = container.children[0]
+        let c2 = container.children[1]
+        let c3 = container.children[2]
+
+        let h1 = YGNodeLayoutGetHeight(c1.yogaNode)
+        let h2 = YGNodeLayoutGetHeight(c2.yogaNode)
+        let h3 = YGNodeLayoutGetHeight(c3.yogaNode)
+        print("ShadowTreeBuilder maxHeight: child heights = \(h1), \(h2), \(h3)")
+        print("ShadowTreeBuilder maxHeight: container height = \(YGNodeLayoutGetHeight(container.yogaNode))")
+
+        XCTAssertEqual(h1, 30, accuracy: 0.1,
+                       "height:80 maxHeight:30 should clamp to 30")
+        XCTAssertEqual(h2, 50, accuracy: 0.1,
+                       "height:80 maxHeight:50 should clamp to 50")
+        XCTAssertEqual(h3, 40, accuracy: 0.1,
+                       "height:40 with no maxHeight should stay 40")
+
+        // Total content = 8(pad) + 30 + 4(gap) + 50 + 4(gap) + 40 + 8(pad) = 144
+        XCTAssertEqual(YGNodeLayoutGetHeight(container.yogaNode), 144, accuracy: 0.1,
+                       "container height should be sum of clamped children + gaps + padding")
+    }
 
     func testRelativePositionOffset() {
         // Test 1: Flex parent — Yoga includes relative offset in layout
@@ -162,6 +339,46 @@ final class YogaStyleApplierTests: XCTestCase {
         YGNodeRemoveAllChildren(blockParent.yogaNode)
     }
 
+    func testAbsolutePositionInBlockLayout() {
+        // Verify absolute positioning works in Yoga block layout
+        let container = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["width": 300, "height": 200, "position": "relative"]],
+            surfaceId: 0
+        )
+        let child = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": [
+                "width": 60, "height": 60,
+                "position": "absolute", "top": 10, "left": 10
+            ]],
+            surfaceId: 0
+        )
+
+        // Add to both Yoga tree AND children array (as ShadowTreeBuilder does)
+        container.children.append(child)
+        YGNodeInsertChild(container.yogaNode, child.yogaNode, 0)
+
+        // Apply flex context override (as ShadowTreeBuilder does)
+        let parentStyle = container.props["style"] as? [String: Any] ?? [:]
+        let childStyle = child.props["style"] as? [String: Any] ?? [:]
+        YogaStyleApplier.applyFlexContextOverride(
+            parent: container.yogaNode, child: child.yogaNode,
+            parentStyle: parentStyle, childStyle: childStyle
+        )
+
+        YGNodeCalculateLayout(container.yogaNode, 300, 200, .LTR)
+        ShadowTreeLayout.readLayoutFrames(node: container)
+
+        // Child should be at (10, 10) with size (60, 60)
+        XCTAssertEqual(child.layoutFrame.origin.x, 10, accuracy: 0.01, "absolute left:10 should be applied")
+        XCTAssertEqual(child.layoutFrame.origin.y, 10, accuracy: 0.01, "absolute top:10 should be applied")
+        XCTAssertEqual(child.layoutFrame.width, 60, accuracy: 0.01)
+        XCTAssertEqual(child.layoutFrame.height, 60, accuracy: 0.01)
+
+        YGNodeRemoveAllChildren(container.yogaNode)
+    }
+
     func testFlexDirectionColumn() {
         YogaStyleApplier.apply(["flexDirection": "column"], to: node)
         XCTAssertEqual(YGNodeStyleGetFlexDirection(node), .column)
@@ -205,6 +422,21 @@ final class YogaStyleApplierTests: XCTestCase {
     func testAlignItemsCenter() {
         YogaStyleApplier.apply(["alignItems": "center"], to: node)
         XCTAssertEqual(YGNodeStyleGetAlignItems(node), .center)
+    }
+
+    func testAlignContentCenter() {
+        YogaStyleApplier.apply(["alignContent": "center"], to: node)
+        XCTAssertEqual(YGNodeStyleGetAlignContent(node), .center)
+    }
+
+    func testAlignContentSpaceBetween() {
+        YogaStyleApplier.apply(["alignContent": "space-between"], to: node)
+        XCTAssertEqual(YGNodeStyleGetAlignContent(node), .spaceBetween)
+    }
+
+    func testAlignContentSpaceEvenly() {
+        YogaStyleApplier.apply(["alignContent": "space-evenly"], to: node)
+        XCTAssertEqual(YGNodeStyleGetAlignContent(node), .spaceEvenly)
     }
 
     func testJustifyContentSpaceBetween() {
@@ -739,4 +971,312 @@ final class YogaStyleApplierTests: XCTestCase {
         YGNodeFree(row3)
         YGNodeFree(row4)
     }
+
+    // MARK: - maxHeight in flex context
+
+    func testMaxHeightOnFlexChildrenContentBox() {
+        // Reproduces the max-height-in-flex fixture: section 3
+        // Column flex container with gap:4, padding:8.
+        // Children: height:80+maxHeight:30, height:80+maxHeight:50, height:40.
+        // CSS expected: clamped to 30+50+40 + 2*4 gap = 128 content, 128+16 pad = 144
+        let config = YogaConfig.shared
+
+        let container = YGNodeNewWithConfig(config)!
+        YGNodeStyleSetBoxSizing(container, .contentBox)
+        YGNodeStyleSetDisplay(container, .flex)
+        YGNodeStyleSetFlexDirection(container, .column)
+        YGNodeStyleSetWidth(container, 374)
+        YGNodeStyleSetPadding(container, .all, 8)
+        YGNodeStyleSetGap(container, .all, 4)
+
+        // Child 1: height 80, maxHeight 30
+        let child1 = YGNodeNewWithConfig(config)!
+        YGNodeStyleSetBoxSizing(child1, .contentBox)
+        YGNodeStyleSetDisplay(child1, .flex)
+        YGNodeStyleSetFlexDirection(child1, .column)
+        YGNodeStyleSetHeight(child1, 80)
+        YGNodeStyleSetMaxHeight(child1, 30)
+        YGNodeInsertChild(container, child1, 0)
+
+        // Child 2: height 80, maxHeight 50
+        let child2 = YGNodeNewWithConfig(config)!
+        YGNodeStyleSetBoxSizing(child2, .contentBox)
+        YGNodeStyleSetDisplay(child2, .flex)
+        YGNodeStyleSetFlexDirection(child2, .column)
+        YGNodeStyleSetHeight(child2, 80)
+        YGNodeStyleSetMaxHeight(child2, 50)
+        YGNodeInsertChild(container, child2, 1)
+
+        // Child 3: height 40
+        let child3 = YGNodeNewWithConfig(config)!
+        YGNodeStyleSetBoxSizing(child3, .contentBox)
+        YGNodeStyleSetDisplay(child3, .flex)
+        YGNodeStyleSetFlexDirection(child3, .column)
+        YGNodeStyleSetHeight(child3, 40)
+        YGNodeInsertChild(container, child3, 2)
+
+        YGNodeCalculateLayout(container, 374, Float.nan, .LTR)
+
+        let h1 = YGNodeLayoutGetHeight(child1)
+        let h2 = YGNodeLayoutGetHeight(child2)
+        let h3 = YGNodeLayoutGetHeight(child3)
+        let hContainer = YGNodeLayoutGetHeight(container)
+
+        print("Child 1 height: \(h1) (expected 30)")
+        print("Child 2 height: \(h2) (expected 50)")
+        print("Child 3 height: \(h3) (expected 40)")
+        print("Container height: \(hContainer) (expected 144)")
+
+        XCTAssertEqual(h1, 30, accuracy: 0.1, "maxHeight should clamp height from 80 to 30")
+        XCTAssertEqual(h2, 50, accuracy: 0.1, "maxHeight should clamp height from 80 to 50")
+        XCTAssertEqual(h3, 40, accuracy: 0.1, "height should be 40")
+        XCTAssertEqual(hContainer, 144, accuracy: 0.1, "container = 30+50+40+8gap+16pad = 144")
+
+        YGNodeFree(container)
+    }
+
+    func testMaxHeightOnFlexChildrenBlockPromoted() {
+        // Same as above but with display:block children promoted to flex
+        // via applyFlexContextOverride (matching the actual native rendering path).
+        let config = YogaConfig.shared
+
+        // Container: display:flex, flexDirection:column, padding:8, gap:4
+        let container = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": [
+                "display": "flex",
+                "flexDirection": "column",
+                "width": 374,
+                "padding": 8,
+                "gap": 4
+            ] as [String: Any]],
+            surfaceId: 0
+        )
+
+        // Child 1: height:80, maxHeight:30
+        let child1 = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["height": 80, "maxHeight": 30] as [String: Any]],
+            surfaceId: 0
+        )
+
+        // Child 2: height:80, maxHeight:50
+        let child2 = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["height": 80, "maxHeight": 50] as [String: Any]],
+            surfaceId: 0
+        )
+
+        // Child 3: height:40
+        let child3 = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["height": 40] as [String: Any]],
+            surfaceId: 0
+        )
+
+        // Insert children with flex context override
+        let containerStyle = container.props["style"] as? [String: Any] ?? [:]
+
+        for (i, child) in [child1, child2, child3].enumerated() {
+            YGNodeInsertChild(container.yogaNode, child.yogaNode, i)
+            let childStyle = child.props["style"] as? [String: Any] ?? [:]
+            YogaStyleApplier.applyFlexContextOverride(
+                parent: container.yogaNode,
+                child: child.yogaNode,
+                parentStyle: containerStyle,
+                childStyle: childStyle
+            )
+        }
+
+        YGNodeCalculateLayout(container.yogaNode, 374, Float.nan, .LTR)
+
+        let h1 = YGNodeLayoutGetHeight(child1.yogaNode)
+        let h2 = YGNodeLayoutGetHeight(child2.yogaNode)
+        let h3 = YGNodeLayoutGetHeight(child3.yogaNode)
+        let hContainer = YGNodeLayoutGetHeight(container.yogaNode)
+
+        print("Block-promoted child 1 height: \(h1) (expected 30)")
+        print("Block-promoted child 2 height: \(h2) (expected 50)")
+        print("Block-promoted child 3 height: \(h3) (expected 40)")
+        print("Block-promoted container height: \(hContainer) (expected 144)")
+
+        XCTAssertEqual(h1, 30, accuracy: 0.1, "maxHeight should clamp height from 80 to 30")
+        XCTAssertEqual(h2, 50, accuracy: 0.1, "maxHeight should clamp height from 80 to 50")
+        XCTAssertEqual(h3, 40, accuracy: 0.1, "height should be 40")
+        XCTAssertEqual(hContainer, 144, accuracy: 0.1, "container = 30+50+40+8gap+16pad = 144")
+    }
+
+    func testMaxHeightInBlockParentWithFlexChildren() {
+        // Full hierarchy test: temp root (flex col) → block div → flex container → children with maxHeight.
+        // Verifies the Yoga workaround in apply() that pre-clamps height when
+        // both height and maxHeight are set as point values. Without the workaround,
+        // Yoga uses the unclamped height for computing ancestor auto heights.
+        let config = YogaConfig.shared
+
+        // Temp root (like calculateYogaLayout creates)
+        let tempRoot = YGNodeNewWithConfig(config)!
+        YGNodeStyleSetFlexDirection(tempRoot, .column)
+        YGNodeStyleSetWidth(tempRoot, 390)
+
+        // Root div: display:block, padding:8
+        let rootDiv = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["padding": 8] as [String: Any]],
+            surfaceId: 0
+        )
+
+        // Flex column container: padding:8, gap:4
+        let section3 = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": [
+                "display": "flex",
+                "flexDirection": "column",
+                "width": 374,
+                "padding": 8,
+                "gap": 4,
+                "marginBottom": 8
+            ] as [String: Any]],
+            surfaceId: 0
+        )
+
+        // Children with height + maxHeight
+        let s3child1 = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["height": 80, "maxHeight": 30] as [String: Any]],
+            surfaceId: 0
+        )
+        let s3child2 = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["height": 80, "maxHeight": 50] as [String: Any]],
+            surfaceId: 0
+        )
+        let s3child3 = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": ["height": 40] as [String: Any]],
+            surfaceId: 0
+        )
+
+        // Wire up hierarchy
+        let s3Style = section3.props["style"] as? [String: Any] ?? [:]
+        for (i, child) in [s3child1, s3child2, s3child3].enumerated() {
+            YGNodeInsertChild(section3.yogaNode, child.yogaNode, i)
+            let childStyle = child.props["style"] as? [String: Any] ?? [:]
+            YogaStyleApplier.applyFlexContextOverride(
+                parent: section3.yogaNode, child: child.yogaNode,
+                parentStyle: s3Style, childStyle: childStyle
+            )
+        }
+        YGNodeInsertChild(rootDiv.yogaNode, section3.yogaNode, 0)
+        let rootDivStyle = rootDiv.props["style"] as? [String: Any] ?? [:]
+        YogaStyleApplier.applyFlexContextOverride(
+            parent: rootDiv.yogaNode, child: section3.yogaNode,
+            parentStyle: rootDivStyle, childStyle: s3Style
+        )
+        YGNodeInsertChild(tempRoot, rootDiv.yogaNode, 0)
+
+        // Calculate layout
+        YGNodeCalculateLayout(tempRoot, 390, Float.nan, .LTR)
+
+        XCTAssertEqual(YGNodeLayoutGetHeight(s3child1.yogaNode), 30, accuracy: 0.1,
+                       "maxHeight should clamp height from 80 to 30")
+        XCTAssertEqual(YGNodeLayoutGetHeight(s3child2.yogaNode), 50, accuracy: 0.1,
+                       "maxHeight should clamp height from 80 to 50")
+        XCTAssertEqual(YGNodeLayoutGetHeight(s3child3.yogaNode), 40, accuracy: 0.1,
+                       "height should be 40")
+        XCTAssertEqual(YGNodeLayoutGetHeight(section3.yogaNode), 144, accuracy: 0.1,
+                       "section = 30+50+40+8gap+16pad = 144")
+        XCTAssertEqual(YGNodeLayoutGetHeight(rootDiv.yogaNode), 168, accuracy: 0.1,
+                       "root = 144section + 8mb + 16pad = 168")
+
+        YGNodeRemoveAllChildren(tempRoot)
+        YGNodeFree(tempRoot)
+    }
+
+    func testOverflowHiddenDoesNotShrinkChildren() {
+        // Reproduces overflow-radius fixture: a block div with overflow:hidden
+        // and fixed height contains a child with larger explicit height.
+        // CSS: the child keeps its full height (80px) and overflows (clipped).
+        // Yoga: block-to-flex promotion makes the child a flex item with
+        // flexShrink:1 (web default), incorrectly shrinking it.
+        //
+        // Hierarchy: flex-row → block-circle (h:60, overflow:hidden) → inner-div (h:80, mt:-10)
+        // Path: root > div[1] > div[1] > div[0]
+
+        // Flex row parent
+        let flexRow = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": [
+                "display": "flex",
+                "flexDirection": "row",
+                "width": 374,
+                "gap": 16,
+                "alignItems": "center"
+            ] as [String: Any]],
+            surfaceId: 0
+        )
+
+        // Circle container: block div with overflow:hidden and fixed height
+        let circle = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": [
+                "width": 60,
+                "height": 60,
+                "borderRadius": 30,
+                "overflow": "hidden",
+                "backgroundColor": "#9b59b6"
+            ] as [String: Any]],
+            surfaceId: 0
+        )
+
+        // Inner div: larger than parent, with negative margin
+        let inner = ShadowNodeWrapper.createElementNode(
+            type: "div",
+            props: ["style": [
+                "width": 80,
+                "height": 80,
+                "backgroundColor": "#e67e22",
+                "marginTop": -10,
+                "marginLeft": -10
+            ] as [String: Any]],
+            surfaceId: 0
+        )
+
+        // Build bottom-up (SSR order): inner → circle → flexRow
+        circle.children.append(inner)
+        YGNodeInsertChild(circle.yogaNode, inner.yogaNode, 0)
+
+        flexRow.children.append(circle)
+        YGNodeInsertChild(flexRow.yogaNode, circle.yogaNode, 0)
+        let flexRowStyle = flexRow.props["style"] as? [String: Any] ?? [:]
+        let circleStyle = circle.props["style"] as? [String: Any] ?? [:]
+        let circleDisplayBefore = YGNodeStyleGetDisplay(circle.yogaNode)
+        YogaStyleApplier.applyFlexContextOverride(
+            parent: flexRow.yogaNode,
+            child: circle.yogaNode,
+            parentStyle: flexRowStyle,
+            childStyle: circleStyle
+        )
+        // Cascade to circle's children
+        if circleDisplayBefore != YGNodeStyleGetDisplay(circle.yogaNode) {
+            let overriddenParentStyle: [String: Any] = ["display": "flex"]
+            let innerStyle = inner.props["style"] as? [String: Any] ?? [:]
+            YogaStyleApplier.applyFlexContextOverride(
+                parent: circle.yogaNode,
+                child: inner.yogaNode,
+                parentStyle: overriddenParentStyle,
+                childStyle: innerStyle
+            )
+        }
+
+        YGNodeCalculateLayout(flexRow.yogaNode, 374, Float.nan, .LTR)
+
+        let innerHeight = YGNodeLayoutGetHeight(inner.yogaNode)
+        print("Inner div height: \(innerHeight) (expected 80)")
+        print("Inner flexShrink: \(YGNodeStyleGetFlexShrink(inner.yogaNode))")
+
+        // CSS: child keeps its explicit height=80, overflows the parent (clipped by overflow:hidden)
+        XCTAssertEqual(innerHeight, 80, accuracy: 0.1,
+                       "Child should keep explicit height=80, not be flex-shrunk")
+    }
 }
+

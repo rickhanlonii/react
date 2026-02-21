@@ -106,6 +106,67 @@ class FixtureRunner {
             print("[LayoutCompare] \(json)")
         }
     }
+
+    func runSingle(fixture name: String, fixtures: [String], webRenderer: WebRendererModel, nativeRenderer: NativeRendererModel) {
+        guard !isRunning else { return }
+        guard fixtures.contains(name) else { return }
+        isRunning = true
+        currentFixture = name
+
+        HTTPResultsServer.shared.latestResults.status = "running"
+
+        webRenderer.onReady { [weak self] in
+            guard let self = self else { return }
+
+            webRenderer.renderFixture(name) { [weak self] in
+                webRenderer.extractLayout { webLayout in
+                    guard let self = self else { return }
+                    guard let webLayout = webLayout else {
+                        self.results[name] = .error("Failed to extract web layout")
+                        let fixtureResult = HTTPResultsServer.FixtureResult(passed: false, elements: 0, diffs: [], error: "Failed to extract web layout")
+                        HTTPResultsServer.shared.latestResults.fixtures[name] = fixtureResult
+                        self.finishSingle()
+                        return
+                    }
+
+                    nativeRenderer.renderFixture(name) { [weak self] in
+                        guard let self = self else { return }
+                        guard let nativeLayout = nativeRenderer.extractLayout() else {
+                            self.results[name] = .error("Failed to extract native layout")
+                            let fixtureResult = HTTPResultsServer.FixtureResult(passed: false, elements: 0, diffs: [], error: "Failed to extract native layout")
+                            HTTPResultsServer.shared.latestResults.fixtures[name] = fixtureResult
+                            self.finishSingle()
+                            return
+                        }
+
+                        let diffs = LayoutComparer.compare(web: webLayout, native: nativeLayout)
+                        let elementCount = LayoutComparer.countElements(webLayout)
+
+                        if diffs.isEmpty {
+                            self.results[name] = .passed(elementCount: elementCount)
+                        } else {
+                            self.results[name] = .failed(diffs: diffs, elementCount: elementCount)
+                        }
+
+                        let fixtureResult = HTTPResultsServer.FixtureResult(passed: diffs.isEmpty, elements: elementCount, diffs: diffs)
+                        HTTPResultsServer.shared.latestResults.fixtures[name] = fixtureResult
+
+                        self.printResults(fixture: name, diffs: diffs, elementCount: elementCount, error: nil)
+                        self.finishSingle()
+                    }
+                }
+            }
+        }
+    }
+
+    private func finishSingle() {
+        isRunning = false
+        currentFixture = nil
+        let passedCount = HTTPResultsServer.shared.latestResults.fixtures.values.filter { $0.passed }.count
+        HTTPResultsServer.shared.latestResults.status = "complete"
+        HTTPResultsServer.shared.latestResults.passed = passedCount
+        HTTPResultsServer.shared.latestResults.total = HTTPResultsServer.shared.latestResults.fixtures.count
+    }
 }
 
 struct FixtureListView: View {
@@ -162,6 +223,11 @@ struct FixtureListView: View {
                 // Wire up HTTP run-all callback
                 HTTPResultsServer.shared.onRunAllRequested = {
                     runner.runAll(fixtures: fixtureNames, webRenderer: webRenderer, nativeRenderer: nativeRenderer)
+                }
+
+                // Wire up HTTP run-single callback
+                HTTPResultsServer.shared.onRunFixtureRequested = { fixtureName in
+                    runner.runSingle(fixture: fixtureName, fixtures: fixtureNames, webRenderer: webRenderer, nativeRenderer: nativeRenderer)
                 }
 
                 // Auto-run if launched with --run-all

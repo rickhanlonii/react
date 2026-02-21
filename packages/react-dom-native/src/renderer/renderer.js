@@ -5,6 +5,10 @@ const HostConfig = require('./HostConfig');
 
 const reconciler = Reconciler(HostConfig);
 
+// Register with __REACT_DEVTOOLS_GLOBAL_HOOK__ — this triggers
+// injectInternals() which enables profiling hooks and DevTools integration.
+reconciler.injectIntoDevTools();
+
 // Register the event handler that maps native events to React props.
 // When a native event arrives (e.g. type='click'), the handler looks up
 // the corresponding React prop (e.g. 'onClick') on the fiber's props
