@@ -33,6 +33,15 @@ public final class JavaScriptCoreEngine: JSEngine {
         }
         self.context = ctx
 
+        // Enable Safari Web Inspector for breakpoint debugging in debug builds.
+        // Users connect via Safari → Develop → Simulator → "Falcon — react-dom-native".
+        #if DEBUG
+        if #available(iOS 16.4, *) {
+            context.isInspectable = true
+        }
+        context.name = "Falcon — react-dom-native"
+        #endif
+
         // Wire JSC exceptions to our handler
         context.exceptionHandler = { [weak self] _, exception in
             guard let error = exception else { return }
