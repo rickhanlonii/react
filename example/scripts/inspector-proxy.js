@@ -549,6 +549,54 @@ function createNetworkDomain() {
 }
 
 // ---------------------------------------------------------------------------
+// Debugger domain
+// ---------------------------------------------------------------------------
+
+function createDebuggerDomain() {
+  function handle(method, params, ctx) {
+    switch (method) {
+      case 'enable':
+        // Emit scriptParsed for the main bundle so DevTools knows about
+        // the script. Source maps are inline in the bundle (esbuild
+        // sourcemap: 'inline'), so DevTools will discover them automatically
+        // from the //# sourceMappingURL=data: comment.
+        ctx.sendCDP(ctx.ws, {
+          method: 'Debugger.scriptParsed',
+          params: {
+            scriptId: '1',
+            url: 'http://localhost:6000/bundle.js',
+            startLine: 0,
+            startColumn: 0,
+            endLine: 999999,
+            endColumn: 0,
+            executionContextId: 1,
+            hash: '',
+          },
+        });
+        return {debuggerId: 'falcon-debugger-1'};
+      case 'disable':
+        return {};
+      case 'getScriptSource':
+        // Real source is served by the RSC server; return empty here
+        return {scriptSource: ''};
+      case 'setPauseOnExceptions':
+        return {};
+      case 'setAsyncCallStackDepth':
+        return {};
+      case 'setBlackboxPatterns':
+        return {};
+      default:
+        return {};
+    }
+  }
+
+  return {
+    name: 'Debugger',
+    handle: handle,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // createInspectorProxy
 // ---------------------------------------------------------------------------
 
@@ -590,6 +638,7 @@ function createInspectorProxy(options) {
   var domDomain = createDOMDomain();
   var logDomain = createLogDomain();
   var networkDomain = createNetworkDomain();
+  var debuggerDomain = createDebuggerDomain();
 
   var router = createDomainRouter([
     tracingDomain,
@@ -600,6 +649,7 @@ function createInspectorProxy(options) {
     domDomain,
     logDomain,
     networkDomain,
+    debuggerDomain,
   ]);
 
   // -----------------------------------------------------------------------
