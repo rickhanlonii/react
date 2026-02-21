@@ -490,6 +490,39 @@ function createDOMDomain() {
 }
 
 // ---------------------------------------------------------------------------
+// Log domain
+// ---------------------------------------------------------------------------
+
+function createLogDomain() {
+  var enabled = false;
+
+  function handle(method, params, ctx) {
+    switch (method) {
+      case 'enable':
+        enabled = true;
+        return {};
+      case 'disable':
+        enabled = false;
+        return {};
+      case 'clear':
+        return {};
+      case 'startViolationsReport':
+        return {};
+      case 'stopViolationsReport':
+        return {};
+      default:
+        return {};
+    }
+  }
+
+  return {
+    name: 'Log',
+    handle: handle,
+    isEnabled: function () { return enabled; },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // createInspectorProxy
 // ---------------------------------------------------------------------------
 
@@ -529,6 +562,7 @@ function createInspectorProxy(options) {
   var profilerDomain = createProfilerDomain();
   var pageDomain = createPageDomain(targetId);
   var domDomain = createDOMDomain();
+  var logDomain = createLogDomain();
 
   var router = createDomainRouter([
     tracingDomain,
@@ -537,6 +571,7 @@ function createInspectorProxy(options) {
     profilerDomain,
     pageDomain,
     domDomain,
+    logDomain,
   ]);
 
   // -----------------------------------------------------------------------
@@ -663,6 +698,22 @@ function createInspectorProxy(options) {
           stackTrace: message.stackTrace || {callFrames: []},
         },
       });
+
+      // Also emit Log.entryAdded for error-level messages
+      if (message.cdpType === 'error' && logDomain.isEnabled()) {
+        broadcastCDP({
+          method: 'Log.entryAdded',
+          params: {
+            entry: {
+              source: 'javascript',
+              level: 'error',
+              text: (message.args || []).map(function (a) { return a.value || a.description || ''; }).join(' '),
+              timestamp: message.timestamp || Date.now(),
+              stackTrace: message.stackTrace || {callFrames: []},
+            },
+          },
+        });
+      }
     }
   }
 
