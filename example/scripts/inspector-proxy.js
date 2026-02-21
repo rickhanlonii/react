@@ -297,6 +297,9 @@ function emitTraceEvents(ws, id, events, domainPrefix, targetId, ctx) {
 // ---------------------------------------------------------------------------
 
 function createRuntimeDomain() {
+  // Pending CDP requests forwarded to the app
+  var pendingCDPRequests = new Map(); // requestId -> {ws, id}
+
   function handle(method, params, ctx) {
     switch (method) {
       case 'enable':
@@ -319,8 +322,27 @@ function createRuntimeDomain() {
       case 'runIfWaitingForDebugger':
         return {};
 
-      case 'getHeapUsage':
-        return {usedSize: 0, totalSize: 0};
+      // Forward these methods to JSC for real evaluation
+      case 'evaluate':
+      case 'getProperties':
+      case 'callFunctionOn':
+      case 'releaseObject':
+      case 'releaseObjectGroup':
+      case 'globalLexicalScopeNames':
+      case 'getHeapUsage': {
+        var requestId = 'cdp-' + ctx._currentId;
+        pendingCDPRequests.set(requestId, {ws: ctx.ws, id: ctx._currentId});
+        if (ctx.sendToApp) {
+          ctx.sendToApp(JSON.stringify({
+            type: 'cdp-request',
+            requestId: requestId,
+            domain: 'Runtime',
+            method: method,
+            params: params,
+          }));
+        }
+        return null; // Response sent asynchronously via handleAppMessage
+      }
 
       default:
         return {};
@@ -330,6 +352,16 @@ function createRuntimeDomain() {
   return {
     name: 'Runtime',
     handle: handle,
+    handleAppMessage: function (message) {
+      if (message.type === 'cdp-response') {
+        var pending = pendingCDPRequests.get(message.requestId);
+        if (pending) {
+          pendingCDPRequests.delete(message.requestId);
+          pending.ws.readyState === 1 &&
+            pending.ws.send(JSON.stringify({id: pending.id, result: message.result}));
+        }
+      }
+    },
   };
 }
 
@@ -607,6 +639,17 @@ function createInspectorProxy(options) {
     // Route to domain handlers that care about app messages
     tracingDomain.handleAppMessage(message);
     nodeTracingDomain.handleAppMessage(message);
+    if (runtimeDomain.handleAppMessage) {
+      runtimeDomain.handleAppMessage(message);
+    }
+
+    if (message.type === 'cdp-event') {
+      // Broadcast CDP event from app to all connected DevTools clients
+      broadcastCDP({
+        method: message.method,
+        params: message.params,
+      });
+    }
 
     if (message.type === 'console-message') {
       // Forward as Runtime.consoleAPICalled to all connected DevTools clients
