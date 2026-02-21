@@ -1,4 +1,5 @@
 import SwiftUI
+import WebKit
 
 struct ComparisonView: View {
     let fixtureName: String
@@ -8,34 +9,30 @@ struct ComparisonView: View {
     @State private var elementCount: Int = 0
     @State private var isComparing = true
     @State private var error: String?
+    @State private var comparisonMode: ComparisonMode = .split
+    @State private var overlayOpacity: Double = 0.5
+    @State private var showDiffSheet = false
+    @State private var pixelDiff: PixelDiffResult?
+    private let scrollSync = ScrollSyncCoordinator()
 
     var body: some View {
         VStack(spacing: 0) {
-            // Web rendering (top third)
-            VStack(spacing: 4) {
-                Text("Web (react-dom)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                WebRendererView(model: webRenderer)
-                    .frame(maxHeight: .infinity)
+            // Mode picker
+            Picker("Mode", selection: $comparisonMode) {
+                ForEach(ComparisonMode.allCases, id: \.self) { mode in
+                    Text(mode.rawValue).tag(mode)
+                }
             }
+            .pickerStyle(.segmented)
+            .padding(.horizontal)
+            .padding(.vertical, 6)
 
-            Divider()
-
-            // Native rendering (middle third)
-            VStack(spacing: 4) {
-                Text("Native (react-dom-native)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                NativeRendererView(model: nativeRenderer)
-                    .frame(maxHeight: .infinity)
-            }
-
-            Divider()
-
-            // Diff results (bottom section)
-            VStack(spacing: 0) {
-                // Summary bar
+            // Compact summary bar (tappable to show diff sheet)
+            Button {
+                if !diffs.isEmpty {
+                    showDiffSheet = true
+                }
+            } label: {
                 HStack {
                     if isComparing {
                         ProgressView()
@@ -50,60 +47,116 @@ struct ComparisonView: View {
                     } else if diffs.isEmpty {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundColor(.green)
-                        Text("\(elementCount) elements, 0 diffs")
-                            .font(.caption)
+                        if let px = pixelDiff {
+                            Text("0 diffs, \(px.mismatchedPixels) px (\(String(format: "%.1f", px.percentage))%)")
+                                .font(.caption)
+                        } else {
+                            Text("0 diffs")
+                                .font(.caption)
+                        }
                     } else {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundColor(.orange)
-                        Text("\(diffs.count) mismatches")
-                            .font(.caption)
+                        if let px = pixelDiff {
+                            Text("\(diffs.count)/\(elementCount) diffs, \(px.mismatchedPixels) px (\(String(format: "%.1f", px.percentage))%)")
+                                .font(.caption)
+                        } else {
+                            Text("\(diffs.count)/\(elementCount) diffs")
+                                .font(.caption)
+                        }
+                        Image(systemName: "chevron.right")
+                            .font(.caption2)
+                            .foregroundColor(Color(uiColor: .tertiaryLabel))
                     }
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 6)
                 .frame(maxWidth: .infinity)
                 .background(Color(.systemGroupedBackground))
+            }
+            .buttonStyle(.plain)
+            .disabled(diffs.isEmpty)
 
-                // Diff detail list
-                if !diffs.isEmpty {
-                    List(Array(diffs.enumerated()), id: \.offset) { _, diff in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("\(diff.path).\(diff.property)")
-                                .font(.caption)
-                                .fontWeight(.medium)
-                            if diff.isStringDiff {
-                                HStack {
-                                    Text("web: \"\(diff.webString ?? "")\"")
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
-                                    Text("native: \"\(diff.nativeString ?? "")\"")
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
-                                }
-                            } else {
-                                HStack {
-                                    Text("web: \(diff.web, specifier: "%.1f")")
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
-                                    Text("native: \(diff.native, specifier: "%.1f")")
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
-                                    Text("delta: \(diff.delta, specifier: "%+.1f")")
-                                        .font(.caption2)
-                                        .foregroundColor(abs(diff.delta) > 5 ? .red : .orange)
-                                }
+            // Unified content area
+            OverlayComparisonView(
+                webView: webRenderer.webView,
+                nativeScrollView: nativeRenderer.scrollView,
+                mode: comparisonMode,
+                overlayOpacity: overlayOpacity
+            )
+            .frame(maxHeight: .infinity)
+
+            // Opacity slider (overlay mode only)
+            if comparisonMode == .overlay {
+                VStack(spacing: 2) {
+                    HStack {
+                        Text("Web")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Slider(value: $overlayOpacity, in: 0...1)
+                        Text("Native")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 6)
+                }
+                .background(Color(.systemGroupedBackground))
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: comparisonMode)
+        .navigationTitle(fixtureName)
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showDiffSheet) {
+            NavigationView {
+                List(Array(diffs.enumerated()), id: \.offset) { _, diff in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(diff.path).\(diff.property)")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                        if diff.isStringDiff {
+                            HStack {
+                                Text("web: \"\(diff.webString ?? "")\"")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Text("native: \"\(diff.nativeString ?? "")\"")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        } else {
+                            HStack {
+                                Text("web: \(diff.web, specifier: "%.1f")")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Text("native: \(diff.native, specifier: "%.1f")")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Text("delta: \(diff.delta, specifier: "%+.1f")")
+                                    .font(.caption2)
+                                    .foregroundColor(abs(diff.delta) > 5 ? .red : .orange)
                             }
                         }
-                        .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
                     }
-                    .listStyle(.plain)
-                    .frame(maxHeight: 200)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
+                }
+                .listStyle(.plain)
+                .navigationTitle("\(diffs.count) Diffs")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") {
+                            showDiffSheet = false
+                        }
+                    }
                 }
             }
         }
-        .navigationTitle(fixtureName)
-        .navigationBarTitleDisplayMode(.inline)
         .onAppear {
+            scrollSync.configure(
+                webScrollView: webRenderer.webView.scrollView,
+                nativeScrollView: nativeRenderer.scrollView
+            )
             renderAndCompare()
         }
     }
@@ -133,11 +186,13 @@ struct ComparisonView: View {
             elementCount = LayoutComparer.countElements(web)
             isComparing = false
 
-            // Print structured results to stdout for log capture
             printResults(diffs: result, elementCount: elementCount)
+
+            PixelComparer.compare(webView: webRenderer.webView, nativeView: nativeRenderer.containerView) { pixelResult in
+                pixelDiff = pixelResult
+            }
         }
 
-        // Render web and native in parallel
         webRenderer.renderFixture(fixtureName) {
             webRenderer.extractLayout { layout in
                 webLayout = layout

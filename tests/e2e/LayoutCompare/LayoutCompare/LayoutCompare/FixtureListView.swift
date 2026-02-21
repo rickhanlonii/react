@@ -5,8 +5,8 @@ import WebKit
 class FixtureRunner {
     enum Result {
         case running
-        case passed(elementCount: Int)
-        case failed(diffs: [LayoutDiff], elementCount: Int)
+        case passed(elementCount: Int, pixelDiff: PixelDiffResult?)
+        case failed(diffs: [LayoutDiff], elementCount: Int, pixelDiff: PixelDiffResult?)
         case error(String)
     }
 
@@ -59,7 +59,7 @@ class FixtureRunner {
                     self.results[name] = .error("Failed to extract web layout")
                     let fixtureResult = HTTPResultsServer.FixtureResult(passed: false, elements: 0, diffs: [], error: "Failed to extract web layout")
                     HTTPResultsServer.shared.latestResults.fixtures[name] = fixtureResult
-                    self.printResults(fixture: name, diffs: [], elementCount: 0, error: "web extract failed")
+                    self.printResults(fixture: name, diffs: [], elementCount: 0, pixelResult: nil, error: "web extract failed")
                     self.runNext(fixtures: fixtures, index: index + 1, webRenderer: webRenderer, nativeRenderer: nativeRenderer)
                     return
                 }
@@ -70,7 +70,7 @@ class FixtureRunner {
                         self.results[name] = .error("Failed to extract native layout")
                         let fixtureResult = HTTPResultsServer.FixtureResult(passed: false, elements: 0, diffs: [], error: "Failed to extract native layout")
                         HTTPResultsServer.shared.latestResults.fixtures[name] = fixtureResult
-                        self.printResults(fixture: name, diffs: [], elementCount: 0, error: "native extract failed")
+                        self.printResults(fixture: name, diffs: [], elementCount: 0, pixelResult: nil, error: "native extract failed")
                         self.runNext(fixtures: fixtures, index: index + 1, webRenderer: webRenderer, nativeRenderer: nativeRenderer)
                         return
                     }
@@ -78,31 +78,38 @@ class FixtureRunner {
                     let diffs = LayoutComparer.compare(web: webLayout, native: nativeLayout)
                     let elementCount = LayoutComparer.countElements(webLayout)
 
-                    if diffs.isEmpty {
-                        self.results[name] = .passed(elementCount: elementCount)
-                    } else {
-                        self.results[name] = .failed(diffs: diffs, elementCount: elementCount)
+                    PixelComparer.compare(webView: webRenderer.webView, nativeView: nativeRenderer.containerView) { pixelResult in
+                        if diffs.isEmpty {
+                            self.results[name] = .passed(elementCount: elementCount, pixelDiff: pixelResult)
+                        } else {
+                            self.results[name] = .failed(diffs: diffs, elementCount: elementCount, pixelDiff: pixelResult)
+                        }
+
+                        // Update HTTP results server
+                        var fixtureResult = HTTPResultsServer.FixtureResult(passed: diffs.isEmpty, elements: elementCount, diffs: diffs)
+                        fixtureResult.pixelDiff = pixelResult
+                        HTTPResultsServer.shared.latestResults.fixtures[name] = fixtureResult
+
+                        self.printResults(fixture: name, diffs: diffs, elementCount: elementCount, pixelResult: pixelResult, error: nil)
+                        self.runNext(fixtures: fixtures, index: index + 1, webRenderer: webRenderer, nativeRenderer: nativeRenderer)
                     }
-
-                    // Update HTTP results server
-                    let fixtureResult = HTTPResultsServer.FixtureResult(passed: diffs.isEmpty, elements: elementCount, diffs: diffs)
-                    HTTPResultsServer.shared.latestResults.fixtures[name] = fixtureResult
-
-                    self.printResults(fixture: name, diffs: diffs, elementCount: elementCount, error: nil)
-                    self.runNext(fixtures: fixtures, index: index + 1, webRenderer: webRenderer, nativeRenderer: nativeRenderer)
                 }
             }
         }
     }
 
-    private func printResults(fixture: String, diffs: [LayoutDiff], elementCount: Int, error: String?) {
+    private func printResults(fixture: String, diffs: [LayoutDiff], elementCount: Int, pixelResult: PixelDiffResult?, error: String?) {
         if let error = error {
             print("[LayoutCompare] fixture=\(fixture) error=\(error)")
             return
         }
+        var pixelStr = ""
+        if let px = pixelResult {
+            pixelStr = " pixels=\(px.mismatchedPixels)/\(px.totalPixels) (\(String(format: "%.1f", px.percentage))%)"
+        }
         if let data = try? JSONEncoder().encode(diffs),
            let json = String(data: data, encoding: .utf8) {
-            print("[LayoutCompare] fixture=\(fixture) elements=\(elementCount) diffs=\(diffs.count)")
+            print("[LayoutCompare] fixture=\(fixture) elements=\(elementCount) diffs=\(diffs.count)\(pixelStr)")
             print("[LayoutCompare] \(json)")
         }
     }
@@ -142,17 +149,20 @@ class FixtureRunner {
                         let diffs = LayoutComparer.compare(web: webLayout, native: nativeLayout)
                         let elementCount = LayoutComparer.countElements(webLayout)
 
-                        if diffs.isEmpty {
-                            self.results[name] = .passed(elementCount: elementCount)
-                        } else {
-                            self.results[name] = .failed(diffs: diffs, elementCount: elementCount)
+                        PixelComparer.compare(webView: webRenderer.webView, nativeView: nativeRenderer.containerView) { pixelResult in
+                            if diffs.isEmpty {
+                                self.results[name] = .passed(elementCount: elementCount, pixelDiff: pixelResult)
+                            } else {
+                                self.results[name] = .failed(diffs: diffs, elementCount: elementCount, pixelDiff: pixelResult)
+                            }
+
+                            var fixtureResult = HTTPResultsServer.FixtureResult(passed: diffs.isEmpty, elements: elementCount, diffs: diffs)
+                            fixtureResult.pixelDiff = pixelResult
+                            HTTPResultsServer.shared.latestResults.fixtures[name] = fixtureResult
+
+                            self.printResults(fixture: name, diffs: diffs, elementCount: elementCount, pixelResult: pixelResult, error: nil)
+                            self.finishSingle()
                         }
-
-                        let fixtureResult = HTTPResultsServer.FixtureResult(passed: diffs.isEmpty, elements: elementCount, diffs: diffs)
-                        HTTPResultsServer.shared.latestResults.fixtures[name] = fixtureResult
-
-                        self.printResults(fixture: name, diffs: diffs, elementCount: elementCount, error: nil)
-                        self.finishSingle()
                     }
                 }
             }
@@ -250,7 +260,6 @@ struct FixtureListView: View {
                 guard version > 0, version != lastBundleVersion else { return }
                 lastBundleVersion = version
                 print("[LayoutCompare] Bundle updated (version \(version)), reloading...")
-                runner.runAll(fixtures: fixtureNames, webRenderer: webRenderer, nativeRenderer: nativeRenderer)
             }
         }
     }
@@ -272,12 +281,30 @@ struct FixtureListView: View {
     private var summaryBar: some View {
         let total = fixtureNames.count
         let passed = runner.results.values.filter {
-            if case .passed = $0 { return true }
+            if case .passed(_, _) = $0 { return true }
             return false
         }.count
         let completed = runner.results.values.filter {
             if case .running = $0 { return false }
             return true
+        }.count
+        let totalDiffs = runner.results.values.reduce(0) { sum, result in
+            if case .failed(let diffs, _, _) = result { return sum + diffs.count }
+            return sum
+        }
+        let totalElements = runner.results.values.reduce(0) { sum, result in
+            switch result {
+            case .passed(let elementCount, _): return sum + elementCount
+            case .failed(_, let elementCount, _): return sum + elementCount
+            default: return sum
+            }
+        }
+        let pixelMismatchCount = runner.results.values.filter { result in
+            switch result {
+            case .passed(_, let px): return (px?.mismatchedPixels ?? 0) > 0
+            case .failed(_, _, let px): return (px?.mismatchedPixels ?? 0) > 0
+            default: return false
+            }
         }.count
 
         return HStack {
@@ -288,14 +315,14 @@ struct FixtureListView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
             } else {
-                if passed == total {
+                if passed == total && pixelMismatchCount == 0 {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundColor(.green)
                 } else {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(.orange)
                 }
-                Text("\(passed)/\(total) passed")
+                Text("\(passed)/\(total) passed, \(totalDiffs)/\(totalElements) diffs, \(pixelMismatchCount) px")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -315,19 +342,33 @@ struct FixtureListView: View {
                 case .running:
                     ProgressView()
                         .scaleEffect(0.7)
-                case .passed(let elementCount):
+                case .passed(let elementCount, let pixelDiff):
                     HStack(spacing: 4) {
-                        Text("\(elementCount) elements")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
+                        if let px = pixelDiff, px.mismatchedPixels > 0 {
+                            Text("\(String(format: "%.1f", px.percentage))% px")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                        } else {
+                            Text("\(elementCount) elements")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                        }
                     }
-                case .failed(let diffs, _):
+                case .failed(let diffs, let elementCount, let pixelDiff):
                     HStack(spacing: 4) {
-                        Text("\(diffs.count) diffs")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
+                        if let px = pixelDiff, px.mismatchedPixels > 0 {
+                            Text("\(diffs.count)/\(elementCount) diffs, \(String(format: "%.1f", px.percentage))% px")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        } else {
+                            Text("\(diffs.count)/\(elementCount) diffs")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
                         Image(systemName: "xmark.circle.fill")
                             .foregroundColor(.red)
                     }

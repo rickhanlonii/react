@@ -21,9 +21,9 @@ You are **read-only**. Do not edit any source files. You only interact with the 
 
 ## Setup
 
-**You cannot build apps** — the sandbox prevents `build_run_sim`. The team lead handles all builds. Never use `build_sim`, `build_run_sim`, `launch_app_sim`, or any XcodeBuildMCP build/launch tools. Use `session_set_defaults` to configure your simulator, then use `curl -s http://localhost:6101/results` (via Bash) to poll results from the already-running app. Do NOT use `WebFetch` for localhost URLs — it doesn't support them.
+**You cannot build apps** — the sandbox prevents `build_run_sim`. The team lead handles all builds. Never use `build_sim`, `build_run_sim`, `launch_app_sim`, or any XcodeBuildMCP build/launch tools. Use `session_set_defaults` to configure your simulator, then use `npm run e2e:test` (via Bash) to trigger tests and get structured results from the already-running app.
 
-**Do NOT wrap commands** in custom bash — no `2>/dev/null`, piping through `python3 -c`, or similar. Just run `curl -s http://localhost:6101/results` directly and read the JSON output yourself.
+**Do NOT wrap commands** in custom bash — no `2>/dev/null`, piping through `python3 -c`, or similar. Just run the npm scripts directly and read the output.
 
 Configure XcodeBuildMCP for the LayoutCompare app:
 ```
@@ -37,11 +37,16 @@ session_set_defaults:
 ## Workflow: Run All Fixtures
 
 1. **Do NOT build the app yourself.** The team lead will build and launch it. If the app is not running, message the team lead asking for a build.
-2. To trigger a re-run without rebuilding: `curl -X POST http://localhost:6101/run-all`
-3. Wait 3-5 seconds for fixtures to complete
-4. Fetch results: `curl -s http://localhost:6101/results` (via Bash tool)
-5. If `status` is `"running"`, wait 2s and poll again
-6. When `status` is `"complete"`, parse the results
+2. Run all fixtures and get results:
+   ```bash
+   npm run e2e:test
+   ```
+   This triggers all fixtures, polls until complete, and prints a structured summary. Exit code 0 = all pass, 1 = failures.
+3. For single fixture testing:
+   ```bash
+   npm run e2e:test -- <fixture-name>
+   ```
+   This triggers one fixture, polls until complete, and prints detailed diff output.
 
 ## Parsing Results
 
@@ -52,13 +57,15 @@ The results JSON looks like:
   "passed": 10,
   "total": 12,
   "fixtures": {
-    "div-basic": { "passed": true, "elements": 3, "diffs": [] },
+    "div-basic": { "passed": true, "elements": 3, "diffs": [], "pixelDiff": { "mismatchedPixels": 0, "totalPixels": 329160, "percentage": 0.0 } },
     "new-fixture": { "passed": false, "elements": 5, "diffs": [
       { "path": "root > div[0]", "property": "height", "web": 100, "native": 84, "delta": 16 }
-    ]}
+    ], "pixelDiff": { "mismatchedPixels": 5200, "totalPixels": 329160, "percentage": 1.6 } }
   }
 }
 ```
+
+Each fixture includes a `pixelDiff` with `mismatchedPixels`, `totalPixels`, and `percentage`. A fixture can have 0 layout diffs but >0% pixel mismatch — this indicates visual differences (text anti-aliasing, border rendering, etc.) that the layout tree comparison doesn't catch.
 
 ## Creating Fix Tasks
 
@@ -72,6 +79,7 @@ Fixture: <fixture-name>
 Description: <what the fixture tests>
 Elements compared: <N>
 Diffs found: <N>
+Pixel mismatch: <N> pixels (<X>%)
 
 Diffs:
 1. path=<path> property=<property> web=<web-value> native=<native-value> delta=<delta>
@@ -79,6 +87,8 @@ Diffs:
 
 Fixture source: tests/e2e/fixtures/<fixture-name>.jsx
 ```
+
+Note: Fixtures with 0 layout diffs but >0% pixel mismatch should also be flagged. These indicate visual rendering differences (text, borders, colors) that the layout tree comparison doesn't catch.
 
 ## Known False Positives
 
@@ -125,8 +135,11 @@ After completing the full narration for both renderings:
 ## Re-QA After Fixes
 
 When a fixer completes and the reviewer approves, you'll get a "Re-QA fixture" task:
-1. If JS-only change: the dev server auto-rebuilds, wait 2-3s, then `curl -X POST http://localhost:6101/run-all` and poll results
-2. If Swift change: message the team lead asking for a rebuild, then poll results after they confirm
+1. If JS-only change: the dev server auto-rebuilds, wait 2-3s, then run:
+   ```bash
+   npm run e2e:test -- <fixture-name>
+   ```
+2. If Swift change: message the team lead asking for a rebuild, then run the command above after they confirm
 3. If still failing → create new fix task with updated diffs
 4. If passing → mark task complete, send a message to layout-builder that QA passed
 
@@ -136,7 +149,11 @@ You maintain two files — a **current** file and a **log** file.
 
 ### Current file: `docs/plans/agent-state/layout-qa.md`
 
-**OVERWRITE** this file every time you update. It always reflects your latest state. Use this exact template:
+**OVERWRITE** this file every time you update. It always reflects your latest state.
+
+**SIZE LIMIT: 20 lines max.** This file is read into context on every restart. Keep it minimal — only actionable information. Put all details (per-fixture audit results, full failing fixture lists, fix verification notes) in the log file instead.
+
+Use this exact template — do NOT add extra sections, lists, or history:
 
 ```markdown
 # Layout QA — Current State
@@ -147,11 +164,20 @@ You maintain two files — a **current** file and a **log** file.
 
 ## Latest Results
 - Passing: X/Y
-- Failing: <list with diff counts>
+- Failing: N fixtures (get details via `npm run e2e:test`)
+
+## Failing (visual-only, not caught by automated diff)
+<only list fixtures with VISUAL issues that the automated diff missed, max 5 lines>
 
 ## Next
 - Awaiting: <what fixture to test next>
 ```
+
+Do NOT include in this file:
+- Full lists of all passing or near-pass fixtures — run the tests to get current data
+- Per-fixture visual audit narrations — put these in the log
+- Fix verification history — that's the log's job
+- Ad-hoc operational notes or rules — those belong in the skill, not the state file
 
 ### Log file: `docs/plans/agent-state/layout-qa.log.md`
 
@@ -162,5 +188,6 @@ You maintain two files — a **current** file and a **log** file.
 ### <timestamp>
 - Completed: <what was done>
 - Result: <outcome — pass/fail, metrics>
+- Visual audit: <pass/near-pass/fail per fixture>
 - Files: <created or changed>
 ```

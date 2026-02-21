@@ -94,13 +94,15 @@ Poll `http://localhost:6101/results` for results.
   "passed": 10,
   "total": 10,
   "fixtures": {
-    "div-basic": { "passed": true, "elements": 3, "diffs": [] },
-    "headings": { "passed": false, "elements": 7, "diffs": [...] }
+    "div-basic": { "passed": true, "elements": 3, "diffs": [], "pixelDiff": { "mismatchedPixels": 0, "totalPixels": 329160, "percentage": 0.0 } },
+    "headings": { "passed": true, "elements": 7, "diffs": [], "pixelDiff": { "mismatchedPixels": 10226, "totalPixels": 329160, "percentage": 3.1 } }
   }
 }
 ```
 
 Each diff in the `diffs` array has: `path`, `property`, `web`, `native`, `delta` (numeric) or `webString`, `nativeString` (string comparison).
+
+Each `pixelDiff` has: `mismatchedPixels`, `totalPixels`, `percentage`. This compares WKWebView and UIView snapshots pixel-for-pixel at 390x844 1x scale. A fixture can have 0 layout diffs but >0% pixel mismatch (e.g., text rendering differences).
 
 ## Workflow: Compare Specific Fixture
 
@@ -192,6 +194,7 @@ tests/e2e/
         WebRenderer.swift            # Loads from dev server :6100
         NativeRenderer.swift         # Loads from dev server :6100
         HTTPResultsServer.swift      # HTTP server on :6101
+        PixelComparer.swift          # Pixel-level snapshot comparison
         LayoutExtractor.swift
         LayoutComparer.swift
         LayoutNode.swift
@@ -209,3 +212,17 @@ Each `LayoutDiff` has:
 String diffs have `webString` and `nativeString` instead.
 
 Tolerance is 2px — diffs within 2px are ignored.
+
+## Pixel Diff
+
+Each fixture also gets a `PixelDiffResult` with:
+- `mismatchedPixels`: count of non-matching pixels
+- `totalPixels`: total pixels compared (329,160 for 390x844)
+- `percentage`: mismatch percentage
+
+The pixel comparison snapshots WKWebView and UIView at 390x844 1x scale, then walks the RGBA buffers counting exact pixel mismatches (zero tolerance). This catches visual differences that layout tree comparison misses (text anti-aliasing, border rendering, color differences).
+
+In the app UI:
+- **Fixture list**: green checkmark = 0 diffs AND 0% pixels; orange warning = 0 diffs but >0% pixels; red X = has layout diffs (also shows pixel %)
+- **Summary bar**: shows total passed, total diffs, and count of fixtures with pixel mismatches
+- **ComparisonView**: shows pixel diff in the summary bar alongside layout diffs

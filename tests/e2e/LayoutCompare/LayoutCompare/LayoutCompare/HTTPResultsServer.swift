@@ -26,6 +26,7 @@ class HTTPResultsServer {
         let passed: Bool
         let elements: Int
         let diffs: [LayoutDiff]
+        var pixelDiff: PixelDiffResult? = nil
         var error: String? = nil
     }
 
