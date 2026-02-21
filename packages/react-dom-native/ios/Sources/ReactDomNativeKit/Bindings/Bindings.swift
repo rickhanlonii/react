@@ -544,6 +544,10 @@ public class Bindings {
                         childStyle: gcStyle
                     )
                 }
+                // CSS block margin collapsing: in BFC, adjacent sibling margins
+                // collapse to max(bottom, top). Yoga flex layout sums them.
+                // Simulate collapsing now that the container has been promoted.
+                YogaStyleApplier.collapseBlockMargins(parentYogaNode: child.yogaNode)
             }
             // Update style dict to reflect CSS blockification
             if childDisplayBefore == "inline-block",
@@ -559,6 +563,17 @@ public class Bindings {
                 childYogaNode: child.yogaNode,
                 childType: child.family.elementType
             )
+            // Keep the style dict in sync so the LayoutExtractor (which reads
+            // margins from the style dict) reports 0 matching web's computed style.
+            if parent.family.elementType == "li" {
+                let listElements: Set<String> = ["ul", "ol", "menu", "dir"]
+                if listElements.contains(child.family.elementType) {
+                    var updatedStyle = child.props["style"] as? [String: Any] ?? [:]
+                    updatedStyle["marginTop"] = 0
+                    updatedStyle["marginBottom"] = 0
+                    child.props["style"] = updatedStyle
+                }
+            }
 
             // CSS font-size inheritance for em-relative margins.
             // Elements like <p> have margin: 1em 0, where 1em resolves to
@@ -1354,6 +1369,28 @@ public class Bindings {
             guard let data = engine.toString(args[0]) else { return nil }
             self.sendInspectorMessage?(data)
             return nil
+        }
+
+        // $$getMemoryUsage() -> {usedSize, totalSize}
+        // Returns process memory stats via mach_task_basic_info.
+        engine.setGlobalFunction("$$getMemoryUsage") { [weak engine] _ in
+            guard let engine = engine else { return nil }
+            var info = mach_task_basic_info()
+            var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size / MemoryLayout<natural_t>.size)
+            let result = withUnsafeMutablePointer(to: &info) {
+                $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                    task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
+                }
+            }
+            let obj = engine.makeObject()
+            if result == KERN_SUCCESS {
+                engine.setProperty(obj, "usedSize", engine.makeNumber(Double(info.resident_size)))
+                engine.setProperty(obj, "totalSize", engine.makeNumber(Double(info.virtual_size)))
+            } else {
+                engine.setProperty(obj, "usedSize", engine.makeNumber(0))
+                engine.setProperty(obj, "totalSize", engine.makeNumber(0))
+            }
+            return obj
         }
     }
 

@@ -182,6 +182,18 @@ function handleRuntimeRequest(requestId, method, params) {
     case 'globalLexicalScopeNames':
       result = {names: []};
       break;
+    case 'getHeapUsage': {
+      var mem = {usedSize: 0, totalSize: 0};
+      if (typeof $$getMemoryUsage === 'function') {
+        var info = $$getMemoryUsage();
+        if (info) {
+          mem.usedSize = info.usedSize || 0;
+          mem.totalSize = info.totalSize || 0;
+        }
+      }
+      result = mem;
+      break;
+    }
     case 'compileScript':
       result = {};
       break;
