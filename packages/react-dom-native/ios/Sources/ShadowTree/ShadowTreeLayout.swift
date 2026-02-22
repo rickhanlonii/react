@@ -292,35 +292,57 @@ public enum ShadowTreeLayout {
     ///
     /// Yoga's calculateBlockLayout positions first children at Y=0 when parent
     /// has no padding/border (correctly "collapsing"), but doesn't propagate the
-    /// collapsed margin to the parent's position. This pass pushes block parents
-    /// down by their effective collapsed top margin, matching CSS behavior.
+    /// collapsed margin upward. This pass walks the tree and adjusts child
+    /// positions at levels where a parent's padding/border blocks the collapse,
+    /// matching CSS behavior.
     ///
-    /// Only adjusts root-level nodes (those directly in the `children` array).
-    /// Nested collapse-through is handled by the recursive computeCollapseTopMargin
-    /// which finds the deepest collapsed margin and propagates it to the outermost
-    /// container in one step.
+    /// Root-level nodes are NOT adjusted — their margins escape beyond the root
+    /// to the scroll view (equivalent to CSS margin escaping to the viewport).
     public static func adjustMarginCollapseThrough(children: [ShadowNodeWrapper]) {
         for node in children {
-            guard isBlockFormattingParent(node) && !node.children.isEmpty else { continue }
+            adjustCollapseRecursive(node: node)
+        }
+    }
 
-            let style = node.props["style"] as? [String: Any] ?? [:]
-            let paddingTop = CGFloat((style["paddingTop"] as? NSNumber)?.doubleValue ?? 0)
-            let borderTop = CGFloat((style["borderTopWidth"] as? NSNumber)?.doubleValue ?? 0)
-            let ownMarginTop = CGFloat((style["marginTop"] as? NSNumber)?.doubleValue ?? 0)
+    /// Recursively walk the tree adjusting for margin collapse-through.
+    ///
+    /// At each block parent that blocks collapse (has padding or border),
+    /// check if the first child's effective collapsed margin exceeds its own
+    /// margin. If so, push the first child (and subsequent siblings) down
+    /// by the difference.
+    private static func adjustCollapseRecursive(node: ShadowNodeWrapper) {
+        guard isBlockFormattingParent(node) && !node.children.isEmpty else { return }
 
-            // Top margin collapse-through
-            if paddingTop == 0 && borderTop == 0 {
-                if let firstChild = node.children.first(where: {
-                    $0.family.elementType != "#text" && isBlockLevelForCollapse($0)
-                }) {
-                    let effectiveTop = computeCollapseTopMargin(firstChild)
-                    let delta = max(0, effectiveTop - ownMarginTop)
-                    if delta > 0 {
-                        // Push this node down by the escaped margin
-                        node.layoutFrame.origin.y += delta
+        let style = node.props["style"] as? [String: Any] ?? [:]
+        let paddingTop = CGFloat((style["paddingTop"] as? NSNumber)?.doubleValue ?? 0)
+        let borderTop = CGFloat((style["borderTopWidth"] as? NSNumber)?.doubleValue ?? 0)
+
+        // This node blocks collapse: check if first child's margin collapses
+        // through from a deeper descendant.
+        if paddingTop > 0 || borderTop > 0 {
+            if let firstChild = node.children.first(where: {
+                $0.family.elementType != "#text" && isBlockLevelForCollapse($0)
+            }) {
+                let childStyle = firstChild.props["style"] as? [String: Any] ?? [:]
+                let childMarginTop = CGFloat((childStyle["marginTop"] as? NSNumber)?.doubleValue ?? 0)
+                let effectiveTop = computeCollapseTopMargin(firstChild)
+                let delta = max(0, effectiveTop - childMarginTop)
+                if delta > 0 {
+                    // Push first child and all subsequent siblings down
+                    var pastFirst = false
+                    for child in node.children {
+                        if child === firstChild { pastFirst = true }
+                        if pastFirst {
+                            child.layoutFrame.origin.y += delta
+                        }
                     }
                 }
             }
+        }
+
+        // Recurse into children
+        for child in node.children {
+            adjustCollapseRecursive(node: child)
         }
     }
 }
