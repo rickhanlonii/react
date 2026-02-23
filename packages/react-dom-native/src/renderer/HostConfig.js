@@ -263,10 +263,168 @@ exports.finalizeContainerChildren = function finalizeContainerChildren(container
 exports.replaceContainerChildren = function replaceContainerChildren(container, newChildren) {
   if (newChildren == null) return;
   const childNodes = newChildren.map(c => c._nativeNode);
-  $$completeRoot(container.surfaceId, childNodes);
+  const timings = $$completeRoot(container.surfaceId, childNodes);
+  if (timings) {
+    reportNativeCommitTimings(timings);
+  }
   container.currentTree = container.pendingTree;
   container.pendingTree = null;
 };
+
+// ---------------------------------------------------------------------------
+// Native commit performance tracing
+// ---------------------------------------------------------------------------
+
+function durationColor(startMs, endMs) {
+  var duration = endMs - startMs;
+  return duration < 0.5 ? 'primary-light' : duration < 50 ? 'primary' : 'primary-dark';
+}
+
+function reportNativeCommitTimings(t) {
+  var tracer = globalThis.__PERFORMANCE_TRACER__;
+  if (!tracer || !tracer.isTracing()) return;
+
+  // Native timestamps are absolute (CACurrentMediaTime * 1000, ms since boot).
+  // JS timestamps are relative (performance.now() = $$performanceNow() - timeOrigin).
+  // Subtract timeOrigin to align native timestamps with the JS timeline.
+  var origin = performance.timeOrigin;
+  var commitStart = t.commitStart - origin;
+  var commitEnd = t.commitEnd - origin;
+  var layoutStart = t.layoutStart - origin;
+  var layoutEnd = t.layoutEnd - origin;
+  var diffStart = t.diffStart - origin;
+  var diffEnd = t.diffEnd - origin;
+  var mutationsStart = t.mutationsStart - origin;
+  var mutationsEnd = t.mutationsEnd - origin;
+  var syncStart = t.syncStart - origin;
+  var syncEnd = t.syncEnd - origin;
+  var yogaStart = t.yogaStart - origin;
+  var yogaEnd = t.yogaEnd - origin;
+  var textRemeasureStart = t.textRemeasureStart - origin;
+  var textRemeasureEnd = t.textRemeasureEnd - origin;
+  var scrollStart = t.scrollStart - origin;
+  var scrollEnd = t.scrollEnd - origin;
+
+  // Shadow Tree track — outer Commit span
+  tracer.reportTimeStamp('Commit', commitStart, commitEnd,
+    'Shadow Tree', 'Native \u269b', durationColor(commitStart, commitEnd),
+    [['Nodes', String(t.nodeCount)],
+     ['Tree depth', String(t.treeDepth)],
+     ['Root elements', t.rootTypes]]);
+
+  // Shadow Tree track — sub-spans
+  var prepareStart = t.prepareStart - origin;
+  var prepareEnd = t.prepareEnd - origin;
+  if (prepareEnd > prepareStart) {
+    tracer.reportTimeStamp('Prepare', prepareStart, prepareEnd,
+      'Shadow Tree', 'Native \u269b', durationColor(prepareStart, prepareEnd));
+  }
+  if (layoutEnd > layoutStart) {
+    tracer.reportTimeStamp('Blocked (Layout)', layoutStart, layoutEnd,
+      'Shadow Tree', 'Native \u269b', 'secondary-light');
+  }
+  tracer.reportTimeStamp('Diff', diffStart, diffEnd,
+    'Shadow Tree', 'Native \u269b', durationColor(diffStart, diffEnd),
+    [['Mutations', String(t.mutationCount)],
+     ['Creates', String(t.creates)],
+     ['Updates', String(t.updates)],
+     ['Deletes', String(t.deletes)]]);
+  tracer.reportTimeStamp('Apply Mutations (' + t.mutationCount + ')', mutationsStart, mutationsEnd,
+    'Shadow Tree', 'Native \u269b', durationColor(mutationsStart, mutationsEnd),
+    [['Inserts', String(t.inserts)],
+     ['Removes', String(t.removes)],
+     ['Affected elements', t.affectedTypes || 'none']]);
+  tracer.reportTimeStamp('Sync Frames', syncStart, syncEnd,
+    'Shadow Tree', 'Native \u269b', durationColor(syncStart, syncEnd));
+
+  var cleanupStart = t.cleanupStart - origin;
+  var cleanupEnd = t.cleanupEnd - origin;
+  if (cleanupEnd > cleanupStart) {
+    tracer.reportTimeStamp('Cleanup', cleanupStart, cleanupEnd,
+      'Shadow Tree', 'Native \u269b', durationColor(cleanupStart, cleanupEnd));
+  }
+
+  // Cleanup sub-spans
+  var treePromoteStart = t.treePromoteStart - origin;
+  var treePromoteEnd = t.treePromoteEnd - origin;
+  if (treePromoteEnd > treePromoteStart) {
+    tracer.reportTimeStamp('Tree Promote', treePromoteStart, treePromoteEnd,
+      'Shadow Tree', 'Native \u269b', durationColor(treePromoteStart, treePromoteEnd));
+  }
+
+  var nodeGCStart = t.nodeGCStart - origin;
+  var nodeGCEnd = t.nodeGCEnd - origin;
+  if (nodeGCEnd > nodeGCStart) {
+    tracer.reportTimeStamp('Node GC', nodeGCStart, nodeGCEnd,
+      'Shadow Tree', 'Native \u269b', durationColor(nodeGCStart, nodeGCEnd));
+  }
+
+  var devtoolsNotifyStart = t.devtoolsNotifyStart - origin;
+  var devtoolsNotifyEnd = t.devtoolsNotifyEnd - origin;
+  if (devtoolsNotifyEnd > devtoolsNotifyStart) {
+    tracer.reportTimeStamp('DevTools Notify', devtoolsNotifyStart, devtoolsNotifyEnd,
+      'Shadow Tree', 'Native \u269b', durationColor(devtoolsNotifyStart, devtoolsNotifyEnd));
+  }
+
+  // Layout track — outer Calculate Layout span
+  tracer.reportTimeStamp('Calculate Layout', layoutStart, layoutEnd,
+    'Layout', 'Native \u269b', durationColor(layoutStart, layoutEnd),
+    [['Nodes', String(t.nodeCount)],
+     ['Second pass', t.didRemeasure ? 'yes' : 'no']]);
+
+  // Layout track — sub-spans
+  tracer.reportTimeStamp('Yoga', yogaStart, yogaEnd,
+    'Layout', 'Native \u269b', durationColor(yogaStart, yogaEnd),
+    [['Nodes', String(t.nodeCount)]]);
+
+  if (t.didRemeasure) {
+    tracer.reportTimeStamp('Text Remeasure', textRemeasureStart, textRemeasureEnd,
+      'Layout', 'Native \u269b', 'warning');
+  }
+
+  var readFramesStart = t.readFramesStart - origin;
+  var readFramesEnd = t.readFramesEnd - origin;
+  if (readFramesEnd > readFramesStart) {
+    tracer.reportTimeStamp('Read Frames', readFramesStart, readFramesEnd,
+      'Layout', 'Native \u269b', durationColor(readFramesStart, readFramesEnd),
+      [['Nodes', String(t.nodeCount)]]);
+  }
+
+  if (scrollEnd > scrollStart) {
+    tracer.reportTimeStamp('Scroll Content', scrollStart, scrollEnd,
+      'Layout', 'Native \u269b', durationColor(scrollStart, scrollEnd));
+  }
+
+  // Diff Nodes — per-node timing, nested below Diff on Shadow Tree track
+  var diffNodes = t.diffNodes;
+  if (diffNodes && diffNodes.length > 0) {
+    for (var i = 0; i < diffNodes.length; i += 3) {
+      tracer.reportTimeStamp(diffNodes[i], diffNodes[i + 1] - origin, diffNodes[i + 2] - origin,
+        'Shadow Tree', 'Native \u269b', 'primary-light');
+    }
+  }
+
+  // Mutation Nodes — per-mutation timing, nested below Apply Mutations on Shadow Tree track
+  var mutationNodes = t.mutationNodes;
+  if (mutationNodes && mutationNodes.length > 0) {
+    for (var i = 0; i < mutationNodes.length; i += 4) {
+      tracer.reportTimeStamp(
+        mutationNodes[i] + ' ' + mutationNodes[i + 1],
+        mutationNodes[i + 2] - origin,
+        mutationNodes[i + 3] - origin,
+        'Shadow Tree', 'Native \u269b', 'primary-light');
+    }
+  }
+
+  // Layout Nodes — per-node timing from readLayoutFrames + syncAllFrames, nested on Layout track
+  var layoutNodes = t.layoutNodes;
+  if (layoutNodes && layoutNodes.length > 0) {
+    for (var i = 0; i < layoutNodes.length; i += 3) {
+      tracer.reportTimeStamp(layoutNodes[i], layoutNodes[i + 1] - origin, layoutNodes[i + 2] - origin,
+        'Layout', 'Native \u269b', 'primary-light');
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Tier 1: Core — Context

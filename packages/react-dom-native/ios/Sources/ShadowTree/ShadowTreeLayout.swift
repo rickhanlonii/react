@@ -1,5 +1,6 @@
 import Foundation
 import CoreGraphics
+import QuartzCore
 import Yoga
 
 // ---------------------------------------------------------------------------
@@ -99,6 +100,59 @@ public enum ShadowTreeLayout {
 
         for child in node.children {
             readLayoutFrames(node: child)
+        }
+    }
+
+    /// Recursively apply Yoga layout results to layoutFrame on each node,
+    /// with optional per-node timing collection for flame graph visualization.
+    public static func readLayoutFrames(
+        node: ShadowNodeWrapper,
+        tracing: Bool,
+        nodeTimings: inout [(type: String, start: Double, end: Double)]
+    ) {
+        let nodeStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+
+        var x = CGFloat(YGNodeLayoutGetLeft(node.yogaNode))
+        var y = CGFloat(YGNodeLayoutGetTop(node.yogaNode))
+        let width = CGFloat(YGNodeLayoutGetWidth(node.yogaNode))
+        let height = CGFloat(YGNodeLayoutGetHeight(node.yogaNode))
+
+        if YGNodeStyleGetPositionType(node.yogaNode) == .relative {
+            let isBlock = YGNodeStyleGetDisplay(node.yogaNode) == .block
+            let isInWrappingFlex: Bool
+            if let owner = YGNodeGetOwner(node.yogaNode) {
+                let parentWrap = YGNodeStyleGetFlexWrap(owner)
+                isInWrappingFlex = parentWrap == .wrap || parentWrap == .wrapReverse
+            } else {
+                isInWrappingFlex = false
+            }
+
+            if isBlock || isInWrappingFlex {
+                let style = node.props["style"] as? [String: Any]
+                if let top = style?["top"] as? NSNumber {
+                    y += CGFloat(top.doubleValue)
+                } else if let bottom = style?["bottom"] as? NSNumber {
+                    y -= CGFloat(bottom.doubleValue)
+                }
+                if isBlock {
+                    if let left = style?["left"] as? NSNumber {
+                        x += CGFloat(left.doubleValue)
+                    } else if let right = style?["right"] as? NSNumber {
+                        x -= CGFloat(right.doubleValue)
+                    }
+                }
+            }
+        }
+
+        node.layoutFrame = CGRect(x: x, y: y, width: width, height: height)
+
+        for child in node.children {
+            readLayoutFrames(node: child, tracing: tracing, nodeTimings: &nodeTimings)
+        }
+
+        if tracing {
+            let nodeEnd = CACurrentMediaTime() * 1000.0
+            nodeTimings.append((node.family.elementType, nodeStart, nodeEnd))
         }
     }
 

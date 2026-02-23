@@ -127,6 +127,32 @@ describe('PerformanceTracer trace format', () => {
     expect(detail.devtools.trackGroup).toBeUndefined();
   });
 
+  it('includes properties in timeStamp detail when provided', () => {
+    tracer.startTracing();
+
+    tracer.reportTimeStamp('Commit', 100, 200, 'Shadow Tree', 'Native \u269b', 'primary',
+      [['Nodes', '12'], ['Tree depth', '4']]);
+
+    const events = tracer.stopTracing();
+    const begin = events.find(e => e.cat === 'blink.user_timing' && e.ph === 'b');
+    const detail = JSON.parse(begin.args.detail);
+    expect(detail.devtools.properties).toEqual([
+      ['Nodes', '12'],
+      ['Tree depth', '4'],
+    ]);
+  });
+
+  it('omits properties from timeStamp detail when not provided', () => {
+    tracer.startTracing();
+
+    tracer.reportTimeStamp('Sync Frames', 100, 200, 'Shadow Tree', 'Native \u269b', 'primary');
+
+    const events = tracer.stopTracing();
+    const begin = events.find(e => e.cat === 'blink.user_timing' && e.ph === 'b');
+    const detail = JSON.parse(begin.args.detail);
+    expect(detail.devtools.properties).toBeUndefined();
+  });
+
   it('does not capture events when not tracing', () => {
     performance.measure('\u200bApp', {start: 100, end: 200, detail: {devtools: {track: 'Components \u269b', color: 'primary'}}});
     console.timeStamp('Render', 100, 200, 'Blocking', 'Scheduler \u269b', 'primary');
@@ -309,5 +335,447 @@ describe('InspectorMessageHandler roundtrip', () => {
       expect(detail.devtools.track).toBeDefined();
       expect(detail.devtools.color).toBeDefined();
     }
+  });
+});
+
+describe('Native commit timing trace events', () => {
+  let tracer;
+
+  beforeEach(() => {
+    delete globalThis.__PERFORMANCE_TRACER__;
+    delete globalThis.performance;
+    jest.resetModules();
+    require('../PerformanceTracer');
+    require('../PerformancePolyfill');
+    require('../ConsoleTimeStamp');
+    tracer = globalThis.__PERFORMANCE_TRACER__;
+  });
+
+  function makeTimings(overrides) {
+    return Object.assign({
+      commitStart: 100, commitEnd: 110,
+      prepareStart: 100, prepareEnd: 100.5,
+      layoutStart: 100.5, layoutEnd: 104,
+      diffStart: 104, diffEnd: 106,
+      mutationsStart: 106, mutationsEnd: 108,
+      syncStart: 108, syncEnd: 109,
+      cleanupStart: 109, cleanupEnd: 109.5,
+      treePromoteStart: 109, treePromoteEnd: 109.1,
+      nodeGCStart: 109.1, nodeGCEnd: 109.3,
+      devtoolsNotifyStart: 109.3, devtoolsNotifyEnd: 109.5,
+      mutationCount: 5,
+      yogaStart: 100, yogaEnd: 103,
+      textRemeasureStart: 101, textRemeasureEnd: 102,
+      didRemeasure: 0,
+      scrollStart: 103, scrollEnd: 104,
+      readFramesStart: 103, readFramesEnd: 103.5,
+      nodeCount: 12,
+      treeDepth: 4,
+      rootTypes: 'div, main',
+      creates: 2,
+      deletes: 1,
+      inserts: 3,
+      removes: 1,
+      updates: 2,
+      affectedTypes: 'div, p, span',
+      // Per-node timings: [type, start, end, ...] (timestamps are absolute, origin-adjusted in JS)
+      diffNodes: ['div', 104, 106, 'h1', 104.5, 105, 'p', 105, 105.8],
+      mutationNodes: ['CREATE', 'div', 106, 106.5, 'UPDATE', 'p', 106.5, 107],
+      layoutNodes: ['div', 100, 104, 'h1', 100.5, 102, 'p', 102, 103.5],
+    }, overrides);
+  }
+
+  function emitNativeTimings(timings) {
+    // This mirrors what reportNativeCommitTimings does in HostConfig.js
+    var t = timings;
+    function durationColor(startMs, endMs) {
+      var duration = endMs - startMs;
+      return duration < 0.5 ? 'primary-light' : duration < 50 ? 'primary' : 'primary-dark';
+    }
+
+    tracer.reportTimeStamp('Commit', t.commitStart, t.commitEnd,
+      'Shadow Tree', 'Native \u269b', durationColor(t.commitStart, t.commitEnd),
+      [['Nodes', String(t.nodeCount)],
+       ['Tree depth', String(t.treeDepth)],
+       ['Root elements', t.rootTypes]]);
+    if (t.prepareEnd > t.prepareStart) {
+      tracer.reportTimeStamp('Prepare', t.prepareStart, t.prepareEnd,
+        'Shadow Tree', 'Native \u269b', durationColor(t.prepareStart, t.prepareEnd));
+    }
+    if (t.layoutEnd > t.layoutStart) {
+      tracer.reportTimeStamp('Blocked (Layout)', t.layoutStart, t.layoutEnd,
+        'Shadow Tree', 'Native \u269b', 'secondary-light');
+    }
+    tracer.reportTimeStamp('Diff', t.diffStart, t.diffEnd,
+      'Shadow Tree', 'Native \u269b', durationColor(t.diffStart, t.diffEnd),
+      [['Mutations', String(t.mutationCount)],
+       ['Creates', String(t.creates)],
+       ['Updates', String(t.updates)],
+       ['Deletes', String(t.deletes)]]);
+    tracer.reportTimeStamp('Apply Mutations (' + t.mutationCount + ')', t.mutationsStart, t.mutationsEnd,
+      'Shadow Tree', 'Native \u269b', durationColor(t.mutationsStart, t.mutationsEnd),
+      [['Inserts', String(t.inserts)],
+       ['Removes', String(t.removes)],
+       ['Affected elements', t.affectedTypes || 'none']]);
+    tracer.reportTimeStamp('Sync Frames', t.syncStart, t.syncEnd,
+      'Shadow Tree', 'Native \u269b', durationColor(t.syncStart, t.syncEnd));
+    if (t.cleanupEnd > t.cleanupStart) {
+      tracer.reportTimeStamp('Cleanup', t.cleanupStart, t.cleanupEnd,
+        'Shadow Tree', 'Native \u269b', durationColor(t.cleanupStart, t.cleanupEnd));
+    }
+    if (t.treePromoteEnd > t.treePromoteStart) {
+      tracer.reportTimeStamp('Tree Promote', t.treePromoteStart, t.treePromoteEnd,
+        'Shadow Tree', 'Native \u269b', durationColor(t.treePromoteStart, t.treePromoteEnd));
+    }
+    if (t.nodeGCEnd > t.nodeGCStart) {
+      tracer.reportTimeStamp('Node GC', t.nodeGCStart, t.nodeGCEnd,
+        'Shadow Tree', 'Native \u269b', durationColor(t.nodeGCStart, t.nodeGCEnd));
+    }
+    if (t.devtoolsNotifyEnd > t.devtoolsNotifyStart) {
+      tracer.reportTimeStamp('DevTools Notify', t.devtoolsNotifyStart, t.devtoolsNotifyEnd,
+        'Shadow Tree', 'Native \u269b', durationColor(t.devtoolsNotifyStart, t.devtoolsNotifyEnd));
+    }
+
+    tracer.reportTimeStamp('Calculate Layout', t.layoutStart, t.layoutEnd,
+      'Layout', 'Native \u269b', durationColor(t.layoutStart, t.layoutEnd),
+      [['Nodes', String(t.nodeCount)],
+       ['Second pass', t.didRemeasure ? 'yes' : 'no']]);
+    tracer.reportTimeStamp('Yoga', t.yogaStart, t.yogaEnd,
+      'Layout', 'Native \u269b', durationColor(t.yogaStart, t.yogaEnd),
+      [['Nodes', String(t.nodeCount)]]);
+
+    if (t.didRemeasure) {
+      tracer.reportTimeStamp('Text Remeasure', t.textRemeasureStart, t.textRemeasureEnd,
+        'Layout', 'Native \u269b', 'warning');
+    }
+    if (t.readFramesEnd > t.readFramesStart) {
+      tracer.reportTimeStamp('Read Frames', t.readFramesStart, t.readFramesEnd,
+        'Layout', 'Native \u269b', durationColor(t.readFramesStart, t.readFramesEnd),
+        [['Nodes', String(t.nodeCount)]]);
+    }
+    if (t.scrollEnd > t.scrollStart) {
+      tracer.reportTimeStamp('Scroll Content', t.scrollStart, t.scrollEnd,
+        'Layout', 'Native \u269b', durationColor(t.scrollStart, t.scrollEnd));
+    }
+
+    // Diff Nodes — per-node timing, nested below Diff on Shadow Tree track
+    var diffNodes = t.diffNodes;
+    if (diffNodes && diffNodes.length > 0) {
+      for (var i = 0; i < diffNodes.length; i += 3) {
+        tracer.reportTimeStamp(diffNodes[i], diffNodes[i + 1], diffNodes[i + 2],
+          'Shadow Tree', 'Native \u269b', 'primary-light');
+      }
+    }
+
+  // Mutation Nodes — per-mutation timing, nested below Apply Mutations on Shadow Tree track
+    var mutationNodes = t.mutationNodes;
+    if (mutationNodes && mutationNodes.length > 0) {
+      for (var i = 0; i < mutationNodes.length; i += 4) {
+        tracer.reportTimeStamp(
+          mutationNodes[i] + ' ' + mutationNodes[i + 1],
+          mutationNodes[i + 2], mutationNodes[i + 3],
+          'Shadow Tree', 'Native \u269b', 'primary-light');
+      }
+    }
+
+    // Layout Nodes — per-node timing, nested on Layout track
+    var layoutNodes = t.layoutNodes;
+    if (layoutNodes && layoutNodes.length > 0) {
+      for (var i = 0; i < layoutNodes.length; i += 3) {
+        tracer.reportTimeStamp(layoutNodes[i], layoutNodes[i + 1], layoutNodes[i + 2],
+          'Layout', 'Native \u269b', 'primary-light');
+      }
+    }
+  }
+
+  function getBeginEvents(events) {
+    return events
+      .filter(e => e.cat === 'blink.user_timing' && e.ph === 'b')
+      .map(e => ({
+        name: e.name,
+        detail: JSON.parse(e.args.detail),
+      }));
+  }
+
+  it('emits Shadow Tree track events with correct track and trackGroup', () => {
+    tracer.startTracing();
+    emitNativeTimings(makeTimings());
+    const events = tracer.stopTracing();
+    const begins = getBeginEvents(events);
+
+    const shadowTreeEvents = begins.filter(e => e.detail.devtools.track === 'Shadow Tree');
+    expect(shadowTreeEvents).toHaveLength(15);
+    expect(shadowTreeEvents.map(e => e.name)).toEqual([
+      'Commit', 'Prepare', 'Blocked (Layout)', 'Diff', 'Apply Mutations (5)', 'Sync Frames',
+      'Cleanup', 'Tree Promote', 'Node GC', 'DevTools Notify',
+      'div', 'h1', 'p',
+      'CREATE div', 'UPDATE p',
+    ]);
+
+    for (const e of shadowTreeEvents) {
+      expect(e.detail.devtools.trackGroup).toBe('Native \u269b');
+    }
+  });
+
+  it('emits Layout track events with correct track and trackGroup', () => {
+    tracer.startTracing();
+    emitNativeTimings(makeTimings());
+    const events = tracer.stopTracing();
+    const begins = getBeginEvents(events);
+
+    const layoutEvents = begins.filter(e => e.detail.devtools.track === 'Layout');
+    // Without didRemeasure: Calculate Layout, Yoga, Read Frames, Scroll Content + 3 layout nodes = 7
+    expect(layoutEvents).toHaveLength(7);
+    expect(layoutEvents.map(e => e.name)).toEqual([
+      'Calculate Layout', 'Yoga', 'Read Frames', 'Scroll Content',
+      'div', 'h1', 'p',
+    ]);
+
+    for (const e of layoutEvents) {
+      expect(e.detail.devtools.trackGroup).toBe('Native \u269b');
+    }
+  });
+
+  it('includes Text Remeasure span only when didRemeasure is truthy', () => {
+    tracer.startTracing();
+    emitNativeTimings(makeTimings({didRemeasure: 1}));
+    const events = tracer.stopTracing();
+    const begins = getBeginEvents(events);
+
+    const textRemeasure = begins.filter(e => e.name === 'Text Remeasure');
+    expect(textRemeasure).toHaveLength(1);
+    expect(textRemeasure[0].detail.devtools.color).toBe('warning');
+    expect(textRemeasure[0].detail.devtools.track).toBe('Layout');
+  });
+
+  it('excludes Text Remeasure span when didRemeasure is 0', () => {
+    tracer.startTracing();
+    emitNativeTimings(makeTimings({didRemeasure: 0}));
+    const events = tracer.stopTracing();
+    const begins = getBeginEvents(events);
+
+    const textRemeasure = begins.filter(e => e.name === 'Text Remeasure');
+    expect(textRemeasure).toHaveLength(0);
+  });
+
+  it('excludes Scroll Content span when scrollEnd equals scrollStart', () => {
+    tracer.startTracing();
+    emitNativeTimings(makeTimings({scrollStart: 103, scrollEnd: 103}));
+    const events = tracer.stopTracing();
+    const begins = getBeginEvents(events);
+
+    const scrollEvents = begins.filter(e => e.name === 'Scroll Content');
+    expect(scrollEvents).toHaveLength(0);
+  });
+
+  it('uses duration-based coloring: primary-light for <0.5ms', () => {
+    tracer.startTracing();
+    emitNativeTimings(makeTimings({commitStart: 100, commitEnd: 100.3}));
+    const events = tracer.stopTracing();
+    const begins = getBeginEvents(events);
+
+    const commit = begins.find(e => e.name === 'Commit');
+    expect(commit.detail.devtools.color).toBe('primary-light');
+  });
+
+  it('uses duration-based coloring: primary for <50ms', () => {
+    tracer.startTracing();
+    emitNativeTimings(makeTimings({commitStart: 100, commitEnd: 130}));
+    const events = tracer.stopTracing();
+    const begins = getBeginEvents(events);
+
+    const commit = begins.find(e => e.name === 'Commit');
+    expect(commit.detail.devtools.color).toBe('primary');
+  });
+
+  it('uses duration-based coloring: primary-dark for >=50ms', () => {
+    tracer.startTracing();
+    emitNativeTimings(makeTimings({commitStart: 100, commitEnd: 200}));
+    const events = tracer.stopTracing();
+    const begins = getBeginEvents(events);
+
+    const commit = begins.find(e => e.name === 'Commit');
+    expect(commit.detail.devtools.color).toBe('primary-dark');
+  });
+
+  it('emits valid begin/end event pairs with end > start timestamps', () => {
+    tracer.startTracing();
+    emitNativeTimings(makeTimings());
+    const events = tracer.stopTracing();
+    const userTiming = events.filter(e => e.cat === 'blink.user_timing');
+    const begins = userTiming.filter(e => e.ph === 'b');
+    const ends = userTiming.filter(e => e.ph === 'e');
+
+    // Each begin has a matching end
+    expect(begins.length).toBe(ends.length);
+    for (let i = 0; i < begins.length; i++) {
+      expect(begins[i].id2.local).toBe(ends[i].id2.local);
+      expect(begins[i].name).toBe(ends[i].name);
+      expect(ends[i].ts).toBeGreaterThanOrEqual(begins[i].ts);
+    }
+  });
+
+  it('includes properties in Commit event detail', () => {
+    tracer.startTracing();
+    emitNativeTimings(makeTimings({nodeCount: 15, treeDepth: 5, rootTypes: 'div, footer'}));
+    const events = tracer.stopTracing();
+    const begins = getBeginEvents(events);
+
+    const commit = begins.find(e => e.name === 'Commit');
+    expect(commit.detail.devtools.properties).toEqual([
+      ['Nodes', '15'],
+      ['Tree depth', '5'],
+      ['Root elements', 'div, footer'],
+    ]);
+  });
+
+  it('includes properties in Diff event detail', () => {
+    tracer.startTracing();
+    emitNativeTimings(makeTimings({mutationCount: 8, creates: 3, updates: 4, deletes: 1}));
+    const events = tracer.stopTracing();
+    const begins = getBeginEvents(events);
+
+    const diff = begins.find(e => e.name === 'Diff');
+    expect(diff.detail.devtools.properties).toEqual([
+      ['Mutations', '8'],
+      ['Creates', '3'],
+      ['Updates', '4'],
+      ['Deletes', '1'],
+    ]);
+  });
+
+  it('includes properties in Apply Mutations event detail', () => {
+    tracer.startTracing();
+    emitNativeTimings(makeTimings({inserts: 2, removes: 1, affectedTypes: 'div, span'}));
+    const events = tracer.stopTracing();
+    const begins = getBeginEvents(events);
+
+    const applyMutations = begins.find(e => e.name.startsWith('Apply Mutations'));
+    expect(applyMutations.detail.devtools.properties).toEqual([
+      ['Inserts', '2'],
+      ['Removes', '1'],
+      ['Affected elements', 'div, span'],
+    ]);
+  });
+
+  it('includes properties in Calculate Layout event detail', () => {
+    tracer.startTracing();
+    emitNativeTimings(makeTimings({nodeCount: 20, didRemeasure: 1}));
+    const events = tracer.stopTracing();
+    const begins = getBeginEvents(events);
+
+    const layout = begins.find(e => e.name === 'Calculate Layout');
+    expect(layout.detail.devtools.properties).toEqual([
+      ['Nodes', '20'],
+      ['Second pass', 'yes'],
+    ]);
+  });
+
+  it('includes properties in Yoga event detail', () => {
+    tracer.startTracing();
+    emitNativeTimings(makeTimings({nodeCount: 10}));
+    const events = tracer.stopTracing();
+    const begins = getBeginEvents(events);
+
+    const yoga = begins.find(e => e.name === 'Yoga');
+    expect(yoga.detail.devtools.properties).toEqual([
+      ['Nodes', '10'],
+    ]);
+  });
+
+  it('omits properties from events that do not include them', () => {
+    tracer.startTracing();
+    emitNativeTimings(makeTimings());
+    const events = tracer.stopTracing();
+    const begins = getBeginEvents(events);
+
+    const syncFrames = begins.find(e => e.name === 'Sync Frames');
+    expect(syncFrames.detail.devtools.properties).toBeUndefined();
+
+    const scrollContent = begins.find(e => e.name === 'Scroll Content');
+    expect(scrollContent.detail.devtools.properties).toBeUndefined();
+  });
+
+  it('emits Diff Nodes events nested on Shadow Tree track', () => {
+    tracer.startTracing();
+    const timings = makeTimings();
+    emitNativeTimings(timings);
+    const events = tracer.stopTracing();
+    const begins = getBeginEvents(events);
+
+    // Diff node events fall within the diff time window
+    const diffStart = timings.diffStart * 1000;
+    const diffEnd = timings.diffEnd * 1000;
+    const diffNodeEvents = begins.filter(e => {
+      if (e.detail.devtools.track !== 'Shadow Tree') return false;
+      if (e.detail.devtools.color !== 'primary-light') return false;
+      const ev = events.find(ev => ev.cat === 'blink.user_timing' && ev.ph === 'b' && ev.name === e.name && ev.ts >= diffStart && ev.ts < diffEnd);
+      return !!ev;
+    });
+    expect(diffNodeEvents).toHaveLength(3);
+    expect(diffNodeEvents.map(e => e.name)).toEqual(['div', 'h1', 'p']);
+    for (const e of diffNodeEvents) {
+      expect(e.detail.devtools.trackGroup).toBe('Native \u269b');
+    }
+  });
+
+  it('emits mutation node events nested on Shadow Tree track with mutation type labels', () => {
+    tracer.startTracing();
+    emitNativeTimings(makeTimings());
+    const events = tracer.stopTracing();
+    const begins = getBeginEvents(events);
+
+    const mutNodeEvents = begins.filter(e =>
+      e.detail.devtools.track === 'Shadow Tree' &&
+      (e.name.startsWith('CREATE ') || e.name.startsWith('UPDATE ') ||
+       e.name.startsWith('DELETE ') || e.name.startsWith('INSERT ') ||
+       e.name.startsWith('REMOVE '))
+    );
+    expect(mutNodeEvents).toHaveLength(2);
+    expect(mutNodeEvents.map(e => e.name)).toEqual(['CREATE div', 'UPDATE p']);
+  });
+
+  it('emits Layout Nodes events nested on Layout track', () => {
+    tracer.startTracing();
+    emitNativeTimings(makeTimings());
+    const events = tracer.stopTracing();
+    const begins = getBeginEvents(events);
+
+    const layoutNodeEvents = begins.filter(e =>
+      e.detail.devtools.track === 'Layout' &&
+      e.detail.devtools.color === 'primary-light'
+    );
+    expect(layoutNodeEvents).toHaveLength(3);
+    expect(layoutNodeEvents.map(e => e.name)).toEqual(['div', 'h1', 'p']);
+  });
+
+  it('skips per-node events when timing arrays are empty', () => {
+    tracer.startTracing();
+    const timings = makeTimings({diffNodes: [], mutationNodes: [], layoutNodes: []});
+    emitNativeTimings(timings);
+    const events = tracer.stopTracing();
+    const begins = getBeginEvents(events);
+
+    // No diff/mutation per-node events within diff/mutations time windows
+    const diffStart = timings.diffStart * 1000;
+    const diffEnd = timings.diffEnd * 1000;
+    const mutStart = timings.mutationsStart * 1000;
+    const mutEnd = timings.mutationsEnd * 1000;
+    const perNodeInDiff = events.filter(e =>
+      e.cat === 'blink.user_timing' && e.ph === 'b' &&
+      e.ts >= diffStart && e.ts < diffEnd &&
+      JSON.parse(e.args.detail).devtools.color === 'primary-light'
+    );
+    const perNodeInMut = events.filter(e =>
+      e.cat === 'blink.user_timing' && e.ph === 'b' &&
+      e.ts >= mutStart && e.ts < mutEnd &&
+      JSON.parse(e.args.detail).devtools.color === 'primary-light'
+    );
+    expect(perNodeInDiff).toHaveLength(0);
+    expect(perNodeInMut).toHaveLength(0);
+    expect(begins.filter(e =>
+      e.detail.devtools.track === 'Layout' &&
+      e.detail.devtools.color === 'primary-light'
+    )).toHaveLength(0);
   });
 });

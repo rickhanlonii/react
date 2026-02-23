@@ -37,6 +37,18 @@ public class Bindings {
     /// Set via $$registerEventHandler. Protected via engine.protect().
     private var eventHandler: JSValueRef?
 
+    /// Whether native commit timing collection is enabled (toggled by JS via $$setNativeTracingEnabled).
+    private var nativeTracingEnabled = false
+
+    /// Sub-phase timings from the most recent calculateYogaLayout call (when tracing).
+    private var lastLayoutTimings: [String: Double]?
+
+    /// Sync frame timings from the most recent $$completeRoot call (when tracing).
+    private var lastSyncTimings: (start: Double, end: Double)?
+
+    /// Per-node layout timings from the most recent calculateYogaLayout call (when tracing).
+    private var lastLayoutNodeTimings: [(type: String, start: Double, end: Double)] = []
+
     /// Callback invoked when JS calls $$sendInspectorMessage.
     /// Wired by Root to send messages to the dev server via HotReloadClient.
     public var sendInspectorMessage: ((String) -> Void)?
@@ -74,6 +86,9 @@ public class Bindings {
     /// Nodes cross the JS↔Swift boundary as integer IDs.
     private var nodeRegistry: [Int: ShadowNodeWrapper] = [:]
     private var nextNodeId = 1
+
+    /// Highlight overlay for DevTools element inspection.
+    private var highlightOverlay: ElementHighlightOverlay?
 
     /// Maps integer child set IDs to arrays of ShadowNodeWrappers.
     private var childSetRegistry: [Int: [ShadowNodeWrapper]] = [:]
@@ -324,6 +339,7 @@ public class Bindings {
         registerNetworking()
         registerHydrationTraversal()
         registerDevTools()
+        registerElementsInspector()
     }
 
     // MARK: - Node Creation
@@ -727,13 +743,20 @@ public class Bindings {
             return nil
         }
 
-        // $$completeRoot(surfaceId, childNodeIds) -> void
+        // $$completeRoot(surfaceId, childNodeIds) -> timings | void
         // This is the core commit function. Triggers layout, diff, and UIKit mutations.
         // The JS host config passes an array of native node IDs (integers).
+        // When nativeTracingEnabled is true, returns a timing dictionary to JS.
         engine.setGlobalFunction("$$completeRoot") { [weak self, weak engine] args in
             guard let self = self, let engine = engine else { return nil }
 
+            let tracing = self.nativeTracingEnabled
+            let commitStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+
             let surfaceId = engine.toInt(args[0]) ?? 0
+
+            // 0. Resolve node IDs and prepare trees
+            let prepareStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
 
             // args[1] is an array of native node IDs from the JS host config
             let childRefs = engine.toArray(args[1]) ?? []
@@ -759,24 +782,60 @@ public class Bindings {
             if !self.hydrationInProgress.contains(surfaceId) {
                 self.unwrapRevealedSuspenseNodesInTree(oldChildren)
             }
+            let prepareEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
 
             // 2. Calculate layout using Yoga
+            let layoutStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
             var contentSize: CGSize = .zero
             if let rootView = self.rootViews[surfaceId] {
                 let bounds = rootView.bounds
-                contentSize = self.calculateYogaLayout(for: newChildren, in: bounds)
+                contentSize = self.calculateYogaLayout(for: newChildren, in: bounds, tracing: tracing)
             }
+            let layoutEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
 
             // 3. Diff old tree vs new tree
+            let diffStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            var diffNodeTimings: [(type: String, start: Double, end: Double)] = []
             let mutations = self.differentiator.diff(
                 oldChildren: oldChildren,
                 newChildren: newChildren,
-                parent: nil
+                parent: nil,
+                tracing: tracing,
+                nodeTimings: &diffNodeTimings
             )
+            let diffEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+
+            // 3b. Categorize mutations for tracing (zero-cost when not tracing)
+            var creates = 0, deletes = 0, inserts = 0, removes = 0, updates = 0
+            var affectedTypes = Set<String>()
+            if tracing {
+                for mutation in mutations {
+                    switch mutation {
+                    case .create(let node):
+                        creates += 1
+                        affectedTypes.insert(node.family.elementType)
+                    case .delete(let node):
+                        deletes += 1
+                        affectedTypes.insert(node.family.elementType)
+                    case .insert(_, let child, _):
+                        inserts += 1
+                        affectedTypes.insert(child.family.elementType)
+                    case .remove(_, let child):
+                        removes += 1
+                        affectedTypes.insert(child.family.elementType)
+                    case .update(let node, _, _):
+                        updates += 1
+                        affectedTypes.insert(node.family.elementType)
+                    }
+                }
+            }
 
             // 4. Apply mutations to UIViews atomically
+            let mutationsStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            var mutationTimings: [(mutationType: String, elementType: String, start: Double, end: Double)] = []
+            var syncNodeTimings: [(type: String, start: Double, end: Double)] = []
             if let rootView = self.rootViews[surfaceId] {
-                self.mutationApplier.applyMutations(mutations, rootView: rootView)
+                self.mutationApplier.applyMutations(mutations, rootView: rootView, tracing: tracing, mutationTimings: &mutationTimings)
 
                 // 4b. Sync frames for ALL nodes in the tree.
                 // The Differentiator only emits UPDATE mutations for cloned
@@ -784,7 +843,16 @@ public class Bindings {
                 // positions for the entire tree — reused sibling nodes may
                 // have new Y positions when a preceding sibling changed size.
                 // This pass ensures every UIView's frame matches Yoga layout.
-                self.syncAllFrames(newChildren)
+                let syncStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+                if tracing {
+                    self.syncAllFrames(newChildren, tracing: true, nodeTimings: &syncNodeTimings)
+                } else {
+                    self.syncAllFrames(newChildren)
+                }
+                let syncEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+                if tracing {
+                    self.lastSyncTimings = (start: syncStart, end: syncEnd)
+                }
 
                 // 4c. Attach root-level children to the UIKit rootView
                 for child in newChildren {
@@ -797,6 +865,13 @@ public class Bindings {
             } else {
                 print("[react-dom-native] Warning: No rootView for surfaceId \(surfaceId)")
             }
+            let mutationsEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+
+            // 5-8. Post-mutation cleanup
+            let cleanupStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+
+            // 5-6. Promote new tree
+            let treePromoteStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
 
             // 5. Set scroll view content size for document-level scrolling
             if let scrollView = self.rootViews[surfaceId] as? UIScrollView {
@@ -832,8 +907,10 @@ public class Bindings {
                 // SSR trees no longer needed — #suspense nodes live in currentTrees
                 self.ssrTrees.removeValue(forKey: surfaceId)
             }
+            let treePromoteEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
 
             // 7. Clean up stale nodes from registry
+            let nodeGCStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
             // Collect all node IDs still reachable from any current tree
             var liveNodes = Set<Int>()
             for (_, tree) in self.currentTrees {
@@ -844,9 +921,137 @@ public class Bindings {
             for id in staleIds {
                 self.nodeRegistry.removeValue(forKey: id)
             }
+            let nodeGCEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
 
-            return nil
+            // 8. Notify DevTools that the DOM tree changed
+            let devtoolsNotifyStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            if self.sendInspectorMessage != nil {
+                self.sendInspectorMessage?("{\"type\":\"dom-updated\",\"surfaceId\":\(surfaceId)}")
+            }
+            let devtoolsNotifyEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+
+            let cleanupEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+
+            let commitEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+
+            // Return timing dictionary when tracing is enabled
+            guard tracing else { return nil }
+
+            let result = engine.makeObject()
+            engine.setProperty(result, "commitStart", engine.makeNumber(commitStart))
+            engine.setProperty(result, "commitEnd", engine.makeNumber(commitEnd))
+            engine.setProperty(result, "layoutStart", engine.makeNumber(layoutStart))
+            engine.setProperty(result, "layoutEnd", engine.makeNumber(layoutEnd))
+            engine.setProperty(result, "diffStart", engine.makeNumber(diffStart))
+            engine.setProperty(result, "diffEnd", engine.makeNumber(diffEnd))
+            engine.setProperty(result, "mutationsStart", engine.makeNumber(mutationsStart))
+            engine.setProperty(result, "mutationsEnd", engine.makeNumber(mutationsEnd))
+            engine.setProperty(result, "mutationCount", engine.makeNumber(Double(mutations.count)))
+            engine.setProperty(result, "prepareStart", engine.makeNumber(prepareStart))
+            engine.setProperty(result, "prepareEnd", engine.makeNumber(prepareEnd))
+            engine.setProperty(result, "cleanupStart", engine.makeNumber(cleanupStart))
+            engine.setProperty(result, "cleanupEnd", engine.makeNumber(cleanupEnd))
+            engine.setProperty(result, "treePromoteStart", engine.makeNumber(treePromoteStart))
+            engine.setProperty(result, "treePromoteEnd", engine.makeNumber(treePromoteEnd))
+            engine.setProperty(result, "nodeGCStart", engine.makeNumber(nodeGCStart))
+            engine.setProperty(result, "nodeGCEnd", engine.makeNumber(nodeGCEnd))
+            engine.setProperty(result, "devtoolsNotifyStart", engine.makeNumber(devtoolsNotifyStart))
+            engine.setProperty(result, "devtoolsNotifyEnd", engine.makeNumber(devtoolsNotifyEnd))
+
+            // Tree stats
+            let stats = self.computeTreeStats(newChildren)
+            engine.setProperty(result, "nodeCount", engine.makeNumber(Double(stats.nodeCount)))
+            engine.setProperty(result, "treeDepth", engine.makeNumber(Double(stats.depth)))
+
+            // Root element types (e.g. "div, main, footer")
+            let rootTypes = newChildren.map { $0.family.elementType }.joined(separator: ", ")
+            engine.setProperty(result, "rootTypes", engine.makeString(rootTypes))
+
+            // Mutation breakdown
+            engine.setProperty(result, "creates", engine.makeNumber(Double(creates)))
+            engine.setProperty(result, "deletes", engine.makeNumber(Double(deletes)))
+            engine.setProperty(result, "inserts", engine.makeNumber(Double(inserts)))
+            engine.setProperty(result, "removes", engine.makeNumber(Double(removes)))
+            engine.setProperty(result, "updates", engine.makeNumber(Double(updates)))
+
+            // Affected element types
+            let affectedTypesStr = affectedTypes.sorted().joined(separator: ", ")
+            engine.setProperty(result, "affectedTypes", engine.makeString(affectedTypesStr))
+
+            // syncStart/syncEnd are scoped inside the rootView conditional.
+            // Use mutationsStart as fallback when rootView was nil (no sync happened).
+            // The actual sync values are captured via lastSyncTimings.
+            if let syncTimings = self.lastSyncTimings {
+                engine.setProperty(result, "syncStart", engine.makeNumber(syncTimings.start))
+                engine.setProperty(result, "syncEnd", engine.makeNumber(syncTimings.end))
+                self.lastSyncTimings = nil
+            } else {
+                engine.setProperty(result, "syncStart", engine.makeNumber(mutationsEnd))
+                engine.setProperty(result, "syncEnd", engine.makeNumber(mutationsEnd))
+            }
+
+            // Merge sub-phase layout timings
+            if let layoutTimings = self.lastLayoutTimings {
+                for (key, value) in layoutTimings {
+                    engine.setProperty(result, key, engine.makeNumber(value))
+                }
+                self.lastLayoutTimings = nil
+            }
+
+            // Per-node timing arrays for flame graph visualization
+
+            // Diff node timings: [type, start, end, type, start, end, ...]
+            var diffElements: [JSValueRef] = []
+            diffElements.reserveCapacity(diffNodeTimings.count * 3)
+            for entry in diffNodeTimings {
+                diffElements.append(engine.makeString(entry.type))
+                diffElements.append(engine.makeNumber(entry.start))
+                diffElements.append(engine.makeNumber(entry.end))
+            }
+            engine.setProperty(result, "diffNodes", engine.makeArray(diffElements))
+
+            // Mutation timings: [mutationType, elementType, start, end, ...]
+            var mutElements: [JSValueRef] = []
+            mutElements.reserveCapacity(mutationTimings.count * 4)
+            for entry in mutationTimings {
+                mutElements.append(engine.makeString(entry.mutationType))
+                mutElements.append(engine.makeString(entry.elementType))
+                mutElements.append(engine.makeNumber(entry.start))
+                mutElements.append(engine.makeNumber(entry.end))
+            }
+            engine.setProperty(result, "mutationNodes", engine.makeArray(mutElements))
+
+            // Layout node timings (readLayoutFrames + syncAllFrames combined)
+            let combinedLayout = self.lastLayoutNodeTimings + syncNodeTimings
+            var layoutElements: [JSValueRef] = []
+            layoutElements.reserveCapacity(combinedLayout.count * 3)
+            for entry in combinedLayout {
+                layoutElements.append(engine.makeString(entry.type))
+                layoutElements.append(engine.makeNumber(entry.start))
+                layoutElements.append(engine.makeNumber(entry.end))
+            }
+            engine.setProperty(result, "layoutNodes", engine.makeArray(layoutElements))
+            self.lastLayoutNodeTimings = []
+
+            return result
         }
+    }
+
+    /// Computes tree statistics (total node count and max depth) by walking
+    /// the shadow tree. Used when tracing is enabled to populate the timing
+    /// dictionary with tree summary data.
+    private func computeTreeStats(_ roots: [ShadowNodeWrapper]) -> (nodeCount: Int, depth: Int) {
+        var count = 0
+        func walk(_ nodes: [ShadowNodeWrapper], currentDepth: Int, maxDepth: inout Int) {
+            for node in nodes {
+                count += 1
+                if currentDepth > maxDepth { maxDepth = currentDepth }
+                walk(node.children, currentDepth: currentDepth + 1, maxDepth: &maxDepth)
+            }
+        }
+        var maxDepth = 0
+        walk(roots, currentDepth: 1, maxDepth: &maxDepth)
+        return (count, maxDepth)
     }
 
     /// Recursively collects all node IDs reachable from the given tree.
@@ -997,6 +1202,33 @@ public class Bindings {
         }
     }
 
+    /// Recursively syncs every UIView's frame to match its node's layoutFrame,
+    /// with optional per-node timing collection for flame graph visualization.
+    private func syncAllFrames(
+        _ nodes: [ShadowNodeWrapper],
+        tracing: Bool,
+        nodeTimings: inout [(type: String, start: Double, end: Double)]
+    ) {
+        for node in nodes {
+            let nodeStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+
+            if let view = viewRegistry.view(for: node.family) {
+                if view.frame != node.layoutFrame {
+                    view.frame = node.layoutFrame
+                }
+                if let scrollView = view as? UIScrollView, let contentSize = node.scrollContentSize {
+                    scrollView.contentSize = contentSize
+                }
+            }
+            syncAllFrames(node.children, tracing: tracing, nodeTimings: &nodeTimings)
+
+            if tracing {
+                let nodeEnd = CACurrentMediaTime() * 1000.0
+                nodeTimings.append((node.family.elementType, nodeStart, nodeEnd))
+            }
+        }
+    }
+
     // MARK: - Yoga Layout
 
     /// Calculate layout using Yoga for the given top-level children within bounds.
@@ -1007,7 +1239,7 @@ public class Bindings {
     ///
     /// Returns the natural content size (width × height) from Yoga layout.
     @discardableResult
-    private func calculateYogaLayout(for children: [ShadowNodeWrapper], in bounds: CGRect) -> CGSize {
+    private func calculateYogaLayout(for children: [ShadowNodeWrapper], in bounds: CGRect, tracing: Bool = false) -> CGSize {
         guard !children.isEmpty else { return .zero }
 
         // 1. Create temporary root node sized to container
@@ -1027,46 +1259,75 @@ public class Bindings {
         }
 
         // 3. Calculate layout (first pass)
+        let yogaStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
         YGNodeCalculateLayout(rootNode, Float(bounds.width), .nan, .LTR)
 
         // 3b. Post-layout text re-measurement
+        let textRemeasureStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
         var needsSecondPass = false
         for child in children {
             if ShadowTreeLayout.markTextNodesNeedingRemeasure(child) {
                 needsSecondPass = true
             }
         }
+        var didRemeasure = false
         if needsSecondPass {
+            didRemeasure = true
             YGNodeCalculateLayout(rootNode, Float(bounds.width), .nan, .LTR)
         }
+        let textRemeasureEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+        let yogaEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
 
         // Read content size from temp root (which has unbounded height)
         let yogaHeight = CGFloat(YGNodeLayoutGetHeight(rootNode))
 
         // 4. Walk tree reading layout results into layoutFrame
-        for child in children {
-            ShadowTreeLayout.readLayoutFrames(node: child)
+        let readFramesStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+        if tracing {
+            self.lastLayoutNodeTimings = []
+            for child in children {
+                ShadowTreeLayout.readLayoutFrames(
+                    node: child, tracing: true, nodeTimings: &self.lastLayoutNodeTimings
+                )
+            }
+        } else {
+            for child in children {
+                ShadowTreeLayout.readLayoutFrames(node: child)
+            }
         }
 
         // 4a. Adjust for CSS margin collapse-through
         ShadowTreeLayout.adjustMarginCollapseThrough(children: children)
 
         let actualHeight = ShadowTreeLayout.computeActualContentHeight(for: children)
+        let readFramesEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
         let contentSize = CGSize(
             width: CGFloat(YGNodeLayoutGetWidth(rootNode)),
             height: max(yogaHeight, actualHeight)
         )
 
         // 4b. Compute scroll content sizes for overflow:scroll/auto nodes
+        let scrollStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
         for child in children {
             ShadowTreeLayout.computeScrollContentSizes(for: child)
         }
+        let scrollEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
 
         // 5. Remove children from temporary root (ownership stays with ShadowNodeWrappers)
         YGNodeRemoveAllChildren(rootNode)
 
         // 6. Free temporary root
         YGNodeFree(rootNode)
+
+        if tracing {
+            lastLayoutTimings = [
+                "yogaStart": yogaStart, "yogaEnd": yogaEnd,
+                "textRemeasureStart": textRemeasureStart, "textRemeasureEnd": textRemeasureEnd,
+                "didRemeasure": didRemeasure ? 1.0 : 0.0,
+                "readFramesStart": readFramesStart, "readFramesEnd": readFramesEnd,
+                "scrollStart": scrollStart, "scrollEnd": scrollEnd,
+            ]
+        }
 
         return contentSize
     }
@@ -1365,6 +1626,14 @@ public class Bindings {
             return engine?.makeNumber(CACurrentMediaTime() * 1000.0)
         }
 
+        // $$setNativeTracingEnabled(enabled) -> void
+        // Toggles native commit timing collection on/off from JS.
+        engine.setGlobalFunction("$$setNativeTracingEnabled") { [weak self, weak engine] args in
+            guard let self = self else { return nil }
+            self.nativeTracingEnabled = engine?.toBool(args[0]) ?? false
+            return nil
+        }
+
         // $$sendInspectorMessage(data) -> void
         // Sends a string message from JS to the dev server via the hot reload WebSocket.
         engine.setGlobalFunction("$$sendInspectorMessage") { [weak self, weak engine] args in
@@ -1402,5 +1671,706 @@ public class Bindings {
     public func deliverInspectorMessage(_ json: String) {
         guard let handler = engine.getGlobalProperty("$$onInspectorMessage") else { return }
         _ = engine.callFunction(handler, args: [engine.makeString(json)])
+    }
+
+    // MARK: - Elements Inspector (CDP DOM/CSS)
+
+    private func registerElementsInspector() {
+        // $$getDocumentTree(surfaceId) -> DOM.Node tree
+        // Walks currentTrees[surfaceId] and serializes each ShadowNodeWrapper
+        // into CDP DOM.Node format for the Chrome DevTools Elements tab.
+        engine.setGlobalFunction("$$getDocumentTree") { [weak self, weak engine] args in
+            guard let self = self, let engine = engine else { return nil }
+            let requestedId = engine.toInt(args[0]) ?? 0
+
+            // Find the tree: use requested surfaceId, or fall back to first available
+            let children: [ShadowNodeWrapper]?
+            if requestedId > 0, let tree = self.currentTrees[requestedId] {
+                children = tree
+            } else {
+                children = self.currentTrees.values.first(where: { !$0.isEmpty })
+                    ?? self.currentTrees.values.first
+            }
+
+            guard let children = children else {
+                return self.makeEmptyDocument(engine: engine)
+            }
+
+            // Build body children
+            var bodyChildren: [JSValueRef] = []
+            for child in children {
+                bodyChildren.append(contentsOf: self.serializeNodes(child, engine: engine))
+            }
+
+            // <body> node wrapping all root children
+            let bodyId = self.nextInspectorNodeId()
+            let bodyNode = engine.makeObject()
+            engine.setProperty(bodyNode, "nodeId", engine.makeNumber(Double(bodyId)))
+            engine.setProperty(bodyNode, "backendNodeId", engine.makeNumber(Double(bodyId)))
+            engine.setProperty(bodyNode, "nodeType", engine.makeNumber(1))
+            engine.setProperty(bodyNode, "nodeName", engine.makeString("BODY"))
+            engine.setProperty(bodyNode, "localName", engine.makeString("body"))
+            engine.setProperty(bodyNode, "nodeValue", engine.makeString(""))
+            engine.setProperty(bodyNode, "childNodeCount", engine.makeNumber(Double(bodyChildren.count)))
+            engine.setProperty(bodyNode, "children", engine.makeArray(bodyChildren))
+            engine.setProperty(bodyNode, "attributes", engine.makeArray([]))
+
+            // <head> node (empty, required by Chrome DevTools)
+            let headId = self.nextInspectorNodeId()
+            let headNode = engine.makeObject()
+            engine.setProperty(headNode, "nodeId", engine.makeNumber(Double(headId)))
+            engine.setProperty(headNode, "backendNodeId", engine.makeNumber(Double(headId)))
+            engine.setProperty(headNode, "nodeType", engine.makeNumber(1))
+            engine.setProperty(headNode, "nodeName", engine.makeString("HEAD"))
+            engine.setProperty(headNode, "localName", engine.makeString("head"))
+            engine.setProperty(headNode, "nodeValue", engine.makeString(""))
+            engine.setProperty(headNode, "childNodeCount", engine.makeNumber(0))
+            engine.setProperty(headNode, "children", engine.makeArray([]))
+            engine.setProperty(headNode, "attributes", engine.makeArray([]))
+
+            // <html> node wrapping head + body
+            let htmlId = self.nextInspectorNodeId()
+            let htmlNode = engine.makeObject()
+            engine.setProperty(htmlNode, "nodeId", engine.makeNumber(Double(htmlId)))
+            engine.setProperty(htmlNode, "backendNodeId", engine.makeNumber(Double(htmlId)))
+            engine.setProperty(htmlNode, "nodeType", engine.makeNumber(1))
+            engine.setProperty(htmlNode, "nodeName", engine.makeString("HTML"))
+            engine.setProperty(htmlNode, "localName", engine.makeString("html"))
+            engine.setProperty(htmlNode, "nodeValue", engine.makeString(""))
+            engine.setProperty(htmlNode, "childNodeCount", engine.makeNumber(2))
+            engine.setProperty(htmlNode, "children", engine.makeArray([headNode, bodyNode]))
+            engine.setProperty(htmlNode, "attributes", engine.makeArray([]))
+
+            // #document root
+            let docId = self.nextInspectorNodeId()
+            let doc = engine.makeObject()
+            engine.setProperty(doc, "nodeId", engine.makeNumber(Double(docId)))
+            engine.setProperty(doc, "backendNodeId", engine.makeNumber(Double(docId)))
+            engine.setProperty(doc, "nodeType", engine.makeNumber(9))
+            engine.setProperty(doc, "nodeName", engine.makeString("#document"))
+            engine.setProperty(doc, "localName", engine.makeString(""))
+            engine.setProperty(doc, "nodeValue", engine.makeString(""))
+            engine.setProperty(doc, "childNodeCount", engine.makeNumber(1))
+            engine.setProperty(doc, "children", engine.makeArray([htmlNode]))
+            engine.setProperty(doc, "documentURL", engine.makeString("falcon://app"))
+            engine.setProperty(doc, "baseURL", engine.makeString("falcon://app"))
+            engine.setProperty(doc, "xmlVersion", engine.makeString(""))
+
+            let result = engine.makeObject()
+            engine.setProperty(result, "root", doc)
+            return result
+        }
+
+        // $$getComputedStyle(nodeId) -> {computedStyle: [{name, value}, ...]}
+        // Reads Yoga computed layout values and visual style props.
+        engine.setGlobalFunction("$$getComputedStyle") { [weak self, weak engine] args in
+            guard let self = self, let engine = engine else { return nil }
+            guard let nodeId = engine.toInt(args[0]),
+                  let node = self.nodeRegistry[nodeId] else {
+                return engine.makeObject()
+            }
+
+            var properties: [(String, String)] = []
+            let yoga = node.yogaNode
+
+            // Layout computed values
+            let frame = node.layoutFrame
+            properties.append(("width", "\(frame.width)px"))
+            properties.append(("height", "\(frame.height)px"))
+            properties.append(("top", "\(frame.origin.y)px"))
+            properties.append(("left", "\(frame.origin.x)px"))
+
+            // Box model — margins
+            let marginTop = YGNodeLayoutGetMargin(yoga, .top)
+            let marginRight = YGNodeLayoutGetMargin(yoga, .right)
+            let marginBottom = YGNodeLayoutGetMargin(yoga, .bottom)
+            let marginLeft = YGNodeLayoutGetMargin(yoga, .left)
+            properties.append(("margin-top", self.formatPx(marginTop)))
+            properties.append(("margin-right", self.formatPx(marginRight)))
+            properties.append(("margin-bottom", self.formatPx(marginBottom)))
+            properties.append(("margin-left", self.formatPx(marginLeft)))
+
+            // Box model — padding
+            let paddingTop = YGNodeLayoutGetPadding(yoga, .top)
+            let paddingRight = YGNodeLayoutGetPadding(yoga, .right)
+            let paddingBottom = YGNodeLayoutGetPadding(yoga, .bottom)
+            let paddingLeft = YGNodeLayoutGetPadding(yoga, .left)
+            properties.append(("padding-top", self.formatPx(paddingTop)))
+            properties.append(("padding-right", self.formatPx(paddingRight)))
+            properties.append(("padding-bottom", self.formatPx(paddingBottom)))
+            properties.append(("padding-left", self.formatPx(paddingLeft)))
+
+            // Box model — border
+            let borderTop = YGNodeLayoutGetBorder(yoga, .top)
+            let borderRight = YGNodeLayoutGetBorder(yoga, .right)
+            let borderBottom = YGNodeLayoutGetBorder(yoga, .bottom)
+            let borderLeft = YGNodeLayoutGetBorder(yoga, .left)
+            properties.append(("border-top-width", self.formatPx(borderTop)))
+            properties.append(("border-right-width", self.formatPx(borderRight)))
+            properties.append(("border-bottom-width", self.formatPx(borderBottom)))
+            properties.append(("border-left-width", self.formatPx(borderLeft)))
+
+            // Yoga style enum values
+            properties.append(("display", self.displayToString(YGNodeStyleGetDisplay(yoga))))
+            properties.append(("position", self.positionToString(YGNodeStyleGetPositionType(yoga))))
+            properties.append(("flex-direction", self.flexDirectionToString(YGNodeStyleGetFlexDirection(yoga))))
+            properties.append(("justify-content", self.justifyToString(YGNodeStyleGetJustifyContent(yoga))))
+            properties.append(("align-items", self.alignToString(YGNodeStyleGetAlignItems(yoga))))
+            properties.append(("align-self", self.alignToString(YGNodeStyleGetAlignSelf(yoga))))
+            properties.append(("align-content", self.alignToString(YGNodeStyleGetAlignContent(yoga))))
+            properties.append(("flex-wrap", self.flexWrapToString(YGNodeStyleGetFlexWrap(yoga))))
+            properties.append(("overflow", self.overflowToString(YGNodeStyleGetOverflow(yoga))))
+
+            // Yoga numeric style values
+            let flexGrow = YGNodeStyleGetFlexGrow(yoga)
+            properties.append(("flex-grow", "\(flexGrow)"))
+            let flexShrink = YGNodeStyleGetFlexShrink(yoga)
+            properties.append(("flex-shrink", "\(flexShrink)"))
+            let flexBasis = YGNodeStyleGetFlexBasis(yoga)
+            properties.append(("flex-basis", self.formatYGValue(flexBasis)))
+
+            let gap = YGNodeStyleGetGap(yoga, .all)
+            if gap.unit != .undefined { properties.append(("gap", self.formatYGValue(gap))) }
+            let rowGap = YGNodeStyleGetGap(yoga, .row)
+            if rowGap.unit != .undefined { properties.append(("row-gap", self.formatYGValue(rowGap))) }
+            let columnGap = YGNodeStyleGetGap(yoga, .column)
+            if columnGap.unit != .undefined { properties.append(("column-gap", self.formatYGValue(columnGap))) }
+
+            // Visual properties from style dict
+            let style = node.props["style"] as? [String: Any] ?? [:]
+            let visualKeys = [
+                "color", "backgroundColor", "opacity",
+                "fontSize", "fontWeight", "fontFamily", "fontStyle",
+                "borderRadius", "borderColor", "borderStyle",
+                "textAlign", "textDecoration", "lineHeight"
+            ]
+            for key in visualKeys {
+                if let val = style[key] {
+                    let cssKey = self.camelToKebab(key)
+                    if let num = val as? NSNumber {
+                        let unitless: Set<String> = ["opacity", "font-weight", "line-height"]
+                        if unitless.contains(cssKey) {
+                            properties.append((cssKey, "\(num)"))
+                        } else {
+                            properties.append((cssKey, "\(num)px"))
+                        }
+                    } else {
+                        properties.append((cssKey, "\(val)"))
+                    }
+                }
+            }
+
+            // Serialize as CDP computedStyle array
+            var jsProps: [JSValueRef] = []
+            for (name, value) in properties {
+                let prop = engine.makeObject()
+                engine.setProperty(prop, "name", engine.makeString(name))
+                engine.setProperty(prop, "value", engine.makeString(value))
+                jsProps.append(prop)
+            }
+
+            let result = engine.makeObject()
+            engine.setProperty(result, "computedStyle", engine.makeArray(jsProps))
+            return result
+        }
+
+        // $$getInlineStyle(nodeId) -> {cssProperties: [{name, value}, ...], shorthandEntries: []}
+        // Returns the node's props.style as a CDP CSSStyle object.
+        engine.setGlobalFunction("$$getInlineStyle") { [weak self, weak engine] args in
+            guard let self = self, let engine = engine else { return nil }
+            guard let nodeId = engine.toInt(args[0]),
+                  let node = self.nodeRegistry[nodeId] else {
+                return engine.makeObject()
+            }
+
+            let style = node.props["style"] as? [String: Any] ?? [:]
+            var cssProps: [JSValueRef] = []
+            for (key, value) in style.sorted(by: { $0.key < $1.key }) {
+                let prop = engine.makeObject()
+                let cssKey = self.camelToKebab(key)
+                engine.setProperty(prop, "name", engine.makeString(cssKey))
+                if let num = value as? NSNumber {
+                    let unitless: Set<String> = [
+                        "opacity", "flex-grow", "flex-shrink", "z-index",
+                        "font-weight", "line-height", "order"
+                    ]
+                    if unitless.contains(cssKey) {
+                        engine.setProperty(prop, "value", engine.makeString("\(num)"))
+                    } else {
+                        engine.setProperty(prop, "value", engine.makeString("\(num)px"))
+                    }
+                } else {
+                    engine.setProperty(prop, "value", engine.makeString("\(value)"))
+                }
+                cssProps.append(prop)
+            }
+
+            let result = engine.makeObject()
+            engine.setProperty(result, "cssProperties", engine.makeArray(cssProps))
+            engine.setProperty(result, "shorthandEntries", engine.makeArray([]))
+            return result
+        }
+
+        // $$getOuterHTML(nodeId) -> {outerHTML: "<div ...>...</div>"}
+        // Reconstructs HTML from the shadow node for DevTools preview.
+        engine.setGlobalFunction("$$getOuterHTML") { [weak self, weak engine] args in
+            guard let self = self, let engine = engine else { return nil }
+            guard let nodeId = engine.toInt(args[0]),
+                  let node = self.nodeRegistry[nodeId] else {
+                let result = engine.makeObject()
+                engine.setProperty(result, "outerHTML", engine.makeString(""))
+                return result
+            }
+
+            let html = self.nodeToHTML(node)
+            let result = engine.makeObject()
+            engine.setProperty(result, "outerHTML", engine.makeString(html))
+            return result
+        }
+
+        // $$getBoxModel(nodeId) -> {model: {content, padding, border, margin, width, height}}
+        // Returns CDP BoxModel with quad coordinates for the element.
+        engine.setGlobalFunction("$$getBoxModel") { [weak self, weak engine] args in
+            guard let self = self, let engine = engine else { return nil }
+            guard let nodeId = engine.toInt(args[0]),
+                  let node = self.nodeRegistry[nodeId] else { return nil }
+
+            let yoga = node.yogaNode
+            let frame = node.layoutFrame
+
+            // Read box model insets from Yoga
+            let mt = CGFloat(self.nanToZero(YGNodeLayoutGetMargin(yoga, .top)))
+            let mr = CGFloat(self.nanToZero(YGNodeLayoutGetMargin(yoga, .right)))
+            let mb = CGFloat(self.nanToZero(YGNodeLayoutGetMargin(yoga, .bottom)))
+            let ml = CGFloat(self.nanToZero(YGNodeLayoutGetMargin(yoga, .left)))
+
+            let bt = CGFloat(self.nanToZero(YGNodeLayoutGetBorder(yoga, .top)))
+            let br = CGFloat(self.nanToZero(YGNodeLayoutGetBorder(yoga, .right)))
+            let bb = CGFloat(self.nanToZero(YGNodeLayoutGetBorder(yoga, .bottom)))
+            let bl = CGFloat(self.nanToZero(YGNodeLayoutGetBorder(yoga, .left)))
+
+            let pt = CGFloat(self.nanToZero(YGNodeLayoutGetPadding(yoga, .top)))
+            let pr = CGFloat(self.nanToZero(YGNodeLayoutGetPadding(yoga, .right)))
+            let pb = CGFloat(self.nanToZero(YGNodeLayoutGetPadding(yoga, .bottom)))
+            let pl = CGFloat(self.nanToZero(YGNodeLayoutGetPadding(yoga, .left)))
+
+            // Compute absolute position by walking up to root
+            var absX = frame.origin.x
+            var absY = frame.origin.y
+            if let view = self.viewRegistry.view(for: node.family),
+               let rootView = self.rootViews[node.family.surfaceId] {
+                let absFrame = view.convert(view.bounds, to: rootView)
+                absX = absFrame.origin.x
+                absY = absFrame.origin.y
+            }
+
+            let w = frame.width
+            let h = frame.height
+
+            // Margin quad (outermost)
+            let mx0 = absX - ml, my0 = absY - mt
+            let mx1 = absX + w + mr, my1 = absY + h + mb
+            let marginQuad = self.makeQuad([mx0, my0, mx1, my0, mx1, my1, mx0, my1], engine: engine)
+
+            // Border quad
+            let bx0 = absX, by0 = absY
+            let bx1 = absX + w, by1 = absY + h
+            let borderQuad = self.makeQuad([bx0, by0, bx1, by0, bx1, by1, bx0, by1], engine: engine)
+
+            // Padding quad
+            let px0 = absX + bl, py0 = absY + bt
+            let px1 = absX + w - br, py1 = absY + h - bb
+            let paddingQuad = self.makeQuad([px0, py0, px1, py0, px1, py1, px0, py1], engine: engine)
+
+            // Content quad (innermost)
+            let cx0 = px0 + pl, cy0 = py0 + pt
+            let cx1 = px1 - pr, cy1 = py1 - pb
+            let contentQuad = self.makeQuad([cx0, cy0, cx1, cy0, cx1, cy1, cx0, cy1], engine: engine)
+
+            let model = engine.makeObject()
+            engine.setProperty(model, "content", contentQuad)
+            engine.setProperty(model, "padding", paddingQuad)
+            engine.setProperty(model, "border", borderQuad)
+            engine.setProperty(model, "margin", marginQuad)
+            engine.setProperty(model, "width", engine.makeNumber(Double(w)))
+            engine.setProperty(model, "height", engine.makeNumber(Double(h)))
+
+            let result = engine.makeObject()
+            engine.setProperty(result, "model", model)
+            return result
+        }
+
+        // $$highlightNode(nodeId) -> void
+        // Draws a box model overlay on the UIView for the given node.
+        engine.setGlobalFunction("$$highlightNode") { [weak self, weak engine] args in
+            guard let self = self, let engine = engine else {
+                print("[Elements] $$highlightNode: self or engine nil")
+                return nil
+            }
+            guard let nodeId = engine.toInt(args[0]) else {
+                print("[Elements] $$highlightNode: no nodeId in args")
+                return nil
+            }
+            guard let node = self.nodeRegistry[nodeId] else {
+                print("[Elements] $$highlightNode: nodeId \(nodeId) not in registry (registry has \(self.nodeRegistry.count) nodes)")
+                return nil
+            }
+
+            let view = self.viewRegistry.view(for: node.family)
+            guard let targetView = view else {
+                print("[Elements] $$highlightNode: no view for node \(nodeId) (\(node.family.elementType))")
+                return nil
+            }
+
+            // Find the root view for this node's surface
+            let surfaceId = node.family.surfaceId
+            guard let rootView = self.rootViews[surfaceId] else {
+                print("[Elements] $$highlightNode: no rootView for surfaceId \(surfaceId)")
+                return nil
+            }
+
+            print("[Elements] $$highlightNode: highlighting node \(nodeId) (\(node.family.elementType)) in surface \(surfaceId)")
+
+            if self.highlightOverlay == nil {
+                self.highlightOverlay = ElementHighlightOverlay(rootView: rootView)
+            }
+            self.highlightOverlay?.highlight(node: node, view: targetView)
+
+            return nil
+        }
+
+        // $$hideHighlight() -> void
+        engine.setGlobalFunction("$$hideHighlight") { [weak self] _ in
+            self?.highlightOverlay?.hide()
+            return nil
+        }
+    }
+
+    /// Counter for inspector-specific node IDs (document, body wrapper nodes).
+    /// Shadow tree nodes use their nodeRegistry IDs directly.
+    private var inspectorNodeIdCounter = 900000
+
+    private func nextInspectorNodeId() -> Int {
+        inspectorNodeIdCounter += 1
+        return inspectorNodeIdCounter
+    }
+
+    private func makeEmptyDocument(engine: JSEngine) -> JSValueRef {
+        let bodyId = nextInspectorNodeId()
+        let bodyNode = engine.makeObject()
+        engine.setProperty(bodyNode, "nodeId", engine.makeNumber(Double(bodyId)))
+        engine.setProperty(bodyNode, "backendNodeId", engine.makeNumber(Double(bodyId)))
+        engine.setProperty(bodyNode, "nodeType", engine.makeNumber(1))
+        engine.setProperty(bodyNode, "nodeName", engine.makeString("BODY"))
+        engine.setProperty(bodyNode, "localName", engine.makeString("body"))
+        engine.setProperty(bodyNode, "nodeValue", engine.makeString(""))
+        engine.setProperty(bodyNode, "childNodeCount", engine.makeNumber(0))
+        engine.setProperty(bodyNode, "children", engine.makeArray([]))
+        engine.setProperty(bodyNode, "attributes", engine.makeArray([]))
+
+        let headId = nextInspectorNodeId()
+        let headNode = engine.makeObject()
+        engine.setProperty(headNode, "nodeId", engine.makeNumber(Double(headId)))
+        engine.setProperty(headNode, "backendNodeId", engine.makeNumber(Double(headId)))
+        engine.setProperty(headNode, "nodeType", engine.makeNumber(1))
+        engine.setProperty(headNode, "nodeName", engine.makeString("HEAD"))
+        engine.setProperty(headNode, "localName", engine.makeString("head"))
+        engine.setProperty(headNode, "nodeValue", engine.makeString(""))
+        engine.setProperty(headNode, "childNodeCount", engine.makeNumber(0))
+        engine.setProperty(headNode, "children", engine.makeArray([]))
+        engine.setProperty(headNode, "attributes", engine.makeArray([]))
+
+        let htmlId = nextInspectorNodeId()
+        let htmlNode = engine.makeObject()
+        engine.setProperty(htmlNode, "nodeId", engine.makeNumber(Double(htmlId)))
+        engine.setProperty(htmlNode, "backendNodeId", engine.makeNumber(Double(htmlId)))
+        engine.setProperty(htmlNode, "nodeType", engine.makeNumber(1))
+        engine.setProperty(htmlNode, "nodeName", engine.makeString("HTML"))
+        engine.setProperty(htmlNode, "localName", engine.makeString("html"))
+        engine.setProperty(htmlNode, "nodeValue", engine.makeString(""))
+        engine.setProperty(htmlNode, "childNodeCount", engine.makeNumber(2))
+        engine.setProperty(htmlNode, "children", engine.makeArray([headNode, bodyNode]))
+        engine.setProperty(htmlNode, "attributes", engine.makeArray([]))
+
+        let docId = nextInspectorNodeId()
+        let doc = engine.makeObject()
+        engine.setProperty(doc, "nodeId", engine.makeNumber(Double(docId)))
+        engine.setProperty(doc, "backendNodeId", engine.makeNumber(Double(docId)))
+        engine.setProperty(doc, "nodeType", engine.makeNumber(9))
+        engine.setProperty(doc, "nodeName", engine.makeString("#document"))
+        engine.setProperty(doc, "localName", engine.makeString(""))
+        engine.setProperty(doc, "nodeValue", engine.makeString(""))
+        engine.setProperty(doc, "childNodeCount", engine.makeNumber(1))
+        engine.setProperty(doc, "children", engine.makeArray([htmlNode]))
+        engine.setProperty(doc, "documentURL", engine.makeString("falcon://app"))
+        engine.setProperty(doc, "baseURL", engine.makeString("falcon://app"))
+        engine.setProperty(doc, "xmlVersion", engine.makeString(""))
+        let result = engine.makeObject()
+        engine.setProperty(result, "root", doc)
+        return result
+    }
+
+    /// Recursively serializes a ShadowNodeWrapper into CDP DOM.Node format.
+    /// Returns an array — normally one element, but #suspense nodes are
+    /// flattened so their children are inlined into the parent.
+    private func serializeNodes(_ node: ShadowNodeWrapper, engine: JSEngine) -> [JSValueRef] {
+        let elementType = node.family.elementType
+
+        // Skip #suspense wrapper nodes — inline their children instead
+        if elementType == "#suspense" {
+            var results: [JSValueRef] = []
+            for child in node.children {
+                results.append(contentsOf: serializeNodes(child, engine: engine))
+            }
+            return results
+        }
+
+        // Find this node's registry ID (reverse lookup)
+        var nodeId = 0
+        for (id, registeredNode) in nodeRegistry where registeredNode === node {
+            nodeId = id
+            break
+        }
+        if nodeId == 0 {
+            nodeId = registerNode(node)
+        }
+
+        let jsNode = engine.makeObject()
+        engine.setProperty(jsNode, "nodeId", engine.makeNumber(Double(nodeId)))
+        engine.setProperty(jsNode, "backendNodeId", engine.makeNumber(Double(nodeId)))
+
+        if elementType == "#text" {
+            // Text node
+            engine.setProperty(jsNode, "nodeType", engine.makeNumber(3))
+            engine.setProperty(jsNode, "nodeName", engine.makeString("#text"))
+            engine.setProperty(jsNode, "localName", engine.makeString(""))
+            engine.setProperty(jsNode, "nodeValue", engine.makeString(node.text ?? ""))
+            engine.setProperty(jsNode, "childNodeCount", engine.makeNumber(0))
+            engine.setProperty(jsNode, "children", engine.makeArray([]))
+        } else {
+            // Element node
+            engine.setProperty(jsNode, "nodeType", engine.makeNumber(1))
+            engine.setProperty(jsNode, "nodeName", engine.makeString(elementType.uppercased()))
+            engine.setProperty(jsNode, "localName", engine.makeString(elementType))
+            engine.setProperty(jsNode, "nodeValue", engine.makeString(""))
+
+            // Serialize attributes as flat [key, value, key, value, ...] array
+            var attrs: [JSValueRef] = []
+            for (key, value) in node.props {
+                if key == "style" {
+                    if let styleDict = value as? [String: Any] {
+                        let cssString = self.styleDictToCSS(styleDict)
+                        if !cssString.isEmpty {
+                            attrs.append(engine.makeString("style"))
+                            attrs.append(engine.makeString(cssString))
+                        }
+                    }
+                } else if key == "children" || key == "instanceHandle" {
+                    continue
+                } else if value is NSNull {
+                    continue
+                } else if let fn = value as? AnyObject, "\(type(of: fn))".contains("Function") {
+                    // Event handler — show as boolean marker
+                    attrs.append(engine.makeString(key))
+                    attrs.append(engine.makeString("true"))
+                } else {
+                    attrs.append(engine.makeString(key))
+                    attrs.append(engine.makeString("\(value)"))
+                }
+            }
+            engine.setProperty(jsNode, "attributes", engine.makeArray(attrs))
+
+            // Serialize children recursively (flattening #suspense)
+            var childNodes: [JSValueRef] = []
+            for child in node.children {
+                childNodes.append(contentsOf: self.serializeNodes(child, engine: engine))
+            }
+            engine.setProperty(jsNode, "childNodeCount", engine.makeNumber(Double(childNodes.count)))
+            engine.setProperty(jsNode, "children", engine.makeArray(childNodes))
+        }
+
+        return [jsNode]
+    }
+
+    /// Converts a style dictionary to a CSS-like string.
+    private func styleDictToCSS(_ style: [String: Any]) -> String {
+        var parts: [String] = []
+        for (key, value) in style.sorted(by: { $0.key < $1.key }) {
+            let cssKey = camelToKebab(key)
+            if let num = value as? NSNumber {
+                // Unitless properties
+                let unitless: Set<String> = [
+                    "opacity", "flex-grow", "flex-shrink", "z-index",
+                    "font-weight", "line-height", "order"
+                ]
+                if unitless.contains(cssKey) {
+                    parts.append("\(cssKey): \(num)")
+                } else {
+                    parts.append("\(cssKey): \(num)px")
+                }
+            } else {
+                parts.append("\(cssKey): \(value)")
+            }
+        }
+        return parts.joined(separator: "; ")
+    }
+
+    /// Converts camelCase to kebab-case (e.g., "fontSize" → "font-size").
+    private func camelToKebab(_ str: String) -> String {
+        var result = ""
+        for char in str {
+            if char.isUppercase {
+                result += "-"
+                result += char.lowercased()
+            } else {
+                result += String(char)
+            }
+        }
+        return result
+    }
+
+    private func nodeToHTML(_ node: ShadowNodeWrapper, depth: Int = 0) -> String {
+        let elementType = node.family.elementType
+
+        if elementType == "#text" {
+            return node.text ?? ""
+        }
+
+        let indent = String(repeating: "  ", count: depth)
+
+        // Build attributes string
+        var attrParts: [String] = []
+        for (key, value) in node.props.sorted(by: { $0.key < $1.key }) {
+            if key == "style" {
+                if let styleDict = value as? [String: Any] {
+                    let css = styleDictToCSS(styleDict)
+                    if !css.isEmpty {
+                        attrParts.append("style=\"\(css)\"")
+                    }
+                }
+            } else if key == "children" || key == "instanceHandle" {
+                continue
+            } else if value is NSNull {
+                continue
+            } else {
+                attrParts.append("\(key)=\"\(value)\"")
+            }
+        }
+
+        let attrString = attrParts.isEmpty ? "" : " " + attrParts.joined(separator: " ")
+
+        if node.children.isEmpty {
+            return "\(indent)<\(elementType)\(attrString) />"
+        }
+
+        // Check if children are all text — render inline
+        let allText = node.children.allSatisfy { $0.family.elementType == "#text" }
+        if allText {
+            let text = node.children.map { $0.text ?? "" }.joined()
+            return "\(indent)<\(elementType)\(attrString)>\(text)</\(elementType)>"
+        }
+
+        var lines = ["\(indent)<\(elementType)\(attrString)>"]
+        for child in node.children {
+            lines.append(nodeToHTML(child, depth: depth + 1))
+        }
+        lines.append("\(indent)</\(elementType)>")
+        return lines.joined(separator: "\n")
+    }
+
+    private func nanToZero(_ value: Float) -> Float {
+        return value.isNaN ? 0 : value
+    }
+
+    private func makeQuad(_ values: [CGFloat], engine: JSEngine) -> JSValueRef {
+        return engine.makeArray(values.map { engine.makeNumber(Double($0)) })
+    }
+
+    private func formatPx(_ value: Float) -> String {
+        if value.isNaN { return "0px" }
+        if value == Float(Int(value)) { return "\(Int(value))px" }
+        return String(format: "%.1fpx", value)
+    }
+
+    private func formatYGValue(_ value: YGValue) -> String {
+        switch value.unit {
+        case .point: return formatPx(value.value)
+        case .percent: return "\(value.value)%"
+        case .auto: return "auto"
+        default: return "auto"
+        }
+    }
+
+    private func displayToString(_ display: YGDisplay) -> String {
+        switch display {
+        case .flex: return "flex"
+        case .block: return "block"
+        case .none: return "none"
+        case .inlineBlock: return "inline-block"
+        default: return "flex"
+        }
+    }
+
+    private func positionToString(_ position: YGPositionType) -> String {
+        switch position {
+        case .relative: return "relative"
+        case .absolute: return "absolute"
+        case .static: return "static"
+        default: return "relative"
+        }
+    }
+
+    private func flexDirectionToString(_ dir: YGFlexDirection) -> String {
+        switch dir {
+        case .row: return "row"
+        case .column: return "column"
+        case .rowReverse: return "row-reverse"
+        case .columnReverse: return "column-reverse"
+        default: return "column"
+        }
+    }
+
+    private func justifyToString(_ justify: YGJustify) -> String {
+        switch justify {
+        case .flexStart: return "flex-start"
+        case .center: return "center"
+        case .flexEnd: return "flex-end"
+        case .spaceBetween: return "space-between"
+        case .spaceAround: return "space-around"
+        case .spaceEvenly: return "space-evenly"
+        default: return "flex-start"
+        }
+    }
+
+    private func alignToString(_ align: YGAlign) -> String {
+        switch align {
+        case .auto: return "auto"
+        case .flexStart: return "flex-start"
+        case .center: return "center"
+        case .flexEnd: return "flex-end"
+        case .stretch: return "stretch"
+        case .baseline: return "baseline"
+        case .spaceBetween: return "space-between"
+        case .spaceAround: return "space-around"
+        default: return "stretch"
+        }
+    }
+
+    private func flexWrapToString(_ wrap: YGWrap) -> String {
+        switch wrap {
+        case .noWrap: return "nowrap"
+        case .wrap: return "wrap"
+        case .wrapReverse: return "wrap-reverse"
+        default: return "nowrap"
+        }
+    }
+
+    private func overflowToString(_ overflow: YGOverflow) -> String {
+        switch overflow {
+        case .visible: return "visible"
+        case .hidden: return "hidden"
+        case .scroll: return "scroll"
+        default: return "visible"
+        }
     }
 }

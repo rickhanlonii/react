@@ -45,11 +45,29 @@ public class UIKitMutationApplier: NSObject {
         _ mutations: [Mutation],
         rootView: UIView
     ) {
+        var unused: [(mutationType: String, elementType: String, start: Double, end: Double)] = []
+        applyMutations(mutations, rootView: rootView, tracing: false, mutationTimings: &unused)
+    }
+
+    /// Applies an ordered list of mutations to UIViews, with optional per-mutation
+    /// timing collection for flame graph visualization.
+    public func applyMutations(
+        _ mutations: [Mutation],
+        rootView: UIView,
+        tracing: Bool,
+        mutationTimings: inout [(mutationType: String, elementType: String, start: Double, end: Double)]
+    ) {
         print("[\(logPrefix)] Applying \(mutations.count) mutations")
 
         for (index, mutation) in mutations.enumerated() {
+            let mutStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            var mutType = ""
+            var elemType = ""
+
             switch mutation {
             case .create(let node):
+                mutType = "CREATE"
+                elemType = node.family.elementType
                 print("[\(logPrefix)] [\(index)] CREATE: \(node.family.elementType)")
                 let view = createView(for: node)
                 view.frame = node.layoutFrame
@@ -64,6 +82,8 @@ public class UIKitMutationApplier: NSObject {
                 viewRegistry.register(view: view, family: node.family)
 
             case .delete(let node):
+                mutType = "DELETE"
+                elemType = node.family.elementType
                 print("[\(logPrefix)] [\(index)] DELETE: \(node.family.elementType)")
                 if let view = viewRegistry.view(for: node.family) {
                     inheritedTextAlign.removeValue(forKey: ObjectIdentifier(view))
@@ -73,6 +93,8 @@ public class UIKitMutationApplier: NSObject {
                 viewRegistry.unregister(family: node.family)
 
             case .insert(let parent, let child, let index):
+                mutType = "INSERT"
+                elemType = child.family.elementType
                 print("[\(logPrefix)] [\(index)] INSERT: \(child.family.elementType) into \(parent.family.elementType) at \(index)")
                 guard let parentView = viewRegistry.view(for: parent.family),
                       let childView = viewRegistry.view(for: child.family) else {
@@ -125,6 +147,8 @@ public class UIKitMutationApplier: NSObject {
                 print("[\(logPrefix)]   inserted OK")
 
             case .remove(let parent, let child):
+                mutType = "REMOVE"
+                elemType = child.family.elementType
                 print("[\(logPrefix)] [\(index)] REMOVE: \(child.family.elementType)")
                 guard let childView = viewRegistry.view(for: child.family) else {
                     continue
@@ -132,6 +156,8 @@ public class UIKitMutationApplier: NSObject {
                 childView.removeFromSuperview()
 
             case .update(let node, _, let newProps):
+                mutType = "UPDATE"
+                elemType = node.family.elementType
                 print("[\(logPrefix)] [\(index)] UPDATE: \(node.family.elementType)")
                 guard let view = viewRegistry.view(for: node.family) else {
                     continue
@@ -145,6 +171,11 @@ public class UIKitMutationApplier: NSObject {
                 if let scrollView = view as? UIScrollView, let contentSize = node.scrollContentSize {
                     scrollView.contentSize = contentSize
                 }
+            }
+
+            if tracing {
+                let mutEnd = CACurrentMediaTime() * 1000.0
+                mutationTimings.append((mutType, elemType, mutStart, mutEnd))
             }
         }
 
@@ -713,18 +744,18 @@ public class UIKitMutationApplier: NSObject {
             if !(view is UIButton) && !(view is UITextField),
                let family = viewRegistry.family(for: view),
                family.hasClickHandler {
-                dispatchEvent?(view, "click", [:])
+                dispatchEvent?(view, "click", ["_nativeTimestamp": CACurrentMediaTime() * 1000])
             }
             current = view.superview
         }
     }
 
     @objc private func handleButtonTap(_ sender: UIButton) {
-        dispatchEvent?(sender, "click", [:])
+        dispatchEvent?(sender, "click", ["_nativeTimestamp": CACurrentMediaTime() * 1000])
     }
 
     @objc private func handleTextFieldChanged(_ sender: UITextField) {
-        dispatchEvent?(sender, "change", ["value": sender.text ?? ""])
+        dispatchEvent?(sender, "change", ["value": sender.text ?? "", "_nativeTimestamp": CACurrentMediaTime() * 1000])
     }
 
     // MARK: - Text Helpers

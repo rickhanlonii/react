@@ -1,4 +1,5 @@
 import Foundation
+import QuartzCore
 
 // ---------------------------------------------------------------------------
 // Differentiator
@@ -40,6 +41,25 @@ public class Differentiator {
         newChildren: [ShadowNodeWrapper],
         parent: ShadowNodeWrapper?
     ) -> [Mutation] {
+        var unused: [(type: String, start: Double, end: Double)] = []
+        return diff(
+            oldChildren: oldChildren,
+            newChildren: newChildren,
+            parent: parent,
+            tracing: false,
+            nodeTimings: &unused
+        )
+    }
+
+    /// Diff old tree children against new tree children and return mutations,
+    /// with optional per-node timing collection for flame graph visualization.
+    public func diff(
+        oldChildren: [ShadowNodeWrapper],
+        newChildren: [ShadowNodeWrapper],
+        parent: ShadowNodeWrapper?,
+        tracing: Bool,
+        nodeTimings: inout [(type: String, start: Double, end: Double)]
+    ) -> [Mutation] {
         var mutations: [Mutation] = []
 
         // Build a lookup of old children keyed by family identity.
@@ -55,6 +75,7 @@ public class Differentiator {
         // Walk new children to detect creates, inserts, and updates.
         for (index, newChild) in newChildren.enumerated() {
             let familyKey = ObjectIdentifier(newChild.family)
+            let nodeStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
 
             if let oldChild = oldByFamily[familyKey] {
                 // Existing node — check for updates.
@@ -74,7 +95,9 @@ public class Differentiator {
                 let childMutations = diff(
                     oldChildren: oldChild.children,
                     newChildren: newChild.children,
-                    parent: newChild
+                    parent: newChild,
+                    tracing: tracing,
+                    nodeTimings: &nodeTimings
                 )
                 mutations.append(contentsOf: childMutations)
             } else {
@@ -95,12 +118,18 @@ public class Differentiator {
                 )
                 mutations.append(contentsOf: subtreeMutations)
             }
+
+            if tracing {
+                let nodeEnd = CACurrentMediaTime() * 1000.0
+                nodeTimings.append((newChild.family.elementType, nodeStart, nodeEnd))
+            }
         }
 
         // Walk old children to detect removes and deletes.
         for oldChild in oldChildren {
             let familyKey = ObjectIdentifier(oldChild.family)
             if !matchedFamilies.contains(familyKey) {
+                let nodeStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
                 if let parentNode = parent {
                     mutations.append(.remove(
                         parent: parentNode,
@@ -112,6 +141,11 @@ public class Differentiator {
                 // Recursively delete the subtree.
                 let deleteMutations = deleteSubtree(node: oldChild)
                 mutations.append(contentsOf: deleteMutations)
+
+                if tracing {
+                    let nodeEnd = CACurrentMediaTime() * 1000.0
+                    nodeTimings.append((oldChild.family.elementType, nodeStart, nodeEnd))
+                }
             }
         }
 
