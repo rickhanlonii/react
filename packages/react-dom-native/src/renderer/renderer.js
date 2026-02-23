@@ -13,11 +13,22 @@ reconciler.injectIntoDevTools();
 // When a native event arrives (e.g. type='click'), the handler looks up
 // the corresponding React prop (e.g. 'onClick') on the fiber's props
 // and calls it with the event payload.
+//
+// Events are dispatched inside discreteUpdates so state updates use SyncLane.
+// Without this, updates land on DefaultLane and passive effects (useEffect,
+// performance profiling) are deferred to the Scheduler's async callback,
+// which may not fire reliably in JavaScriptCore.
 $$registerEventHandler(function (instanceHandle, eventType, payload) {
   const propName = 'on' + eventType.charAt(0).toUpperCase() + eventType.slice(1);
   const fiber = instanceHandle;
   if (fiber && fiber.memoizedProps && typeof fiber.memoizedProps[propName] === 'function') {
-    fiber.memoizedProps[propName](payload);
+    // Wrap in discreteUpdates so state updates use SyncLane (not DefaultLane).
+    // This ensures passive effects (including React profiling) flush synchronously.
+    reconciler.discreteUpdates(function () {
+      fiber.memoizedProps[propName](payload);
+    });
+    reconciler.flushSyncWork();
+    reconciler.flushPassiveEffects();
   }
 });
 
