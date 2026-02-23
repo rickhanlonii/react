@@ -13,9 +13,9 @@ public class ReloadBanner {
 
     private init() {}
 
-    public func show() {
+    public func show(serverRefresh: Bool = false) {
         DispatchQueue.main.async { [weak self] in
-            self?.presentBanner()
+            self?.presentBanner(serverRefresh: serverRefresh)
         }
     }
 
@@ -54,7 +54,7 @@ public class ReloadBanner {
         })
     }
 
-    private func presentBanner() {
+    private func presentBanner(serverRefresh: Bool = false) {
         // If already showing, no-op (but cancel any pending dismiss)
         if bannerWindow != nil {
             dismissRequested = false
@@ -72,7 +72,7 @@ public class ReloadBanner {
         let vc = UIViewController()
         vc.view.backgroundColor = .clear
 
-        let banner = ReloadBannerView()
+        let banner = ReloadBannerView(serverRefresh: serverRefresh)
         banner.translatesAutoresizingMaskIntoConstraints = false
         vc.view.addSubview(banner)
 
@@ -102,18 +102,20 @@ public class ReloadBanner {
 }
 
 private class ReloadBannerView: UIView {
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        setupUI()
+    init(serverRefresh: Bool) {
+        super.init(frame: .zero)
+        setupUI(serverRefresh: serverRefresh)
     }
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
-        setupUI()
+        setupUI(serverRefresh: false)
     }
 
-    private func setupUI() {
-        backgroundColor = UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 0.92)
+    private func setupUI(serverRefresh: Bool) {
+        backgroundColor = serverRefresh
+            ? UIColor(red: 0.13, green: 0.55, blue: 0.13, alpha: 0.92)
+            : UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 0.92)
         layer.cornerRadius = 10
 
         let spinner = UIActivityIndicatorView(style: .medium)
@@ -122,7 +124,7 @@ private class ReloadBannerView: UIView {
         spinner.translatesAutoresizingMaskIntoConstraints = false
 
         let label = UILabel()
-        label.text = "Reloading..."
+        label.text = serverRefresh ? "Server refresh" : "Reloading..."
         label.font = .systemFont(ofSize: 14, weight: .medium)
         label.textColor = .white
         label.translatesAutoresizingMaskIntoConstraints = false

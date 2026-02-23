@@ -74,6 +74,12 @@ public class Root {
     }
     private var renderMode: RenderMode?
 
+    /// Whether this root was rendered using SSR + hydration.
+    internal var isSSR: Bool {
+        if case .ssr = renderMode { return true }
+        return false
+    }
+
     // MARK: - Initialization
 
     /// Creates a new root. Use `ReactDomNativeKit.createRoot()` instead.

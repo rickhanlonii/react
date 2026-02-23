@@ -265,7 +265,9 @@ public class ReactRuntime {
 
     /// Full reset: destroy JSContext, create new one, re-render all surfaces.
     private func performFullReset() {
-        ReloadBanner.shared.show()
+        // Check if any surface uses SSR before snapshotting
+        let isServerRefresh = activeSurfaces.values.contains { $0.root?.isSSR == true }
+        ReloadBanner.shared.show(serverRefresh: isServerRefresh)
 
         // 1. Snapshot active surfaces
         let snapshot = activeSurfaces
