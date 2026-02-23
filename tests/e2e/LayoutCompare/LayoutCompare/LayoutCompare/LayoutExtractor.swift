@@ -483,55 +483,97 @@ enum LayoutExtractor {
             styles["marginBottom"] = .number((styleDict?["marginBottom"] as? NSNumber)?.doubleValue ?? 0)
             styles["marginLeft"] = .number((styleDict?["marginLeft"] as? NSNumber)?.doubleValue ?? 0)
         } else {
-            styles["marginTop"] = .number(Double(YGNodeLayoutGetMargin(yoga, .top)))
-            styles["marginRight"] = .number(Double(YGNodeLayoutGetMargin(yoga, .right)))
-            styles["marginBottom"] = .number(Double(YGNodeLayoutGetMargin(yoga, .bottom)))
-            styles["marginLeft"] = .number(Double(YGNodeLayoutGetMargin(yoga, .left)))
-        }
-
-        // Border widths — per-side values override uniform borderWidth.
-        // CSS quirk: borderWidth without borderStyle computes to 0 (borderStyle
-        // defaults to "none", which suppresses all border widths). Check for
-        // borderStyle presence before reporting non-zero values.
-        if let styleDict = node.props["style"] as? [String: Any] {
-            // Check if any borderStyle is set (inline style or element defaults)
-            let elementDefaults = ElementDefaults.defaults(for: node.family.elementType)
-            let hasBorderStyle: Bool = {
-                if let bs = styleDict["borderStyle"] as? String, bs != "none" { return true }
-                if let dbs = elementDefaults["borderStyle"] as? String, dbs != "none" { return true }
-                return false
-            }()
-            let uniform: Double = hasBorderStyle
-                ? (styleDict["borderWidth"] as? NSNumber)?.doubleValue ?? 3
-                : 0
-
-            func sideWidth(_ sideKey: String) -> Double {
-                if !hasBorderStyle { return 0 }
-                return (styleDict[sideKey] as? NSNumber)?.doubleValue ?? uniform
+            // Read margins from the style dict (CSS computed values), NOT from
+            // Yoga layout. Yoga's layout margins may differ from CSS when:
+            // - Block margin collapsing is simulated by adjusting Yoga margins
+            //   (collapseBlockMargins sets smaller marginTop for layout but CSS
+            //   getComputedStyle still returns the original value)
+            // - Legend positioning uses negative margins as a workaround
+            // These are Yoga-internal layout tricks, not CSS computed values.
+            let styleDict = node.props["style"] as? [String: Any]
+            // Fall back through shorthand hierarchy: marginTop → marginVertical → margin → 0
+            func styleMargin(_ side: String, _ axis: String?) -> Double {
+                if let v = styleDict?[side] as? NSNumber { return v.doubleValue }
+                if let ax = axis, let v = styleDict?[ax] as? NSNumber { return v.doubleValue }
+                if let v = styleDict?["margin"] as? NSNumber { return v.doubleValue }
+                return 0
             }
-            styles["borderTopWidth"] = .number(sideWidth("borderTopWidth"))
-            styles["borderRightWidth"] = .number(sideWidth("borderRightWidth"))
-            styles["borderBottomWidth"] = .number(sideWidth("borderBottomWidth"))
-            styles["borderLeftWidth"] = .number(sideWidth("borderLeftWidth"))
+            styles["marginTop"] = .number(styleMargin("marginTop", "marginVertical"))
+            styles["marginRight"] = .number(styleMargin("marginRight", "marginHorizontal"))
+            styles["marginBottom"] = .number(styleMargin("marginBottom", "marginVertical"))
+            styles["marginLeft"] = .number(styleMargin("marginLeft", "marginHorizontal"))
         }
 
-        // Layout-computed padding (fallback to style props when Yoga returns 0)
-        func extractPadding(_ edge: String, _ yogaEdge: YGEdge) {
-            let computed = Double(YGNodeLayoutGetPadding(yoga, yogaEdge))
-            if computed != 0 {
-                styles[edge] = .number(computed)
-            } else if let styleDict = node.props["style"] as? [String: Any] {
-                if let v = styleDict[edge] as? NSNumber {
-                    styles[edge] = .number(v.doubleValue)
-                } else if let v = styleDict["padding"] as? NSNumber {
-                    styles[edge] = .number(v.doubleValue)
+        // Border widths — use Yoga's layout output. YogaStyleApplier only
+        // calls YGNodeStyleSetBorder when borderStyle is non-none, so
+        // YGNodeLayoutGetBorder returns 0 when borders are suppressed.
+        if insideDisplayNone {
+            // display:none: Yoga returns 0, but CSS getComputedStyle returns
+            // the specified values. Read from style dict with borderStyle suppression.
+            if let styleDict = node.props["style"] as? [String: Any] {
+                let elementDefaults = ElementDefaults.defaults(for: node.family.elementType)
+                let hasBorderStyle: Bool = {
+                    if let bs = styleDict["borderStyle"] as? String, bs != "none" { return true }
+                    if let dbs = elementDefaults["borderStyle"] as? String, dbs != "none" { return true }
+                    return false
+                }()
+                let uniform: Double = hasBorderStyle
+                    ? (styleDict["borderWidth"] as? NSNumber)?.doubleValue ?? 3
+                    : 0
+                func sideWidth(_ sideKey: String) -> Double {
+                    if !hasBorderStyle { return 0 }
+                    return (styleDict[sideKey] as? NSNumber)?.doubleValue ?? uniform
                 }
+                styles["borderTopWidth"] = .number(sideWidth("borderTopWidth"))
+                styles["borderRightWidth"] = .number(sideWidth("borderRightWidth"))
+                styles["borderBottomWidth"] = .number(sideWidth("borderBottomWidth"))
+                styles["borderLeftWidth"] = .number(sideWidth("borderLeftWidth"))
             }
+        } else {
+            styles["borderTopWidth"] = .number(Double(YGNodeLayoutGetBorder(yoga, .top)))
+            styles["borderRightWidth"] = .number(Double(YGNodeLayoutGetBorder(yoga, .right)))
+            styles["borderBottomWidth"] = .number(Double(YGNodeLayoutGetBorder(yoga, .bottom)))
+            styles["borderLeftWidth"] = .number(Double(YGNodeLayoutGetBorder(yoga, .left)))
         }
-        extractPadding("paddingTop", .top)
-        extractPadding("paddingRight", .right)
-        extractPadding("paddingBottom", .bottom)
-        extractPadding("paddingLeft", .left)
+
+        // Padding — use Yoga's layout output directly.
+        if insideDisplayNone {
+            // display:none: Yoga returns 0, CSS returns specified values.
+            if let styleDict = node.props["style"] as? [String: Any] {
+                func stylePaddingValue(_ key: String) -> Double {
+                    if let v = styleDict[key] as? NSNumber { return v.doubleValue }
+                    if let v = styleDict["padding"] as? NSNumber { return v.doubleValue }
+                    return 0
+                }
+                styles["paddingTop"] = .number(stylePaddingValue("paddingTop"))
+                styles["paddingRight"] = .number(stylePaddingValue("paddingRight"))
+                styles["paddingBottom"] = .number(stylePaddingValue("paddingBottom"))
+                styles["paddingLeft"] = .number(stylePaddingValue("paddingLeft"))
+            } else {
+                styles["paddingTop"] = .number(0)
+                styles["paddingRight"] = .number(0)
+                styles["paddingBottom"] = .number(0)
+                styles["paddingLeft"] = .number(0)
+            }
+        } else {
+            // Yoga-first with style dict fallback: the reconciler's
+            // reparenting (setLayout({})) can clear layout data, making
+            // YGNodeLayoutGetPadding return 0 even when padding was applied.
+            // Fall back to style dict when Yoga returns 0.
+            func yogaPadding(_ edge: YGEdge, _ key: String) -> Double {
+                let computed = Double(YGNodeLayoutGetPadding(yoga, edge))
+                if computed != 0 { return computed }
+                if let styleDict = node.props["style"] as? [String: Any] {
+                    if let v = styleDict[key] as? NSNumber { return v.doubleValue }
+                    if let v = styleDict["padding"] as? NSNumber { return v.doubleValue }
+                }
+                return 0
+            }
+            styles["paddingTop"] = .number(yogaPadding(.top, "paddingTop"))
+            styles["paddingRight"] = .number(yogaPadding(.right, "paddingRight"))
+            styles["paddingBottom"] = .number(yogaPadding(.bottom, "paddingBottom"))
+            styles["paddingLeft"] = .number(yogaPadding(.left, "paddingLeft"))
+        }
 
         // Props-based values
         if let styleDict = node.props["style"] as? [String: Any] {
@@ -545,12 +587,6 @@ enum LayoutExtractor {
             }
             if let flexDirection = styleDict["flexDirection"] as? String {
                 styles["flexDirection"] = .string(flexDirection)
-            }
-            if let alignItems = styleDict["alignItems"] as? String {
-                styles["alignItems"] = .string(alignItems)
-            }
-            if let justifyContent = styleDict["justifyContent"] as? String {
-                styles["justifyContent"] = .string(justifyContent)
             }
             if let flexWrap = styleDict["flexWrap"] as? String {
                 styles["flexWrap"] = .string(flexWrap)
@@ -579,9 +615,12 @@ enum LayoutExtractor {
             // Text
             if let v = styleDict["lineHeight"] as? NSNumber { styles["lineHeight"] = .number(v.doubleValue) }
 
-            // Flex item
-            if let v = styleDict["flexGrow"] as? NSNumber { styles["flexGrow"] = .number(v.doubleValue) }
-            if let v = styleDict["flexShrink"] as? NSNumber { styles["flexShrink"] = .number(v.doubleValue) }
+            // Flex item — read from Yoga APIs instead of style dict.
+            // flexGrow: Yoga default (0) matches CSS default, safe to always read.
+            styles["flexGrow"] = .number(Double(YGNodeStyleGetFlexGrow(yoga)))
+            // flexShrink: always read from Yoga. CSS defaults to 1, Yoga defaults
+            // to 0 for block-promoted elements — the comparer normalizes this.
+            styles["flexShrink"] = .number(Double(YGNodeStyleGetFlexShrink(yoga)))
             if let v = styleDict["flexBasis"] as? NSNumber { styles["flexBasis"] = .number(v.doubleValue) }
 
             // Dimension constraints — handle both point values (NSNumber) and
@@ -688,10 +727,10 @@ enum LayoutExtractor {
             styles["borderTopRightRadius"] = .number(resolveRadius(styleDict["borderTopRightRadius"]) ?? uniformRadius)
             styles["borderBottomRightRadius"] = .number(resolveRadius(styleDict["borderBottomRightRadius"]) ?? uniformRadius)
             styles["borderBottomLeftRadius"] = .number(resolveRadius(styleDict["borderBottomLeftRadius"]) ?? uniformRadius)
-            if let v = styleDict["opacity"] as? NSNumber { styles["opacity"] = .number(v.doubleValue) }
+            // opacity defaults to 1.0 in CSS; only present in style dict when explicitly set
+            styles["opacity"] = .number((styleDict["opacity"] as? NSNumber)?.doubleValue ?? 1.0)
 
             // String props
-            if let v = styleDict["overflow"] as? String { styles["overflow"] = .string(v) }
             if let v = styleDict["position"] as? String { styles["position"] = .string(v) }
             if let v = styleDict["textAlign"] as? String {
                 // Normalize CSS logical values to physical for LTR comparison:
@@ -727,6 +766,75 @@ enum LayoutExtractor {
             } else if let uniform = uniformBorderColor {
                 styles["borderColor"] = .string(uniform)
             }
+
+            // Text/font properties (style dict — no Yoga API)
+            if let v = styleDict["fontFamily"] as? String { styles["fontFamily"] = .string(v) }
+            if let v = styleDict["fontStyle"] as? String { styles["fontStyle"] = .string(v) }
+            if let v = styleDict["borderStyle"] as? String { styles["borderStyle"] = .string(v) }
+            if let v = styleDict["textDecorationLine"] as? String { styles["textDecorationLine"] = .string(v) }
+            if let v = styleDict["objectFit"] as? String { styles["objectFit"] = .string(v) }
+        }
+
+        // Yoga-sourced style properties — read from YGNodeStyleGet*() APIs
+        // to test that YogaStyleApplier applied values correctly.
+
+        // alignItems
+        switch YGNodeStyleGetAlignItems(yoga) {
+        case .flexStart: styles["alignItems"] = .string("flex-start")
+        case .center: styles["alignItems"] = .string("center")
+        case .flexEnd: styles["alignItems"] = .string("flex-end")
+        case .stretch: styles["alignItems"] = .string("stretch")
+        case .baseline: styles["alignItems"] = .string("baseline")
+        default: break
+        }
+
+        // justifyContent
+        switch YGNodeStyleGetJustifyContent(yoga) {
+        case .flexStart: styles["justifyContent"] = .string("flex-start")
+        case .center: styles["justifyContent"] = .string("center")
+        case .flexEnd: styles["justifyContent"] = .string("flex-end")
+        case .spaceBetween: styles["justifyContent"] = .string("space-between")
+        case .spaceAround: styles["justifyContent"] = .string("space-around")
+        case .spaceEvenly: styles["justifyContent"] = .string("space-evenly")
+        default: break
+        }
+
+        // overflow
+        switch YGNodeStyleGetOverflow(yoga) {
+        case .visible: styles["overflow"] = .string("visible")
+        case .hidden: styles["overflow"] = .string("hidden")
+        case .scroll: styles["overflow"] = .string("scroll")
+        default: break
+        }
+
+        // boxSizing
+        switch YGNodeStyleGetBoxSizing(yoga) {
+        case .borderBox: styles["boxSizing"] = .string("border-box")
+        case .contentBox: styles["boxSizing"] = .string("content-box")
+        default: break
+        }
+
+        // alignSelf
+        switch YGNodeStyleGetAlignSelf(yoga) {
+        case .auto: styles["alignSelf"] = .string("auto")
+        case .flexStart: styles["alignSelf"] = .string("flex-start")
+        case .center: styles["alignSelf"] = .string("center")
+        case .flexEnd: styles["alignSelf"] = .string("flex-end")
+        case .stretch: styles["alignSelf"] = .string("stretch")
+        case .baseline: styles["alignSelf"] = .string("baseline")
+        default: break
+        }
+
+        // alignContent
+        switch YGNodeStyleGetAlignContent(yoga) {
+        case .flexStart: styles["alignContent"] = .string("flex-start")
+        case .center: styles["alignContent"] = .string("center")
+        case .flexEnd: styles["alignContent"] = .string("flex-end")
+        case .stretch: styles["alignContent"] = .string("stretch")
+        case .spaceBetween: styles["alignContent"] = .string("space-between")
+        case .spaceAround: styles["alignContent"] = .string("space-around")
+        case .spaceEvenly: styles["alignContent"] = .string("space-evenly")
+        default: break
         }
 
         // MARK: - UIKit view-based property extraction

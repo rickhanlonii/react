@@ -12,7 +12,7 @@ class WebRendererModel: NSObject, WKScriptMessageHandler {
         let config = WKWebViewConfiguration()
         config.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
         webView = WKWebView(frame: CGRect(x: 0, y: 0, width: 390, height: 844), configuration: config)
-        webView.scrollView.isScrollEnabled = false
+        webView.scrollView.isScrollEnabled = true
 
         super.init()
 

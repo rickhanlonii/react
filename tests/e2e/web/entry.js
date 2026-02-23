@@ -89,6 +89,14 @@ function extractNode(el, rootRect) {
       backgroundColor: style.backgroundColor,
       borderColor: style.borderColor,
       textOverflow: style.textOverflow,
+      boxSizing: style.boxSizing,
+      alignSelf: style.alignSelf,
+      alignContent: style.alignContent,
+      fontFamily: style.fontFamily,
+      fontStyle: style.fontStyle,
+      borderStyle: style.borderStyle,
+      textDecorationLine: style.textDecorationLine || style.webkitTextDecorationsInEffect || 'none',
+      objectFit: style.objectFit,
     },
     children: children
   };

@@ -8,11 +8,14 @@ import Yoga
 @Observable
 class NativeRendererModel {
     private var runtime: JSRuntime?
+    let scrollView = UIScrollView()
     let containerView = UIView(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
     private let surfaceId = 100
 
     init() {
         containerView.backgroundColor = .white
+        scrollView.addSubview(containerView)
+        scrollView.contentSize = CGSize(width: 390, height: 844)
     }
 
     func renderFixture(_ name: String, completion: @escaping () -> Void) {
@@ -87,9 +90,9 @@ class NativeRendererModel {
 struct NativeRendererView: UIViewRepresentable {
     var model: NativeRendererModel
 
-    func makeUIView(context: Context) -> UIView {
-        return model.containerView
+    func makeUIView(context: Context) -> UIScrollView {
+        return model.scrollView
     }
 
-    func updateUIView(_ uiView: UIView, context: Context) {}
+    func updateUIView(_ uiView: UIScrollView, context: Context) {}
 }

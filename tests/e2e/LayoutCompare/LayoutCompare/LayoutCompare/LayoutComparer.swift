@@ -32,6 +32,36 @@ enum LayoutComparer {
 
     static let defaultTolerance: Double = 2.0
 
+    /// Per-property tolerance. Tighter tolerances for deterministic pipeline
+    /// outputs, looser for platform-inherent differences.
+    private static func tolerance(for property: String) -> Double {
+        switch property {
+        // Layout-computed: Yoga algorithm vs browser layout engine.
+        // Differences from text measurement, margin collapsing, etc.
+        case "x", "y", "width", "height":
+            return 2.0
+
+        // Font metrics: WebKit vs CoreText compute different line heights.
+        case "styles.lineHeight":
+            return 2.0
+
+        // Yoga layout output: padding/border are deterministic.
+        // Differences indicate real bugs in YogaStyleApplier.
+        case _ where property.hasPrefix("styles.padding"):
+            return 0.01
+        case _ where property.hasPrefix("styles.border") && property.hasSuffix("Width"):
+            return 0.01
+
+        // Margins: em→px conversion can produce small FP rounding diffs.
+        case _ where property.hasPrefix("styles.margin"):
+            return 0.5
+
+        // Style inputs that should be exact or near-exact.
+        default:
+            return 0.5
+        }
+    }
+
     /// Normalize a single color token to lowercase hex "#rrggbb" or "#rrggbbaa".
     /// Handles: rgb(r,g,b), rgba(r,g,b,a), #RRGGBB, #RGB.
     private static func normalizeSingleColor(_ color: String) -> String {
@@ -148,6 +178,38 @@ enum LayoutComparer {
         }
     }
 
+    /// Normalize alignContent: CSS returns "normal" for flex containers,
+    /// which behaves identically to "stretch". Yoga returns "stretch".
+    private static func normalizeAlignContent(_ value: String) -> String {
+        if value == "normal" { return "stretch" }
+        return value
+    }
+
+    /// Normalize alignItems: CSS returns "normal" for flex containers,
+    /// which behaves identically to "stretch". Yoga returns "stretch".
+    private static func normalizeAlignItems(_ value: String) -> String {
+        if value == "normal" { return "stretch" }
+        return value
+    }
+
+    /// Normalize justifyContent: CSS returns "normal" for flex containers,
+    /// which behaves identically to "flex-start". Yoga returns "flex-start".
+    private static func normalizeJustifyContent(_ value: String) -> String {
+        if value == "normal" { return "flex-start" }
+        return value
+    }
+
+    /// Normalize fontFamily to primary font name for cross-platform comparison.
+    /// Web returns full stack (e.g. "-apple-system, BlinkMacSystemFont, ..."),
+    /// native returns a single font (e.g. "Menlo").
+    private static func normalizeFontFamily(_ value: String) -> String {
+        // Extract the first font name from a comma-separated list
+        let primary = value.split(separator: ",").first.map(String.init) ?? value
+        return primary.trimmingCharacters(in: .whitespaces)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+            .lowercased()
+    }
+
     static func compare(
         web: LayoutNode,
         native: LayoutNode,
@@ -166,7 +228,7 @@ enum LayoutComparer {
 
         for (prop, webVal, nativeVal) in frameProps {
             let delta = webVal - nativeVal
-            if abs(delta) > tolerance {
+            if abs(delta) > Self.tolerance(for: prop) {
                 diffs.append(LayoutDiff(
                     path: path,
                     property: prop,
@@ -196,8 +258,16 @@ enum LayoutComparer {
         for prop in numericStyleProps {
             let webVal = web.styles[prop]?.numericValue ?? 0
             let nativeVal = native.styles[prop]?.numericValue ?? 0
+
+            // flexShrink: CSS defaults to 1, Yoga defaults to 0 for block-promoted
+            // elements. Skip when both sides are at their platform defaults —
+            // this is an intentional divergence, not a layout bug.
+            if prop == "flexShrink" && webVal == 1 && nativeVal == 0 {
+                continue
+            }
+
             let delta = webVal - nativeVal
-            if abs(delta) > tolerance {
+            if abs(delta) > Self.tolerance(for: "styles.\(prop)") {
                 diffs.append(LayoutDiff(
                     path: path,
                     property: "styles.\(prop)",
@@ -213,7 +283,10 @@ enum LayoutComparer {
             "display", "flexDirection", "alignItems", "justifyContent",
             "flexWrap", "fontWeight",
             "overflow", "position", "textAlign", "textOverflow",
-            "color", "backgroundColor", "borderColor"
+            "color", "backgroundColor", "borderColor",
+            "boxSizing", "alignSelf", "alignContent",
+            "fontFamily", "fontStyle",
+            "borderStyle", "textDecorationLine", "objectFit"
         ]
 
         let colorProps: Set<String> = ["color", "backgroundColor", "borderColor"]
@@ -253,6 +326,24 @@ enum LayoutComparer {
                     // CSS uses logical "start"/"end", UIKit uses "left"/"right"
                     webNorm = normalizeTextAlign(webStr)
                     nativeNorm = normalizeTextAlign(nativeStr)
+                } else if prop == "alignItems" {
+                    // CSS returns "normal", Yoga returns "stretch" — equivalent for flex
+                    webNorm = normalizeAlignItems(webStr)
+                    nativeNorm = normalizeAlignItems(nativeStr)
+                } else if prop == "justifyContent" {
+                    // CSS returns "normal", Yoga returns "flex-start" — equivalent for flex
+                    webNorm = normalizeJustifyContent(webStr)
+                    nativeNorm = normalizeJustifyContent(nativeStr)
+                } else if prop == "alignContent" {
+                    // CSS returns "normal", Yoga returns "stretch" — equivalent for flex
+                    webNorm = normalizeAlignContent(webStr)
+                    nativeNorm = normalizeAlignContent(nativeStr)
+                } else if prop == "fontFamily" {
+                    // Web returns full stack, native returns single font.
+                    // Only compare when native sets an explicit fontFamily
+                    // (skip default system font since names won't match).
+                    webNorm = normalizeFontFamily(webStr)
+                    nativeNorm = normalizeFontFamily(nativeStr)
                 } else {
                     webNorm = webStr
                     nativeNorm = nativeStr
