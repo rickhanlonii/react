@@ -4,8 +4,6 @@ public class HotReloadClient {
     private var webSocketTask: URLSessionWebSocketTask?
     private let session = URLSession(configuration: .default)
     private var webSocketURL: URL
-    private weak var root: Root?
-    private var rscServerURL: String
     private var isConnected = false
     private var reconnectTimer: Timer?
 
@@ -13,25 +11,16 @@ public class HotReloadClient {
     /// from the dev server (e.g. start-tracing, stop-tracing).
     public var onInspectorMessage: ((String) -> Void)?
 
-    /// Creates a hot reload client connected to a Root.
-    ///
-    /// Example:
-    /// ```swift
-    /// let root = createRoot(view)
-    /// root.render(serverURL: "http://localhost:6000") { error in ... }
-    /// let hotReload = HotReloadClient(root: root, serverURL: "http://localhost:6000")
-    /// hotReload.connect()
-    /// ```
+    /// Callback invoked on the main thread when a reload message arrives.
+    public var onReload: (() -> Void)?
+
+    /// Creates a hot reload client.
     ///
     /// - Parameters:
     ///   - host: WebSocket server host (default: "localhost")
     ///   - port: WebSocket server port (default: 8082)
-    ///   - root: The React root to reload
-    ///   - serverURL: URL of the RSC server
-    public init(host: String = "localhost", port: Int = 8082, root: Root, serverURL: String) {
+    public init(host: String = "localhost", port: Int = 8082) {
         self.webSocketURL = URL(string: "ws://\(host):\(port)")!
-        self.root = root
-        self.rscServerURL = serverURL
     }
 
     public func connect() {
@@ -102,11 +91,7 @@ public class HotReloadClient {
             switch type {
             case "reload":
                 print("[HotReload] Reloading JS bundle...")
-                self.root?.reload(serverURL: self.rscServerURL) { error in
-                    if let error = error {
-                        print("[HotReload] Reload failed: \(error)")
-                    }
-                }
+                self.onReload?()
 
             case "error":
                 let message = json["message"] as? String ?? "Unknown error"
@@ -123,7 +108,7 @@ public class HotReloadClient {
             case "clear-errors":
                 ErrorOverlay.shared.dismiss()
 
-            case "start-tracing", "stop-tracing":
+            case "start-tracing", "stop-tracing", "cdp-request":
                 self.onInspectorMessage?(text)
 
             default:

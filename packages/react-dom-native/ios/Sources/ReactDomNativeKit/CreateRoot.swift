@@ -53,6 +53,7 @@ public func createRoot(_ container: UIView) -> Root {
 ///
 /// Example usage:
 /// ```swift
+/// ReactRuntime.shared.devBundleURL = URL(string: "http://localhost:6000/bundle.js")
 /// let options = RootOptions(
 ///     onRecoverableError: { error in
 ///         print("React error: \(error)")

@@ -23,9 +23,8 @@ import Yoga
 //   }
 //   root.unmount()
 //
-// The render() method loads the framework JS bundle from the package's own
-// resources and then calls renderFromURL() on the JS side to fetch the RSC
-// stream from the server.
+// Root is a lightweight surface handle. The single JSContext and shared
+// infrastructure (bundle, devtools, hot reload) are owned by ReactRuntime.
 // ---------------------------------------------------------------------------
 
 /// Options for configuring a Root.
@@ -36,15 +35,10 @@ public struct RootOptions {
     /// Called when an uncaught error occurs.
     public var onUncaughtError: ((Error) -> Void)?
 
-    /// Surface ID for this root (default: 1). Use different IDs for multiple roots.
-    public var surfaceId: Int
-
     public init(
-        surfaceId: Int = 1,
         onRecoverableError: ((Error) -> Void)? = nil,
         onUncaughtError: ((Error) -> Void)? = nil
     ) {
-        self.surfaceId = surfaceId
         self.onRecoverableError = onRecoverableError
         self.onUncaughtError = onUncaughtError
     }
@@ -55,19 +49,6 @@ public struct RootOptions {
 /// Create a root with `ReactDomNativeKit.createRoot(_:)` or
 /// `ReactDomNativeKit.createRoot(_:options:)`.
 public class Root {
-
-    // MARK: - Static Configuration
-
-    /// Optional URL for loading the bundle from a dev server instead of
-    /// the package resource. Set this in DEBUG builds to enable hot reload.
-    ///
-    /// Example:
-    /// ```swift
-    /// #if DEBUG
-    /// Root.devBundleURL = URL(string: "http://localhost:6000/bundle.js")
-    /// #endif
-    /// ```
-    public static var devBundleURL: URL?
 
     // MARK: - Properties
 
@@ -80,14 +61,18 @@ public class Root {
     /// Whether this root has been unmounted.
     public private(set) var isUnmounted: Bool = false
 
-    /// The underlying JS runtime (internal implementation detail).
-    private var runtime: JSRuntime?
+    /// Surface ID assigned by ReactRuntime (nil until registered).
+    private var surfaceId: Int?
 
     /// Layout observer for viewport size changes.
     private var layoutObserver: NSKeyValueObservation?
 
-    /// Hot reload client for dev server communication (devtools, tracing).
-    private var hotReloadClient: HotReloadClient?
+    /// Tracks the original render mode for reload recovery.
+    private enum RenderMode {
+        case csr(serverURL: String)
+        case ssr(ssrURL: String, flightURL: String)
+    }
+    private var renderMode: RenderMode?
 
     // MARK: - Initialization
 
@@ -101,20 +86,13 @@ public class Root {
 
     /// Renders React content by loading the framework bundle from the package.
     ///
-    /// This loads and executes the framework JS bundle (embedded in the
-    /// ReactDomNativeKit package), then calls `renderFromURL` on the JS side
-    /// to fetch and render the RSC stream from the server.
-    ///
-    /// In DEBUG builds, if `Root.devBundleURL` is set, the bundle is loaded
-    /// from that URL instead (for hot reload support).
+    /// This boots the shared ReactRuntime (if needed), registers this root
+    /// as a surface, then calls `renderFromURL` on the JS side to fetch
+    /// and render the RSC stream from the server.
     ///
     /// - Parameters:
     ///   - serverURL: URL of the RSC server (e.g. "http://localhost:6000").
-    ///     After the bundle is evaluated, Swift calls
-    ///     `globalThis.__REACT_DOM_NATIVE__.renderFromURL(serverURL, {surfaceId})`.
     ///   - completion: Called when rendering starts or fails.
-    ///     - `nil` error means bundle loaded and executed successfully
-    ///     - Non-nil error describes what went wrong
     public func render(serverURL: String, completion: ((Error?) -> Void)? = nil) {
         guard !isUnmounted else {
             print("[ReactDomNativeKit] Warning: Cannot render to an unmounted root.")
@@ -122,40 +100,29 @@ public class Root {
             return
         }
 
-        // Create runtime if needed
-        if runtime == nil {
-            runtime = JSRuntime()
+        let rt = ReactRuntime.shared
 
-            // Set up error handler if provided
-            if let onError = options.onUncaughtError {
-                runtime?.engine.exceptionHandler = { message, _ in
-                    onError(RootError.jsException(message))
-                }
-            }
+        // Boot the shared runtime (no-op if already booted)
+        rt.boot { [weak self] error in
+            guard let self = self else { return }
 
-            // Register surface
-            runtime?.bindings.registerSurface(surfaceId: options.surfaceId, rootView: container)
-
-            // Observe layout changes
-            setupLayoutObserver()
-
-            // Connect devtools (tracing, inspector) via hot reload WebSocket
-            setupDevToolsConnection()
-        }
-
-        // Load and execute bundle, then trigger renderFromURL
-        let bundleURL = resolveBundleURL()
-        loadBundle(from: bundleURL) { [weak self] result in
-            switch result {
-            case .success(let source):
-                self?.executeBundle(source: source, sourceURL: bundleURL)
-                self?.callRenderFromURL(serverURL: serverURL)
-                completion?(nil)
-            case .failure(let error):
-                print("[ReactDomNativeKit] Failed to load bundle: \(error)")
-                self?.options.onRecoverableError?(error)
+            if let error = error {
+                print("[ReactDomNativeKit] Failed to boot runtime: \(error)")
+                self.options.onRecoverableError?(error)
                 completion?(error)
+                return
             }
+
+            // Register surface if not yet registered
+            if self.surfaceId == nil {
+                self.surfaceId = rt.registerSurface(root: self, container: self.container)
+                self.setupLayoutObserver()
+            }
+
+            // Trigger renderFromURL on JS side
+            rt.renderSurface(surfaceId: self.surfaceId!, serverURL: serverURL)
+            self.renderMode = .csr(serverURL: serverURL)
+            completion?(nil)
         }
     }
 
@@ -172,8 +139,10 @@ public class Root {
         layoutObserver?.invalidate()
         layoutObserver = nil
 
-        // Unregister surface
-        runtime?.bindings.unregisterSurface(surfaceId: options.surfaceId)
+        // Unregister surface from shared runtime
+        if let surfaceId = surfaceId {
+            ReactRuntime.shared.unregisterSurface(surfaceId: surfaceId)
+        }
 
         // Clear container
         container.subviews.forEach { $0.removeFromSuperview() }
@@ -192,12 +161,7 @@ public class Root {
         ssrStreamComplete = false
         pendingHydration = nil
 
-        // Disconnect devtools
-        hotReloadClient?.disconnect()
-        hotReloadClient = nil
-
-        // Release runtime
-        runtime = nil
+        surfaceId = nil
 
         print("[ReactDomNativeKit] Root unmounted")
     }
@@ -206,31 +170,23 @@ public class Root {
 
     /// Updates the viewport size. Called automatically on layout changes.
     internal func updateViewportSize() {
-        runtime?.updateViewportSize(
+        ReactRuntime.shared.updateViewportSize(
             width: container.bounds.width,
             height: container.bounds.height
         )
     }
 
-    /// Reloads the JS bundle. Used for hot reload.
-    ///
-    /// - Parameters:
-    ///   - serverURL: URL of the RSC server.
-    ///   - completion: Called when reload completes or fails.
-    public func reload(serverURL: String, completion: ((Error?) -> Void)? = nil) {
-        guard !isUnmounted else {
-            completion?(RootError.alreadyUnmounted)
-            return
-        }
+    /// Re-renders the surface using its original render mode (CSR or SSR+hydration).
+    /// Called by ReactRuntime during a full reset reload.
+    internal func rerender() {
+        guard !isUnmounted else { return }
 
-        // Tear down existing runtime
-        runtime?.bindings.unregisterSurface(surfaceId: options.surfaceId)
-        container.subviews.forEach { $0.removeFromSuperview() }
-        hotReloadClient?.disconnect()
-        hotReloadClient = nil
-        runtime = nil
+        // Reset surface ID so render/renderWithSSR re-registers
+        surfaceId = nil
+        layoutObserver?.invalidate()
+        layoutObserver = nil
 
-        // Clean up SSR state (if any)
+        // Clean up any SSR state from previous render
         ssrDataTask?.cancel()
         ssrDataTask = nil
         ssrParser = nil
@@ -244,32 +200,30 @@ public class Root {
         ssrStreamComplete = false
         pendingHydration = nil
 
-        // Recreate runtime (same logic as render())
-        runtime = JSRuntime()
-        if let onError = options.onUncaughtError {
-            runtime?.engine.exceptionHandler = { message, _ in
-                onError(RootError.jsException(message))
-            }
-        }
-        runtime?.bindings.registerSurface(surfaceId: options.surfaceId, rootView: container)
-        updateViewportSize()
+        // Clear container
+        container.subviews.forEach { $0.removeFromSuperview() }
 
-        // Reconnect devtools
-        setupDevToolsConnection()
+        switch renderMode {
+        case .csr(let serverURL):
+            print("[Root] Re-rendering (CSR) — \(serverURL)")
+            render(serverURL: serverURL)
 
-        // Load and execute new bundle, then trigger renderFromURL
-        let bundleURL = resolveBundleURL()
-        loadBundle(from: bundleURL) { [weak self] result in
-            switch result {
-            case .success(let source):
-                self?.executeBundle(source: source, sourceURL: bundleURL)
-                self?.callRenderFromURL(serverURL: serverURL)
-                completion?(nil)
-            case .failure(let error):
-                print("[ReactDomNativeKit] Failed to reload bundle: \(error)")
-                self?.options.onRecoverableError?(error)
-                completion?(error)
+        case .ssr(let ssrURL, let flightURL):
+            print("[Root] Re-rendering (SSR + hydration) — \(ssrURL)")
+            renderWithSSR(serverURL: ssrURL) { [weak self] error in
+                if let error = error {
+                    print("[Root] SSR re-render failed: \(error)")
+                } else {
+                    self?.hydrateRoot(serverURL: flightURL) { error in
+                        if let error = error {
+                            print("[Root] Hydration after re-render failed: \(error)")
+                        }
+                    }
+                }
             }
+
+        case .none:
+            print("[Root] No render mode recorded, skipping re-render")
         }
     }
 
@@ -288,6 +242,9 @@ public class Root {
     private var ssrStreamComplete: Bool = false
     /// Queued hydration call waiting for SSR stream to complete (so D instructions are buffered).
     private var pendingHydration: (() -> Void)?
+
+    /// SSR URL used for the initial render (stored for reload recovery).
+    private var ssrURL: String?
 
     /// Renders using server-side rendering for instant display.
     ///
@@ -308,9 +265,20 @@ public class Root {
             return
         }
 
+        ssrURL = serverURL
+
+        // Assign a surfaceId eagerly (SSR needs it before boot completes).
+        // Use reserveSurface — don't register with bindings yet. The actual
+        // bindings registration happens in hydrateRoot via registerSurfaceForHydration.
+        if surfaceId == nil {
+            let rt = ReactRuntime.shared
+            surfaceId = rt.reserveSurface(root: self, container: container)
+            setupLayoutObserver()
+        }
+
         // Set up SSR infrastructure
         let treeBuilder = ShadowTreeBuilder(
-            surfaceId: options.surfaceId,
+            surfaceId: surfaceId!,
             viewportWidth: Float(container.bounds.width > 0 ? container.bounds.width : 390),
             viewportHeight: Float(container.bounds.height > 0 ? container.bounds.height : 844)
         )
@@ -338,9 +306,6 @@ public class Root {
 
             guard let applier = self.ssrMutationApplier,
                   let registry = self.ssrViewRegistry else {
-                // Views haven't been created yet (root complete hasn't fired).
-                // This shouldn't happen because reveals come after root complete
-                // in the SSR stream, but guard defensively.
                 return
             }
 
@@ -474,7 +439,7 @@ public class Root {
     ///
     /// Call this after `renderWithSSR()` completes its first paint. The hydration
     /// process:
-    /// 1. Loads the JS bundle and boots the React runtime
+    /// 1. Boots the shared ReactRuntime (if needed)
     /// 2. Registers the SSR tree for JS-side traversal
     /// 3. Fetches the RSC stream and hydrates against the SSR tree
     /// 4. Attaches event handlers — app becomes interactive
@@ -489,139 +454,106 @@ public class Root {
             return
         }
 
+        // Store render mode for reload recovery
+        renderMode = .ssr(ssrURL: ssrURL ?? "", flightURL: serverURL)
+
         guard let treeBuilder = ssrTreeBuilder else {
             print("[ReactDomNativeKit] Warning: No SSR tree to hydrate. Call renderWithSSR() first.")
             completion?(RootError.runtimeNotInitialized)
             return
         }
 
-        // Create runtime if needed
-        if runtime == nil {
-            runtime = JSRuntime()
+        let rt = ReactRuntime.shared
 
-            if let onError = options.onUncaughtError {
-                runtime?.engine.exceptionHandler = { message, _ in
-                    onError(RootError.jsException(message))
-                }
+        // Boot the shared runtime (no-op if already booted)
+        rt.boot { [weak self] error in
+            guard let self = self else { return }
+
+            if let error = error {
+                print("[ReactDomNativeKit] Failed to boot runtime for hydration: \(error)")
+                self.options.onRecoverableError?(error)
+                completion?(error)
+                return
             }
 
-            setupLayoutObserver()
-
-            // Connect devtools (tracing, inspector) via hot reload WebSocket
-            setupDevToolsConnection()
-
             // Wire hydration completion callback to clean up SSR infrastructure
-            runtime?.bindings.onHydrationComplete = { [weak self] surfaceId in
+            rt.bindings?.onHydrationComplete = { [weak self] surfaceId in
                 self?.cleanupSSRState()
             }
 
-            // DON'T rewire onViewsNeedUpdate to Bindings yet — boundary reveals
-            // may still arrive from the SSR stream before hydration starts.
-            // Keep them on the SSR path so they update the shadow tree without
-            // creating CSR views. We'll rewire after hydration starts.
-        }
+            // Wire boundary reveal callback — when the SSR stream reveals a
+            // boundary after hydration has registered retry callbacks, notify
+            // the JS side so React can render the resolved content.
+            self.ssrCoordinator?.onBoundaryRevealed = { [weak self] boundaryId in
+                guard let engine = rt.engine else { return }
+                let js = "globalThis.$$notifyBoundaryRevealed(\(boundaryId))"
+                engine.evaluate(js)
+            }
 
-        // Wire boundary reveal callback — when the SSR stream reveals a
-        // boundary after hydration has registered retry callbacks, notify
-        // the JS side so React can render the resolved content.
-        ssrCoordinator?.onBoundaryRevealed = { [weak self] boundaryId in
-            guard let self = self, let engine = self.runtime?.engine else { return }
-            let js = "globalThis.$$notifyBoundaryRevealed(\(boundaryId))"
-            engine.evaluate(js)
-        }
+            let doHydrate = { [weak self] in
+                guard let self = self, let surfaceId = self.surfaceId else { return }
 
-        // Load and execute bundle, then hydrate once SSR stream is complete.
-        // Bundle loading happens in parallel with the SSR stream — but the
-        // actual hydration call waits for the stream to finish so that all
-        // D instructions (Flight data) have been buffered.
-        let bundleURL = resolveBundleURL()
-        loadBundle(from: bundleURL) { [weak self] result in
-            switch result {
-            case .success(let source):
-                self?.executeBundle(source: source, sourceURL: bundleURL)
+                print("[ReactDomNativeKit] Hydration starting")
 
-                let doHydrate = {
-                    guard let self = self else { return }
+                // Register surface for hydration and the SSR tree
+                let currentSSRTree = self.ssrCoordinator?.currentRootChildren ?? treeBuilder.rootChildren
+                print("[ReactDomNativeKit] Registering SSR tree for hydration: \(currentSSRTree.count) root children")
+                rt.registerSurfaceForHydration(
+                    surfaceId: surfaceId,
+                    rootView: self.container,
+                    ssrTree: currentSSRTree,
+                    ssrViewRegistry: self.ssrViewRegistry ?? ViewRegistry()
+                )
 
-                    print("[ReactDomNativeKit] Hydration starting")
-
-                    // NOW register surface for hydration and the SSR tree,
-                    // after all boundary reveals have been applied.
-                    let currentSSRTree = self.ssrCoordinator?.currentRootChildren ?? treeBuilder.rootChildren
-                    print("[ReactDomNativeKit] Registering SSR tree for hydration: \(currentSSRTree.count) root children")
-                    self.runtime?.bindings.registerSurfaceForHydration(
-                        surfaceId: self.options.surfaceId,
-                        rootView: self.container,
-                        ssrTree: currentSSRTree,
-                        ssrViewRegistry: self.ssrViewRegistry ?? ViewRegistry()
-                    )
-
-                    // Wire the SSR applier's event dispatch to Bindings so that
-                    // tap handlers on SSR-created buttons reach the JS runtime.
-                    if let bindings = self.runtime?.bindings {
-                        self.ssrMutationApplier?.dispatchEvent = { view, eventType, payload in
-                            bindings.dispatchEvent(from: view, eventType: eventType, payload: payload)
-                        }
-                    }
-                    self.runtime?.bindings.registerSSRTree(
-                        surfaceId: self.options.surfaceId,
-                        rootChildren: currentSSRTree
-                    )
-
-                    // Now rewire onViewsNeedUpdate to Bindings — from this point,
-                    // any boundary reveals go through Bindings for proper diffing.
-                    let surfaceId = self.options.surfaceId
-                    self.ssrCoordinator?.onViewsNeedUpdate = { [weak self] oldRootChildren, newRootChildren in
-                        guard let self = self, let bindings = self.runtime?.bindings else { return }
-                        bindings.updateCurrentTree(
-                            surfaceId: surfaceId,
-                            oldTree: oldRootChildren,
-                            newTree: newRootChildren
-                        )
-                        bindings.updateSSRTree(
-                            surfaceId: surfaceId,
-                            newTree: newRootChildren
-                        )
-                    }
-
-                    self.runtime?.bindings.markHydrationStarted(surfaceId: self.options.surfaceId)
-                    do {
-                        try self.callHydrateFromSSRData(serverURL: serverURL)
-                        completion?(nil)
-                    } catch {
-                        print("[ReactDomNativeKit] Hydration failed: \(error)")
-                        self.options.onRecoverableError?(error)
-                        completion?(error)
+                // Wire the SSR applier's event dispatch to Bindings so that
+                // tap handlers on SSR-created buttons reach the JS runtime.
+                if let bindings = rt.bindings {
+                    self.ssrMutationApplier?.dispatchEvent = { view, eventType, payload in
+                        bindings.dispatchEvent(from: view, eventType: eventType, payload: payload)
                     }
                 }
+                rt.bindings?.registerSSRTree(
+                    surfaceId: surfaceId,
+                    rootChildren: currentSSRTree
+                )
 
-                if self?.ssrStreamComplete == true {
-                    doHydrate()
-                } else {
-                    // SSR stream still delivering — queue hydration for when it finishes
-                    self?.pendingHydration = doHydrate
+                // Now rewire onViewsNeedUpdate to Bindings — from this point,
+                // any boundary reveals go through Bindings for proper diffing.
+                self.ssrCoordinator?.onViewsNeedUpdate = { [weak self] oldRootChildren, newRootChildren in
+                    guard let self = self, let bindings = rt.bindings, let surfaceId = self.surfaceId else { return }
+                    bindings.updateCurrentTree(
+                        surfaceId: surfaceId,
+                        oldTree: oldRootChildren,
+                        newTree: newRootChildren
+                    )
+                    bindings.updateSSRTree(
+                        surfaceId: surfaceId,
+                        newTree: newRootChildren
+                    )
                 }
 
-            case .failure(let error):
-                print("[ReactDomNativeKit] Hydration failed to load bundle: \(error)")
-                self?.options.onRecoverableError?(error)
-                completion?(error)
+                rt.bindings?.markHydrationStarted(surfaceId: surfaceId)
+                do {
+                    try rt.hydrateSurface(
+                        surfaceId: surfaceId,
+                        serverURL: serverURL,
+                        ssrData: self.ssrFlightDataBuffer
+                    )
+                    completion?(nil)
+                } catch {
+                    print("[ReactDomNativeKit] Hydration failed: \(error)")
+                    self.options.onRecoverableError?(error)
+                    completion?(error)
+                }
+            }
+
+            if self.ssrStreamComplete {
+                doHydrate()
+            } else {
+                // SSR stream still delivering — queue hydration for when it finishes
+                self.pendingHydration = doHydrate
             }
         }
-    }
-
-    /// Calls the JS-side hydrateFromSSRData with buffered Flight rows.
-    /// Throws if no SSR data was received or serialization fails.
-    private func callHydrateFromSSRData(serverURL: String) throws {
-        guard !ssrFlightDataBuffer.isEmpty else {
-            throw RootError.hydrationDataMissing
-        }
-        guard let jsonData = try? JSONSerialization.data(withJSONObject: ssrFlightDataBuffer),
-              let jsonString = String(data: jsonData, encoding: .utf8) else {
-            throw RootError.hydrationDataSerializationFailed
-        }
-        let js = "globalThis.__REACT_DOM_NATIVE__.hydrateFromSSRData('\(serverURL)', \(jsonString), {surfaceId: \(options.surfaceId)})"
-        runtime?.engine.evaluate(js)
     }
 
     /// Creates UIKit views from the SSR shadow tree and adds them to the root view.
@@ -720,24 +652,6 @@ public class Root {
         print("[ReactDomNativeKit] SSR state cleaned up after hydration")
     }
 
-    /// Resolves the bundle URL: dev server override (DEBUG) or package resource.
-    private func resolveBundleURL() -> URL {
-        #if DEBUG
-        if let devURL = Root.devBundleURL {
-            print("[ReactDomNativeKit] DEBUG — loading bundle from \(devURL)")
-            return devURL
-        }
-        #endif
-
-        guard let resourceURL = Bundle.module.url(
-            forResource: "bundle",
-            withExtension: "js"
-        ) else {
-            fatalError("[ReactDomNativeKit] bundle.js not found in package resources. Run `npm run build` from the example directory.")
-        }
-        return resourceURL
-    }
-
     private func setupLayoutObserver() {
         // Observe bounds changes to update viewport size
         layoutObserver = container.observe(\.bounds, options: [.new]) { [weak self] _, _ in
@@ -746,79 +660,6 @@ public class Root {
 
         // Initial size update
         updateViewportSize()
-    }
-
-    /// Sets up the devtools WebSocket connection for tracing/inspector support.
-    /// Reuses the hot reload WebSocket (port 8082) to relay messages between
-    /// the dev server (CDP proxy) and the JS runtime.
-    private func setupDevToolsConnection() {
-        #if DEBUG
-        guard let bindings = runtime?.bindings else { return }
-
-        // Disconnect previous client if any (e.g. on reload)
-        hotReloadClient?.disconnect()
-
-        let client = HotReloadClient(root: self, serverURL: "")
-        hotReloadClient = client
-
-        // JS → dev server: $$sendInspectorMessage calls this
-        bindings.sendInspectorMessage = { [weak client] data in
-            client?.send(data)
-        }
-
-        // Dev server → JS: tracing commands forwarded to $$onInspectorMessage
-        client.onInspectorMessage = { [weak bindings] json in
-            bindings?.deliverInspectorMessage(json)
-        }
-
-        client.connect()
-        #endif
-    }
-
-    private func loadBundle(from url: URL, completion: @escaping (Result<String, Error>) -> Void) {
-        if url.isFileURL {
-            loadLocalBundle(from: url, completion: completion)
-        } else {
-            downloadRemoteBundle(from: url, completion: completion)
-        }
-    }
-
-    private func loadLocalBundle(from url: URL, completion: @escaping (Result<String, Error>) -> Void) {
-        do {
-            let source = try String(contentsOf: url, encoding: .utf8)
-            completion(.success(source))
-        } catch {
-            completion(.failure(RootError.bundleLoadFailed(error)))
-        }
-    }
-
-    private func downloadRemoteBundle(from url: URL, completion: @escaping (Result<String, Error>) -> Void) {
-        URLSession.shared.dataTask(with: url) { data, response, error in
-            DispatchQueue.main.async {
-                if let error = error {
-                    completion(.failure(RootError.downloadFailed(error)))
-                    return
-                }
-
-                guard let data = data,
-                      let source = String(data: data, encoding: .utf8) else {
-                    completion(.failure(RootError.invalidBundleData))
-                    return
-                }
-
-                completion(.success(source))
-            }
-        }.resume()
-    }
-
-    private func executeBundle(source: String, sourceURL: URL) {
-        runtime?.engine.evaluate(source, sourceURL: sourceURL)
-    }
-
-    /// Calls the JS-side renderFromURL after the framework bundle has been evaluated.
-    private func callRenderFromURL(serverURL: String) {
-        let js = "globalThis.__REACT_DOM_NATIVE__.renderFromURL('\(serverURL)', {surfaceId: \(options.surfaceId)})"
-        runtime?.engine.evaluate(js)
     }
 }
 
