@@ -763,9 +763,28 @@ function resolveDebugInfoEntry(response, entry) {
  * @returns {{track: number, endTime: number, component: object|null}}
  */
 function flushComponentPerformance(response, root, trackIdx, trackTime, parentEndTime) {
-  // If already visited (dedup), return previous result
+  // If already visited (dedup), log a lightweight dedup entry and return
   if (!Array.isArray(root._children)) {
     var previousResult = root._children;
+    var previousEndTime = previousResult.endTime;
+    if (
+      parentEndTime > -Infinity &&
+      parentEndTime < previousEndTime &&
+      previousResult.component !== null &&
+      trackIdx < 10
+    ) {
+      var dedupName = previousResult.component.name + ' [deduped]';
+      var dedupStart = parentEndTime + response._timeOrigin;
+      var dedupEnd = previousEndTime + response._timeOrigin;
+      console.timeStamp(
+        dedupName,
+        dedupStart < 0 ? 0 : dedupStart,
+        dedupEnd,
+        trackNames[trackIdx],
+        'Server Components ⚛',
+        'primary-light'
+      );
+    }
     previousResult.track = trackIdx;
     return previousResult;
   }
@@ -842,6 +861,7 @@ function flushComponentPerformance(response, root, trackIdx, trackTime, parentEn
     var componentEndTime = 0;
     var endTime = -1;
     var endTimeIdx = -1;
+    var isLastComponent = true;
     for (var di = debugInfo.length - 1; di >= 0; di--) {
       var dInfo = debugInfo[di];
       if (typeof dInfo !== 'object' || dInfo === null || typeof dInfo.time !== 'number') {
@@ -862,10 +882,15 @@ function flushComponentPerformance(response, root, trackIdx, trackTime, parentEn
             }
             // Emit component render timing
             var selfTime = componentEndTime - time;
-            var color =
-              selfTime < 0.5 ? 'primary-light' :
-              selfTime < 50 ? 'primary' :
-              selfTime < 500 ? 'primary-dark' : 'error';
+            var color;
+            if (isLastComponent && root.status === REJECTED) {
+              color = 'error';
+            } else {
+              color =
+                selfTime < 0.5 ? 'primary-light' :
+                selfTime < 50 ? 'primary' :
+                selfTime < 500 ? 'primary-dark' : 'error';
+            }
             var clientStart = time + timeOrigin;
             var clientChildrenEnd = childrenEndTime + timeOrigin;
             if (trackIdx < 10) {
@@ -880,6 +905,7 @@ function flushComponentPerformance(response, root, trackIdx, trackTime, parentEn
             }
             componentEndTime = time;
             result.component = candidate;
+            isLastComponent = false;
           } else if (candidate.awaited && candidate.awaited.env != null) {
             // Extend childrenEndTime with the endTime of this await span
             if (endTime > childrenEndTime) {
@@ -903,6 +929,56 @@ function flushComponentPerformance(response, root, trackIdx, trackTime, parentEn
                 trackNames[trackIdx],
                 'Server Components ⚛',
                 awaitColor
+              );
+            }
+          }
+        }
+      } else {
+        // Aborted: no end time marker found yet. Entries between the end of
+        // the debugInfo array and this time marker were still in progress
+        // when the stream ended.
+        endTime = time; // If we don't find anything else the endTime is the start time.
+        for (var ai = debugInfo.length - 1; ai > di; ai--) {
+          var abortCandidate = debugInfo[ai];
+          if (typeof abortCandidate === 'object' && abortCandidate !== null && typeof abortCandidate.name === 'string') {
+            if (componentEndTime > childrenEndTime) {
+              childrenEndTime = componentEndTime;
+            }
+            // Aborted component — use 'warning' color
+            var abortStart = time + timeOrigin;
+            var abortChildrenEnd = childrenEndTime + timeOrigin;
+            if (trackIdx < 10) {
+              console.timeStamp(
+                abortCandidate.name,
+                abortStart < 0 ? 0 : abortStart,
+                abortChildrenEnd,
+                trackNames[trackIdx],
+                'Server Components ⚛',
+                'warning'
+              );
+            }
+            componentEndTime = time;
+            result.component = abortCandidate;
+            isLastComponent = false;
+          } else if (typeof abortCandidate === 'object' && abortCandidate !== null && abortCandidate.awaited && abortCandidate.awaited.env != null) {
+            // Aborted await — use awaited.end as fallback endTime if available
+            if (abortCandidate.awaited.end > endTime) {
+              endTime = abortCandidate.awaited.end;
+            }
+            if (endTime > childrenEndTime) {
+              childrenEndTime = endTime;
+            }
+            var abortAwaitName = 'await ' + abortCandidate.awaited.name;
+            var abortAwaitStart = time + timeOrigin;
+            var abortAwaitEnd = endTime + timeOrigin;
+            if (trackIdx < 10) {
+              console.timeStamp(
+                abortAwaitName,
+                abortAwaitStart < 0 ? 0 : abortAwaitStart,
+                abortAwaitEnd,
+                trackNames[trackIdx],
+                'Server Components ⚛',
+                'warning'
               );
             }
           }
@@ -963,9 +1039,11 @@ function flushServerRequestTiming(response) {
     var endTime = io.end + timeOrigin;
     var label = io.name;
 
-    // Color based on first character of name (matches React's getIOColor)
+    // Errored IO uses 'error' color; otherwise color based on first character
     var color;
-    if (label.length > 0) {
+    if (io.errored) {
+      color = 'error';
+    } else if (label.length > 0) {
       switch (label.charCodeAt(0) % 3) {
         case 0: color = 'tertiary-light'; break;
         case 1: color = 'tertiary'; break;

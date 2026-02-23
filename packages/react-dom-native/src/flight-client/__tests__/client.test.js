@@ -970,8 +970,245 @@ describe('Flight Client Parser', function () {
   });
 
   // -----------------------------------------------------------------------
-  // Server request timing (flushServerRequestTiming via close)
+  // Missing performance track features (fixtures for planned work)
   // -----------------------------------------------------------------------
+  describe('aborted component timing', function () {
+    it('emits aborted component with warning color when no end time marker', function () {
+      // When the server stream ends before a component finishes rendering,
+      // the D rows have a start time but no end time. The upstream handles
+      // this in the else branch (endTimeIdx === -1) and uses 'warning' color.
+      var calls = [];
+      console.timeStamp = function () {
+        calls.push(Array.prototype.slice.call(arguments));
+      };
+
+      var response = client.createResponse('');
+      var streamState = client.createStreamState();
+      var payload = '0:N' + performance.timeOrigin + '\n';
+      // Chunk 1: component with start time but NO end time (aborted)
+      payload += '1:D{"time":100}\n';
+      payload += '1:D{"name":"AbortedComponent","env":"Server"}\n';
+      // No closing 1:D{"time":...} — stream ends before component finishes
+      // Model rows
+      payload += '1:"partial"\n';
+      payload += '0:{"root":"$1"}\n';
+      client.processStringChunk(response, streamState, payload);
+      client.close(response);
+
+      var componentCalls = calls.filter(function (c) {
+        return c[0] !== 'Server Components ⚛';
+      });
+
+      var aborted = componentCalls.find(function(c) { return c[0] === 'AbortedComponent'; });
+      expect(aborted).toBeDefined();
+      // Aborted components should use 'warning' color
+      expect(aborted[5]).toBe('warning');
+      expect(aborted[4]).toBe('Server Components ⚛');
+
+      delete console.timeStamp;
+    });
+
+    it('handles mix of completed and aborted components', function () {
+      // When a parent completes but a later component in the same chunk aborts
+      var calls = [];
+      console.timeStamp = function () {
+        calls.push(Array.prototype.slice.call(arguments));
+      };
+
+      var response = client.createResponse('');
+      var streamState = client.createStreamState();
+      var payload = '0:N' + performance.timeOrigin + '\n';
+      // Chunk 1: first component completes, second aborts
+      payload += '1:D{"time":0}\n';
+      payload += '1:D{"name":"CompletedParent","env":"Server"}\n';
+      payload += '1:D{"time":100}\n';
+      payload += '1:D{"name":"AbortedChild","env":"Server"}\n';
+      // No end time for AbortedChild
+      // Model rows
+      payload += '1:"data"\n';
+      payload += '0:{"root":"$1"}\n';
+      client.processStringChunk(response, streamState, payload);
+      client.close(response);
+
+      var componentCalls = calls.filter(function (c) {
+        return c[0] !== 'Server Components ⚛';
+      });
+
+      var completed = componentCalls.find(function(c) { return c[0] === 'CompletedParent'; });
+      var aborted = componentCalls.find(function(c) { return c[0] === 'AbortedChild'; });
+
+      expect(completed).toBeDefined();
+      expect(aborted).toBeDefined();
+      // Completed uses normal color, aborted uses warning
+      expect(aborted[5]).toBe('warning');
+      expect(completed[5]).not.toBe('warning');
+
+      delete console.timeStamp;
+    });
+  });
+
+  describe('errored component timing', function () {
+    it('emits errored component with error color when chunk is rejected', function () {
+      // When a server component throws, the chunk gets an E row.
+      // The rootmost component in that chunk should use 'error' color.
+      var calls = [];
+      console.timeStamp = function () {
+        calls.push(Array.prototype.slice.call(arguments));
+      };
+
+      var response = client.createResponse('');
+      var streamState = client.createStreamState();
+      var payload = '0:N' + performance.timeOrigin + '\n';
+      // Chunk 1: component renders but errors
+      payload += '1:D{"time":0}\n';
+      payload += '1:D{"name":"FailingComponent","env":"Server"}\n';
+      payload += '1:D{"time":100}\n';
+      // E row rejects chunk 1
+      payload += '1:E{"message":"Component threw an error"}\n';
+      // Parent references the errored chunk
+      payload += '0:{"root":"$1"}\n';
+      client.processStringChunk(response, streamState, payload);
+      client.close(response);
+
+      var componentCalls = calls.filter(function (c) {
+        return c[0] !== 'Server Components ⚛';
+      });
+
+      var errored = componentCalls.find(function(c) { return c[0] === 'FailingComponent'; });
+      expect(errored).toBeDefined();
+      // Errored components should use 'error' color regardless of self-time
+      expect(errored[5]).toBe('error');
+      expect(errored[4]).toBe('Server Components ⚛');
+
+      delete console.timeStamp;
+    });
+  });
+
+  describe('deduped component timing', function () {
+    it('emits deduped entry when the same chunk is referenced by multiple parents', function () {
+      // When two parent chunks reference the same child chunk, the second
+      // visit should emit a lightweight dedup entry instead of re-logging
+      // the full component render.
+      var calls = [];
+      console.timeStamp = function () {
+        calls.push(Array.prototype.slice.call(arguments));
+      };
+
+      var response = client.createResponse('');
+      var streamState = client.createStreamState();
+      var payload = '0:N' + performance.timeOrigin + '\n';
+      // Shared child chunk (chunk 3)
+      payload += '3:D{"time":0}\n';
+      payload += '3:D{"name":"SharedCard","env":"Server"}\n';
+      payload += '3:D{"time":50}\n';
+      // Parent 1 (chunk 1) references shared child
+      payload += '1:D{"time":0}\n';
+      payload += '1:D{"name":"Parent1","env":"Server"}\n';
+      payload += '1:D{"time":1}\n';
+      // Parent 2 (chunk 2) also references shared child
+      payload += '2:D{"time":0}\n';
+      payload += '2:D{"name":"Parent2","env":"Server"}\n';
+      payload += '2:D{"time":1}\n';
+      // Model rows — both parents reference chunk 3
+      payload += '3:"shared content"\n';
+      payload += '1:{"child":"$3"}\n';
+      payload += '2:{"child":"$3"}\n';
+      payload += '0:{"a":"$1","b":"$2"}\n';
+      client.processStringChunk(response, streamState, payload);
+      client.close(response);
+
+      var componentCalls = calls.filter(function (c) {
+        return c[0] !== 'Server Components ⚛';
+      });
+
+      // SharedCard should appear twice — once as normal render, once as deduped
+      var sharedCalls = componentCalls.filter(function(c) {
+        return c[0] === 'SharedCard' || c[0] === 'SharedCard [deduped]';
+      });
+      expect(sharedCalls.length).toBe(2);
+
+      // The deduped entry should use 'primary-light' color
+      var deduped = sharedCalls.find(function(c) { return c[5] === 'primary-light'; });
+      expect(deduped).toBeDefined();
+
+      delete console.timeStamp;
+    });
+  });
+
+  describe('aborted await timing', function () {
+    it('emits aborted await with warning color when no end time marker', function () {
+      // When a component starts awaiting but the stream ends before
+      // the await resolves, the await entry should use 'warning' color.
+      var calls = [];
+      console.timeStamp = function () {
+        calls.push(Array.prototype.slice.call(arguments));
+      };
+
+      var response = client.createResponse('');
+      var streamState = client.createStreamState();
+      var payload = '0:N' + performance.timeOrigin + '\n';
+      // Chunk 1: component starts, awaits, but no end time
+      payload += '1:D{"time":0}\n';
+      payload += '1:D{"name":"StuckComponent","env":"Server"}\n';
+      payload += '1:D{"awaited":{"name":"fetch","env":"Server"}}\n';
+      // No end time — stream aborted
+      // Model rows
+      payload += '1:"partial"\n';
+      payload += '0:{"root":"$1"}\n';
+      client.processStringChunk(response, streamState, payload);
+      client.close(response);
+
+      var componentCalls = calls.filter(function (c) {
+        return c[0] !== 'Server Components ⚛';
+      });
+
+      var awaitEntry = componentCalls.find(function(c) { return c[0] === 'await fetch'; });
+      expect(awaitEntry).toBeDefined();
+      // Aborted awaits should use 'warning' color
+      expect(awaitEntry[5]).toBe('warning');
+      expect(awaitEntry[4]).toBe('Server Components ⚛');
+
+      delete console.timeStamp;
+    });
+  });
+
+  describe('errored IO timing', function () {
+    it('emits errored IO with error color in Server Requests track', function () {
+      // When a server I/O operation (e.g. fetch) fails, its J row entry
+      // should be rendered with 'error' color in the Server Requests track.
+      var calls = [];
+      console.timeStamp = function () {
+        calls.push(Array.prototype.slice.call(arguments));
+      };
+
+      var response = client.createResponse('');
+      var streamState = client.createStreamState();
+      var payload = '0:N' + Date.now() + '\n';
+      // Successful IO
+      payload += '70:J{"name":"db.query","start":0,"end":50,"env":"Server"}\n';
+      // Failed IO — negative end or error flag
+      payload += '71:J{"name":"fetch","start":10,"end":100,"env":"Server","errored":true}\n';
+      payload += '1:"ok"\n';
+      client.processStringChunk(response, streamState, payload);
+      client.close(response);
+
+      var requestCalls = calls.filter(function (c) { return c[4] === 'Server Requests ⚛'; });
+
+      // Track registration + 2 IO entries
+      var dbQuery = requestCalls.find(function(c) { return c[0] === 'db.query'; });
+      var fetchEntry = requestCalls.find(function(c) { return c[0] === 'fetch'; });
+
+      expect(dbQuery).toBeDefined();
+      expect(fetchEntry).toBeDefined();
+
+      // Failed IO should use 'error' color
+      expect(fetchEntry[5]).toBe('error');
+      // Successful IO should not use 'error' color
+      expect(dbQuery[5]).not.toBe('error');
+
+      delete console.timeStamp;
+    });
+  });
   describe('server request timing', function () {
     it('stores J (IO Info) rows and emits timing on close', function () {
       var calls = [];
