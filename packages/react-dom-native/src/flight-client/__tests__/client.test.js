@@ -701,19 +701,323 @@ describe('Flight Client Parser', function () {
   });
 
   // -----------------------------------------------------------------------
-  // Dev-only row types (should be ignored)
+  // Dev-only row types
   // -----------------------------------------------------------------------
   describe('dev-only row types', function () {
-    it('ignores D (Debug) rows', function () {
-      var payload = '1:D{"name":"MyComponent"}\n0:"ok"\n';
-      var root = parseFlightPayload(payload);
+    it('collects D (Debug) rows into _debugInfoMap', function () {
+      var response = client.createResponse('');
+      var streamState = client.createStreamState();
+      client.processStringChunk(response, streamState, '1:D{"name":"MyComponent"}\n0:"ok"\n');
+      expect(response._debugInfoMap[1]).toEqual([{name: 'MyComponent'}]);
+      var root = client.getRoot(response);
       expect(root.value).toBe('ok');
+    });
+
+    it('stores N (Time Origin) rows as time offset', function () {
+      var response = client.createResponse('');
+      var streamState = client.createStreamState();
+      // Server sends its Date.now() as the time origin.
+      // The client converts to performance.now() domain:
+      //   offset = serverOrigin - Date.now() + performance.now()
+      // If serverOrigin ≈ Date.now() - 100, offset ≈ performance.now() - 100
+      var nowMs = performance.now();
+      var fakeOrigin = Date.now() - 100;
+      client.processStringChunk(response, streamState, '0:N' + fakeOrigin + '\n1:"ok"\n');
+      // offset should be approximately (performance.now() - 100)
+      expect(response._timeOrigin).toBeCloseTo(nowMs - 100, -1);
     });
 
     it('ignores W (Console) rows', function () {
       var payload = '1:W["log","hello"]\n0:"ok"\n';
       var root = parseFlightPayload(payload);
       expect(root.value).toBe('ok');
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Server component timing (flushServerComponentTiming via close)
+  // -----------------------------------------------------------------------
+  describe('server component timing', function () {
+    it('emits console.timeStamp calls on close when D/N rows present', function () {
+      var calls = [];
+      console.timeStamp = function () {
+        calls.push(Array.prototype.slice.call(arguments));
+      };
+
+      var response = client.createResponse('');
+      var streamState = client.createStreamState();
+      // N row: server time origin (same as client for simplicity)
+      var payload = '0:N' + performance.timeOrigin + '\n';
+      // D rows for chunk 1: time-start, component, time-end
+      payload += '1:D{"time":10}\n';
+      payload += '1:D{"name":"App","env":"Server"}\n';
+      payload += '1:D{"time":25}\n';
+      // Model rows: chunk 1 resolves, chunk 0 references chunk 1
+      payload += '1:"hello"\n';
+      payload += '0:{"child":"$1"}\n';
+      client.processStringChunk(response, streamState, payload);
+      client.close(response);
+
+      // First call: track registration
+      expect(calls[0][0]).toBe('Server Components ⚛');
+      expect(calls[0][4]).toBe('Server Components ⚛');
+      // Second call: component timing
+      expect(calls[1][0]).toBe('App');
+      expect(calls[1][3]).toBe('Primary');
+      expect(calls[1][4]).toBe('Server Components ⚛');
+
+      delete console.timeStamp;
+    });
+
+    it('skips timing flush when no D rows collected', function () {
+      var called = false;
+      console.timeStamp = function () {
+        called = true;
+      };
+
+      var response = client.createResponse('');
+      var streamState = client.createStreamState();
+      client.processStringChunk(response, streamState, '0:"ok"\n');
+      client.close(response);
+
+      expect(called).toBe(false);
+      delete console.timeStamp;
+    });
+
+    it('assigns parallel tracks when components overlap in time', function () {
+      var calls = [];
+      console.timeStamp = function () {
+        calls.push(Array.prototype.slice.call(arguments));
+      };
+
+      var response = client.createResponse('');
+      var streamState = client.createStreamState();
+      var payload = '0:N' + performance.timeOrigin + '\n';
+      // Parent component on chunk 1
+      payload += '1:D{"time":0}\n';
+      payload += '1:D{"name":"Parent"}\n';
+      payload += '1:D{"time":1}\n';
+      // Child 1 on chunk 2 — starts at 0, ends at 500
+      payload += '2:D{"time":0}\n';
+      payload += '2:D{"name":"Child1"}\n';
+      payload += '2:D{"time":500}\n';
+      // Child 2 on chunk 3 — starts at 0 (overlaps with Child1), ends at 1000
+      payload += '3:D{"time":0}\n';
+      payload += '3:D{"name":"Child2"}\n';
+      payload += '3:D{"time":1000}\n';
+      // Model rows: children resolve first, then parent references them
+      payload += '2:"section1"\n';
+      payload += '3:"section2"\n';
+      payload += '1:{"a":"$2","b":"$3"}\n';
+      payload += '0:{"root":"$1"}\n';
+      client.processStringChunk(response, streamState, payload);
+      client.close(response);
+
+      // Filter out track registration
+      var componentCalls = calls.filter(function (c) {
+        return c[0] !== 'Server Components ⚛';
+      });
+
+      // Find each component's call
+      var child1 = componentCalls.find(function(c) { return c[0] === 'Child1'; });
+      var child2 = componentCalls.find(function(c) { return c[0] === 'Child2'; });
+      var parent = componentCalls.find(function(c) { return c[0] === 'Parent'; });
+
+      expect(child1).toBeDefined();
+      expect(child2).toBeDefined();
+      expect(parent).toBeDefined();
+
+      // Child1 on Primary (first child, no overlap)
+      expect(child1[3]).toBe('Primary');
+      // Child2 on Parallel (overlaps with Child1 — starts at 0, but Child1 ends at 500)
+      expect(child2[3]).toBe('Parallel');
+      // Parent on Primary
+      expect(parent[3]).toBe('Primary');
+
+      // All on the Server Components track group
+      expect(child1[4]).toBe('Server Components ⚛');
+      expect(child2[4]).toBe('Server Components ⚛');
+      expect(parent[4]).toBe('Server Components ⚛');
+
+      delete console.timeStamp;
+    });
+
+    it('extends component duration to include child end times', function () {
+      var calls = [];
+      console.timeStamp = function () {
+        calls.push(Array.prototype.slice.call(arguments));
+      };
+
+      var response = client.createResponse('');
+      var streamState = client.createStreamState();
+      var payload = '0:N' + performance.timeOrigin + '\n';
+      // Parent: self time 0-1ms
+      payload += '1:D{"time":0}\n';
+      payload += '1:D{"name":"Parent"}\n';
+      payload += '1:D{"time":1}\n';
+      // Child: self time 0-3000ms (async work)
+      payload += '2:D{"time":0}\n';
+      payload += '2:D{"name":"SlowChild"}\n';
+      payload += '2:D{"time":3000}\n';
+      // Model rows
+      payload += '2:"content"\n';
+      payload += '1:{"child":"$2"}\n';
+      payload += '0:{"root":"$1"}\n';
+      client.processStringChunk(response, streamState, payload);
+      client.close(response);
+
+      var componentCalls = calls.filter(function (c) {
+        return c[0] !== 'Server Components ⚛';
+      });
+
+      var parent = componentCalls.find(function(c) { return c[0] === 'Parent'; });
+      var child = componentCalls.find(function(c) { return c[0] === 'SlowChild'; });
+
+      expect(parent).toBeDefined();
+      expect(child).toBeDefined();
+
+      // Parent's end time (arg[2]) should match child's end time
+      // Both extend to childrenEndTime (3000 + timeOrigin)
+      expect(parent[2]).toBe(child[2]);
+
+      delete console.timeStamp;
+    });
+
+    it('emits await entries for awaited async work within components', function () {
+      var calls = [];
+      console.timeStamp = function () {
+        calls.push(Array.prototype.slice.call(arguments));
+      };
+
+      var response = client.createResponse('');
+      var streamState = client.createStreamState();
+      var payload = '0:N' + performance.timeOrigin + '\n';
+      // Component with awaited entry: time-start, component, awaited, time-end
+      payload += '1:D{"time":0}\n';
+      payload += '1:D{"name":"SlowSection","env":"Server"}\n';
+      payload += '1:D{"awaited":{"name":"sleep","env":"Server"}}\n';
+      payload += '1:D{"time":500}\n';
+      // Model rows
+      payload += '1:"content"\n';
+      payload += '0:{"root":"$1"}\n';
+      client.processStringChunk(response, streamState, payload);
+      client.close(response);
+
+      var componentCalls = calls.filter(function (c) {
+        return c[0] !== 'Server Components ⚛';
+      });
+
+      // Should have both the component and the await entry
+      var component = componentCalls.find(function(c) { return c[0] === 'SlowSection'; });
+      var awaitEntry = componentCalls.find(function(c) { return c[0] === 'await sleep'; });
+
+      expect(component).toBeDefined();
+      expect(awaitEntry).toBeDefined();
+
+      // Await entry should be on the same track as the component
+      expect(awaitEntry[3]).toBe(component[3]);
+      expect(awaitEntry[4]).toBe('Server Components ⚛');
+
+      // Await entry should use tertiary color scheme
+      expect(awaitEntry[5]).toMatch(/^tertiary/);
+
+      // Await start should match component start time, end should match component end time
+      expect(awaitEntry[1]).toBe(component[1]); // same start
+      expect(awaitEntry[2]).toBe(component[2]); // same end
+
+      delete console.timeStamp;
+    });
+
+    it('resolves $N references in awaited entries from outlined J rows', function () {
+      var calls = [];
+      console.timeStamp = function () {
+        calls.push(Array.prototype.slice.call(arguments));
+      };
+
+      var response = client.createResponse('');
+      var streamState = client.createStreamState();
+      var payload = '0:N' + performance.timeOrigin + '\n';
+      // J row outlines the IO info at chunk ID 0xa (10)
+      payload += 'a:J{"name":"fetch","start":0,"end":400,"env":"Server"}\n';
+      // D rows for chunk 1: time-start, component, awaited ($a ref to J row), time-end
+      payload += '1:D{"time":0}\n';
+      payload += '1:D{"name":"DataLoader","env":"Server"}\n';
+      payload += '1:D{"awaited":"$a","env":"Server"}\n';
+      payload += '1:D{"time":500}\n';
+      // Model rows
+      payload += '1:"data"\n';
+      payload += '0:{"root":"$1"}\n';
+      client.processStringChunk(response, streamState, payload);
+      client.close(response);
+
+      var componentCalls = calls.filter(function (c) {
+        return c[0] !== 'Server Components ⚛';
+      });
+
+      var component = componentCalls.find(function(c) { return c[0] === 'DataLoader'; });
+      var awaitEntry = componentCalls.find(function(c) { return c[0] === 'await fetch'; });
+
+      expect(component).toBeDefined();
+      expect(awaitEntry).toBeDefined();
+
+      // Await entry should use the resolved IO info's name
+      expect(awaitEntry[3]).toBe(component[3]);
+      expect(awaitEntry[4]).toBe('Server Components ⚛');
+      expect(awaitEntry[5]).toMatch(/^tertiary/);
+
+      delete console.timeStamp;
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Server request timing (flushServerRequestTiming via close)
+  // -----------------------------------------------------------------------
+  describe('server request timing', function () {
+    it('stores J (IO Info) rows and emits timing on close', function () {
+      var calls = [];
+      console.timeStamp = function () {
+        calls.push(Array.prototype.slice.call(arguments));
+      };
+
+      var response = client.createResponse('');
+      var streamState = client.createStreamState();
+      // N row for time origin, J rows for IO info, model row
+      var payload = '0:N' + Date.now() + '\n';
+      payload += '70:J{"name":"CounterSection","start":1.0,"end":100.0,"env":"Server"}\n';
+      payload += '78:J{"name":"TabsSection","start":2.0,"end":150.0,"env":"Server"}\n';
+      payload += '1:"ok"\n';
+      client.processStringChunk(response, streamState, payload);
+      client.close(response);
+
+      // Filter to only Server Requests track calls
+      var requestCalls = calls.filter(function (c) { return c[4] === 'Server Requests ⚛'; });
+
+      // First call: track registration
+      expect(requestCalls[0][0]).toBe('Server Requests ⚛');
+      // Second call: CounterSection
+      expect(requestCalls[1][0]).toBe('CounterSection');
+      expect(requestCalls[1][4]).toBe('Server Requests ⚛');
+      // Third call: TabsSection
+      expect(requestCalls[2][0]).toBe('TabsSection');
+
+      delete console.timeStamp;
+    });
+
+    it('skips request timing flush when no J rows collected', function () {
+      var calls = [];
+      console.timeStamp = function () {
+        calls.push(Array.prototype.slice.call(arguments));
+      };
+
+      var response = client.createResponse('');
+      var streamState = client.createStreamState();
+      client.processStringChunk(response, streamState, '0:"ok"\n');
+      client.close(response);
+
+      var requestCalls = calls.filter(function (c) { return c[4] === 'Server Requests ⚛'; });
+      expect(requestCalls.length).toBe(0);
+
+      delete console.timeStamp;
     });
   });
 });

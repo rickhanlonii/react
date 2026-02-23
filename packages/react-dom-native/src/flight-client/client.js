@@ -51,6 +51,31 @@ var BINARY_TAGS = {
 };
 
 // ---------------------------------------------------------------------------
+// Chunk tree tracking for performance profiling
+//
+// During model row processing, we track which chunks reference other chunks
+// so we can build a tree for the performance flush. This mirrors React
+// upstream's initializingChunk + _children pattern.
+// ---------------------------------------------------------------------------
+var initializingChunk = null;
+
+// Parallel track names — each must be unique so they appear as separate
+// sub-tracks in Chrome DevTools. Zero-width spaces pad "Parallel" variants.
+// (upstream: ReactFlightPerformanceTrack.js:62-73)
+var trackNames = [
+  'Primary',
+  'Parallel',
+  'Parallel\u200b',
+  'Parallel\u200b\u200b',
+  'Parallel\u200b\u200b\u200b',
+  'Parallel\u200b\u200b\u200b\u200b',
+  'Parallel\u200b\u200b\u200b\u200b\u200b',
+  'Parallel\u200b\u200b\u200b\u200b\u200b\u200b',
+  'Parallel\u200b\u200b\u200b\u200b\u200b\u200b\u200b',
+  'Parallel\u200b\u200b\u200b\u200b\u200b\u200b\u200b\u200b',
+];
+
+// ---------------------------------------------------------------------------
 // Chunk helpers
 // ---------------------------------------------------------------------------
 
@@ -66,6 +91,8 @@ function createPendingChunk() {
     reason: undefined,
     _resolve: null,
     _reject: null,
+    _id: -1,
+    _children: [],
     then: function then(onFulfilled, onRejected) {
       if (chunk.status === RESOLVED) {
         if (onFulfilled) onFulfilled(chunk.value);
@@ -119,6 +146,7 @@ function rejectChunk(chunk, error) {
 function getOrCreateChunk(response, id) {
   if (!response.chunks[id]) {
     response.chunks[id] = createPendingChunk();
+    response.chunks[id]._id = id;
   }
   return response.chunks[id];
 }
@@ -166,12 +194,19 @@ function createReviver(response) {
           // Lazy reference to chunk by ID
           var chunkId = parseInt(rest, 16);
           var chunk = getOrCreateChunk(response, chunkId);
+          if (initializingChunk !== null && Array.isArray(initializingChunk._children)) {
+            initializingChunk._children.push(chunk);
+          }
           return createLazyWrapper(chunk);
         }
         case '@': {
           // Promise reference to chunk by ID
           var promiseChunkId = parseInt(rest, 16);
-          return getOrCreateChunk(response, promiseChunkId);
+          var promiseChunk = getOrCreateChunk(response, promiseChunkId);
+          if (initializingChunk !== null && Array.isArray(initializingChunk._children)) {
+            initializingChunk._children.push(promiseChunk);
+          }
+          return promiseChunk;
         }
         case 'S': {
           // Symbol.for(name)
@@ -220,6 +255,9 @@ function createReviver(response) {
           var refId = parseInt(idPart, 16);
           if (!isNaN(refId)) {
             var refChunk = getOrCreateChunk(response, refId);
+            if (initializingChunk !== null && Array.isArray(initializingChunk._children)) {
+              initializingChunk._children.push(refChunk);
+            }
             var pathSegments = colonIdx >= 0 ? value.slice(colonIdx + 1).split(':') : null;
             if (refChunk.status === RESOLVED) {
               var resolved = refChunk.value;
@@ -338,9 +376,12 @@ function resolveModelValue(response, value) {
  * the custom reviver and resolves the chunk.
  */
 function processModelRow(response, id, json) {
-  var parsed = JSON.parse(json, createReviver(response));
-  var resolved = resolveModelValue(response, parsed);
   var chunk = getOrCreateChunk(response, id);
+  var prevChunk = initializingChunk;
+  initializingChunk = chunk;
+  var parsed = JSON.parse(json, createReviver(response));
+  initializingChunk = prevChunk;
+  var resolved = resolveModelValue(response, parsed);
   resolveChunk(chunk, resolved);
 }
 
@@ -445,15 +486,38 @@ function processRow(response, id, tag, data) {
       processTextRow(response, id, data);
       break;
     }
-    case 'D':
-    case 'W':
-    case 'N':
-    case 'J': {
-      // Dev-only row types — silently ignore in production
+    case 'N': {
+      // Time origin — server's performance.timeOrigin in Unix epoch ms.
+      // Convert to client-relative time: we need an offset such that
+      // (serverTime + offset) gives a value in performance.now() domain.
+      // Server times are relative to serverOrigin (epoch ms).
+      // Client performance.now() is relative to a boot-time origin.
+      // So: offset = serverOrigin - Date.now() + performance.now()
+      var serverOrigin = parseFloat(data);
+      response._timeOrigin = serverOrigin - Date.now() + performance.now();
       break;
     }
+    case 'D': {
+      // Debug info — component timing data from server
+      var debugData = JSON.parse(data);
+      if (!response._debugInfoMap[id]) {
+        response._debugInfoMap[id] = [];
+      }
+      response._debugInfoMap[id].push(debugData);
+      break;
+    }
+    case 'J': {
+      // IO info — server-side async operation timing (e.g. async component functions)
+      var ioData = JSON.parse(data);
+      response._ioInfoMap[id] = ioData;
+      if (typeof ioData.start === 'number' && typeof ioData.end === 'number') {
+        response._ioInfos.push(ioData);
+      }
+      break;
+    }
+    case 'W':
     default: {
-      // Unknown tag — ignore
+      // Unknown/unhandled row types — ignore
       break;
     }
   }
@@ -476,6 +540,10 @@ function createResponse(bundlerConfig, options) {
     chunks: {},
     closed: false,
     options: options || {},
+    _timeOrigin: 0,
+    _debugInfoMap: {},
+    _ioInfos: [],
+    _ioInfoMap: {},
   };
 }
 
@@ -642,10 +710,289 @@ function getRoot(response) {
 }
 
 /**
+ * Resolves a $N chunk reference string to the referenced value.
+ */
+function resolveChunkRef(response, ref) {
+  if (typeof ref === 'string' && ref.length > 1 && ref[0] === '$') {
+    var refId = parseInt(ref.slice(1), 16);
+    if (!isNaN(refId)) {
+      // Check model chunks first, then IO info map
+      if (response.chunks[refId] && response.chunks[refId].status === RESOLVED) {
+        return response.chunks[refId].value;
+      }
+      if (response._ioInfoMap[refId]) {
+        return response._ioInfoMap[refId];
+      }
+    }
+  }
+  return ref;
+}
+
+/**
+ * Resolves $N chunk references in debug info entries.
+ * Component info in D rows may be stored as "$N" references
+ * to separate model chunks containing the actual info.
+ * Awaited entries may reference outlined IO info via $N.
+ */
+function resolveDebugInfoEntry(response, entry) {
+  if (typeof entry === 'string' && entry.length > 1 && entry[0] === '$') {
+    var refId = parseInt(entry.slice(1), 16);
+    if (!isNaN(refId) && response.chunks[refId] && response.chunks[refId].status === RESOLVED) {
+      return response.chunks[refId].value;
+    }
+  }
+  // Resolve nested $N references in awaited field
+  if (typeof entry === 'object' && entry !== null && typeof entry.awaited === 'string') {
+    entry.awaited = resolveChunkRef(response, entry.awaited);
+  }
+  return entry;
+}
+
+/**
+ * Recursively walks the chunk tree to compute parallel track assignments
+ * and extended durations (childrenEndTime) for server component traces.
+ *
+ * Mirrors React upstream's flushComponentPerformance algorithm
+ * (ReactFlightClient.js:4406-4681).
+ *
+ * @param {object} response - The Flight response state
+ * @param {object} root - The chunk to process
+ * @param {number} trackIdx - Next available track index
+ * @param {number} trackTime - Time after which the track is available
+ * @param {number} parentEndTime - Parent component's end time
+ * @returns {{track: number, endTime: number, component: object|null}}
+ */
+function flushComponentPerformance(response, root, trackIdx, trackTime, parentEndTime) {
+  // If already visited (dedup), return previous result
+  if (!Array.isArray(root._children)) {
+    var previousResult = root._children;
+    previousResult.track = trackIdx;
+    return previousResult;
+  }
+
+  var children = root._children;
+  var chunkId = root._id;
+  var debugInfo = chunkId >= 0 ? response._debugInfoMap[chunkId] || null : null;
+
+  // Resolve $N references in debug info entries
+  if (debugInfo) {
+    for (var ri = 0; ri < debugInfo.length; ri++) {
+      debugInfo[ri] = resolveDebugInfoEntry(response, debugInfo[ri]);
+    }
+  }
+
+  // Find start time of the first component to detect parallel overlap
+  if (debugInfo) {
+    var startTime = 0;
+    for (var si = 0; si < debugInfo.length; si++) {
+      var sInfo = debugInfo[si];
+      if (typeof sInfo === 'object' && sInfo !== null && typeof sInfo.time === 'number') {
+        startTime = sInfo.time;
+      }
+      if (typeof sInfo === 'object' && sInfo !== null && typeof sInfo.name === 'string') {
+        if (startTime < trackTime) {
+          // This component started before the previous sibling finished —
+          // it was rendering in parallel, so bump to the next track
+          trackIdx++;
+        }
+        trackTime = startTime;
+        break;
+      }
+    }
+    // Find the last time marker to potentially extend parentEndTime
+    for (var ei = debugInfo.length - 1; ei >= 0; ei--) {
+      var eInfo = debugInfo[ei];
+      if (typeof eInfo === 'object' && eInfo !== null && typeof eInfo.time === 'number') {
+        if (eInfo.time > parentEndTime) {
+          parentEndTime = eInfo.time;
+        }
+        break;
+      }
+    }
+  }
+
+  // Mark as visited and create result placeholder
+  var result = {track: trackIdx, endTime: -Infinity, component: null};
+  root._children = result;
+
+  // Recursively flush all children
+  var childrenEndTime = -Infinity;
+  var childTrackIdx = trackIdx;
+  var childTrackTime = trackTime;
+  for (var ci = 0; ci < children.length; ci++) {
+    var childResult = flushComponentPerformance(
+      response, children[ci], childTrackIdx, childTrackTime, parentEndTime
+    );
+    if (childResult.component !== null) {
+      result.component = childResult.component;
+    }
+    childTrackIdx = childResult.track;
+    var childEndTime = childResult.endTime;
+    if (childEndTime > childTrackTime) {
+      childTrackTime = childEndTime;
+    }
+    if (childEndTime > childrenEndTime) {
+      childrenEndTime = childEndTime;
+    }
+  }
+
+  // Emit component timing events in reverse order (matching upstream)
+  if (debugInfo) {
+    var timeOrigin = response._timeOrigin;
+    var componentEndTime = 0;
+    var endTime = -1;
+    var endTimeIdx = -1;
+    for (var di = debugInfo.length - 1; di >= 0; di--) {
+      var dInfo = debugInfo[di];
+      if (typeof dInfo !== 'object' || dInfo === null || typeof dInfo.time !== 'number') {
+        continue;
+      }
+      if (componentEndTime === 0) {
+        // Last timestamp is the end of the last component
+        componentEndTime = dInfo.time;
+      }
+      var time = dInfo.time;
+      if (endTimeIdx > -1) {
+        // Process component entries between this time marker and the previous one
+        for (var ji = endTimeIdx - 1; ji > di; ji--) {
+          var candidate = debugInfo[ji];
+          if (typeof candidate === 'object' && candidate !== null && typeof candidate.name === 'string') {
+            if (componentEndTime > childrenEndTime) {
+              childrenEndTime = componentEndTime;
+            }
+            // Emit component render timing
+            var selfTime = componentEndTime - time;
+            var color =
+              selfTime < 0.5 ? 'primary-light' :
+              selfTime < 50 ? 'primary' :
+              selfTime < 500 ? 'primary-dark' : 'error';
+            var clientStart = time + timeOrigin;
+            var clientChildrenEnd = childrenEndTime + timeOrigin;
+            if (trackIdx < 10) {
+              console.timeStamp(
+                candidate.name,
+                clientStart < 0 ? 0 : clientStart,
+                clientChildrenEnd,
+                trackNames[trackIdx],
+                'Server Components ⚛',
+                color
+              );
+            }
+            componentEndTime = time;
+            result.component = candidate;
+          } else if (candidate.awaited && candidate.awaited.env != null) {
+            // Extend childrenEndTime with the endTime of this await span
+            if (endTime > childrenEndTime) {
+              childrenEndTime = endTime;
+            }
+            // Emit "await <name>" timing event
+            var awaitName = 'await ' + candidate.awaited.name;
+            var awaitColor;
+            switch (candidate.awaited.name.charCodeAt(0) % 3) {
+              case 0: awaitColor = 'tertiary-light'; break;
+              case 1: awaitColor = 'tertiary'; break;
+              default: awaitColor = 'tertiary-dark'; break;
+            }
+            var awaitStart = time + timeOrigin;
+            var awaitEnd = endTime + timeOrigin;
+            if (trackIdx < 10) {
+              console.timeStamp(
+                awaitName,
+                awaitStart < 0 ? 0 : awaitStart,
+                awaitEnd,
+                trackNames[trackIdx],
+                'Server Components ⚛',
+                awaitColor
+              );
+            }
+          }
+        }
+      }
+      endTime = time;
+      endTimeIdx = di;
+    }
+  }
+
+  result.endTime = childrenEndTime;
+  return result;
+}
+
+/**
+ * Flushes collected server component debug info as performance timing events.
+ * Called when the Flight stream closes. Recursively walks the chunk tree
+ * (built during model row resolution) to compute parallel track assignments
+ * and extended durations, then emits console.timeStamp() calls that the
+ * PerformanceTracer picks up for the Chrome DevTools trace.
+ */
+function flushServerComponentTiming(response) {
+  if (Object.keys(response._debugInfoMap).length === 0 || typeof console.timeStamp !== 'function') {
+    return;
+  }
+
+  var rootChunk = response.chunks[0];
+  if (!rootChunk || !Array.isArray(rootChunk._children)) {
+    return;
+  }
+
+  // Register the track ordering (so it appears after client tracks)
+  console.timeStamp('Server Components ⚛', 0, 0, 'Primary', 'Server Components ⚛', 'primary-light');
+
+  flushComponentPerformance(response, rootChunk, 0, -Infinity, -Infinity);
+}
+
+/**
+ * Flushes collected IO info as performance timing events on the
+ * "Server Requests ⚛" track. Called when the Flight stream closes.
+ * Each IO entry represents an async server operation (e.g. an async
+ * Server Component function) with start/end times.
+ */
+function flushServerRequestTiming(response) {
+  var ioInfos = response._ioInfos;
+  var timeOrigin = response._timeOrigin;
+
+  if (ioInfos.length === 0 || typeof console.timeStamp !== 'function') {
+    return;
+  }
+
+  // Register the track (appears after Server Components track)
+  console.timeStamp('Server Requests ⚛', 0, 0, 'Primary', 'Server Requests ⚛', 'tertiary-light');
+
+  for (var i = 0; i < ioInfos.length; i++) {
+    var io = ioInfos[i];
+    var startTime = io.start + timeOrigin;
+    var endTime = io.end + timeOrigin;
+    var label = io.name;
+
+    // Color based on first character of name (matches React's getIOColor)
+    var color;
+    if (label.length > 0) {
+      switch (label.charCodeAt(0) % 3) {
+        case 0: color = 'tertiary-light'; break;
+        case 1: color = 'tertiary'; break;
+        default: color = 'tertiary-dark'; break;
+      }
+    } else {
+      color = 'tertiary';
+    }
+
+    console.timeStamp(
+      label,
+      startTime < 0 ? 0 : startTime,
+      endTime,
+      'Primary',
+      'Server Requests ⚛',
+      color
+    );
+  }
+}
+
+/**
  * Signals that the Flight stream is complete. Any pending chunks that
  * haven't been resolved will remain pending.
  */
 function close(response) {
+  flushServerComponentTiming(response);
+  flushServerRequestTiming(response);
   response.closed = true;
 }
 

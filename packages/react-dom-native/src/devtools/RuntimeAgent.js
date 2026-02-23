@@ -211,6 +211,68 @@ function handleRuntimeRequest(requestId, method, params) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Profiler domain (in-JSC)
+//
+// Handles Profiler.start/stop by recording $$performanceNow() timestamps.
+// This ensures the profile time range matches trace event timestamps (both
+// use the same monotonic clock from CACurrentMediaTime).
+// ---------------------------------------------------------------------------
+
+var profilerStartTime = 0;
+
+function handleProfilerRequest(requestId, method, params) {
+  var result = {};
+
+  switch (method) {
+    case 'start':
+      profilerStartTime = typeof $$performanceNow === 'function'
+        ? $$performanceNow() * 1000  // ms → µs
+        : 0;
+      break;
+
+    case 'stop':
+      var endTime = typeof $$performanceNow === 'function'
+        ? $$performanceNow() * 1000
+        : 0;
+      result = {
+        profile: {
+          nodes: [{
+            id: 1,
+            callFrame: {
+              functionName: '(root)',
+              scriptId: '0',
+              url: '',
+              lineNumber: -1,
+              columnNumber: -1,
+            },
+            children: [],
+          }],
+          startTime: profilerStartTime,
+          endTime: endTime,
+          samples: [],
+          timeDeltas: [],
+        },
+      };
+      break;
+
+    case 'setSamplingInterval':
+      // Acknowledged but no-op for JSC
+      break;
+
+    default:
+      break;
+  }
+
+  if (typeof $$sendInspectorMessage === 'function') {
+    $$sendInspectorMessage(JSON.stringify({
+      type: 'cdp-response',
+      requestId: requestId,
+      result: result,
+    }));
+  }
+}
+
 // Register as a global handler
 globalThis.$$handleCDPRequest = function (jsonString) {
   var request;
@@ -222,5 +284,7 @@ globalThis.$$handleCDPRequest = function (jsonString) {
 
   if (request.domain === 'Runtime') {
     handleRuntimeRequest(request.requestId, request.method, request.params || {});
+  } else if (request.domain === 'Profiler') {
+    handleProfilerRequest(request.requestId, request.method, request.params || {});
   }
 };

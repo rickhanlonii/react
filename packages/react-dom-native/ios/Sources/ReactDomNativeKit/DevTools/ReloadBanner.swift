@@ -7,7 +7,7 @@ public class ReloadBanner {
     private var dismissRequested: Bool = false
 
     /// Minimum time the banner stays visible so it doesn't flash.
-    private let minimumDisplayDuration: TimeInterval = 1.0
+    private let minimumDisplayDuration: TimeInterval = 0.3
 
     public static let shared = ReloadBanner()
 
@@ -113,7 +113,7 @@ private class ReloadBannerView: UIView {
     }
 
     private func setupUI() {
-        backgroundColor = UIColor(white: 0.15, alpha: 0.92)
+        backgroundColor = UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 0.92)
         layer.cornerRadius = 10
 
         let spinner = UIActivityIndicatorView(style: .medium)
