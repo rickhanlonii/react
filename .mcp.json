@@ -5,6 +5,14 @@
       "args": ["mcp"],
       "type": "stdio",
       "enabledWorkflows": ["doctor","session-management","simulator", "ui-automation", "debugging","logging", "device"]
+    },
+    "claude mcp add chrome-devtools --scope user npx chrome-devtools-mcp@latest": {
+      "command": "npx",
+      "args": [
+        "chrome-devtools-mcp@latest",
+        "--autoConnect",
+        "--channel=beta"
+      ]
     }
   }
 }
