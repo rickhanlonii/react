@@ -2,14 +2,12 @@
 
 **Status**: idle
 **Current task**: none
-**Blocked on**: none
+**Blocked on**: team-lead hold — 30 failing fixtures being fixed before new ones
 
 ## Metrics
-- Fixtures written: 31
-- Total in project: 41
-- Coverage: box-model, flexbox, borders, text, position, lists, tables, forms, overflow, display, opacity, z-index, gap, inline-extras, fieldset, textarea/select, pre
+- Fixtures written: 117
 
 ## Next
-- Target: remaining gaps from coverage matrix
-- Elements: details/summary, dialog, dl/dt/dd
-- Properties: colspan/rowspan, caption
+- Target: absolute-fill-patterns
+- Elements: div with absolute positioning
+- Properties: top/right/bottom/left insets for fill, centering, partial fills

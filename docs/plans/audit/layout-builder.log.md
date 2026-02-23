@@ -590,3 +590,10 @@ All 5 registered in `tests/e2e/fixtures/index.js`.
   1. **align-self-all-values** — all alignSelf values (auto, flex-start, flex-end, center, stretch) in row and column directions, override parent alignItems, stretch with explicit height
   2. **padding-only-sizing** — elements sized purely by padding: uniform, per-side, empty boxes, with border, nested accumulation, in flex row, horizontal-only, vertical-only
   3. **overflow-scroll-flex** — overflow scroll in flex contexts: vertical scroll column, horizontal scroll row with flexShrink:0, scroll with flexGrow children, scroll inside flex item, nested scroll containers
+
+---
+### 2026-02-20 — Fixture 117: gap-with-wrap-and-align
+- Completed: Wrote 1 new fixture
+- Result: Pending QA
+- Files: created gap-with-wrap-and-align.jsx; updated index.js
+- Fixture: **gap-with-wrap-and-align** — gap + flexWrap + alignContent/alignItems interactions: row gap+wrap+alignItems center, alignContent center in fixed height, alignContent space-between + alignItems flex-end, asymmetric rowGap/columnGap + stretch, large gap + alignContent flex-end

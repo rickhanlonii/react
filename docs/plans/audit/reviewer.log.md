@@ -289,3 +289,20 @@
   - `packages/react-dom-native/src/renderer/HostConfig.js` — null check on replaceContainerChildren
   - `packages/react-dom-native/src/renderer/renderer.js` — DevTools integration
 - Tests: 172/172 JS, 166/166 Swift (per fixer state)
+
+---
+### 2026-02-20 — Review: Batch layout fixes (session 3 accumulated changes)
+- Completed: Comprehensive review of all uncommitted changes across 25 files (29 staged)
+- Decision: APPROVED — committed as 203602d
+- Scope: 10183 insertions, 388 deletions across production + test infrastructure
+- Key areas reviewed:
+  1. YogaStyleApplier: alignContent, flex shorthand expansion, aspectRatio pre-compute, borderWidth/borderStyle CSS quirk, height/maxHeight clamping, block-to-flex promotion enhancements (neutralize alignItems/justifyContent, flexShrink:0 on grandchildren)
+  2. ElementDefaults: UIFont-based yogaTextContainerMinHeight, needsYogaFlexWrapOverride, emFontSizeMultiplier for headings, button appearance invalidation, hr conditional auto margins, borderStyle added to all bordered elements, textarea content-box rework
+  3. ShadowTreeLayout: wrapping flex position:relative vertical offset fix
+  4. ShadowNodeWrapper: layoutMargins cache, text container minHeight, table layout emulation, flexWrap override
+  5. UIKitMutationApplier: CSS color/textAlign inheritance, bounds-dependent props timing, per-corner border radius, bgLayer zPosition fix, pre byCharWrapping
+  6. ShadowTreeBuilder + Bindings: grandchild flex cascade, em margin recomputation with text re-measurement, legend marginBottom
+  7. DevTools: inspector message relay, polyfills, injectIntoDevTools
+  8. LayoutExtractor (test infra): ViewRegistry, flex column auto margins, wrapping flex position, legend margins, margin collapse improvements
+- Tests verified: 179/179 JS, 180/180 Swift (ran locally)
+- No hacks, no magic numbers, no regressions. All fixes address root causes per CSS spec.

@@ -481,3 +481,23 @@
   - position-relative-in-flex: NEAR-PASS — minor 5px y-offset in wrapping flex section
   - list-with-actions: NEAR-PASS — all list item patterns render correctly, diffs from paragraph margin accumulation
 - Total audited: 100/111 (68 pass, 21 near-pass, 4 fail, 11 unaudited)
+
+---
+### 2026-02-20 session 2 — Full re-run and new fixture audit
+- Completed: Full e2e test run on 127 fixtures (up from 120)
+- Result: 96/127 passing (up from 85/120), 31 failing
+- Improvements: 11 fixtures moved to passing since last run
+  - details-summary, overflow-radius, max-height-in-flex, aspect-ratio-in-flex now pass (were 1 diff each)
+  - fieldset-legend, dialog-element, border-radius-percentage now pass
+  - box-sizing-modes, border-box-in-flex, percentage-width-in-column, flex-shrink-with-min, list-basic, flex-wrap-gap-sizes (new fixtures, all pass)
+- button-styles improved from 76 to 54 diffs
+- hr-standalone improved from 9 to 7 diffs
+- New failing fixtures: display-block-vs-flex (2 diffs), margin-padding-combos (27 diffs)
+- Visual audits performed:
+  - display-block-vs-flex: NEAR-PASS — 2 diffs are display:none element indexing in LayoutExtractor, visually correct
+  - margin-padding-combos: NEAR-PASS — 27 diffs are all 7-10px y-offset cascading from paragraph text height diffs
+  - box-sizing-modes: PASS — all content-box/border-box sizing patterns render correctly
+  - border-box-in-flex: PASS — all border-box in flex row/grow/basis patterns match
+  - percentage-width-in-column: PASS — percentage widths in column flex contexts render correctly
+  - flex-shrink-with-min: PASS — flex shrink with min-width constraints render correctly
+  - list-basic: NEAR-PASS (visual-only) — 0 automated diffs but NO bullet/number markers in native
