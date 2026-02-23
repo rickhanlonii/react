@@ -5,6 +5,7 @@ const Tabs = require('../components/Tabs');
 const fixture = {
   title: 'Client Components',
   description: 'RSC with client components — tests Flight module loading and hydration',
+  category: 'Basics',
 };
 
 function ClientComponents() {

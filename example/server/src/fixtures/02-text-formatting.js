@@ -3,6 +3,7 @@ const React = require('react');
 const fixture = {
   title: 'Text Formatting',
   description: 'Inline text elements: bold, italic, underline, code, mark, sub, sup',
+  category: 'Basics',
 };
 
 function TextFormatting() {

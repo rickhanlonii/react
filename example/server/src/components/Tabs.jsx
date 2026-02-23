@@ -31,6 +31,9 @@ function Tabs({tabs}) {
             onClick={() => setActiveIndex(index)}
             style={{
               flex: 1,
+              display: 'flex',
+              justifyContent: 'center',
+              width: '100%',
               paddingTop: 8,
               paddingBottom: 8,
               borderRadius: 6,
@@ -46,9 +49,14 @@ function Tabs({tabs}) {
                     }
                   : undefined,
             }}>
-            <p
+            <span
               style={{
-                textAlign: 'center',
+                display: 'flex',
+                justifyContent: 'center',
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                width: '100%',
                 fontSize: 13,
                 fontWeight: index === activeIndex ? '600' : '400',
                 color: index === activeIndex ? colors.accent : colors.secondary,
@@ -56,7 +64,7 @@ function Tabs({tabs}) {
                 marginBottom: 0,
               }}>
               {tab.label}
-            </p>
+            </span>
           </div>
         ))}
       </div>

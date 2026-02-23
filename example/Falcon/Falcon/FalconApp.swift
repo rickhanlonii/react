@@ -3,24 +3,45 @@ import UIKit
 import Combine
 import ReactDomNativeKit
 
+struct FixtureConfig: Codable {
+    var hideNavBar: Bool?
+    var backgroundColor: String?
+}
+
 struct Fixture: Identifiable, Codable {
     var id: String { name }
     let name: String
     let title: String
     let description: String
+    let config: FixtureConfig?
+}
+
+struct FixtureCategory: Identifiable, Codable {
+    var id: String { category }
+    let category: String
+    let fixtures: [Fixture]
+}
+
+enum NavDestination: Hashable {
+    case category(String)
+    case fixture(String)
 }
 
 @MainActor
 class FixtureStore: ObservableObject {
-    @Published var fixtures: [Fixture] = []
+    @Published var categories: [FixtureCategory] = []
     @Published var isLoading = false
 
-    private static let cacheKey = "cachedFixtures"
+    private static let cacheKey = "cachedFixtureCategories"
     private static let lastFixtureKey = "lastViewedFixture"
 
     var lastViewedFixture: String? {
         get { UserDefaults.standard.string(forKey: Self.lastFixtureKey) }
         set { UserDefaults.standard.set(newValue, forKey: Self.lastFixtureKey) }
+    }
+
+    func fixtures(for category: String) -> [Fixture] {
+        categories.first(where: { $0.category == category })?.fixtures ?? []
     }
 
     init() {
@@ -29,12 +50,12 @@ class FixtureStore: ObservableObject {
 
     private func loadCached() {
         guard let data = UserDefaults.standard.data(forKey: Self.cacheKey),
-              let cached = try? JSONDecoder().decode([Fixture].self, from: data) else { return }
-        fixtures = cached
+              let cached = try? JSONDecoder().decode([FixtureCategory].self, from: data) else { return }
+        categories = cached
     }
 
     private func saveCache() {
-        guard let data = try? JSONEncoder().encode(fixtures) else { return }
+        guard let data = try? JSONEncoder().encode(categories) else { return }
         UserDefaults.standard.set(data, forKey: Self.cacheKey)
     }
 
@@ -46,8 +67,8 @@ class FixtureStore: ObservableObject {
                 guard let self = self else { return }
                 self.isLoading = false
                 guard let data = data, error == nil else { return }
-                guard let decoded = try? JSONDecoder().decode([Fixture].self, from: data) else { return }
-                self.fixtures = decoded
+                guard let decoded = try? JSONDecoder().decode([FixtureCategory].self, from: data) else { return }
+                self.categories = decoded
                 self.saveCache()
             }
         }.resume()
@@ -63,41 +84,56 @@ struct FalconApp: App {
     var body: some Scene {
         WindowGroup {
             NavigationStack(path: $path) {
-                FixtureListView(path: $path)
+                CategoryListView(path: $path)
                     .environmentObject(store)
+                    .navigationDestination(for: NavDestination.self) { dest in
+                        switch dest {
+                        case .category(let category):
+                            FixtureListView(category: category, path: $path)
+                                .environmentObject(store)
+                        case .fixture(let name):
+                            FixtureDetailView(fixtureName: name)
+                                .environmentObject(store)
+                        }
+                    }
             }
         }
     }
 }
 
-struct FixtureListView: View {
+struct CategoryListView: View {
     @EnvironmentObject var store: FixtureStore
     @Binding var path: NavigationPath
     @State private var hasAutoNavigated = false
 
     var body: some View {
-        List(store.fixtures) { fixture in
-            NavigationLink(value: fixture.name) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(fixture.title)
-                        .font(.headline)
-                    Text(fixture.description)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+        List(store.categories) { category in
+            NavigationLink(value: NavDestination.category(category.category)) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(category.category)
+                            .font(.headline)
+                        Text("\(category.fixtures.count) fixture\(category.fixtures.count == 1 ? "" : "s")")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
                 }
                 .padding(.vertical, 4)
             }
         }
         .navigationTitle("Fixtures")
-        .navigationDestination(for: String.self) { name in
-            FixtureDetailView(fixtureName: name)
-                .environmentObject(store)
-        }
         .onAppear {
             store.fetchFixtures()
             if !hasAutoNavigated, path.isEmpty, let last = store.lastViewedFixture {
                 hasAutoNavigated = true
-                path.append(last)
+                let parts = last.split(separator: "/", maxSplits: 1)
+                if parts.count == 2 {
+                    let category = String(parts[0])
+                    let fixture = String(parts[1])
+                    path.append(NavDestination.category(category))
+                    path.append(NavDestination.fixture(fixture))
+                }
             }
         }
         .onChange(of: path) { newPath in
@@ -108,16 +144,73 @@ struct FixtureListView: View {
     }
 }
 
+struct FixtureListView: View {
+    let category: String
+    @EnvironmentObject var store: FixtureStore
+    @Binding var path: NavigationPath
+
+    var body: some View {
+        List(store.fixtures(for: category)) { fixture in
+            NavigationLink(value: NavDestination.fixture(fixture.name)) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(fixture.title)
+                        .font(.headline)
+                    Text(fixture.description)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.vertical, 4)
+            }
+        }
+        .navigationTitle(category)
+    }
+}
+
 struct FixtureDetailView: View {
     let fixtureName: String
     @EnvironmentObject var store: FixtureStore
+    @Environment(\.dismiss) private var dismiss
+
+    private var fixtureConfig: FixtureConfig? {
+        store.categories
+            .flatMap { $0.fixtures }
+            .first(where: { $0.name == fixtureName })?.config
+    }
+
+    private var backgroundColor: Color {
+        if let hex = fixtureConfig?.backgroundColor {
+            return Color(hex: hex)
+        }
+        return Color(red: 0xF2/255.0, green: 0xF2/255.0, blue: 0xF7/255.0)
+    }
 
     var body: some View {
-        FixtureRootView(fixtureName: fixtureName)
-            .background(Color(red: 0xF2/255.0, green: 0xF2/255.0, blue: 0xF7/255.0).ignoresSafeArea())
+        ZStack(alignment: .topLeading) {
+            FixtureRootView(fixtureName: fixtureName)
+            if fixtureConfig?.hideNavBar == true {
+                Button(action: { dismiss() }) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.primary)
+                        .frame(width: 36, height: 36)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Circle())
+                }
+                .padding(.top, 8)
+                .padding(.leading, 12)
+            }
+        }
+            .background(backgroundColor.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar(fixtureConfig?.hideNavBar == true ? .hidden : .automatic, for: .navigationBar)
             .onAppear {
-                store.lastViewedFixture = fixtureName
+                // Find category for this fixture and store as "category/fixtureName"
+                for cat in store.categories {
+                    if cat.fixtures.contains(where: { $0.name == fixtureName }) {
+                        store.lastViewedFixture = "\(cat.category)/\(fixtureName)"
+                        break
+                    }
+                }
             }
     }
 }
@@ -145,19 +238,16 @@ class FixtureViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = UIColor(red: 0xF2/255.0, green: 0xF2/255.0, blue: 0xF7/255.0, alpha: 1.0)
+        view.backgroundColor = .clear
 
         #if DEBUG
-        Root.devBundleURL = URL(string: "http://localhost:6000/bundle.js")
+        ReactRuntime.shared.devBundleURL = URL(string: "http://localhost:6000/bundle.js")
         #endif
 
         root = createRoot(view)
         renderAndHydrate()
-
-        #if DEBUG
-        startDevReloadPolling()
-        #endif
     }
+
 
     private func renderAndHydrate() {
         let ssrURL = "http://localhost:6001/ssr/\(fixtureName)"
@@ -178,50 +268,20 @@ class FixtureViewController: UIViewController {
         }
     }
 
-    #if DEBUG
-    private var reloadTimer: Timer?
-    private var lastBundleVersion: Double = 0
-
-    private func startDevReloadPolling() {
-        let versionURL = URL(string: "http://localhost:6000/bundle-version")!
-        fetchBundleVersion(from: versionURL) { [weak self] version in
-            self?.lastBundleVersion = version
-        }
-        reloadTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-            self?.checkForBundleUpdate(versionURL: versionURL)
-        }
-    }
-
-    private func checkForBundleUpdate(versionURL: URL) {
-        fetchBundleVersion(from: versionURL) { [weak self] version in
-            guard let self = self, version > 0, version != self.lastBundleVersion else { return }
-            self.lastBundleVersion = version
-            print("[Falcon] Bundle updated, reloading fixture \(self.fixtureName)...")
-            self.root?.unmount()
-            self.root = createRoot(self.view)
-            self.renderAndHydrate()
-        }
-    }
-
-    private func fetchBundleVersion(from url: URL, completion: @escaping (Double) -> Void) {
-        URLSession.shared.dataTask(with: url) { data, _, _ in
-            DispatchQueue.main.async {
-                guard let data = data,
-                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                      let version = json["version"] as? Double else {
-                    completion(0)
-                    return
-                }
-                completion(version)
-            }
-        }.resume()
-    }
-    #endif
-
     deinit {
-        #if DEBUG
-        reloadTimer?.invalidate()
-        #endif
         root?.unmount()
+    }
+}
+
+extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+        let scanner = Scanner(string: hex)
+        var rgbValue: UInt64 = 0
+        scanner.scanHexInt64(&rgbValue)
+        let r = Double((rgbValue & 0xFF0000) >> 16) / 255.0
+        let g = Double((rgbValue & 0x00FF00) >> 8) / 255.0
+        let b = Double(rgbValue & 0x0000FF) / 255.0
+        self.init(red: r, green: g, blue: b)
     }
 }

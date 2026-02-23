@@ -4,6 +4,7 @@ const {Suspense} = React;
 const fixture = {
   title: 'Nested Suspense',
   description: 'Multiple nested Suspense boundaries with staggered delays',
+  category: 'Suspense',
 };
 
 async function SlowSection({label, delay}) {

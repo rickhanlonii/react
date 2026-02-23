@@ -3,6 +3,7 @@ const React = require('react');
 const fixture = {
   title: 'RSC Only',
   description: 'Pure server components — no client components, no Suspense',
+  category: 'Basics',
 };
 
 function RscOnly() {

@@ -10,6 +10,7 @@ const ErrorBoundary = require('../components/ErrorBoundary');
 const fixture = {
   title: 'Kitchen Sink',
   description: 'Full demo — all 5 card sections with Suspense, client components, and rich text',
+  category: 'Kitchen Sink',
 };
 
 // ── Shared Styles ──

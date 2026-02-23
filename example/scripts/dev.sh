@@ -18,11 +18,17 @@ node ssr-server.js &
 SSR_PID=$!
 cd "$EXAMPLE_ROOT"
 
+# Start CDP inspector proxy for Chrome DevTools Performance profiling
+echo "Starting CDP inspector proxy..."
+node "$SCRIPT_DIR/start-inspector.js" &
+INSPECTOR_PID=$!
+
 # Cleanup on exit — only kill PIDs that are still alive and belong to us
 cleanup() {
   echo "Shutting down..."
   kill $RSC_PID 2>/dev/null || true
   kill $SSR_PID 2>/dev/null || true
+  kill $INSPECTOR_PID 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
 
@@ -43,12 +49,20 @@ wait_for_server() {
 
 wait_for_server 6000 "Flight server" "/bundle-version" || exit 1
 wait_for_server 6001 "SSR server" "/healthz" || exit 1
+wait_for_server 8976 "CDP inspector proxy" "/json/version" || exit 1
+
+# Grab the DevTools URL from the inspector proxy
+DEVTOOLS_URL=$(curl -s http://localhost:8976/json | node -e "process.stdin.on('data',d=>console.log(JSON.parse(d)[0].devtoolsFrontendUrl))" 2>/dev/null)
 
 echo ""
 echo "Development servers running:"
 echo "  Flight server (RSC): PID $RSC_PID (http://localhost:6000)"
 echo "  SSR server (Fizz):   PID $SSR_PID (http://localhost:6001)"
+echo "  CDP inspector proxy: PID $INSPECTOR_PID (http://localhost:8976)"
 echo "  Bundle URL: http://localhost:6000/bundle.js (built on-the-fly)"
+echo ""
+echo "Chrome DevTools:"
+echo "  $DEVTOOLS_URL"
 echo ""
 echo "Press Ctrl+C to stop."
 

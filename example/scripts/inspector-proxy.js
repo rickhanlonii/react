@@ -31,6 +31,20 @@ const DEFAULT_CDP_PORT = 9222;
 const CHUNK_SIZE = 1000; // Events per Tracing.dataCollected message (matches RN)
 
 // ---------------------------------------------------------------------------
+// Logging helper
+// ---------------------------------------------------------------------------
+function log(tag, msg, data) {
+  var ts = new Date().toISOString().slice(11, 23);
+  if (data !== undefined) {
+    var str = typeof data === 'string' ? data : JSON.stringify(data);
+    if (str.length > 200) str = str.slice(0, 200) + '...';
+    console.log('[' + ts + '] [' + tag + '] ' + msg + ' ' + str);
+  } else {
+    console.log('[' + ts + '] [' + tag + '] ' + msg);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Domain handler architecture
 //
 // Each domain is an object:
@@ -56,6 +70,7 @@ function createDomainRouter(domains) {
 
       var dotIdx = method.indexOf('.');
       if (dotIdx === -1) {
+        log('Router', 'No domain in method: ' + method);
         if (id !== undefined) ctx.sendCDP(ws, {id: id, result: {}});
         return;
       }
@@ -65,17 +80,24 @@ function createDomainRouter(domains) {
       var domain = handlers[domainName];
 
       if (!domain) {
+        log('Router', 'Unknown domain: ' + domainName + '.' + methodName + ' (id=' + id + ')');
         if (id !== undefined) ctx.sendCDP(ws, {id: id, result: {}});
         return;
       }
 
-      var result = domain.handle(methodName, params, Object.assign({ws: ws}, ctx));
+      log('Router', '→ ' + domainName + '.' + methodName + ' (id=' + id + ')');
+      var result = domain.handle(methodName, params, Object.assign({ws: ws, messageId: id}, ctx));
       if (result && typeof result.then === 'function') {
+        log('Router', '  ↳ async (promise) for ' + domainName + '.' + methodName);
         result.then(function (r) {
+          log('Router', '  ↳ resolved ' + domainName + '.' + methodName + ' (id=' + id + ')');
           if (id !== undefined) ctx.sendCDP(ws, {id: id, result: r || {}});
         });
       } else if (result !== null) {
+        log('Router', '  ↳ sync response for ' + domainName + '.' + methodName + ' (id=' + id + ')', result);
         if (id !== undefined) ctx.sendCDP(ws, {id: id, result: result || {}});
+      } else {
+        log('Router', '  ↳ async (null) for ' + domainName + '.' + methodName + ' — handler will respond');
       }
       // result === null means the handler will send the response itself
     },
@@ -95,16 +117,15 @@ function createTracingDomain(targetId) {
   function handle(method, params, ctx) {
     switch (method) {
       case 'start': {
-        // Tell app to start collecting trace events
+        log('Tracing', 'start — sendToApp=' + (ctx.sendToApp ? 'yes' : 'NO'));
         if (ctx.sendToApp) {
           ctx.sendToApp(JSON.stringify({type: 'start-tracing'}));
         }
-        console.log('[InspectorProxy] Tracing started');
         return {};
       }
 
       case 'end': {
-        // Tell app to stop and collect events
+        log('Tracing', 'end — sendToApp=' + (ctx.sendToApp ? 'yes' : 'NO'));
         if (ctx.sendToApp) {
           ctx.sendToApp(JSON.stringify({type: 'stop-tracing'}));
         }
@@ -112,12 +133,11 @@ function createTracingDomain(targetId) {
         var ws = ctx.ws;
         var id = ctx._currentId;
 
-        // Wait for trace data from app, then emit to DevTools
         var tracePromise = new Promise(function (resolve) {
           pendingTraceResolve = resolve;
-          // Timeout after 5 seconds in case app doesn't respond
           setTimeout(function () {
             if (pendingTraceResolve === resolve) {
+              log('Tracing', 'TIMEOUT — no trace data from app after 5s');
               pendingTraceResolve = null;
               resolve([]);
             }
@@ -125,6 +145,13 @@ function createTracingDomain(targetId) {
         });
 
         tracePromise.then(function (events) {
+          log('Tracing', 'Got ' + events.length + ' events from app, emitting');
+          log('Tracing', '--- Trace events from app ---');
+          for (var k = 0; k < events.length; k++) {
+            var e = events[k];
+            log('Tracing', '  [' + k + '] name=' + e.name + ' cat=' + e.cat + ' ph=' + e.ph + ' ts=' + e.ts + ' pid=' + e.pid + ' tid=' + e.tid + (e.id2 ? ' id2=' + JSON.stringify(e.id2) : ''));
+          }
+          log('Tracing', '--- End trace events ---');
           emitTraceEvents(ws, id, events, 'Tracing', targetId, ctx);
         });
 
@@ -132,6 +159,7 @@ function createTracingDomain(targetId) {
       }
 
       default:
+        log('Tracing', 'unhandled method: ' + method);
         return {};
     }
   }
@@ -140,10 +168,13 @@ function createTracingDomain(targetId) {
     name: 'Tracing',
     handle: handle,
     handleAppMessage: function (message) {
-      if (message.type === 'trace-data' && pendingTraceResolve) {
-        var resolve = pendingTraceResolve;
-        pendingTraceResolve = null;
-        resolve(message.events || []);
+      if (message.type === 'trace-data') {
+        log('Tracing', 'Received trace-data from app (' + (message.events || []).length + ' events), pendingResolve=' + (pendingTraceResolve ? 'yes' : 'NO'));
+        if (pendingTraceResolve) {
+          var resolve = pendingTraceResolve;
+          pendingTraceResolve = null;
+          resolve(message.events || []);
+        }
       }
     },
   };
@@ -159,14 +190,15 @@ function createNodeTracingDomain(targetId) {
   function handle(method, params, ctx) {
     switch (method) {
       case 'start': {
+        log('NodeTracing', 'start — sendToApp=' + (ctx.sendToApp ? 'yes' : 'NO'));
         if (ctx.sendToApp) {
           ctx.sendToApp(JSON.stringify({type: 'start-tracing'}));
         }
-        console.log('[InspectorProxy] Tracing started (NodeTracing)');
         return {};
       }
 
       case 'stop': {
+        log('NodeTracing', 'stop — sendToApp=' + (ctx.sendToApp ? 'yes' : 'NO'));
         if (ctx.sendToApp) {
           ctx.sendToApp(JSON.stringify({type: 'stop-tracing'}));
         }
@@ -178,6 +210,7 @@ function createNodeTracingDomain(targetId) {
           pendingTraceResolve = resolve;
           setTimeout(function () {
             if (pendingTraceResolve === resolve) {
+              log('NodeTracing', 'TIMEOUT — no trace data from app after 5s');
               pendingTraceResolve = null;
               resolve([]);
             }
@@ -185,6 +218,13 @@ function createNodeTracingDomain(targetId) {
         });
 
         tracePromise.then(function (events) {
+          log('NodeTracing', 'Got ' + events.length + ' events from app, emitting');
+          log('NodeTracing', '--- Trace events from app ---');
+          for (var k = 0; k < events.length; k++) {
+            var e = events[k];
+            log('NodeTracing', '  [' + k + '] name=' + e.name + ' cat=' + e.cat + ' ph=' + e.ph + ' ts=' + e.ts + ' pid=' + e.pid + ' tid=' + e.tid + (e.id2 ? ' id2=' + JSON.stringify(e.id2) : ''));
+          }
+          log('NodeTracing', '--- End trace events ---');
           emitTraceEvents(ws, id, events, 'NodeTracing', targetId, ctx);
         });
 
@@ -192,6 +232,7 @@ function createNodeTracingDomain(targetId) {
       }
 
       default:
+        log('NodeTracing', 'unhandled method: ' + method);
         return {};
     }
   }
@@ -200,10 +241,13 @@ function createNodeTracingDomain(targetId) {
     name: 'NodeTracing',
     handle: handle,
     handleAppMessage: function (message) {
-      if (message.type === 'trace-data' && pendingTraceResolve) {
-        var resolve = pendingTraceResolve;
-        pendingTraceResolve = null;
-        resolve(message.events || []);
+      if (message.type === 'trace-data') {
+        log('NodeTracing', 'Received trace-data from app (' + (message.events || []).length + ' events), pendingResolve=' + (pendingTraceResolve ? 'yes' : 'NO'));
+        if (pendingTraceResolve) {
+          var resolve = pendingTraceResolve;
+          pendingTraceResolve = null;
+          resolve(message.events || []);
+        }
       }
     },
   };
@@ -211,71 +255,84 @@ function createNodeTracingDomain(targetId) {
 
 // Shared trace event emission logic
 function emitTraceEvents(ws, id, events, domainPrefix, targetId, ctx) {
-  // Chrome DevTools Performance panel requires a TracingStartedInBrowser
-  // event to establish the frame/process context. Without it, the
-  // MetaHandler can't associate blink.user_timing events with a renderer
-  // and shows an empty trace. We prepend it here so the tracer in the
-  // app stays format-agnostic.
-  var rendererPid = 1; // Must match tracer's _pid
-  var browserPid = 0;
+  // Chrome DevTools Performance panel needs metadata events to associate
+  // trace data with the correct process. React Native uses
+  // TracingStartedInPage (not TracingStartedInBrowser) since the trace
+  // comes from a single JS runtime, not a full browser.
+  var pid = 1; // Must match tracer's _pid
+  var tid = 1; // Must match tracer's _tid
 
-  // Find the earliest timestamp in the trace events to anchor
-  // TracingStartedInBrowser just before the first real event.
+  // Find the earliest and latest timestamps to set the timeline range
+  // via a RunTask event. Skip metadata events (ph:'M') and zero-ts events.
   var minTs = Infinity;
+  var maxTs = 0;
   for (var j = 0; j < events.length; j++) {
-    if (events[j].ts > 0 && events[j].ts < minTs) {
-      minTs = events[j].ts;
+    if (events[j].ph !== 'M' && events[j].ts > 0) {
+      if (events[j].ts < minTs) minTs = events[j].ts;
+      if (events[j].ts > maxTs) maxTs = events[j].ts;
     }
   }
   if (minTs === Infinity) minTs = 0;
 
   var infraEvents = [
-    // Browser process metadata
-    {name: 'process_name', cat: '__metadata', ph: 'M', pid: browserPid, tid: 0, ts: 0, args: {name: 'Browser'}},
-    {name: 'thread_name', cat: '__metadata', ph: 'M', pid: browserPid, tid: 0, ts: 0, args: {name: 'CrBrowserMain'}},
-    // TracingStartedInBrowser — required by DevTools MetaHandler
+    // SetLayerTreeId — establishes the rendering context (matches RN)
     {
-      name: 'TracingStartedInBrowser',
+      name: 'SetLayerTreeId',
       cat: 'disabled-by-default-devtools.timeline',
       ph: 'I',
-      ts: minTs > 0 ? minTs - 1 : 0,
-      pid: browserPid,
-      tid: 0,
+      ts: minTs > 0 ? minTs - 3 : 0,
+      pid: pid,
+      tid: tid,
       s: 't',
-      args: {
-        data: {
-          frameTreeNodeId: 1,
-          persistentIds: true,
-          frames: [{
-            frame: targetId,
-            url: 'file://',
-            name: 'Falcon',
-            processId: rendererPid,
-            isInPrimaryMainFrame: true,
-            isOutermostMainFrame: true,
-          }],
-        },
-      },
+      args: {data: {frame: '', layerTreeId: 1}},
+    },
+    // TracingStartedInPage — tells DevTools this is a page-level trace
+    // (matches React Native's TracingAgent, not TracingStartedInBrowser)
+    {
+      name: 'TracingStartedInPage',
+      cat: 'disabled-by-default-devtools.timeline',
+      ph: 'I',
+      ts: minTs > 0 ? minTs - 2 : 0,
+      pid: pid,
+      tid: tid,
+      s: 't',
+      args: {data: {}},
+    },
+    // RunTask — a main thread event spanning the trace duration.
+    // Chrome DevTools sets its timeline range from main thread events.
+    // Without this, custom track events (React's Scheduler/Components)
+    // fall outside the visible range and are invisible.
+    {
+      name: 'RunTask',
+      cat: 'toplevel',
+      ph: 'X',
+      ts: minTs > 0 ? minTs - 1 : 0,
+      dur: maxTs > minTs ? (maxTs - minTs + 2) : 1,
+      pid: pid,
+      tid: tid,
+      args: {},
     },
   ];
   events = infraEvents.concat(events);
 
-  // Optionally dump trace events to file for debugging
-  if (process.env.FALCON_DUMP_TRACE) {
-    try {
-      var fs = require('fs');
-      fs.writeFileSync('/tmp/falcon-trace.json',
-        JSON.stringify({traceEvents: events}, null, 2));
-      console.log('[InspectorProxy] Trace dumped to /tmp/falcon-trace.json (' + events.length + ' events)');
-    } catch (e) {}
-  }
+  // Always dump trace events to file for debugging
+  try {
+    var fs = require('fs');
+    fs.writeFileSync('/tmp/falcon-trace.json',
+      JSON.stringify({traceEvents: events}, null, 2));
+    log('Tracing', 'Dumped to /tmp/falcon-trace.json (' + events.length + ' events)');
+  } catch (e) {}
 
-  // Acknowledge Tracing.end
-  ctx.sendCDP(ws, {id: id, result: {}});
+  // Acknowledge Tracing.end / NodeTracing.stop (skip if no id, e.g. Profiler-initiated)
+  if (id !== null && id !== undefined) {
+    log('Tracing', 'Sending response id=' + id);
+    ctx.sendCDP(ws, {id: id, result: {}});
+  }
 
   // Emit events in chunks (matching RN's behavior)
   for (var i = 0; i < events.length; i += CHUNK_SIZE) {
     var chunk = events.slice(i, i + CHUNK_SIZE);
+    log('Tracing', 'Sending ' + domainPrefix + '.dataCollected chunk (' + chunk.length + ' events)');
     ctx.sendCDP(ws, {
       method: domainPrefix + '.dataCollected',
       params: {value: chunk},
@@ -287,9 +344,7 @@ function emitTraceEvents(ws, id, events, domainPrefix, targetId, ctx) {
     method: domainPrefix + '.tracingComplete',
     params: {dataLossOccurred: false},
   });
-  console.log(
-    '[InspectorProxy] Tracing complete, sent ' + events.length + ' events',
-  );
+  log('Tracing', domainPrefix + '.tracingComplete sent');
 }
 
 // ---------------------------------------------------------------------------
@@ -297,13 +352,12 @@ function emitTraceEvents(ws, id, events, domainPrefix, targetId, ctx) {
 // ---------------------------------------------------------------------------
 
 function createRuntimeDomain() {
-  // Pending CDP requests forwarded to the app
-  var pendingCDPRequests = new Map(); // requestId -> {ws, id}
+  var pendingCDPRequests = new Map();
 
   function handle(method, params, ctx) {
     switch (method) {
       case 'enable':
-        // DevTools expects an executionContextCreated event after enable
+        log('Runtime', 'enable — sending executionContextCreated');
         ctx.sendCDP(ctx.ws, {
           method: 'Runtime.executionContextCreated',
           params: {
@@ -317,9 +371,11 @@ function createRuntimeDomain() {
         return {};
 
       case 'getIsolateId':
+        log('Runtime', 'getIsolateId');
         return {id: 'falcon-isolate-1'};
 
       case 'runIfWaitingForDebugger':
+        log('Runtime', 'runIfWaitingForDebugger');
         return {};
 
       // Forward these methods to JSC for real evaluation
@@ -331,6 +387,7 @@ function createRuntimeDomain() {
       case 'globalLexicalScopeNames':
       case 'getHeapUsage': {
         var requestId = 'cdp-' + ctx._currentId;
+        log('Runtime', 'Forwarding ' + method + ' to app (reqId=' + requestId + ')');
         pendingCDPRequests.set(requestId, {ws: ctx.ws, id: ctx._currentId});
         if (ctx.sendToApp) {
           ctx.sendToApp(JSON.stringify({
@@ -340,11 +397,14 @@ function createRuntimeDomain() {
             method: method,
             params: params,
           }));
+        } else {
+          log('Runtime', 'WARNING: sendToApp is null!');
         }
-        return null; // Response sent asynchronously via handleAppMessage
+        return null;
       }
 
       default:
+        log('Runtime', 'unhandled method: ' + method);
         return {};
     }
   }
@@ -356,6 +416,7 @@ function createRuntimeDomain() {
       if (message.type === 'cdp-response') {
         var pending = pendingCDPRequests.get(message.requestId);
         if (pending) {
+          log('Runtime', 'Got cdp-response for ' + message.requestId);
           pendingCDPRequests.delete(message.requestId);
           pending.ws.readyState === 1 &&
             pending.ws.send(JSON.stringify({id: pending.id, result: message.result}));
@@ -366,43 +427,151 @@ function createRuntimeDomain() {
 }
 
 // ---------------------------------------------------------------------------
-// Profiler domain
+// Profiler domain — forwarded to in-app handler for correct timestamps
 // ---------------------------------------------------------------------------
 
 function createProfilerDomain() {
-  function handle(method, params, ctx) {
-    switch (method) {
-      case 'stop':
-        return {
-          profile: {
-            nodes: [
-              {
-                id: 1,
-                callFrame: {
-                  functionName: '(root)',
-                  scriptId: '0',
-                  url: '',
-                  lineNumber: -1,
-                  columnNumber: -1,
-                },
-                children: [],
-              },
-            ],
-            startTime: 0,
-            endTime: 0,
-            samples: [],
-            timeDeltas: [],
-          },
-        };
+  var pendingRequests = new Map();
+  var nextReqId = 0;
+  var pendingTraceEvents = null; // Store trace events until Profiler.stop response
+  var profilerStopPending = null; // {ws, id, ctx} for delayed Profiler.stop response
 
-      default:
-        return {};
+  function handle(method, params, ctx) {
+    if (method === 'start') {
+      // Also start tracing — Chrome doesn't send Tracing.start for node targets
+      log('Profiler', 'start — also starting tracing');
+      if (ctx.sendToApp) {
+        ctx.sendToApp(JSON.stringify({type: 'start-tracing'}));
+      }
+      // Forward Profiler.start to app for timestamps
+      var reqId = 'profiler-' + (nextReqId++);
+      log('Profiler', 'Forwarding start to app (reqId=' + reqId + ')');
+      pendingRequests.set(reqId, {ws: ctx.ws, id: ctx.messageId});
+      ctx.sendToApp(JSON.stringify({
+        type: 'cdp-request',
+        requestId: reqId,
+        domain: 'Profiler',
+        method: 'start',
+        params: params || {},
+      }));
+      return null;
     }
+
+    if (method === 'stop') {
+      log('Profiler', 'stop — also stopping tracing, waiting for both responses');
+      // Stop tracing
+      if (ctx.sendToApp) {
+        ctx.sendToApp(JSON.stringify({type: 'stop-tracing'}));
+      }
+      // Forward Profiler.stop to app
+      var reqId = 'profiler-' + (nextReqId++);
+      pendingRequests.set(reqId, {ws: ctx.ws, id: ctx.messageId});
+      ctx.sendToApp(JSON.stringify({
+        type: 'cdp-request',
+        requestId: reqId,
+        domain: 'Profiler',
+        method: 'stop',
+        params: params || {},
+      }));
+
+      // Store context for sending trace events + profiler response together
+      pendingTraceEvents = null;
+      profilerStopPending = {ws: ctx.ws, ctx: ctx, reqId: reqId};
+
+      // Timeout: if trace data doesn't arrive in 3s, proceed without it
+      setTimeout(function () {
+        if (profilerStopPending && profilerStopPending.reqId === reqId) {
+          log('Profiler', 'Trace data timeout — proceeding without trace events');
+          pendingTraceEvents = [];
+          maybeFinishStop();
+        }
+      }, 3000);
+
+      return null;
+    }
+
+    // For other methods (enable, setSamplingInterval), forward to app
+    if (ctx.sendToApp) {
+      var reqId = 'profiler-' + (nextReqId++);
+      log('Profiler', 'Forwarding ' + method + ' to app (reqId=' + reqId + ', messageId=' + ctx.messageId + ')');
+      pendingRequests.set(reqId, {ws: ctx.ws, id: ctx.messageId});
+      ctx.sendToApp(JSON.stringify({
+        type: 'cdp-request',
+        requestId: reqId,
+        domain: 'Profiler',
+        method: method,
+        params: params || {},
+      }));
+      return null;
+    }
+
+    log('Profiler', 'No sendToApp — returning empty for ' + method);
+    return {};
+  }
+
+  // Called when we have both trace events AND profiler response
+  function maybeFinishStop() {
+    if (!profilerStopPending) return;
+    var pending = pendingRequests.get(profilerStopPending.reqId);
+    if (!pending) return; // Profiler.stop response not yet received
+    if (pendingTraceEvents === null) return; // trace-data not yet received
+
+    var ws = profilerStopPending.ws;
+    var ctx = profilerStopPending.ctx;
+    var events = pendingTraceEvents;
+
+    log('Profiler', 'Both trace data (' + events.length + ' events) and profiler response ready');
+
+    // Emit trace events FIRST via Tracing.dataCollected
+    if (events.length > 0) {
+      log('Profiler', '--- Trace events ---');
+      for (var k = 0; k < Math.min(events.length, 20); k++) {
+        var e = events[k];
+        log('Profiler', '  [' + k + '] name=' + e.name + ' cat=' + e.cat + ' ph=' + e.ph + ' ts=' + e.ts);
+      }
+      if (events.length > 20) log('Profiler', '  ... and ' + (events.length - 20) + ' more');
+      log('Profiler', '--- End ---');
+
+      emitTraceEvents(ws, null, events, 'Tracing', ctx.targetId, ctx);
+    }
+
+    // THEN send the Profiler.stop response
+    log('Profiler', 'Sending Profiler.stop response (id=' + pending.id + ')');
+    pending.ws.readyState === 1 &&
+      pending.ws.send(JSON.stringify({id: pending.id, result: pending.result}));
+    pendingRequests.delete(profilerStopPending.reqId);
+
+    // Clean up
+    profilerStopPending = null;
+    pendingTraceEvents = null;
   }
 
   return {
     name: 'Profiler',
     handle: handle,
+    handleAppMessage: function (message) {
+      if (message.type === 'trace-data') {
+        log('Profiler', 'Received trace-data (' + (message.events || []).length + ' events)');
+        pendingTraceEvents = message.events || [];
+        maybeFinishStop();
+      }
+      if (message.type === 'cdp-response') {
+        var pending = pendingRequests.get(message.requestId);
+        if (pending) {
+          log('Profiler', 'Got cdp-response for ' + message.requestId);
+          if (profilerStopPending && profilerStopPending.reqId === message.requestId) {
+            // Don't send yet — store result and wait for trace data
+            pending.result = message.result;
+            maybeFinishStop();
+          } else {
+            // Non-stop responses: send immediately
+            pendingRequests.delete(message.requestId);
+            pending.ws.readyState === 1 &&
+              pending.ws.send(JSON.stringify({id: pending.id, result: message.result}));
+          }
+        }
+      }
+    },
   };
 }
 
@@ -412,7 +581,33 @@ function createProfilerDomain() {
 
 function createPageDomain(targetId) {
   function handle(method, params, ctx) {
+    log('Page', method);
     switch (method) {
+      case 'enable':
+        // Emit lifecycle events Chrome expects for page targets
+        ctx.sendCDP(ctx.ws, {
+          method: 'Page.frameNavigated',
+          params: {
+            frame: {
+              id: targetId,
+              loaderId: targetId,
+              url: 'file://',
+              domainAndRegistry: '',
+              securityOrigin: 'file://',
+              mimeType: 'text/html',
+            },
+          },
+        });
+        ctx.sendCDP(ctx.ws, {
+          method: 'Page.loadEventFired',
+          params: {timestamp: Date.now() / 1000},
+        });
+        ctx.sendCDP(ctx.ws, {
+          method: 'Page.domContentEventFired',
+          params: {timestamp: Date.now() / 1000},
+        });
+        return {};
+
       case 'getFrameTree':
       case 'getResourceTree':
         return {
@@ -443,6 +638,170 @@ function createPageDomain(targetId) {
           ],
         };
 
+      case 'navigate': {
+        var navUrl = (params && params.url) || '';
+        var loaderId = targetId + '-' + Date.now();
+
+        if (navUrl === 'about:blank') {
+          // Chrome sends navigate(about:blank) as its "Reload and Profile"
+          // trigger. We need to:
+          //   1. Immediately acknowledge about:blank (so Chrome doesn't fail)
+          //   2. Trigger the actual app reload
+          //   3. After reload completes, emit file:// lifecycle events
+          log('Page', 'navigate(about:blank) — acknowledging + triggering reload');
+          var reloadLoaderId = targetId + '-reload-' + Date.now();
+
+          // 1. Quickly acknowledge about:blank navigation
+          setTimeout(function () {
+            var ts = Date.now() / 1000;
+            ctx.sendCDP(ctx.ws, {
+              method: 'Page.frameNavigated',
+              params: {
+                frame: {
+                  id: targetId,
+                  loaderId: loaderId,
+                  url: 'about:blank',
+                  domainAndRegistry: '',
+                  securityOrigin: '://',
+                  mimeType: 'text/html',
+                },
+              },
+            });
+            ctx.sendCDP(ctx.ws, {
+              method: 'Page.domContentEventFired',
+              params: {timestamp: ts},
+            });
+            ctx.sendCDP(ctx.ws, {
+              method: 'Page.loadEventFired',
+              params: {timestamp: ts},
+            });
+            ctx.sendCDP(ctx.ws, {
+              method: 'Page.frameStoppedLoading',
+              params: {frameId: targetId},
+            });
+          }, 50);
+
+          // 2. Trigger actual app reload (slightly after about:blank ack)
+          setTimeout(function () {
+            if (ctx.sendToApp) {
+              ctx.sendToApp(JSON.stringify({type: 'reload'}));
+            }
+          }, 100);
+
+          // 3. After reload completes, emit real page lifecycle events
+          setTimeout(function () {
+            var ts = Date.now() / 1000;
+            ctx.sendCDP(ctx.ws, {
+              method: 'Page.frameNavigated',
+              params: {
+                frame: {
+                  id: targetId,
+                  loaderId: reloadLoaderId,
+                  url: 'file://',
+                  domainAndRegistry: '',
+                  securityOrigin: 'file://',
+                  mimeType: 'text/html',
+                },
+              },
+            });
+            ctx.sendCDP(ctx.ws, {
+              method: 'Page.domContentEventFired',
+              params: {timestamp: ts},
+            });
+            ctx.sendCDP(ctx.ws, {
+              method: 'Page.loadEventFired',
+              params: {timestamp: ts},
+            });
+            ctx.sendCDP(ctx.ws, {
+              method: 'Page.frameStoppedLoading',
+              params: {frameId: targetId},
+            });
+          }, 1500);
+
+          return {frameId: targetId, loaderId: loaderId};
+        }
+
+        // Fall through: navigate to a real URL triggers reload
+        log('Page', 'navigate(' + navUrl + ') — triggering app reload');
+        if (ctx.sendToApp) {
+          ctx.sendToApp(JSON.stringify({type: 'reload'}));
+        }
+        ctx.sendCDP(ctx.ws, {
+          method: 'Page.frameStartedLoading',
+          params: {frameId: targetId},
+        });
+        setTimeout(function () {
+          var ts = Date.now() / 1000;
+          ctx.sendCDP(ctx.ws, {
+            method: 'Page.frameNavigated',
+            params: {
+              frame: {
+                id: targetId,
+                loaderId: loaderId,
+                url: 'file://',
+                domainAndRegistry: '',
+                securityOrigin: 'file://',
+                mimeType: 'text/html',
+              },
+            },
+          });
+          ctx.sendCDP(ctx.ws, {
+            method: 'Page.domContentEventFired',
+            params: {timestamp: ts},
+          });
+          ctx.sendCDP(ctx.ws, {
+            method: 'Page.loadEventFired',
+            params: {timestamp: ts},
+          });
+          ctx.sendCDP(ctx.ws, {
+            method: 'Page.frameStoppedLoading',
+            params: {frameId: targetId},
+          });
+        }, 500);
+        return {frameId: targetId, loaderId: loaderId};
+      }
+
+      case 'reload': {
+        log('Page', 'reload — triggering app reload');
+        var loaderId = targetId + '-' + Date.now();
+        if (ctx.sendToApp) {
+          ctx.sendToApp(JSON.stringify({type: 'reload'}));
+        }
+        ctx.sendCDP(ctx.ws, {
+          method: 'Page.frameStartedLoading',
+          params: {frameId: targetId},
+        });
+        setTimeout(function () {
+          var ts = Date.now() / 1000;
+          ctx.sendCDP(ctx.ws, {
+            method: 'Page.frameNavigated',
+            params: {
+              frame: {
+                id: targetId,
+                loaderId: loaderId,
+                url: 'file://',
+                domainAndRegistry: '',
+                securityOrigin: 'file://',
+                mimeType: 'text/html',
+              },
+            },
+          });
+          ctx.sendCDP(ctx.ws, {
+            method: 'Page.domContentEventFired',
+            params: {timestamp: ts},
+          });
+          ctx.sendCDP(ctx.ws, {
+            method: 'Page.loadEventFired',
+            params: {timestamp: ts},
+          });
+          ctx.sendCDP(ctx.ws, {
+            method: 'Page.frameStoppedLoading',
+            params: {frameId: targetId},
+          });
+        }, 500);
+        return {};
+      }
+
       default:
         return {};
     }
@@ -460,6 +819,7 @@ function createPageDomain(targetId) {
 
 function createDOMDomain() {
   function handle(method, params, ctx) {
+    log('DOM', method);
     switch (method) {
       case 'getDocument':
         return {
@@ -497,6 +857,7 @@ function createLogDomain() {
   var enabled = false;
 
   function handle(method, params, ctx) {
+    log('Log', method);
     switch (method) {
       case 'enable':
         enabled = true;
@@ -528,6 +889,7 @@ function createLogDomain() {
 
 function createNetworkDomain() {
   function handle(method, params, ctx) {
+    log('Network', method);
     switch (method) {
       case 'enable':
         return {};
@@ -554,12 +916,9 @@ function createNetworkDomain() {
 
 function createDebuggerDomain() {
   function handle(method, params, ctx) {
+    log('Debugger', method);
     switch (method) {
       case 'enable':
-        // Emit scriptParsed for the main bundle so DevTools knows about
-        // the script. Source maps are inline in the bundle (esbuild
-        // sourcemap: 'inline'), so DevTools will discover them automatically
-        // from the //# sourceMappingURL=data: comment.
         ctx.sendCDP(ctx.ws, {
           method: 'Debugger.scriptParsed',
           params: {
@@ -577,7 +936,6 @@ function createDebuggerDomain() {
       case 'disable':
         return {};
       case 'getScriptSource':
-        // Real source is served by the RSC server; return empty here
         return {scriptSource: ''};
       case 'setPauseOnExceptions':
         return {};
@@ -597,6 +955,151 @@ function createDebuggerDomain() {
 }
 
 // ---------------------------------------------------------------------------
+// Additional domains Chrome expects for type: "page" targets
+// ---------------------------------------------------------------------------
+
+function createTargetDomain() {
+  function handle(method, params, ctx) {
+    log('Target', method);
+    switch (method) {
+      case 'setAutoAttach':
+        return {};
+      case 'setDiscoverTargets':
+        return {};
+      case 'setRemoteLocations':
+        return {};
+      default:
+        return {};
+    }
+  }
+  return {name: 'Target', handle: handle};
+}
+
+function createInspectorDomain() {
+  function handle(method, params, ctx) {
+    log('Inspector', method);
+    return {};
+  }
+  return {name: 'Inspector', handle: handle};
+}
+
+function createCSSDomain() {
+  function handle(method, params, ctx) {
+    log('CSS', method);
+    switch (method) {
+      case 'getMediaQueries':
+        return {medias: []};
+      case 'getStyleSheetText':
+        return {text: ''};
+      default:
+        return {};
+    }
+  }
+  return {name: 'CSS', handle: handle};
+}
+
+function createOverlayDomain() {
+  function handle(method, params, ctx) {
+    log('Overlay', method);
+    return {};
+  }
+  return {name: 'Overlay', handle: handle};
+}
+
+function createEmulationDomain() {
+  function handle(method, params, ctx) {
+    log('Emulation', method);
+    return {};
+  }
+  return {name: 'Emulation', handle: handle};
+}
+
+function createHeapProfilerDomain() {
+  function handle(method, params, ctx) {
+    log('HeapProfiler', method);
+    return {};
+  }
+  return {name: 'HeapProfiler', handle: handle};
+}
+
+function createServiceWorkerDomain() {
+  function handle(method, params, ctx) {
+    log('ServiceWorker', method);
+    return {};
+  }
+  return {name: 'ServiceWorker', handle: handle};
+}
+
+function createStorageDomain() {
+  function handle(method, params, ctx) {
+    log('Storage', method);
+    return {};
+  }
+  return {name: 'Storage', handle: handle};
+}
+
+function createDatabaseDomain() {
+  function handle(method, params, ctx) {
+    log('Database', method);
+    return {};
+  }
+  return {name: 'Database', handle: handle};
+}
+
+function createIndexedDBDomain() {
+  function handle(method, params, ctx) {
+    log('IndexedDB', method);
+    return {};
+  }
+  return {name: 'IndexedDB', handle: handle};
+}
+
+function createCacheStorageDomain() {
+  function handle(method, params, ctx) {
+    log('CacheStorage', method);
+    return {};
+  }
+  return {name: 'CacheStorage', handle: handle};
+}
+
+function createDOMStorageDomain() {
+  function handle(method, params, ctx) {
+    log('DOMStorage', method);
+    return {};
+  }
+  return {name: 'DOMStorage', handle: handle};
+}
+
+function createSecurityDomain() {
+  function handle(method, params, ctx) {
+    log('Security', method);
+    return {};
+  }
+  return {name: 'Security', handle: handle};
+}
+
+function createAuditsDomain() {
+  function handle(method, params, ctx) {
+    log('Audits', method);
+    return {};
+  }
+  return {name: 'Audits', handle: handle};
+}
+
+function createPerformanceDomain() {
+  function handle(method, params, ctx) {
+    log('Performance', method);
+    switch (method) {
+      case 'getMetrics':
+        return {metrics: []};
+      default:
+        return {};
+    }
+  }
+  return {name: 'Performance', handle: handle};
+}
+
+// ---------------------------------------------------------------------------
 // createInspectorProxy
 // ---------------------------------------------------------------------------
 
@@ -604,7 +1107,7 @@ function createInspectorProxy(options) {
   const cdpPort = (options && options.port) || DEFAULT_CDP_PORT;
   const targetId = 'falcon-' + Math.random().toString(36).slice(2, 10);
   var devtoolsFrontendUrl =
-    'devtools://devtools/bundled/inspector.html?experiments=true&ws=127.0.0.1:' +
+    'chrome-devtools://devtools/bundled/devtools_app.html?experiments=true&ws=127.0.0.1:' +
     cdpPort +
     '/' +
     targetId;
@@ -650,42 +1153,66 @@ function createInspectorProxy(options) {
     logDomain,
     networkDomain,
     debuggerDomain,
+    createTargetDomain(),
+    createInspectorDomain(),
+    createCSSDomain(),
+    createOverlayDomain(),
+    createEmulationDomain(),
+    createHeapProfilerDomain(),
+    createServiceWorkerDomain(),
+    createStorageDomain(),
+    createDatabaseDomain(),
+    createIndexedDBDomain(),
+    createCacheStorageDomain(),
+    createDOMStorageDomain(),
+    createSecurityDomain(),
+    createAuditsDomain(),
+    createPerformanceDomain(),
   ]);
 
   // -----------------------------------------------------------------------
   // HTTP server for CDP discovery endpoints
   // -----------------------------------------------------------------------
+
+  // Chrome DevTools requires Content-Length header for discovery.
+  // Match React Native's InspectorProxy response format exactly.
+  function sendJSON(res, data) {
+    var body = JSON.stringify(data);
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=UTF-8',
+      'Cache-Control': 'no-cache',
+      'Content-Length': Buffer.byteLength(body),
+      'Connection': 'close',
+    });
+    res.end(body);
+  }
+
   const httpServer = http.createServer(function (req, res) {
     const url = req.url;
+    log('HTTP', req.method + ' ' + url);
 
     if (url === '/json/version') {
-      res.writeHead(200, {'Content-Type': 'application/json'});
-      res.end(
-        JSON.stringify({
-          Browser: 'node.js/v22.0.0',
-          'Protocol-Version': '1.1',
-        }),
-      );
+      sendJSON(res, {
+        Browser: 'Mobile JavaScript',
+        'Protocol-Version': '1.1',
+      });
       return;
     }
 
     if (url === '/json' || url === '/json/list') {
-      res.writeHead(200, {'Content-Type': 'application/json'});
-      res.end(
-        JSON.stringify([
-          {
-            description: 'Falcon JSC',
-            devtoolsFrontendUrl: devtoolsFrontendUrl,
-            devtoolsFrontendUrlCompat: devtoolsFrontendUrl,
-            faviconUrl: 'https://reactnative.dev/img/favicon.ico',
-            id: targetId,
-            title: 'Falcon — react-dom-native',
-            type: 'page',
-            url: 'file://',
-            webSocketDebuggerUrl: 'ws://127.0.0.1:' + cdpPort + '/' + targetId,
-          },
-        ]),
-      );
+      sendJSON(res, [
+        {
+          description: 'Falcon JSC',
+          devtoolsFrontendUrl: devtoolsFrontendUrl,
+          devtoolsFrontendUrlCompat: devtoolsFrontendUrl,
+          faviconUrl: 'https://reactnative.dev/img/favicon.ico',
+          id: targetId,
+          title: 'Falcon — react-dom-native',
+          type: 'page',
+          url: 'file://',
+          webSocketDebuggerUrl: 'ws://127.0.0.1:' + cdpPort + '/' + targetId,
+        },
+      ]);
       return;
     }
 
@@ -700,13 +1227,14 @@ function createInspectorProxy(options) {
 
   wss.on('connection', function onConnection(ws) {
     cdpClients.add(ws);
-    console.log('[InspectorProxy] Chrome DevTools connected');
+    log('WS', 'Chrome DevTools connected (total clients: ' + cdpClients.size + ')');
 
     ws.on('message', function onMessage(data) {
       let message;
       try {
         message = JSON.parse(data.toString());
       } catch (e) {
+        log('WS', 'Failed to parse message: ' + data.toString().slice(0, 100));
         return;
       }
 
@@ -715,10 +1243,11 @@ function createInspectorProxy(options) {
 
     ws.on('close', function onClose() {
       cdpClients.delete(ws);
-      console.log('[InspectorProxy] Chrome DevTools disconnected');
+      log('WS', 'Chrome DevTools disconnected (remaining: ' + cdpClients.size + ')');
     });
 
-    ws.on('error', function onError() {
+    ws.on('error', function onError(err) {
+      log('WS', 'WebSocket error: ' + err.message);
       cdpClients.delete(ws);
     });
   });
@@ -746,8 +1275,11 @@ function createInspectorProxy(options) {
     try {
       message = JSON.parse(data);
     } catch (e) {
+      log('App', 'Failed to parse app message: ' + String(data).slice(0, 100));
       return;
     }
+
+    log('App', '← ' + (message.type || 'unknown'), message.type === 'console-message' ? (message.args || []).map(function(a) { return a.value || a.type; }).join(' ') : undefined);
 
     // Route to domain handlers that care about app messages
     tracingDomain.handleAppMessage(message);
@@ -755,9 +1287,12 @@ function createInspectorProxy(options) {
     if (runtimeDomain.handleAppMessage) {
       runtimeDomain.handleAppMessage(message);
     }
+    if (profilerDomain.handleAppMessage) {
+      profilerDomain.handleAppMessage(message);
+    }
 
     if (message.type === 'cdp-event') {
-      // Broadcast CDP event from app to all connected DevTools clients
+      log('App', 'Broadcasting cdp-event: ' + message.method);
       broadcastCDP({
         method: message.method,
         params: message.params,
@@ -765,7 +1300,6 @@ function createInspectorProxy(options) {
     }
 
     if (message.type === 'console-message') {
-      // Forward as Runtime.consoleAPICalled to all connected DevTools clients
       broadcastCDP({
         method: 'Runtime.consoleAPICalled',
         params: {
@@ -799,24 +1333,20 @@ function createInspectorProxy(options) {
   // Start
   // -----------------------------------------------------------------------
   httpServer.listen(cdpPort, function () {
-    console.log(
-      '[InspectorProxy] CDP server listening on http://localhost:' + cdpPort,
-    );
-    console.log('[InspectorProxy] Open in Chrome: ' + devtoolsFrontendUrl);
+    log('Init', 'CDP server listening on http://localhost:' + cdpPort);
+    log('Init', 'Target: ' + targetId);
+    log('Init', 'DevTools URL: ' + devtoolsFrontendUrl);
   });
 
   return {
     port: cdpPort,
 
-    // Called by dev-server.js to set the function that sends messages to the app
     setSendToApp: function (fn) {
+      log('Init', 'sendToApp ' + (fn ? 'SET' : 'CLEARED'));
       sendToApp = fn;
     },
 
-    // Called by dev-server.js when a message arrives from the app
     handleAppMessage: handleAppMessage,
-
-    // Access domain router for extending with new domains
     router: router,
 
     close: function () {

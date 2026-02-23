@@ -4,6 +4,7 @@ const {Suspense} = React;
 const fixture = {
   title: 'Single Suspense',
   description: 'One async server component in a Suspense boundary with skeleton fallback',
+  category: 'Suspense',
 };
 
 async function SlowContent({delay}) {

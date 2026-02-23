@@ -196,6 +196,7 @@ app.get('/fixtures', function (req, res) {
       title: meta.title || name,
       description: meta.description || '',
       category: meta.category || 'Other',
+      config: meta.config || {},
     };
   });
 
@@ -211,6 +212,7 @@ app.get('/fixtures', function (req, res) {
       name: fixtures[i].name,
       title: fixtures[i].title,
       description: fixtures[i].description,
+      config: fixtures[i].config,
     });
   }
 
