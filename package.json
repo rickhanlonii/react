@@ -19,7 +19,10 @@
     "test:all": "jest",
     "build:fantom": "bash scripts/build-fantom.sh",
     "build:e2e": "node tests/e2e/scripts/build.js",
-    "dev:e2e": "node tests/e2e/scripts/dev.js"
+    "dev:e2e": "node tests/e2e/scripts/dev.js",
+    "e2e:check": "node tests/e2e/scripts/check.js",
+    "e2e:test": "node tests/e2e/scripts/test.js",
+    "test:trace": "node example/scripts/test-trace.js"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
