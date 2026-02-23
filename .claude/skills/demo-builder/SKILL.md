@@ -119,7 +119,11 @@ You maintain two files — a **current** file and a **log** file.
 
 ### Current file: `docs/plans/agent-state/demo-builder.md`
 
-**OVERWRITE** this file every time you update. It always reflects your latest state. Use this exact template:
+**OVERWRITE** this file every time you update. It always reflects your latest state.
+
+**SIZE LIMIT: 15 lines max.** This file is read into context on every restart. Keep it minimal — only actionable information. Put all details (feature descriptions, patterns exercised) in the log file instead.
+
+Use this exact template — do NOT add extra sections, lists, or history:
 
 ```markdown
 # Demo Builder — Current State
@@ -130,13 +134,16 @@ You maintain two files — a **current** file and a **log** file.
 
 ## Metrics
 - Features built: N
-- Features tested: N
-- Coverage: <patterns exercised>
 
 ## Next
 - Target: <next feature to build>
 - Details: <what React patterns it will exercise>
 ```
+
+Do NOT include in this file:
+- Lists of all features built — that's the log's job
+- Coverage details — check `example/server/src/` directly
+- Feature descriptions — put in the log entry
 
 ### Log file: `docs/plans/agent-state/demo-builder.log.md`
 

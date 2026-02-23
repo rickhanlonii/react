@@ -87,24 +87,32 @@ You maintain two files — a **current** file and a **log** file.
 
 ### Current file: `docs/plans/agent-state/reviewer.md`
 
-**OVERWRITE** this file every time you update. It always reflects your latest state. Use this exact template:
+**OVERWRITE** this file every time you update. It always reflects your latest state.
+
+**SIZE LIMIT: 15 lines max.** This file is read into context on every restart. Keep it minimal — only actionable information. Put all details (review rationales, checklist results) in the log file instead.
+
+Use this exact template — do NOT add extra sections, lists, or history:
 
 ```markdown
 # Reviewer — Current State
 
 **Status**: idle | reviewing
-**Current task**: <what's being reviewed>
+**Current task**: <what's being reviewed, or "none">
 **Blocked on**: <what, if anything>
 
 ## Current Review
 - Fix by: <which agent>
 - Fixture/feature: <name>
 - Decision: pending | APPROVED | REJECTED
-- Rationale: <if decided>
 
 ## Next
 - Awaiting: <next review assignment>
 ```
+
+Do NOT include in this file:
+- Prior review decisions — that's the log's job
+- Context about baseline metrics — get current data from the team lead or TaskList
+- Rationale details — put in the log entry
 
 ### Log file: `docs/plans/agent-state/reviewer.log.md`
 
@@ -113,7 +121,8 @@ You maintain two files — a **current** file and a **log** file.
 ```markdown
 ---
 ### <timestamp>
-- Completed: <what was done>
-- Result: <outcome — pass/fail, metrics>
-- Files: <created or changed>
+- Completed: <what was reviewed>
+- Decision: APPROVED | REJECTED
+- Rationale: <why>
+- Files committed: <list, if approved>
 ```

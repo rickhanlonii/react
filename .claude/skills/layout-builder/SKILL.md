@@ -102,7 +102,11 @@ You maintain two files — a **current** file and a **log** file.
 
 ### Current file: `docs/plans/agent-state/layout-builder.md`
 
-**OVERWRITE** this file every time you update. It always reflects your latest state. Use this exact template:
+**OVERWRITE** this file every time you update. It always reflects your latest state.
+
+**SIZE LIMIT: 15 lines max.** This file is read into context on every restart. Keep it minimal — only actionable information. Put all details (fixture names, batch history) in the log file instead.
+
+Use this exact template — do NOT add extra sections, lists, or history:
 
 ```markdown
 # Layout Builder — Current State
@@ -113,14 +117,17 @@ You maintain two files — a **current** file and a **log** file.
 
 ## Metrics
 - Fixtures written: N
-- Total in project: N
-- Coverage: <areas covered>
 
 ## Next
 - Target: <next fixture to write>
 - Elements: <which elements>
 - Properties: <which properties>
 ```
+
+Do NOT include in this file:
+- Lists of all fixtures written — check `tests/e2e/fixtures/index.js` instead
+- Coverage lists — that information lives in the fixture files themselves
+- Batch history — that's the log's job
 
 ### Log file: `docs/plans/agent-state/layout-builder.log.md`
 

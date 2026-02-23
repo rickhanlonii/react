@@ -122,23 +122,31 @@ You maintain two files — a **current** file and a **log** file.
 
 ### Current file: `docs/plans/agent-state/demo-fixer.md`
 
-**OVERWRITE** this file every time you update. It always reflects your latest state. Use this exact template:
+**OVERWRITE** this file every time you update. It always reflects your latest state.
+
+**SIZE LIMIT: 15 lines max.** This file is read into context on every restart. Keep it minimal — only actionable information. Put all details (diagnosis analysis, source traces) in the log file and diagnosis reports instead.
+
+Use this exact template — do NOT add extra sections, lists, or history:
 
 ```markdown
 # Demo Diagnoser — Current State
 
 **Status**: idle | diagnosing
-**Current task**: <feature/error being diagnosed>
+**Current task**: <feature/error being diagnosed, or "none">
 **Blocked on**: <what, if anything>
 
 ## Current Diagnosis
-- Symptom: <what QA reported>
-- Root cause: <analysis so far>
+- Symptom: <one-line summary>
 - Report: <path to diagnosis report, if written>
 
 ## Next
 - Awaiting: <next assignment>
 ```
+
+Do NOT include in this file:
+- Root cause analysis details — those go in the diagnosis report file
+- Lists of all diagnoses completed — that's the log's job
+- Source code traces — put in the diagnosis report
 
 ### Log file: `docs/plans/agent-state/demo-fixer.log.md`
 
@@ -149,5 +157,5 @@ You maintain two files — a **current** file and a **log** file.
 ### <timestamp>
 - Completed: <what was done>
 - Result: <outcome — pass/fail, metrics>
-- Files: <created or changed>
+- Report: <path to diagnosis report>
 ```

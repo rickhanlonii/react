@@ -73,7 +73,12 @@ Do NOT edit fixtures, example app, flight-client, renderer.js, or SSR code.
    **Do NOT run `xcodebuild` directly** — it's denied by project permissions. Always use the npm scripts.
    **To verify Swift fixes end-to-end**, use `build_run_sim` (NOT `build_sim` + `launch_app_sim` separately — that leaves the old binary running). Make sure your XcodeBuildMCP session defaults are set for the correct app first.
    **Do NOT wrap commands** in custom bash — no `echo`, `2>&1`, `2>/dev/null`, `; echo "EXIT CODE: $?"`, `--silent`, piping through `python3 -c`, or similar. Just run the npm script directly and read the output.
-   **Do NOT use `curl`** to check LayoutCompare results. That is the QA agent's job. Your job is to fix code and run unit tests.
+
+   To verify your fix against the fixture you're working on (after a JS-only change or after the lead rebuilds for Swift changes):
+   ```bash
+   npm run e2e:test -- <fixture-name>
+   ```
+   This triggers only the named fixture, polls for results, and prints a PASS/FAIL summary with diffs. Use this to confirm your fix resolved the diffs before messaging the team lead.
 
    Fantom tests (`npm run test:fantom`) are optional — run them if your change is in HostConfig.js or the renderer.
 7. Send a message to the team lead with what you fixed and why
@@ -107,24 +112,30 @@ You maintain two files — a **current** file and a **log** file.
 
 ### Current file: `docs/plans/agent-state/layout-fixer.md`
 
-**OVERWRITE** this file every time you update. It always reflects your latest state. Use this exact template:
+**OVERWRITE** this file every time you update. It always reflects your latest state.
+
+**SIZE LIMIT: 15 lines max.** This file is read into context on every restart. Keep it minimal — only actionable information. Put all details (root cause analysis, changed files, test results, investigation notes) in the log file instead.
+
+Use this exact template — do NOT add extra sections, lists, or history:
 
 ```markdown
 # Layout Fixer — Current State
 
 **Status**: idle | fixing
-**Current task**: <fixture/feature and what's wrong>
+**Current task**: <one line: fixture name and what's wrong, or "none">
 **Blocked on**: <what, if anything>
-**Attempt**: N
 
-## Current Fix
-- Root cause: <analysis>
-- Files changed: <list>
-- Tests: npm test PASS/FAIL, npm run test:swift PASS/FAIL
+## Known Limitations
+<2-3 bullet max: only confirmed-unfixable Yoga/platform issues to avoid re-investigating>
 
 ## Next
 - Awaiting: <next assignment>
 ```
+
+Do NOT include in this file:
+- Completed fix details (root cause, files changed, test results) — put these in the log
+- Lists of all fixtures fixed — that's the log's job
+- Long investigation notes — summarize in one line or put in the log
 
 ### Log file: `docs/plans/agent-state/layout-fixer.log.md`
 
@@ -134,6 +145,8 @@ You maintain two files — a **current** file and a **log** file.
 ---
 ### <timestamp>
 - Completed: <what was done>
+- Root cause: <analysis>
+- Files changed: <list>
+- Tests: npm test PASS/FAIL, npm run test:swift PASS/FAIL
 - Result: <outcome — pass/fail, metrics>
-- Files: <created or changed>
 ```

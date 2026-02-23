@@ -25,6 +25,7 @@
       "Bash(/usr/libexec/PlistBuddy:*)"
     ]
   },
+  "defaultMode": "dontAsk",
   "enabledPlugins": {
     "swift-lsp@claude-plugins-official": true
   },

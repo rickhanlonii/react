@@ -131,7 +131,11 @@ You maintain two files — a **current** file and a **log** file.
 
 ### Current file: `docs/plans/agent-state/demo-qa.md`
 
-**OVERWRITE** this file every time you update. It always reflects your latest state. Use this exact template:
+**OVERWRITE** this file every time you update. It always reflects your latest state.
+
+**SIZE LIMIT: 15 lines max.** This file is read into context on every restart. Keep it minimal — only actionable information. Put all details (visual audit narrations, interaction test results) in the log file instead.
+
+Use this exact template — do NOT add extra sections, lists, or history:
 
 ```markdown
 # Demo QA — Current State
@@ -143,11 +147,16 @@ You maintain two files — a **current** file and a **log** file.
 ## Latest Results
 - Feature: <last tested feature>
 - Verdict: PASS / FAIL
-- Issues: <description or "none">
+- Issues: <one-line summary or "none">
 
 ## Next
 - Awaiting: <what feature to test next>
 ```
+
+Do NOT include in this file:
+- Full visual audit narrations — put in the log
+- Lists of all features tested — that's the log's job
+- Detailed issue descriptions — summarize in one line, details go in the log
 
 ### Log file: `docs/plans/agent-state/demo-qa.log.md`
 

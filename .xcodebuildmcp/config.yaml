@@ -6,7 +6,4 @@ enabledWorkflows:
   - debugging
   - logging
   - device
-sessionDefaults:
-  simulatorName: Falcon E2E
-  simulatorId: 50E9E48E-D7F7-4338-9873-3EB801137EE7
-  simulatorPlatform: iOS Simulator
+# No sessionDefaults — each skill sets its own project/scheme/simulator
