@@ -462,6 +462,64 @@ public enum YogaStyleApplier {
         }
     }
 
+    // MARK: - Block Margin Collapsing
+
+    /// Simulates CSS block margin collapsing between adjacent siblings when a
+    /// block container is promoted to flex column layout.
+    ///
+    /// In CSS, adjacent siblings in a block formatting context (BFC) collapse
+    /// their vertical margins: the gap between them is `max(bottomMargin,
+    /// topMargin)` instead of `bottomMargin + topMargin`. When we promote a
+    /// block container to `display: flex; flex-direction: column` (to make
+    /// flexGrow/flexShrink work), Yoga uses flex layout where margins don't
+    /// collapse. This method walks the children and reduces margins to
+    /// approximate BFC behavior.
+    ///
+    /// Call this after the cascade in `applyFlexContextOverride` has promoted
+    /// all children.
+    ///
+    /// - Parameter parentYogaNode: The parent Yoga node whose children need
+    ///   margin collapsing.
+    public static func collapseBlockMargins(parentYogaNode: YGNodeRef) {
+        let childCount = YGNodeGetChildCount(parentYogaNode)
+        guard childCount > 1 else { return }
+
+        for i in 1..<childCount {
+            guard let child = YGNodeGetChild(parentYogaNode, i),
+                  let prev = YGNodeGetChild(parentYogaNode, i - 1) else { continue }
+
+            // Skip absolutely positioned children — they don't participate
+            // in normal flow margin collapsing.
+            if YGNodeStyleGetPositionType(child) == .absolute { continue }
+            if YGNodeStyleGetPositionType(prev) == .absolute { continue }
+
+            let prevBottom = marginValue(prev, edge: .bottom)
+            let childTop = marginValue(child, edge: .top)
+
+            // Only collapse when both margins are non-negative (CSS rule:
+            // negative margins have different collapsing behavior).
+            guard prevBottom >= 0 && childTop >= 0 else { continue }
+
+            // Yoga gap: prevBottom + childTop. Target: max(prevBottom, childTop).
+            // Reduce childTop so the sum matches the target.
+            let collapsed = max(0, childTop - prevBottom)
+            if abs(collapsed - childTop) > 0.01 {
+                YGNodeStyleSetMargin(child, .top, collapsed)
+            }
+        }
+    }
+
+    /// Reads the computed margin value for an edge from a Yoga node's style.
+    /// Returns 0 if not set or if the value is auto/percent.
+    private static func marginValue(_ node: YGNodeRef, edge: YGEdge) -> Float {
+        let val = YGNodeStyleGetMargin(node, edge)
+        if val.unit == .point { return val.value }
+        // Fall back to .all edge
+        let allVal = YGNodeStyleGetMargin(node, .all)
+        if allVal.unit == .point { return allVal.value }
+        return 0
+    }
+
     // MARK: - Nested List Override
 
     /// CSS user-agent stylesheet sets margin-block-start/end to 0 for nested

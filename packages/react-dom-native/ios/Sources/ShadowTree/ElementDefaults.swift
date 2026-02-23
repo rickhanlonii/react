@@ -209,8 +209,11 @@ public enum ElementDefaults {
     /// smaller (e.g. `<p><small>text</small></p>`). Yoga flex layout has
     /// no line-height concept, so minHeight emulates this behavior.
     ///
-    /// Uses UIFont.lineHeight (ascender - descender + leading) which
-    /// matches WebKit's `line-height: normal` metric for the system font.
+    /// Uses ceil(ascender) + ceil(descender) to match WebKit's
+    /// `line-height: normal` rendering for the system font. WebKit rounds
+    /// ascent and descent separately before summing, which can produce a
+    /// value 1px larger than ceil(lineHeight) at certain font sizes (e.g.
+    /// fontSize 14: ceil(13.33)+ceil(3.38) = 18 vs ceil(16.71) = 17).
     /// Falls back to `ceil(1.2 * fontSize)` when UIKit is unavailable.
     public static func yogaTextContainerMinHeight(for elementType: String, fontSize: CGFloat) -> CGFloat? {
         switch elementType {
@@ -218,7 +221,8 @@ public enum ElementDefaults {
              "li", "dt", "dd",
              "summary", "legend", "label":
             #if canImport(UIKit)
-            return ceil(UIFont.systemFont(ofSize: fontSize).lineHeight)
+            let font = UIFont.systemFont(ofSize: fontSize)
+            return ceil(font.ascender) + ceil(abs(font.descender))
             #else
             return ceil(1.2 * fontSize)
             #endif
@@ -900,7 +904,7 @@ public enum ElementDefaults {
         "borderStyle": "inset",
         "borderTopWidth": 1,
         "borderRightWidth": 0,
-        "borderBottomWidth": 0,
+        "borderBottomWidth": 1,
         "borderLeftWidth": 0,
         "borderTopColor": "#808080"
     ]

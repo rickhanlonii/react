@@ -662,12 +662,16 @@ final class ElementDefaultsTests: XCTestCase {
     }
 
     func testYogaTextContainerMinHeightScalesWithFontSize() {
-        // ceil(1.2 * 32) = 39
+        // ceil(UIFont.systemFont(ofSize: 32).lineHeight) = ceil(38.19) = 39
         let h1Height = ElementDefaults.yogaTextContainerMinHeight(for: "h1", fontSize: 32)!
         XCTAssertEqual(h1Height, 39)
-        // ceil(1.2 * 24) = 29
+        // ceil(UIFont.systemFont(ofSize: 24).lineHeight) = ceil(28.64) = 29
         let h2Height = ElementDefaults.yogaTextContainerMinHeight(for: "h2", fontSize: 24)!
         XCTAssertEqual(h2Height, 29)
+        // ceil(UIFont.systemFont(ofSize: 14).ascender) + ceil(abs(.descender))
+        // = ceil(13.33) + ceil(3.38) = 14 + 4 = 18
+        let smallP = ElementDefaults.yogaTextContainerMinHeight(for: "p", fontSize: 14)!
+        XCTAssertEqual(smallP, 18)
     }
 
     func testYogaTextContainerMinHeightNilForNonTextContainers() {

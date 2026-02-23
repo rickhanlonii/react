@@ -73,6 +73,12 @@ public enum YogaTextMeasure {
         // Set the measure function
         YGNodeSetMeasureFunc(node.yogaNode, textMeasureFunc)
 
+        // Set the baseline function so Yoga's alignItems:baseline can
+        // compute the correct text baseline (font ascender from top).
+        // Without this, Yoga falls back to the node's full height as the
+        // baseline, which is wrong for text.
+        YGNodeSetBaselineFunc(node.yogaNode, textBaselineFunc)
+
         // Mark as text node type (allows layout rounding truncation)
         YGNodeSetNodeType(node.yogaNode, .text)
 
@@ -214,4 +220,33 @@ private func textMeasureFunc(
 
     context.lastMeasuredWidth = measuredWidth
     return YGSize(width: measuredWidth, height: measuredHeight)
+}
+
+/// C-compatible baseline function for text nodes.
+/// Returns the font ascender (distance from top to baseline), which Yoga
+/// uses for alignItems:baseline calculations.
+private func textBaselineFunc(
+    _ node: YGNodeConstRef?,
+    _ width: Float,
+    _ height: Float
+) -> Float {
+    guard let node = node,
+          let ptr = YGNodeGetContext(node) else {
+        return height
+    }
+
+    let context = Unmanaged<YogaTextMeasure.TextMeasureContext>.fromOpaque(ptr).takeUnretainedValue()
+
+    #if canImport(UIKit)
+    let font = YogaTextMeasure.resolveFont(
+        size: context.fontSize,
+        weight: context.fontWeight,
+        family: context.fontFamily,
+        style: context.fontStyle
+    )
+    return Float(font.ascender)
+    #else
+    // Fallback: approximate ascender as ~80% of fontSize
+    return Float(context.fontSize * 0.8)
+    #endif
 }

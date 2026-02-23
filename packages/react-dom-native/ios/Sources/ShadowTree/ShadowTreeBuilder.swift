@@ -322,6 +322,10 @@ public class ShadowTreeBuilder {
                     childStyle: gcStyle
                 )
             }
+            // CSS block margin collapsing: in BFC, adjacent sibling margins
+            // collapse to max(bottom, top). Yoga flex layout sums them.
+            // Simulate collapsing now that the container has been promoted.
+            YogaStyleApplier.collapseBlockMargins(parentYogaNode: child.yogaNode)
         }
         // Update style dict to reflect CSS blockification
         if childDisplayBefore == "inline-block",
@@ -337,6 +341,17 @@ public class ShadowTreeBuilder {
             childYogaNode: child.yogaNode,
             childType: child.family.elementType
         )
+        // Keep the style dict in sync so the LayoutExtractor (which reads
+        // margins from the style dict) reports 0 matching web's computed style.
+        if parent.family.elementType == "li" {
+            let listElements: Set<String> = ["ul", "ol", "menu", "dir"]
+            if listElements.contains(child.family.elementType) {
+                var updatedStyle = child.props["style"] as? [String: Any] ?? [:]
+                updatedStyle["marginTop"] = 0
+                updatedStyle["marginBottom"] = 0
+                child.props["style"] = updatedStyle
+            }
+        }
 
         // CSS font-size inheritance for em-relative margins.
         if let parentFS = (parentStyle["fontSize"] as? NSNumber)?.doubleValue
