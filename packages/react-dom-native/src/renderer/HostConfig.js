@@ -286,8 +286,14 @@ function reportNativeCommitTimings(t) {
 
   // Native timestamps are absolute (CACurrentMediaTime * 1000, ms since boot).
   // JS timestamps are relative (performance.now() = $$performanceNow() - timeOrigin).
-  // Subtract timeOrigin to align native timestamps with the JS timeline.
-  var origin = performance.timeOrigin;
+  // Derive the actual timeOrigin from the relationship between absolute and
+  // relative clocks. Don't use performance.timeOrigin — JSC may have a built-in
+  // read-only value (set at JSContext creation) that differs from the polyfill's
+  // timeOrigin (set at bundle evaluation), causing a ~50ms misalignment equal
+  // to the bundle fetch time.
+  var origin = typeof $$performanceNow === 'function'
+    ? $$performanceNow() - performance.now()
+    : performance.timeOrigin;
   var commitStart = t.commitStart - origin;
   var commitEnd = t.commitEnd - origin;
   var layoutStart = t.layoutStart - origin;
