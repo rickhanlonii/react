@@ -48,12 +48,6 @@ public final class JavaScriptCoreEngine: JSEngine {
             let message = error.toString() ?? "Unknown JS error"
             let stack = error.objectForKeyedSubscript("stack")?.toString()
             self?.exceptionHandler?(message, stack)
-
-            // Forward to JS-side exception reporter for CDP integration
-            if let reporter = ctx?.globalObject.forProperty("$$reportUncaughtException"),
-               !reporter.isUndefined {
-                reporter.call(withArguments: [error])
-            }
         }
     }
 

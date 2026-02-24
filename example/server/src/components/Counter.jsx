@@ -1,6 +1,5 @@
 'use client';
 
-dne;
 const React = require('react');
 const {useState} = React;
 

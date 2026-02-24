@@ -14,41 +14,72 @@ public class JSRuntime {
         let eng = JavaScriptCoreEngine()
         engine = eng
 
-        // Set up exception handler
+        // Set up exception handler — routes to LogBox + CDP
         engine.exceptionHandler = { message, stack in
-            print("[JSRuntime] JS Error: \(message)")
+            print("[JS] Exception: \(message)")
             if let stack = stack {
-                print("[JSRuntime] Stack: \(stack)")
+                print("[JS] Stack: \(stack)")
             }
+            #if DEBUG
+            LogBox.shared.addEntry(
+                level: .fatalError,
+                source: .jsException,
+                message: message,
+                stack: stack
+            )
+            LogBox.shared.forwardExceptionToCDP(message: message, stack: stack)
+            #endif
         }
 
-        // Register console object with log, warn, error, info, debug
-        let consoleLog = eng.makeFunction { [weak eng] args in
-            let message = args.first.flatMap { eng?.toString($0) } ?? ""
-            print("[JS] \(message)")
-            return nil
-        }
-        let consoleWarn = eng.makeFunction { [weak eng] args in
-            let message = args.first.flatMap { eng?.toString($0) } ?? ""
-            print("[JS WARN] \(message)")
-            return nil
-        }
-        let consoleError = eng.makeFunction { [weak eng] args in
-            let message = args.first.flatMap { eng?.toString($0) } ?? ""
-            print("[JS ERROR] \(message)")
-            return nil
-        }
+        // Register console object with native-backed methods.
+        // Routes to: Xcode console (always), LogBox (warn/error), CDP (all).
+        let consoleLevels = ["log", "info", "debug", "warn", "error"]
+        let consoleObj = eng.makeObject()
+        for level in consoleLevels {
+            let fn = eng.makeFunction { [weak eng] args in
+                // Stringify all arguments, handling printf-style format strings
+                let parts: [String] = args.compactMap { eng?.toString($0) }
+                let message: String
+                if let format = parts.first, format.contains("%") {
+                    message = JSRuntime.formatConsoleArgs(format: format, args: Array(parts.dropFirst()))
+                } else {
+                    message = parts.joined(separator: " ")
+                }
 
-        let consoleObj = engine.makeObject()
-        engine.setProperty(consoleObj, "log", consoleLog)
-        engine.setProperty(consoleObj, "warn", consoleWarn)
-        engine.setProperty(consoleObj, "error", consoleError)
-        engine.setProperty(consoleObj, "info", consoleLog)
-        engine.setProperty(consoleObj, "debug", consoleLog)
+                // 1. Always print to Xcode console
+                let prefix = level == "error" ? "[JS ERROR]"
+                           : level == "warn" ? "[JS WARN]"
+                           : "[JS]"
+                print("\(prefix) \(message)")
+
+                #if DEBUG
+                // 2. Route warn/error to LogBox
+                if level == "error" {
+                    LogBox.shared.addEntry(
+                        level: .error,
+                        source: .consoleError,
+                        message: message
+                    )
+                } else if level == "warn" {
+                    LogBox.shared.addEntry(
+                        level: .warning,
+                        source: .consoleWarning,
+                        message: message
+                    )
+                }
+
+                // 3. Forward all console calls to CDP
+                LogBox.shared.forwardConsoleToCDP(level: level, message: message, stack: nil)
+                #endif
+
+                return nil
+            }
+            eng.setProperty(consoleObj, level, fn)
+        }
         engine.setGlobalProperty("console", consoleObj)
 
         // Legacy $$log for backwards compatibility
-        engine.setGlobalProperty("$$log", consoleLog)
+        engine.setGlobalProperty("$$log", engine.getProperty(consoleObj, "log")!)
 
         // Set up the bindings (registers all $$ functions)
         bindings = Bindings(engine: engine)
@@ -191,6 +222,36 @@ public class JSRuntime {
             deadline: .now() + .milliseconds(delayMs),
             execute: workItem
         )
+    }
+
+    /// Applies printf-style format specifiers (%s, %d, %f, %o, %O) used by JS console APIs.
+    private static func formatConsoleArgs(format: String, args: [String]) -> String {
+        var result = ""
+        var argIndex = 0
+        var i = format.startIndex
+        while i < format.endIndex {
+            let c = format[i]
+            if c == "%", format.index(after: i) < format.endIndex {
+                let next = format[format.index(after: i)]
+                if "sdfoOi".contains(next), argIndex < args.count {
+                    result += args[argIndex]
+                    argIndex += 1
+                    i = format.index(i, offsetBy: 2)
+                    continue
+                } else if next == "%" {
+                    result += "%"
+                    i = format.index(i, offsetBy: 2)
+                    continue
+                }
+            }
+            result.append(c)
+            i = format.index(after: i)
+        }
+        // Append remaining args that weren't consumed by format specifiers
+        for j in argIndex..<args.count {
+            result += " " + args[j]
+        }
+        return result
     }
 
     public func start(rootView: UIView) {

@@ -107,7 +107,9 @@ public class HotReloadClient {
                 let stack = json["stack"] as? String
                 let file = json["file"] as? String
                 let line = json["line"] as? Int
-                ErrorOverlay.shared.show(
+                LogBox.shared.addEntry(
+                    level: .fatalError,
+                    source: .devServerError,
                     message: message,
                     stack: stack,
                     file: file,
@@ -115,7 +117,7 @@ public class HotReloadClient {
                 )
 
             case "clear-errors":
-                ErrorOverlay.shared.dismiss()
+                LogBox.shared.clearAll()
 
             case "start-tracing", "stop-tracing", "cdp-request":
                 self.onInspectorMessage?(text)

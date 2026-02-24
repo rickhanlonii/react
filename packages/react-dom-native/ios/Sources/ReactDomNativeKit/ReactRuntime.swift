@@ -596,6 +596,51 @@ public class ReactRuntime {
 
         client.connect()
 
+        // Connect LogBox CDP forwarding to the WebSocket
+        LogBox.shared.sendCDP = { [weak client] json in
+            client?.send(json)
+        }
+
+        // Register React error callback bridge globals
+        guard let engine = runtime?.engine else { return }
+
+        engine.setGlobalFunction("$$nativeOnUncaughtError") { [weak engine] args in
+            let message = args.first.flatMap { engine?.toString($0) } ?? "Unknown error"
+            let stack = args.count > 1 ? engine?.toString(args[1]) : nil
+            LogBox.shared.addEntry(
+                level: .fatalError,
+                source: .rendererUncaught,
+                message: message,
+                stack: stack
+            )
+            LogBox.shared.forwardExceptionToCDP(message: message, stack: stack)
+            return nil
+        }
+
+        engine.setGlobalFunction("$$nativeOnCaughtError") { [weak engine] args in
+            let message = args.first.flatMap { engine?.toString($0) } ?? "Unknown error"
+            let stack = args.count > 1 ? engine?.toString(args[1]) : nil
+            LogBox.shared.addEntry(
+                level: .error,
+                source: .rendererCaught,
+                message: message,
+                stack: stack
+            )
+            return nil
+        }
+
+        engine.setGlobalFunction("$$nativeOnRecoverableError") { [weak engine] args in
+            let message = args.first.flatMap { engine?.toString($0) } ?? "Unknown error"
+            let stack = args.count > 1 ? engine?.toString(args[1]) : nil
+            LogBox.shared.addEntry(
+                level: .warning,
+                source: .rendererRecoverable,
+                message: message,
+                stack: stack
+            )
+            return nil
+        }
+
         // Install Cmd+Shift+R keyboard shortcut for manual reload
         DevKeyCommands.install()
         #endif
