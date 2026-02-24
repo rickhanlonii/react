@@ -676,6 +676,10 @@ globalThis.$$notifyBoundaryRevealed = function(boundaryId) {
   }
   // Mark as resolved so isSuspenseInstancePending returns false
   instance.pending = false;
+  // Sync pending state to Swift-side ShadowNodeWrapper
+  if (typeof $$markBoundaryRevealed === 'function') {
+    $$markBoundaryRevealed(instance._ssrNodeRef);
+  }
   // Fire and clear retry callbacks
   var callbacks = instance._retryCallbacks;
   if (callbacks) {

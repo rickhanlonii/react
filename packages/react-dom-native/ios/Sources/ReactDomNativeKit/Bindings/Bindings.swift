@@ -63,13 +63,8 @@ public class Bindings {
     private var ssrTrees: [Int: [ShadowNodeWrapper]] = [:]
 
     /// Surfaces where hydration is in progress. Set when hydration starts,
-    /// cleared on first $$completeRoot. While active, SSR tree updates are
-    /// queued to prevent mid-hydration tree mutations.
+    /// cleared on first $$completeRoot.
     private var hydrationInProgress: Set<Int> = []
-
-    /// Queued SSR tree updates that arrived during hydration.
-    /// Applied after hydration completes (first $$completeRoot).
-    private var pendingSSRTreeUpdates: [Int: [ShadowNodeWrapper]] = [:]
 
     /// SSR commit timings to report when tracing starts. Accumulated by Root during
     /// SSR first paint and boundary reveals, then pushed to JS when tracing is enabled.
@@ -220,6 +215,42 @@ public class Bindings {
     public func clearSSRTree(surfaceId: Int) {
         ssrTrees.removeValue(forKey: surfaceId)
         ssrNodeToParent.removeAll()
+    }
+
+    /// Mutates the SSR reference tree in place when a boundary reveals.
+    /// Keeps node IDs stable so React's _ssrNodeRef references remain valid.
+    public func revealBoundaryInSSRTree(surfaceId: Int, boundaryId: Int, contentNodes: [ShadowNodeWrapper]) {
+        guard let tree = ssrTrees[surfaceId] else { return }
+        guard let suspenseNode = findSuspenseNodeByBoundaryId(boundaryId, in: tree) else { return }
+
+        #if DEBUG
+        let nodeIdBefore = ObjectIdentifier(suspenseNode)
+        #endif
+
+        suspenseNode.children = contentNodes
+        suspenseNode.props["pending"] = false
+        for child in contentNodes { registerNewNodesInSubtree(child) }
+        buildParentMap(suspenseNode)
+
+        #if DEBUG
+        // Assert node identity didn't change during in-place mutation
+        assert(ObjectIdentifier(suspenseNode) == nodeIdBefore,
+               "revealBoundaryInSSRTree: node identity changed during mutation")
+        #endif
+    }
+
+    private func findSuspenseNodeByBoundaryId(_ boundaryId: Int, in nodes: [ShadowNodeWrapper]) -> ShadowNodeWrapper? {
+        for node in nodes {
+            if node.family.elementType == "#suspense",
+               let bid = node.props["boundaryId"] as? Int,
+               bid == boundaryId {
+                return node
+            }
+            if let found = findSuspenseNodeByBoundaryId(boundaryId, in: node.children) {
+                return found
+            }
+        }
+        return nil
     }
 
     /// Marks hydration as in progress for a surface.
@@ -430,24 +461,9 @@ public class Bindings {
     /// If hydration is in progress, the update is queued and applied after
     /// the first $$completeRoot to prevent mid-hydration tree mutations.
     public func updateSSRTree(surfaceId: Int, newTree: [ShadowNodeWrapper]) {
-        if hydrationInProgress.contains(surfaceId) {
-            print("[ReactDomNativeKit] SSR tree update queued (hydration in progress, surfaceId: \(surfaceId))")
-            pendingSSRTreeUpdates[surfaceId] = newTree
-            return
-        }
-        let isUpdate = ssrTrees[surfaceId] != nil
-        if isUpdate {
-            print("[ReactDomNativeKit] SSR tree updated (reveal during hydration, surfaceId: \(surfaceId))")
-        }
         ssrTrees[surfaceId] = newTree
-        // Register any new nodes (content + cloned path nodes)
-        for child in newTree {
-            registerNewNodesInSubtree(child)
-        }
-        // Rebuild parent map for the new tree
-        for child in newTree {
-            buildParentMap(child)
-        }
+        for child in newTree { registerNewNodesInSubtree(child) }
+        for child in newTree { buildParentMap(child) }
     }
 
     /// Registers nodes in a subtree that aren't already in the node registry.
@@ -919,12 +935,17 @@ public class Bindings {
             // families and produces 0 content mutations instead of redundant
             // CREATE+DELETE pairs for the entire subtree.
             //
-            // Only run on post-hydration commits (retry render). During the
-            // hydration commit itself, #suspense must stay in the old tree to
-            // match the new hydrated tree (which also has #suspense wrappers).
-            if !self.hydrationInProgress.contains(surfaceId) {
-                self.unwrapRevealedSuspenseNodesInTree(oldChildren)
-            }
+            // Safe during the initial hydration commit because the method only
+            // unwraps nodes where pending == false. During the initial hydration
+            // commit all boundaries are still pending, so nothing unwraps.
+            self.unwrapRevealedSuspenseNodesInTree(oldChildren)
+
+            #if DEBUG
+            // Assert no revealed #suspense wrappers remain after unwrapping.
+            // If any remain, the unwrap logic has a bug.
+            self.assertNoRevealedSuspenseWrappers(oldChildren)
+            #endif
+
             let prepareEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
 
             // 2. Calculate layout using Yoga
@@ -1033,17 +1054,6 @@ public class Bindings {
             if self.hydrationInProgress.contains(surfaceId) {
                 self.hydrationInProgress.remove(surfaceId)
                 print("[ReactDomNativeKit] Hydration initial commit for surfaceId \(surfaceId)")
-
-                if let pendingTree = self.pendingSSRTreeUpdates.removeValue(forKey: surfaceId) {
-                    print("[ReactDomNativeKit] Applying queued SSR tree update for surfaceId \(surfaceId)")
-                    self.ssrTrees[surfaceId] = pendingTree
-                    for child in pendingTree {
-                        self.registerNewNodesInSubtree(child)
-                    }
-                    for child in pendingTree {
-                        self.buildParentMap(child)
-                    }
-                }
 
                 self.onHydrationComplete?(surfaceId)
 
@@ -1324,6 +1334,25 @@ public class Bindings {
             unwrapRevealedSuspenseNodes(in: root)
         }
     }
+
+    #if DEBUG
+    /// Asserts no revealed (pending=false) #suspense wrapper nodes remain in the tree.
+    private func assertNoRevealedSuspenseWrappers(_ roots: [ShadowNodeWrapper]) {
+        for root in roots {
+            assertNoRevealedSuspenseWrappersRecursive(root)
+        }
+    }
+
+    private func assertNoRevealedSuspenseWrappersRecursive(_ node: ShadowNodeWrapper) {
+        for child in node.children {
+            if child.family.elementType == "#suspense" {
+                let pending = (child.props["pending"] as? Bool) ?? false
+                assert(pending, "Revealed #suspense wrapper (pending=false) still present after unwrap")
+            }
+            assertNoRevealedSuspenseWrappersRecursive(child)
+        }
+    }
+    #endif
 
     /// Recursively syncs every UIView's frame to match its node's layoutFrame.
     ///
@@ -1681,6 +1710,17 @@ public class Bindings {
             let surfaceId = (self.engine.toInt(args[0])) ?? 0
             self.ssrTrees.removeValue(forKey: surfaceId)
             self.ssrNodeToParent.removeAll()
+            return nil
+        }
+
+        // $$markBoundaryRevealed(nodeId) -> void
+        // Called from JS when a boundary is revealed to sync pending=false
+        // to the Swift-side ShadowNodeWrapper props.
+        engine.setGlobalFunction("$$markBoundaryRevealed") { [weak self, weak engine] args in
+            guard let self = self, let engine = engine else { return nil }
+            guard let nodeId = engine.toInt(args[0]) else { return nil }
+            guard let node = self.nodeRegistry[nodeId] else { return nil }
+            node.props["pending"] = false
             return nil
         }
 

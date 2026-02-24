@@ -44,6 +44,9 @@ class SSRCoordinator: InstructionStreamDelegate {
     /// Used to notify the JS side so React can fire retry callbacks.
     var onBoundaryRevealed: ((Int) -> Void)?
 
+    /// Called when a boundary is ready to reveal. Root.swift controls timing (throttle).
+    var onBoundaryRevealQueued: ((Int, [ShadowNodeWrapper]) -> Void)?
+
     /// Called when a Flight data row (D instruction) is received from the SSR stream.
     /// Used to buffer raw Flight rows for replay during hydration.
     var onFlightDataReceived: ((String) -> Void)?
@@ -157,37 +160,36 @@ class SSRCoordinator: InstructionStreamDelegate {
         }
     }
 
+    // MARK: - Segment Content Access
+
+    /// Returns the content nodes for a given boundary ID (for use by Root.swift during reveal).
+    func segmentContentNodes(for boundaryId: Int) -> [ShadowNodeWrapper]? {
+        return segmentContentNodes[boundaryId]
+    }
+
+    // MARK: - Reveal Processing
+
+    /// Executes the visual update for a boundary reveal (called from Root.swift after throttle).
+    func processReveal(id: Int) {
+        let contentNodes = segmentContentNodes[id] ?? []
+        guard let wrapper = boundaryWrappers[id] else { return }
+        let oldRootChildren = currentRootChildren ?? treeBuilder.rootChildren
+        let newRootChildren = ShadowTreeBuilder.revealBoundaryImmutable(
+            rootChildren: oldRootChildren, suspenseNode: wrapper, contentNodes: contentNodes
+        )
+        currentRootChildren = newRootChildren
+        boundaryWrappers.removeValue(forKey: id)
+        segmentBuilders.removeValue(forKey: id)
+        boundaryManager.revealBoundary(id: id)
+        onViewsNeedUpdate?(oldRootChildren, newRootChildren)
+        segmentContentNodes.removeValue(forKey: id)
+    }
+
     func didReceiveRevealBoundary(id: Int) {
         print("[ReactDomNativeKit] Reveal boundary \(id)")
         let contentNodes = segmentContentNodes[id] ?? []
-        guard let wrapper = boundaryWrappers[id] else { return }
-
-        // Get the current root children (initial tree or last reveal's result)
-        let oldRootChildren = currentRootChildren ?? treeBuilder.rootChildren
-
-        // Clone-based reveal: produces NEW tree without mutating the old one.
-        // The differentiator can then diff old vs new for minimal mutations.
-        let newRootChildren = ShadowTreeBuilder.revealBoundaryImmutable(
-            rootChildren: oldRootChildren,
-            suspenseNode: wrapper,
-            contentNodes: contentNodes
-        )
-
-        // Store new tree for subsequent reveals
-        currentRootChildren = newRootChildren
-
-        // Clean up tracking state
-        boundaryWrappers.removeValue(forKey: id)
-        segmentContentNodes.removeValue(forKey: id)
-        segmentBuilders.removeValue(forKey: id)
-
-        boundaryManager.revealBoundary(id: id)
-
-        // Notify with both old and new trees for diff-based update
-        onViewsNeedUpdate?(oldRootChildren, newRootChildren)
-
-        // Notify JS side so React can fire retry callbacks for this boundary
-        onBoundaryRevealed?(id)
+        guard boundaryWrappers[id] != nil else { return }
+        onBoundaryRevealQueued?(id, contentNodes)
     }
 
     func didReceiveRootComplete() {

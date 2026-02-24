@@ -168,6 +168,11 @@ public class Root {
         ssrStreamComplete = false
         pendingHydration = nil
 
+        // Cancel any pending throttled reveals
+        revealTimer?.cancel()
+        revealTimer = nil
+        pendingReveals.removeAll()
+
         surfaceId = nil
 
         print("[ReactDomNativeKit] Root unmounted")
@@ -206,6 +211,11 @@ public class Root {
         ssrRevealHasOccurred = false
         ssrStreamComplete = false
         pendingHydration = nil
+
+        // Cancel any pending throttled reveals
+        revealTimer?.cancel()
+        revealTimer = nil
+        pendingReveals.removeAll()
 
         // Clear container
         container.subviews.forEach { $0.removeFromSuperview() }
@@ -259,6 +269,23 @@ public class Root {
     /// SSR URL used for the initial render (stored for reload recovery).
     private var ssrURL: String?
 
+    // MARK: - Throttled Boundary Reveal
+
+    /// Minimum time between reveal flushes (prevents fallback flashes).
+    private static let FALLBACK_THROTTLE_MS: Double = 300.0
+
+    /// Target time for largest contentful paint (reveals batch within this window).
+    private static let TARGET_LCP_MS: Double = 2300.0
+
+    /// Queued boundary reveals waiting to be flushed.
+    private var pendingReveals: [(id: Int, contentNodes: [ShadowNodeWrapper])] = []
+
+    /// Timer for the next scheduled reveal flush.
+    private var revealTimer: DispatchWorkItem?
+
+    /// Timestamp (ms) when the SSR shell was first painted.
+    private var shellPaintTime: Double?
+
     /// Renders using server-side rendering for instant display.
     ///
     /// Pipeline:
@@ -307,6 +334,9 @@ public class Root {
         )
         coordinator.onFlightDataReceived = { [weak self] row in
             self?.ssrFlightDataBuffer.append(row)
+        }
+        coordinator.onBoundaryRevealQueued = { [weak self] id, contentNodes in
+            self?.queueBoundaryReveal(id: id, contentNodes: contentNodes)
         }
         parser.delegate = coordinator
 
@@ -515,6 +545,7 @@ public class Root {
             ])
 
             print("[ReactDomNativeKit] SSR first paint complete (\(rootChildren.count) root children)")
+            self.shellPaintTime = CACurrentMediaTime() * 1000.0
             completion?(nil)
 
             // Hydration is now available via root.hydrateRoot(serverURL:)
@@ -599,10 +630,16 @@ public class Root {
             // Wire boundary reveal callback — when the SSR stream reveals a
             // boundary after hydration has registered retry callbacks, notify
             // the JS side so React can render the resolved content.
+            // Also mutate the SSR reference tree in place so React's
+            // _ssrNodeRef pointers remain valid for hydration traversal.
             self.ssrCoordinator?.onBoundaryRevealed = { [weak self] boundaryId in
+                guard let self = self, let surfaceId = self.surfaceId else { return }
+                let contentNodes = self.ssrCoordinator?.segmentContentNodes(for: boundaryId) ?? []
+                rt.bindings?.revealBoundaryInSSRTree(
+                    surfaceId: surfaceId, boundaryId: boundaryId, contentNodes: contentNodes
+                )
                 guard let engine = rt.engine else { return }
-                let js = "globalThis.$$notifyBoundaryRevealed(\(boundaryId))"
-                engine.evaluate(js)
+                engine.evaluate("globalThis.$$notifyBoundaryRevealed(\(boundaryId))")
             }
 
             let doHydrate = { [weak self] in
@@ -795,6 +832,69 @@ public class Root {
         return (count, maxDepth)
     }
 
+    // MARK: - Throttled Reveal Methods
+
+    /// Queues a boundary reveal and schedules a flush.
+    private func queueBoundaryReveal(id: Int, contentNodes: [ShadowNodeWrapper]) {
+        pendingReveals.append((id: id, contentNodes: contentNodes))
+        scheduleRevealFlush()
+    }
+
+    /// Schedules a flush of pending reveals using throttling.
+    /// If a timer is already pending, this is a no-op (the existing timer will flush all).
+    private func scheduleRevealFlush() {
+        guard revealTimer == nil else { return }
+
+        let now = CACurrentMediaTime() * 1000.0
+        let elapsed = now - (shellPaintTime ?? now)
+
+        // Within the LCP window: use throttle delay to batch reveals.
+        // After the LCP window: flush immediately (no visual benefit to batching).
+        let delay: Double
+        if elapsed < Self.TARGET_LCP_MS {
+            delay = Self.FALLBACK_THROTTLE_MS
+        } else {
+            delay = 0
+        }
+
+        let work = DispatchWorkItem { [weak self] in
+            self?.revealTimer = nil
+            self?.flushPendingReveals()
+        }
+        revealTimer = work
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + .milliseconds(Int(delay)),
+            execute: work
+        )
+    }
+
+    /// Flushes all pending reveals in a single batch.
+    private func flushPendingReveals() {
+        guard !pendingReveals.isEmpty else { return }
+        let reveals = pendingReveals
+        pendingReveals.removeAll()
+
+        let rt = ReactRuntime.shared
+
+        for reveal in reveals {
+            // 1. Process the visual update (diff + mutations)
+            ssrCoordinator?.processReveal(id: reveal.id)
+
+            // 2. Mutate the SSR reference tree in place for hydration traversal
+            if let surfaceId = surfaceId {
+                let contentNodes = ssrCoordinator?.segmentContentNodes(for: reveal.id) ?? reveal.contentNodes
+                rt.bindings?.revealBoundaryInSSRTree(
+                    surfaceId: surfaceId, boundaryId: reveal.id, contentNodes: contentNodes
+                )
+            }
+
+            // 3. Notify JS side so React can fire retry callbacks
+            if let engine = rt.engine {
+                engine.evaluate("globalThis.$$notifyBoundaryRevealed(\(reveal.id))")
+            }
+        }
+    }
+
     /// Cleans up SSR infrastructure after hydration completes.
     /// Called from Bindings.onHydrationComplete after the first $$completeRoot.
     /// React now owns the tree — SSR objects are no longer needed.
@@ -814,6 +914,11 @@ public class Root {
         ssrStreamComplete = false
         pendingHydration = nil
         ssrCommitTimings.removeAll()
+
+        // Cancel any pending throttled reveals
+        revealTimer?.cancel()
+        revealTimer = nil
+        pendingReveals.removeAll()
 
         print("[ReactDomNativeKit] SSR state cleaned up after hydration")
     }
