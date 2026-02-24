@@ -286,5 +286,13 @@ globalThis.$$handleCDPRequest = function (jsonString) {
     handleRuntimeRequest(request.requestId, request.method, request.params || {});
   } else if (request.domain === 'Profiler') {
     handleProfilerRequest(request.requestId, request.method, request.params || {});
+  } else if (request.domain === 'DOM') {
+    if (typeof $$handleDOMRequest === 'function') {
+      $$handleDOMRequest(request.requestId, request.method, request.params || {});
+    }
+  } else if (request.domain === 'CSS') {
+    if (typeof $$handleCSSRequest === 'function') {
+      $$handleCSSRequest(request.requestId, request.method, request.params || {});
+    }
   }
 };

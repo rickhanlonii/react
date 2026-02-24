@@ -24,10 +24,14 @@ if (__DEV__) {
   require('./devtools/NetworkAgent');             // CDP Network via fetch interception
   require('./devtools/ExceptionReporter');        // Uncaught exception → Runtime.exceptionThrown
   require('./devtools/ReactDevToolsAgent');       // $$getComponentTree() for Fiber inspection
+  require('./devtools/DOMAgent');                 // CDP DOM/CSS domain handlers
   require('./devtools/InspectorMessageHandler'); // Must be last — dispatches to all above
 }
 
 var React = require('react');
+var use = React.use;
+var startTransition = React.startTransition;
+var createElement = React.createElement;
 var renderer = require('./renderer/index');
 var createRoot = renderer.createRoot;
 var hydrateRoot = renderer.hydrateRoot;
@@ -36,6 +40,10 @@ var createFromFetch = flightClient.createFromFetch;
 var http = require('./flight-client/http');
 var fetchWithBridge = http.fetchWithBridge;
 var client = require('./flight-client/client');
+
+function Root(props) {
+  return use(props.tree);
+}
 
 // ---------------------------------------------------------------------------
 // Expose React globally so on-demand client component modules can use it.
@@ -84,10 +92,11 @@ globalThis.__REACT_DOM_NATIVE__ = {
     });
     var tree = createFromFetch(fetchPromise, {serverURL: url});
 
-    tree.then(function(element) {
-      hydrateRoot({surfaceId: surfaceId}, element);
-    }, function(error) {
-      console.error('[react-dom-native] Hydration RSC stream error: ' + error);
+    startTransition(function() {
+      hydrateRoot(
+        {surfaceId: surfaceId},
+        createElement(Root, {tree: tree})
+      );
     });
   },
 
@@ -105,10 +114,11 @@ globalThis.__REACT_DOM_NATIVE__ = {
     client.close(response);
 
     var tree = client.getRoot(response);
-    tree.then(function(element) {
-      hydrateRoot({surfaceId: surfaceId}, element);
-    }, function(error) {
-      console.error('[react-dom-native] SSR Flight data hydration error: ' + error);
+    startTransition(function() {
+      hydrateRoot(
+        {surfaceId: surfaceId},
+        createElement(Root, {tree: tree})
+      );
     });
   },
 

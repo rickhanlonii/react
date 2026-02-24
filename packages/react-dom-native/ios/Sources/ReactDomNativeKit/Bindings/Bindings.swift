@@ -38,7 +38,7 @@ public class Bindings {
     private var eventHandler: JSValueRef?
 
     /// Whether native commit timing collection is enabled (toggled by JS via $$setNativeTracingEnabled).
-    private var nativeTracingEnabled = false
+    var nativeTracingEnabled = false
 
     /// Sub-phase timings from the most recent calculateYogaLayout call (when tracing).
     private var lastLayoutTimings: [String: Double]?
@@ -70,6 +70,10 @@ public class Bindings {
     /// Queued SSR tree updates that arrived during hydration.
     /// Applied after hydration completes (first $$completeRoot).
     private var pendingSSRTreeUpdates: [Int: [ShadowNodeWrapper]] = [:]
+
+    /// SSR commit timings to report when tracing starts. Accumulated by Root during
+    /// SSR first paint and boundary reveals, then pushed to JS when tracing is enabled.
+    private var pendingSSRCommitTimings: [[String: Any]] = []
 
     /// Maps SSR nodes to their parent for resilient sibling lookups.
     /// When a boundary reveal replaces the SSR tree, nodes from the old tree
@@ -224,34 +228,99 @@ public class Bindings {
         hydrationInProgress.insert(surfaceId)
     }
 
+    /// Stores SSR commit timing data so it can be pushed to JS when tracing starts.
+    /// Called by Root after SSR first paint and boundary reveals complete.
+    ///
+    /// If tracing is already active (e.g. "Reload and Profile" triggered SSR
+    /// after tracing started), pushes immediately.
+    public func addSSRCommitTimings(_ timings: [[String: Any]]) {
+        pendingSSRCommitTimings.append(contentsOf: timings)
+
+        if nativeTracingEnabled {
+            pushPendingSSRCommitTimingsToJS()
+        }
+    }
+
+    /// Serializes pending SSR commit timings to JSON and pushes them to JS
+    /// via globalThis.$$handleSSRCommitTimings for reporting on Shadow Tree
+    /// and Layout tracks.
+    private func pushPendingSSRCommitTimingsToJS() {
+        guard !pendingSSRCommitTimings.isEmpty else { return }
+        let timings = pendingSSRCommitTimings
+        pendingSSRCommitTimings.removeAll()
+
+        if let jsonData = try? JSONSerialization.data(withJSONObject: timings),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            engine.evaluate("globalThis.$$handleSSRCommitTimings && globalThis.$$handleSSRCommitTimings(\(jsonString))")
+        }
+    }
+
     /// Updates the current tree for a surface after an SSR boundary reveal
     /// during hydration. Calculates layout, diffs old vs new, applies mutations,
     /// and updates the stored current tree.
     ///
     /// This mirrors what $$completeRoot does but for SSR boundary reveals that
     /// happen after hydration has started (React owns the view hierarchy).
+    /// When tracing is enabled, collects timing and pushes to JS for the
+    /// Shadow Tree and Layout tracks.
     public func updateCurrentTree(
         surfaceId: Int,
         oldTree: [ShadowNodeWrapper],
         newTree: [ShadowNodeWrapper]
     ) {
+        let tracing = nativeTracingEnabled
+        let commitStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+
         // 1. Calculate layout on new tree
+        let layoutStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
         var contentSize: CGSize = .zero
         if let rootView = rootViews[surfaceId] {
-            contentSize = calculateYogaLayout(for: newTree, in: rootView.bounds)
+            contentSize = calculateYogaLayout(for: newTree, in: rootView.bounds, tracing: tracing)
         }
+        let layoutEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
 
         // 2. Diff old vs new
-        let mutations = differentiator.diff(
-            oldChildren: oldTree,
-            newChildren: newTree,
-            parent: nil
-        )
+        let diffStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+        var diffNodeTimings: [(type: String, start: Double, end: Double)] = []
+        let mutations: [Mutation]
+        if tracing {
+            mutations = differentiator.diff(
+                oldChildren: oldTree,
+                newChildren: newTree,
+                parent: nil,
+                tracing: true,
+                nodeTimings: &diffNodeTimings
+            )
+        } else {
+            mutations = differentiator.diff(
+                oldChildren: oldTree,
+                newChildren: newTree,
+                parent: nil
+            )
+        }
+        let diffEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
 
         // 3. Apply mutations
+        let mutationsStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+        var mutationTimings: [(mutationType: String, elementType: String, start: Double, end: Double)] = []
+        var syncNodeTimings: [(type: String, start: Double, end: Double)] = []
         if let rootView = rootViews[surfaceId] {
-            mutationApplier.applyMutations(mutations, rootView: rootView)
-            syncAllFrames(newTree)
+            if tracing {
+                mutationApplier.applyMutations(mutations, rootView: rootView, tracing: true, mutationTimings: &mutationTimings)
+            } else {
+                mutationApplier.applyMutations(mutations, rootView: rootView)
+            }
+
+            let syncStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            if tracing {
+                syncAllFrames(newTree, tracing: true, nodeTimings: &syncNodeTimings)
+            } else {
+                syncAllFrames(newTree)
+            }
+            let syncEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            if tracing {
+                lastSyncTimings = (start: syncStart, end: syncEnd)
+            }
 
             // Attach new root-level children
             for child in newTree {
@@ -262,6 +331,7 @@ public class Bindings {
                 }
             }
         }
+        let mutationsEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
 
         // 4. Update scroll content size
         if let scrollView = rootViews[surfaceId] as? UIScrollView {
@@ -277,6 +347,79 @@ public class Bindings {
         // 6. Register new nodes in the tree (content nodes + cloned path nodes)
         for child in newTree {
             registerNewNodesInSubtree(child)
+        }
+
+        let commitEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+
+        // Push timing to JS for Shadow Tree and Layout tracks
+        if tracing {
+            var creates = 0, inserts = 0, deletes = 0, removes = 0, updates = 0
+            var affectedTypes = Set<String>()
+            for mutation in mutations {
+                switch mutation {
+                case .create(let node): creates += 1; affectedTypes.insert(node.family.elementType)
+                case .insert(_, let child, _): inserts += 1; affectedTypes.insert(child.family.elementType)
+                case .delete(let node): deletes += 1; affectedTypes.insert(node.family.elementType)
+                case .remove(_, let child): removes += 1; affectedTypes.insert(child.family.elementType)
+                case .update(let node, _, _): updates += 1; affectedTypes.insert(node.family.elementType)
+                }
+            }
+            let stats = computeTreeStats(newTree)
+            var timing: [String: Any] = [
+                "label": "SSR Reveal",
+                "commitStart": commitStart, "commitEnd": commitEnd,
+                "layoutStart": layoutStart, "layoutEnd": layoutEnd,
+                "diffStart": diffStart, "diffEnd": diffEnd,
+                "mutationsStart": mutationsStart, "mutationsEnd": mutationsEnd,
+                "mutationCount": mutations.count,
+                "creates": creates, "inserts": inserts,
+                "deletes": deletes, "removes": removes, "updates": updates,
+                "nodeCount": stats.nodeCount, "treeDepth": stats.depth,
+                "rootTypes": newTree.map { $0.family.elementType }.joined(separator: ", "),
+                "affectedTypes": affectedTypes.sorted().joined(separator: ", "),
+            ]
+            if let syncTimings = lastSyncTimings {
+                timing["syncStart"] = syncTimings.start
+                timing["syncEnd"] = syncTimings.end
+                lastSyncTimings = nil
+            }
+            if let layoutTimings = lastLayoutTimings {
+                for (key, value) in layoutTimings {
+                    timing[key] = value
+                }
+                lastLayoutTimings = nil
+            }
+            // Per-node timing arrays
+            var diffElements: [Any] = []
+            for entry in diffNodeTimings {
+                diffElements.append(entry.type)
+                diffElements.append(entry.start)
+                diffElements.append(entry.end)
+            }
+            timing["diffNodes"] = diffElements
+            var mutElements: [Any] = []
+            for entry in mutationTimings {
+                mutElements.append(entry.mutationType)
+                mutElements.append(entry.elementType)
+                mutElements.append(entry.start)
+                mutElements.append(entry.end)
+            }
+            timing["mutationNodes"] = mutElements
+            let combinedLayout = lastLayoutNodeTimings + syncNodeTimings
+            var layoutElements: [Any] = []
+            for entry in combinedLayout {
+                layoutElements.append(entry.type)
+                layoutElements.append(entry.start)
+                layoutElements.append(entry.end)
+            }
+            timing["layoutNodes"] = layoutElements
+            lastLayoutNodeTimings = []
+
+            // Push immediately via JSON
+            if let jsonData = try? JSONSerialization.data(withJSONObject: [timing]),
+               let jsonString = String(data: jsonData, encoding: .utf8) {
+                engine.evaluate("globalThis.$$handleSSRCommitTimings && globalThis.$$handleSSRCommitTimings(\(jsonString))")
+            }
         }
     }
 
@@ -1628,9 +1771,16 @@ public class Bindings {
 
         // $$setNativeTracingEnabled(enabled) -> void
         // Toggles native commit timing collection on/off from JS.
-        engine.setGlobalFunction("$$setNativeTracingEnabled") { [weak self, weak engine] args in
+        // When enabled, pushes any pending SSR commit timings to the JS tracer.
+        engine.setGlobalFunction("$$setNativeTracingEnabled") { [weak self] args in
             guard let self = self else { return nil }
-            self.nativeTracingEnabled = engine?.toBool(args[0]) ?? false
+            let enabled = self.engine.toBool(args[0]) ?? false
+            self.nativeTracingEnabled = enabled
+
+            // Push pending SSR commit timings to JS when tracing starts
+            if enabled {
+                self.pushPendingSSRCommitTimingsToJS()
+            }
             return nil
         }
 

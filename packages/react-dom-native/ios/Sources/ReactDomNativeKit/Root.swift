@@ -249,22 +249,12 @@ public class Root {
     /// Queued hydration call waiting for SSR stream to complete (so D instructions are buffered).
     private var pendingHydration: (() -> Void)?
 
-    // MARK: - SSR Timing (always collected for retroactive tracing)
+    // MARK: - SSR Commit Timings (always collected for retroactive tracing)
 
-    /// Timestamp when renderWithSSR was called.
-    private var ssrStartTime: Double = 0
-
-    /// Timestamp when the first data chunk arrived from the server (TTFB).
-    private var ssrFirstChunkTime: Double = 0
-
-    /// Timestamp after layout + view creation — UIKit views are on screen.
-    private var ssrFirstPaintTime: Double = 0
-
-    /// Timestamp when the SSR stream completed (all data received).
-    private var ssrStreamCompleteTime: Double = 0
-
-    /// Timestamp when React hydration begins (before hydrateSurface call).
-    private var ssrHydrationStartTime: Double = 0
+    /// Accumulated commit-style timing dicts from SSR operations (first paint,
+    /// boundary reveals). Pushed to Bindings when hydrateRoot is called, then
+    /// forwarded to JS when tracing starts.
+    private var ssrCommitTimings: [[String: Any]] = []
 
     /// SSR URL used for the initial render (stored for reload recovery).
     private var ssrURL: String?
@@ -335,7 +325,10 @@ public class Root {
             // Find the scroll view that holds the SSR views
             guard let scrollView = self.container.subviews.first(where: { $0 is UIScrollView }) as? UIScrollView else { return }
 
+            let commitStart = CACurrentMediaTime() * 1000.0
+
             // 1. Calculate layout on the new tree
+            let layoutStart = CACurrentMediaTime() * 1000.0
             let width = Float(self.container.bounds.width > 0 ? self.container.bounds.width : 390)
             let rootYogaNode = YGNodeNewWithConfig(YogaConfig.shared)!
             YGNodeStyleSetFlexDirection(rootYogaNode, .column)
@@ -358,20 +351,33 @@ public class Root {
 
             YGNodeRemoveAllChildren(rootYogaNode)
             YGNodeFree(rootYogaNode)
+            let layoutEnd = CACurrentMediaTime() * 1000.0
 
-            // 2. Diff old vs new tree
+            // 2. Diff old vs new tree (with per-node timing)
+            var diffNodeTimings: [(type: String, start: Double, end: Double)] = []
+            let diffStart = CACurrentMediaTime() * 1000.0
             let differentiator = Differentiator()
             let mutations = differentiator.diff(
                 oldChildren: oldRootChildren,
                 newChildren: newRootChildren,
-                parent: nil
+                parent: nil,
+                tracing: true,
+                nodeTimings: &diffNodeTimings
             )
+            let diffEnd = CACurrentMediaTime() * 1000.0
 
-            // 3. Apply mutations
-            applier.applyMutations(mutations, rootView: scrollView)
+            // 3. Apply mutations (with per-mutation timing)
+            var mutationTimings: [(mutationType: String, elementType: String, start: Double, end: Double)] = []
+            let mutationsStart = CACurrentMediaTime() * 1000.0
+            applier.applyMutations(mutations, rootView: scrollView, tracing: true, mutationTimings: &mutationTimings)
 
-            // 4. Sync all frames (reused nodes may have shifted positions)
-            self.syncSSRFrames(newRootChildren)
+            // 4. Sync all frames (with per-node timing)
+            var syncNodeTimings: [(type: String, start: Double, end: Double)] = []
+            let syncStart = CACurrentMediaTime() * 1000.0
+            self.syncSSRFrames(newRootChildren, tracing: true, nodeTimings: &syncNodeTimings)
+            let syncEnd = CACurrentMediaTime() * 1000.0
+
+            let mutationsEnd = CACurrentMediaTime() * 1000.0
 
             // 5. Attach new root-level views to scroll view
             for child in newRootChildren {
@@ -388,6 +394,61 @@ public class Root {
                 width: scrollView.bounds.width,
                 height: contentHeight
             )
+
+            let commitEnd = CACurrentMediaTime() * 1000.0
+
+            // Collect commit-style timing for Shadow Tree and Layout tracks
+            let stats = Self.computeSSRTreeStats(newRootChildren)
+            var creates = 0, inserts = 0, deletes = 0, removes = 0, updates = 0
+            var affectedTypes = Set<String>()
+            for mutation in mutations {
+                switch mutation {
+                case .create(let node): creates += 1; affectedTypes.insert(node.family.elementType)
+                case .insert(_, let child, _): inserts += 1; affectedTypes.insert(child.family.elementType)
+                case .delete(let node): deletes += 1; affectedTypes.insert(node.family.elementType)
+                case .remove(_, let child): removes += 1; affectedTypes.insert(child.family.elementType)
+                case .update(let node, _, _): updates += 1; affectedTypes.insert(node.family.elementType)
+                }
+            }
+
+            // Build per-node timing arrays
+            var diffElements: [Any] = []
+            for entry in diffNodeTimings {
+                diffElements.append(entry.type)
+                diffElements.append(entry.start)
+                diffElements.append(entry.end)
+            }
+            var mutElements: [Any] = []
+            for entry in mutationTimings {
+                mutElements.append(entry.mutationType)
+                mutElements.append(entry.elementType)
+                mutElements.append(entry.start)
+                mutElements.append(entry.end)
+            }
+            var layoutElements: [Any] = []
+            for entry in syncNodeTimings {
+                layoutElements.append(entry.type)
+                layoutElements.append(entry.start)
+                layoutElements.append(entry.end)
+            }
+
+            self.ssrCommitTimings.append([
+                "label": "SSR Reveal",
+                "commitStart": commitStart, "commitEnd": commitEnd,
+                "layoutStart": layoutStart, "layoutEnd": layoutEnd,
+                "diffStart": diffStart, "diffEnd": diffEnd,
+                "mutationsStart": mutationsStart, "mutationsEnd": mutationsEnd,
+                "syncStart": syncStart, "syncEnd": syncEnd,
+                "mutationCount": mutations.count,
+                "creates": creates, "inserts": inserts,
+                "deletes": deletes, "removes": removes, "updates": updates,
+                "nodeCount": stats.nodeCount, "treeDepth": stats.depth,
+                "rootTypes": newRootChildren.map { $0.family.elementType }.joined(separator: ", "),
+                "affectedTypes": affectedTypes.sorted().joined(separator: ", "),
+                "diffNodes": diffElements,
+                "mutationNodes": mutElements,
+                "layoutNodes": layoutElements,
+            ])
 
             print("[ReactDomNativeKit] Boundary revealed — views updated via diff")
         }
@@ -418,10 +479,40 @@ public class Root {
             self.ssrViewRegistry = viewRegistry
             self.ssrMutationApplier = applier
 
-            // Generate mutations from the shadow tree and apply them.
-            // For root-level nodes, we create + insert into the container.
-            self.createViewsFromTree(rootChildren, applier: applier, rootView: self.container)
-            self.ssrFirstPaintTime = CACurrentMediaTime() * 1000.0
+            // Layout timing comes from ShadowTreeBuilder.rootComplete()
+            // which ran ShadowTreeLayout.performLayout() before this callback.
+            let layoutStart = treeBuilder.layoutStartTime
+            let layoutEnd = treeBuilder.layoutEndTime
+
+            // Generate CREATE + INSERT mutations and apply them (with per-mutation timing).
+            var mutationTimings: [(mutationType: String, elementType: String, start: Double, end: Double)] = []
+            let mutationsStart = CACurrentMediaTime() * 1000.0
+            self.createViewsFromTree(rootChildren, applier: applier, rootView: self.container, mutationTimings: &mutationTimings)
+            let mutationsEnd = CACurrentMediaTime() * 1000.0
+
+            // Build per-mutation timing array
+            var mutElements: [Any] = []
+            for entry in mutationTimings {
+                mutElements.append(entry.mutationType)
+                mutElements.append(entry.elementType)
+                mutElements.append(entry.start)
+                mutElements.append(entry.end)
+            }
+
+            // Collect commit-style timing for Shadow Tree and Layout tracks
+            let stats = Self.computeSSRTreeStats(rootChildren)
+            self.ssrCommitTimings.append([
+                "label": "SSR First Paint",
+                "commitStart": layoutStart, "commitEnd": mutationsEnd,
+                "layoutStart": layoutStart, "layoutEnd": layoutEnd,
+                "mutationsStart": mutationsStart, "mutationsEnd": mutationsEnd,
+                "mutationCount": stats.nodeCount * 2, // CREATE + INSERT per node
+                "creates": stats.nodeCount, "inserts": stats.nodeCount,
+                "deletes": 0, "removes": 0, "updates": 0,
+                "nodeCount": stats.nodeCount, "treeDepth": stats.depth,
+                "rootTypes": rootChildren.map { $0.family.elementType }.joined(separator: ", "),
+                "mutationNodes": mutElements,
+            ])
 
             print("[ReactDomNativeKit] SSR first paint complete (\(rootChildren.count) root children)")
             completion?(nil)
@@ -436,14 +527,9 @@ public class Root {
             return
         }
 
-        self.ssrStartTime = CACurrentMediaTime() * 1000.0
-
-        let streamDelegate = SSRStreamDelegate(parser: parser, onFirstChunk: { [weak self] in
-            self?.ssrFirstChunkTime = CACurrentMediaTime() * 1000.0
-        }) { [weak self] in
+        let streamDelegate = SSRStreamDelegate(parser: parser) { [weak self] in
             guard let self = self else { return }
             self.ssrStreamComplete = true
-            self.ssrStreamCompleteTime = CACurrentMediaTime() * 1000.0
             let revealCount = boundaryManager.revealedCount
             print("[ReactDomNativeKit] SSR stream complete, reveals processed: \(revealCount)")
             // If hydrateRoot() was called before the stream finished,
@@ -563,9 +649,11 @@ public class Root {
 
                 rt.bindings?.markHydrationStarted(surfaceId: surfaceId)
 
-                // Collect SSR timing data and pass to Bindings for trace reporting
-                self.ssrHydrationStartTime = CACurrentMediaTime() * 1000.0
-                rt.bindings?.setSSRTimings(surfaceId: surfaceId, timings: self.buildSSRTimings())
+                // Push accumulated SSR commit timings to Bindings for trace reporting
+                if !self.ssrCommitTimings.isEmpty {
+                    rt.bindings?.addSSRCommitTimings(self.ssrCommitTimings)
+                    self.ssrCommitTimings.removeAll()
+                }
 
                 do {
                     try rt.hydrateSurface(
@@ -594,7 +682,8 @@ public class Root {
     private func createViewsFromTree(
         _ nodes: [ShadowNodeWrapper],
         applier: UIKitMutationApplier,
-        rootView: UIView
+        rootView: UIView,
+        mutationTimings: inout [(mutationType: String, elementType: String, start: Double, end: Double)]
     ) {
         // Use the Differentiator to generate CREATE + INSERT mutations,
         // then apply them via the mutation applier.
@@ -604,7 +693,7 @@ public class Root {
             collectCreateMutations(node: node, mutations: &mutations)
         }
 
-        applier.applyMutations(mutations, rootView: rootView)
+        applier.applyMutations(mutations, rootView: rootView, tracing: true, mutationTimings: &mutationTimings)
 
         // Create a scroll view wrapper (matching Bindings.registerSurface)
         let scrollView = UIScrollView(frame: rootView.bounds)
@@ -662,36 +751,48 @@ public class Root {
         }
     }
 
+    /// Recursively syncs every SSR UIView's frame to match its node's layoutFrame,
+    /// with per-node timing collection for flame graph visualization.
+    private func syncSSRFrames(
+        _ nodes: [ShadowNodeWrapper],
+        tracing: Bool,
+        nodeTimings: inout [(type: String, start: Double, end: Double)]
+    ) {
+        guard let registry = ssrViewRegistry else { return }
+        for node in nodes {
+            let nodeStart = CACurrentMediaTime() * 1000.0
+
+            if let view = registry.view(for: node.family) {
+                if view.frame != node.layoutFrame {
+                    view.frame = node.layoutFrame
+                }
+                if let scrollView = view as? UIScrollView, let contentSize = node.scrollContentSize {
+                    scrollView.contentSize = contentSize
+                }
+            }
+
+            let nodeEnd = CACurrentMediaTime() * 1000.0
+            nodeTimings.append((type: node.family.elementType, start: nodeStart, end: nodeEnd))
+
+            syncSSRFrames(node.children, tracing: tracing, nodeTimings: &nodeTimings)
+        }
+    }
+
     // MARK: - Private
 
-    /// Builds the SSR timing dictionary for trace reporting.
-    /// Timestamps are in CACurrentMediaTime() * 1000 (ms since boot), matching
-    /// the format used by $$completeRoot commit timings.
-    private func buildSSRTimings() -> [String: Any] {
-        var timings: [String: Any] = [
-            "ssrStart": ssrStartTime,
-            "firstChunkTime": ssrFirstChunkTime,
-            "parseCompleteTime": ssrCoordinator?.parseCompleteTime ?? 0,
-            "firstPaintTime": ssrFirstPaintTime,
-            "streamCompleteTime": ssrStreamCompleteTime,
-            "hydrationStartTime": ssrHydrationStartTime,
-        ]
-
-        // Boundary reveals: flat array [boundaryId, start, end, ...]
-        let reveals = ssrCoordinator?.revealTimings ?? []
-        if !reveals.isEmpty {
-            var flat: [Any] = []
-            for reveal in reveals {
-                flat.append(reveal.boundaryId)
-                flat.append(reveal.start)
-                flat.append(reveal.end)
+    /// Computes tree statistics (total node count and max depth) for SSR timing.
+    private static func computeSSRTreeStats(_ roots: [ShadowNodeWrapper]) -> (nodeCount: Int, depth: Int) {
+        var count = 0
+        func walk(_ nodes: [ShadowNodeWrapper], currentDepth: Int, maxDepth: inout Int) {
+            for node in nodes {
+                count += 1
+                maxDepth = max(maxDepth, currentDepth)
+                walk(node.children, currentDepth: currentDepth + 1, maxDepth: &maxDepth)
             }
-            timings["reveals"] = flat
         }
-
-        print("[SSR Tracing] buildSSRTimings: ssrStart=\(ssrStartTime), firstChunk=\(ssrFirstChunkTime), parseComplete=\(ssrCoordinator?.parseCompleteTime ?? 0), firstPaint=\(ssrFirstPaintTime), streamComplete=\(ssrStreamCompleteTime), hydrationStart=\(ssrHydrationStartTime), reveals=\(reveals.count)")
-
-        return timings
+        var maxDepth = 0
+        walk(roots, currentDepth: 1, maxDepth: &maxDepth)
+        return (count, maxDepth)
     }
 
     /// Cleans up SSR infrastructure after hydration completes.
@@ -712,11 +813,7 @@ public class Root {
         ssrRevealHasOccurred = false
         ssrStreamComplete = false
         pendingHydration = nil
-        ssrStartTime = 0
-        ssrFirstChunkTime = 0
-        ssrFirstPaintTime = 0
-        ssrStreamCompleteTime = 0
-        ssrHydrationStartTime = 0
+        ssrCommitTimings.removeAll()
 
         print("[ReactDomNativeKit] SSR state cleaned up after hydration")
     }

@@ -22,6 +22,19 @@ $$registerEventHandler(function (instanceHandle, eventType, payload) {
   const propName = 'on' + eventType.charAt(0).toUpperCase() + eventType.slice(1);
   const fiber = instanceHandle;
   if (fiber && fiber.memoizedProps && typeof fiber.memoizedProps[propName] === 'function') {
+    // Capture timing for Interactions track
+    var tracer = globalThis.__PERFORMANCE_TRACER__;
+    var inputTime;
+    var processingStart;
+    if (tracer && tracer.isTracing()) {
+      // Use native timestamp if available (more accurate — captures before bridge crossing).
+      // Convert absolute CACurrentMediaTime*1000 to performance.now()-relative by
+      // subtracting performance.timeOrigin (must read at call time, not module load,
+      // because PerformancePolyfill loads after PerformanceTracer).
+      inputTime = (payload && payload._nativeTimestamp) ? payload._nativeTimestamp - performance.timeOrigin : performance.now();
+      processingStart = performance.now();
+    }
+
     // Wrap in discreteUpdates so state updates use SyncLane (not DefaultLane).
     // This ensures passive effects (including React profiling) flush synchronously.
     reconciler.discreteUpdates(function () {
@@ -29,6 +42,11 @@ $$registerEventHandler(function (instanceHandle, eventType, payload) {
     });
     reconciler.flushSyncWork();
     reconciler.flushPassiveEffects();
+
+    if (tracer && tracer.isTracing()) {
+      var processingEnd = performance.now();
+      tracer.reportInteraction(eventType, tracer.nextInteractionId(), inputTime, processingStart, processingEnd);
+    }
   }
 });
 
@@ -49,7 +67,7 @@ function createRoot(nativeRootView) {
   };
   const root = reconciler.createContainer(
     container,
-    0,       // tag: LegacyRoot
+    1,       // tag: ConcurrentRoot
     null,    // hydrationCallbacks
     false,   // isStrictMode
     null,    // concurrentUpdatesByDefaultOverride

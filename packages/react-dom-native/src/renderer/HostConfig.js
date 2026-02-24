@@ -296,25 +296,26 @@ function reportNativeCommitTimings(t) {
   var diffEnd = t.diffEnd - origin;
   var mutationsStart = t.mutationsStart - origin;
   var mutationsEnd = t.mutationsEnd - origin;
-  var syncStart = t.syncStart - origin;
-  var syncEnd = t.syncEnd - origin;
-  var yogaStart = t.yogaStart - origin;
-  var yogaEnd = t.yogaEnd - origin;
-  var textRemeasureStart = t.textRemeasureStart - origin;
-  var textRemeasureEnd = t.textRemeasureEnd - origin;
-  var scrollStart = t.scrollStart - origin;
-  var scrollEnd = t.scrollEnd - origin;
+  var syncStart = (t.syncStart || 0) - origin;
+  var syncEnd = (t.syncEnd || 0) - origin;
+  var yogaStart = (t.yogaStart || 0) - origin;
+  var yogaEnd = (t.yogaEnd || 0) - origin;
+  var textRemeasureStart = (t.textRemeasureStart || 0) - origin;
+  var textRemeasureEnd = (t.textRemeasureEnd || 0) - origin;
+  var scrollStart = (t.scrollStart || 0) - origin;
+  var scrollEnd = (t.scrollEnd || 0) - origin;
 
   // Shadow Tree track — outer Commit span
-  tracer.reportTimeStamp('Commit', commitStart, commitEnd,
+  var label = t.label || 'Commit';
+  tracer.reportTimeStamp(label, commitStart, commitEnd,
     'Shadow Tree', 'Native \u269b', durationColor(commitStart, commitEnd),
     [['Nodes', String(t.nodeCount)],
      ['Tree depth', String(t.treeDepth)],
      ['Root elements', t.rootTypes]]);
 
   // Shadow Tree track — sub-spans
-  var prepareStart = t.prepareStart - origin;
-  var prepareEnd = t.prepareEnd - origin;
+  var prepareStart = (t.prepareStart || 0) - origin;
+  var prepareEnd = (t.prepareEnd || 0) - origin;
   if (prepareEnd > prepareStart) {
     tracer.reportTimeStamp('Prepare', prepareStart, prepareEnd,
       'Shadow Tree', 'Native \u269b', durationColor(prepareStart, prepareEnd));
@@ -323,67 +324,76 @@ function reportNativeCommitTimings(t) {
     tracer.reportTimeStamp('Blocked (Layout)', layoutStart, layoutEnd,
       'Shadow Tree', 'Native \u269b', 'secondary-light');
   }
-  tracer.reportTimeStamp('Diff', diffStart, diffEnd,
-    'Shadow Tree', 'Native \u269b', durationColor(diffStart, diffEnd),
-    [['Mutations', String(t.mutationCount)],
-     ['Creates', String(t.creates)],
-     ['Updates', String(t.updates)],
-     ['Deletes', String(t.deletes)]]);
-  tracer.reportTimeStamp('Apply Mutations (' + t.mutationCount + ')', mutationsStart, mutationsEnd,
-    'Shadow Tree', 'Native \u269b', durationColor(mutationsStart, mutationsEnd),
-    [['Inserts', String(t.inserts)],
-     ['Removes', String(t.removes)],
-     ['Affected elements', t.affectedTypes || 'none']]);
-  tracer.reportTimeStamp('Sync Frames', syncStart, syncEnd,
-    'Shadow Tree', 'Native \u269b', durationColor(syncStart, syncEnd));
+  if (diffEnd > diffStart) {
+    tracer.reportTimeStamp('Diff', diffStart, diffEnd,
+      'Shadow Tree', 'Native \u269b', durationColor(diffStart, diffEnd),
+      [['Mutations', String(t.mutationCount)],
+       ['Creates', String(t.creates)],
+       ['Updates', String(t.updates)],
+       ['Deletes', String(t.deletes)]]);
+  }
+  if (mutationsEnd > mutationsStart) {
+    tracer.reportTimeStamp('Apply Mutations (' + t.mutationCount + ')', mutationsStart, mutationsEnd,
+      'Shadow Tree', 'Native \u269b', durationColor(mutationsStart, mutationsEnd),
+      [['Inserts', String(t.inserts)],
+       ['Removes', String(t.removes)],
+       ['Affected elements', t.affectedTypes || 'none']]);
+  }
+  if (syncEnd > syncStart) {
+    tracer.reportTimeStamp('Sync Frames', syncStart, syncEnd,
+      'Shadow Tree', 'Native \u269b', durationColor(syncStart, syncEnd));
+  }
 
-  var cleanupStart = t.cleanupStart - origin;
-  var cleanupEnd = t.cleanupEnd - origin;
+  var cleanupStart = (t.cleanupStart || 0) - origin;
+  var cleanupEnd = (t.cleanupEnd || 0) - origin;
   if (cleanupEnd > cleanupStart) {
     tracer.reportTimeStamp('Cleanup', cleanupStart, cleanupEnd,
       'Shadow Tree', 'Native \u269b', durationColor(cleanupStart, cleanupEnd));
   }
 
   // Cleanup sub-spans
-  var treePromoteStart = t.treePromoteStart - origin;
-  var treePromoteEnd = t.treePromoteEnd - origin;
+  var treePromoteStart = (t.treePromoteStart || 0) - origin;
+  var treePromoteEnd = (t.treePromoteEnd || 0) - origin;
   if (treePromoteEnd > treePromoteStart) {
     tracer.reportTimeStamp('Tree Promote', treePromoteStart, treePromoteEnd,
       'Shadow Tree', 'Native \u269b', durationColor(treePromoteStart, treePromoteEnd));
   }
 
-  var nodeGCStart = t.nodeGCStart - origin;
-  var nodeGCEnd = t.nodeGCEnd - origin;
+  var nodeGCStart = (t.nodeGCStart || 0) - origin;
+  var nodeGCEnd = (t.nodeGCEnd || 0) - origin;
   if (nodeGCEnd > nodeGCStart) {
     tracer.reportTimeStamp('Node GC', nodeGCStart, nodeGCEnd,
       'Shadow Tree', 'Native \u269b', durationColor(nodeGCStart, nodeGCEnd));
   }
 
-  var devtoolsNotifyStart = t.devtoolsNotifyStart - origin;
-  var devtoolsNotifyEnd = t.devtoolsNotifyEnd - origin;
+  var devtoolsNotifyStart = (t.devtoolsNotifyStart || 0) - origin;
+  var devtoolsNotifyEnd = (t.devtoolsNotifyEnd || 0) - origin;
   if (devtoolsNotifyEnd > devtoolsNotifyStart) {
     tracer.reportTimeStamp('DevTools Notify', devtoolsNotifyStart, devtoolsNotifyEnd,
       'Shadow Tree', 'Native \u269b', durationColor(devtoolsNotifyStart, devtoolsNotifyEnd));
   }
 
   // Layout track — outer Calculate Layout span
-  tracer.reportTimeStamp('Calculate Layout', layoutStart, layoutEnd,
-    'Layout', 'Native \u269b', durationColor(layoutStart, layoutEnd),
-    [['Nodes', String(t.nodeCount)],
-     ['Second pass', t.didRemeasure ? 'yes' : 'no']]);
+  if (layoutEnd > layoutStart) {
+    tracer.reportTimeStamp('Calculate Layout', layoutStart, layoutEnd,
+      'Layout', 'Native \u269b', durationColor(layoutStart, layoutEnd),
+      [['Nodes', String(t.nodeCount)],
+       ['Second pass', t.didRemeasure ? 'yes' : 'no']]);
+  }
 
   // Layout track — sub-spans
-  tracer.reportTimeStamp('Yoga', yogaStart, yogaEnd,
-    'Layout', 'Native \u269b', durationColor(yogaStart, yogaEnd),
-    [['Nodes', String(t.nodeCount)]]);
-
+  if (yogaEnd > yogaStart) {
+    tracer.reportTimeStamp('Yoga', yogaStart, yogaEnd,
+      'Layout', 'Native \u269b', durationColor(yogaStart, yogaEnd),
+      [['Nodes', String(t.nodeCount)]]);
+  }
   if (t.didRemeasure) {
     tracer.reportTimeStamp('Text Remeasure', textRemeasureStart, textRemeasureEnd,
       'Layout', 'Native \u269b', 'warning');
   }
 
-  var readFramesStart = t.readFramesStart - origin;
-  var readFramesEnd = t.readFramesEnd - origin;
+  var readFramesStart = (t.readFramesStart || 0) - origin;
+  var readFramesEnd = (t.readFramesEnd || 0) - origin;
   if (readFramesEnd > readFramesStart) {
     tracer.reportTimeStamp('Read Frames', readFramesStart, readFramesEnd,
       'Layout', 'Native \u269b', durationColor(readFramesStart, readFramesEnd),
@@ -425,6 +435,19 @@ function reportNativeCommitTimings(t) {
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// SSR commit timing — pushes SSR operations onto the same Shadow Tree
+// and Layout tracks as normal React commits.
+// ---------------------------------------------------------------------------
+
+// Called by native when SSR commit timings are ready (retroactively when
+// tracing starts, or immediately if tracing is already active).
+globalThis.$$handleSSRCommitTimings = function(timingsArray) {
+  for (var i = 0; i < timingsArray.length; i++) {
+    reportNativeCommitTimings(timingsArray[i]);
+  }
+};
 
 // ---------------------------------------------------------------------------
 // Tier 1: Core — Context

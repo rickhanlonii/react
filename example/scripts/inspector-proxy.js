@@ -264,15 +264,29 @@ function emitTraceEvents(ws, id, events, domainPrefix, targetId, ctx) {
 
   // Find the earliest and latest timestamps to set the timeline range
   // via a RunTask event. Skip metadata events (ph:'M') and zero-ts events.
+  // Note: SSR events may have negative timestamps (SSR occurs before JS
+  // loads, so timestamps relative to performance.timeOrigin are negative).
   var minTs = Infinity;
-  var maxTs = 0;
+  var maxTs = -Infinity;
+  var ssrEventCount = 0;
   for (var j = 0; j < events.length; j++) {
-    if (events[j].ph !== 'M' && events[j].ts > 0) {
+    if (events[j].ph !== 'M' && events[j].ts !== 0) {
       if (events[j].ts < minTs) minTs = events[j].ts;
       if (events[j].ts > maxTs) maxTs = events[j].ts;
     }
+    // Count SSR track events
+    if (events[j].args && events[j].args.detail) {
+      try {
+        var detail = JSON.parse(events[j].args.detail);
+        if (detail.devtools && detail.devtools.track === 'SSR') {
+          ssrEventCount++;
+        }
+      } catch (e) {}
+    }
   }
   if (minTs === Infinity) minTs = 0;
+  if (maxTs === -Infinity) maxTs = 0;
+  log(domainPrefix, 'Timeline range: minTs=' + minTs + ' maxTs=' + maxTs + ' ssrEvents=' + ssrEventCount);
 
   var infraEvents = [
     // SetLayerTreeId — establishes the rendering context (matches RN)
@@ -280,7 +294,7 @@ function emitTraceEvents(ws, id, events, domainPrefix, targetId, ctx) {
       name: 'SetLayerTreeId',
       cat: 'disabled-by-default-devtools.timeline',
       ph: 'I',
-      ts: minTs > 0 ? minTs - 3 : 0,
+      ts: minTs - 3,
       pid: pid,
       tid: tid,
       s: 't',
@@ -292,7 +306,7 @@ function emitTraceEvents(ws, id, events, domainPrefix, targetId, ctx) {
       name: 'TracingStartedInPage',
       cat: 'disabled-by-default-devtools.timeline',
       ph: 'I',
-      ts: minTs > 0 ? minTs - 2 : 0,
+      ts: minTs - 2,
       pid: pid,
       tid: tid,
       s: 't',
@@ -306,7 +320,7 @@ function emitTraceEvents(ws, id, events, domainPrefix, targetId, ctx) {
       name: 'RunTask',
       cat: 'toplevel',
       ph: 'X',
-      ts: minTs > 0 ? minTs - 1 : 0,
+      ts: minTs - 1,
       dur: maxTs > minTs ? (maxTs - minTs + 2) : 1,
       pid: pid,
       tid: tid,
@@ -817,26 +831,61 @@ function createPageDomain(targetId) {
 // DOM domain
 // ---------------------------------------------------------------------------
 
-function createDOMDomain() {
+function createDOMDomain(broadcastCDP) {
+  var pendingRequests = new Map();
+  var nextReqId = 0;
+  var enabled = false;
+
+  function forward(method, params, ctx) {
+    var reqId = 'dom-' + (nextReqId++);
+    log('DOM', 'Forwarding ' + method + ' to app (reqId=' + reqId + ')');
+    pendingRequests.set(reqId, {ws: ctx.ws, id: ctx._currentId});
+    if (ctx.sendToApp) {
+      ctx.sendToApp(JSON.stringify({
+        type: 'cdp-request',
+        requestId: reqId,
+        domain: 'DOM',
+        method: method,
+        params: params,
+      }));
+    }
+    return null; // deferred — response comes via handleAppMessage
+  }
+
   function handle(method, params, ctx) {
     log('DOM', method);
     switch (method) {
+      case 'enable':
+        enabled = true;
+        return {};
+      case 'disable':
+        enabled = false;
+        return {};
+
+      // Forward to app — need shadow tree data
       case 'getDocument':
-        return {
-          root: {
-            nodeId: 1,
-            backendNodeId: 1,
-            nodeType: 9,
-            nodeName: '#document',
-            localName: '',
-            nodeValue: '',
-            childNodeCount: 0,
-            children: [],
-            documentURL: 'file://',
-            baseURL: 'file://',
-            xmlVersion: '',
-          },
-        };
+      case 'getOuterHTML':
+      case 'getBoxModel':
+      case 'highlightNode':
+      case 'hideHighlight':
+      case 'resolveNode':
+        return forward(method, params, ctx);
+
+      // Local stubs
+      case 'requestChildNodes':
+      case 'markUndoableState':
+      case 'pushNodesByBackendIdsToFrontend':
+        return {};
+
+      // Forward to app — triggers highlight
+      case 'setInspectedNode':
+        return forward(method, params, ctx);
+      case 'highlightRect':
+        return forward('highlightNode', params, ctx);
+      case 'querySelector':
+        return {nodeId: 0};
+      case 'querySelectorAll':
+        return {nodeIds: []};
 
       default:
         return {};
@@ -846,6 +895,23 @@ function createDOMDomain() {
   return {
     name: 'DOM',
     handle: handle,
+    handleAppMessage: function (message) {
+      // Handle cdp-response for forwarded requests
+      if (message.type === 'cdp-response') {
+        var pending = pendingRequests.get(message.requestId);
+        if (pending) {
+          log('DOM', 'Got cdp-response for ' + message.requestId);
+          pendingRequests.delete(message.requestId);
+          pending.ws.readyState === 1 &&
+            pending.ws.send(JSON.stringify({id: pending.id, result: message.result}));
+        }
+      }
+      // Handle live tree updates
+      if (message.type === 'dom-updated' && broadcastCDP) {
+        log('DOM', 'Tree updated — broadcasting DOM.documentUpdated');
+        broadcastCDP({method: 'DOM.documentUpdated', params: {}});
+      }
+    },
   };
 }
 
@@ -984,26 +1050,113 @@ function createInspectorDomain() {
 }
 
 function createCSSDomain() {
+  var pendingRequests = new Map();
+  var nextReqId = 0;
+
+  function forward(method, params, ctx) {
+    var reqId = 'css-' + (nextReqId++);
+    log('CSS', 'Forwarding ' + method + ' to app (reqId=' + reqId + ')');
+    pendingRequests.set(reqId, {ws: ctx.ws, id: ctx._currentId});
+    if (ctx.sendToApp) {
+      ctx.sendToApp(JSON.stringify({
+        type: 'cdp-request',
+        requestId: reqId,
+        domain: 'CSS',
+        method: method,
+        params: params,
+      }));
+    }
+    return null;
+  }
+
   function handle(method, params, ctx) {
     log('CSS', method);
     switch (method) {
+      case 'enable':
+      case 'disable':
+        return {};
+
+      // Forward to app — need style data
+      case 'getComputedStyleForNode':
+      case 'getInlineStylesForNode':
+      case 'getMatchedStylesForNode':
+        return forward(method, params, ctx);
+
+      // Local stubs
       case 'getMediaQueries':
         return {medias: []};
       case 'getStyleSheetText':
         return {text: ''};
+      case 'getPlatformFontsForNode':
+        return {fonts: []};
       default:
         return {};
     }
   }
-  return {name: 'CSS', handle: handle};
+
+  return {
+    name: 'CSS',
+    handle: handle,
+    handleAppMessage: function (message) {
+      if (message.type === 'cdp-response') {
+        var pending = pendingRequests.get(message.requestId);
+        if (pending) {
+          log('CSS', 'Got cdp-response for ' + message.requestId);
+          pendingRequests.delete(message.requestId);
+          pending.ws.readyState === 1 &&
+            pending.ws.send(JSON.stringify({id: pending.id, result: message.result}));
+        }
+      }
+    },
+  };
 }
 
 function createOverlayDomain() {
-  function handle(method, params, ctx) {
-    log('Overlay', method);
-    return {};
+  var pendingRequests = new Map();
+  var nextReqId = 0;
+
+  function forward(method, params, ctx) {
+    var reqId = 'overlay-' + (nextReqId++);
+    log('Overlay', 'Forwarding ' + method + ' to app (reqId=' + reqId + ')');
+    pendingRequests.set(reqId, {ws: ctx.ws, id: ctx._currentId});
+    if (ctx.sendToApp) {
+      ctx.sendToApp(JSON.stringify({
+        type: 'cdp-request',
+        requestId: reqId,
+        domain: 'DOM',
+        method: method,
+        params: params,
+      }));
+    }
+    return null;
   }
-  return {name: 'Overlay', handle: handle};
+
+  function handle(method, params, ctx) {
+    log('Overlay', method + ' params=' + JSON.stringify(params).slice(0, 300));
+    switch (method) {
+      case 'highlightNode':
+        return forward('highlightNode', params, ctx);
+      case 'hideHighlight':
+        return forward('hideHighlight', params, ctx);
+      default:
+        return {};
+    }
+  }
+  return {
+    name: 'Overlay',
+    handle: handle,
+    handleAppMessage: function (message) {
+      if (message.type === 'cdp-response') {
+        var pending = pendingRequests.get(message.requestId);
+        if (pending) {
+          log('Overlay', 'Got cdp-response for ' + message.requestId);
+          pendingRequests.delete(message.requestId);
+          pending.ws.readyState === 1 &&
+            pending.ws.send(JSON.stringify({id: pending.id, result: message.result}));
+        }
+      }
+    },
+  };
 }
 
 function createEmulationDomain() {
@@ -1138,10 +1291,12 @@ function createInspectorProxy(options) {
   var runtimeDomain = createRuntimeDomain();
   var profilerDomain = createProfilerDomain();
   var pageDomain = createPageDomain(targetId);
-  var domDomain = createDOMDomain();
+  var domDomain = createDOMDomain(function(msg) { broadcastCDP(msg); });
   var logDomain = createLogDomain();
   var networkDomain = createNetworkDomain();
   var debuggerDomain = createDebuggerDomain();
+  var cssDomain = createCSSDomain();
+  var overlayDomain = createOverlayDomain();
 
   var router = createDomainRouter([
     tracingDomain,
@@ -1155,8 +1310,8 @@ function createInspectorProxy(options) {
     debuggerDomain,
     createTargetDomain(),
     createInspectorDomain(),
-    createCSSDomain(),
-    createOverlayDomain(),
+    cssDomain,
+    overlayDomain,
     createEmulationDomain(),
     createHeapProfilerDomain(),
     createServiceWorkerDomain(),
@@ -1289,6 +1444,15 @@ function createInspectorProxy(options) {
     }
     if (profilerDomain.handleAppMessage) {
       profilerDomain.handleAppMessage(message);
+    }
+    if (domDomain.handleAppMessage) {
+      domDomain.handleAppMessage(message);
+    }
+    if (cssDomain.handleAppMessage) {
+      cssDomain.handleAppMessage(message);
+    }
+    if (overlayDomain.handleAppMessage) {
+      overlayDomain.handleAppMessage(message);
     }
 
     if (message.type === 'cdp-event') {

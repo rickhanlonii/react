@@ -22,6 +22,7 @@ var tracer = {
   _tracing: false,
   _events: [],
   _nextId: 0,
+  _nextInteractionId: 1,
   _pid: 1,
   _tid: 1,
 
@@ -35,10 +36,16 @@ var tracer = {
       {name: 'process_name', cat: '__metadata', ph: 'M', pid: this._pid, tid: 0, ts: 0, args: {name: 'Falcon'}},
       {name: 'thread_name', cat: '__metadata', ph: 'M', pid: this._pid, tid: this._tid, ts: 0, args: {name: 'CrRendererMain'}},
     ];
+    if (typeof $$setNativeTracingEnabled === 'function') {
+      $$setNativeTracingEnabled(true);
+    }
   },
 
   stopTracing: function () {
     this._tracing = false;
+    if (typeof $$setNativeTracingEnabled === 'function') {
+      $$setNativeTracingEnabled(false);
+    }
     var events = this._events;
     this._events = [];
     console.log('[PerformanceTracer] stopTracing: collected ' + events.length + ' events');
@@ -54,7 +61,7 @@ var tracer = {
   // for component renders (when supportsUserTiming is false) and scheduling
   // events. We convert to blink.user_timing b/e events with devtools detail
   // so Chrome DevTools places them on named custom tracks.
-  reportTimeStamp: function (label, start, end, track, trackGroup, color) {
+  reportTimeStamp: function (label, start, end, track, trackGroup, color, properties) {
     if (!this._tracing) return;
     // Log early events to verify initial render is captured
     if (this._events.length < 20) {
@@ -64,6 +71,9 @@ var tracer = {
     var devtools = {track: track, color: color};
     if (trackGroup) {
       devtools.trackGroup = trackGroup;
+    }
+    if (properties) {
+      devtools.properties = properties;
     }
     var startUs = start * 1000; // ms → µs
     var endUs = end * 1000;
@@ -137,6 +147,55 @@ var tracer = {
       cat: 'blink.user_timing',
       ph: 'I',
       ts: startTime * 1000,
+      pid: this._pid,
+      tid: this._tid,
+      args: {},
+    });
+  },
+
+  nextInteractionId: function () {
+    return this._nextInteractionId++;
+  },
+
+  // Emits EventTiming begin/end async event pairs for the Chrome DevTools
+  // Interactions track. The UserInteractionsHandler in DevTools parses these
+  // to show input delay, processing time, and presentation delay.
+  reportInteraction: function (eventType, interactionId, inputTime, processingStart, processingEnd) {
+    if (!this._tracing) return;
+    var id = 'interaction-' + interactionId;
+    var duration = Math.max(Math.round((processingEnd - inputTime) / 8) * 8, 1); // Round to 8ms, min 1
+    var inputTimeUs = inputTime * 1000;
+    var endTimeUs = processingEnd * 1000; // V1: endTime = processingEnd (0 presentation delay)
+    // Begin event
+    this._events.push({
+      name: 'EventTiming',
+      cat: 'devtools.timeline',
+      ph: 'b',
+      id: id,
+      ts: inputTimeUs,
+      pid: this._pid,
+      tid: this._tid,
+      args: {
+        data: {
+          type: eventType,
+          interactionId: interactionId,
+          duration: duration,
+          timeStamp: inputTime,
+          processingStart: processingStart,
+          processingEnd: processingEnd,
+          cancelable: true,
+          nodeId: 0,
+          interactionOffset: 0,
+        },
+      },
+    });
+    // End event
+    this._events.push({
+      name: 'EventTiming',
+      cat: 'devtools.timeline',
+      ph: 'e',
+      id: id,
+      ts: endTimeUs,
       pid: this._pid,
       tid: this._tid,
       args: {},

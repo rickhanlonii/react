@@ -253,17 +253,20 @@ class FixtureViewController: UIViewController {
         let ssrURL = "http://localhost:6001/ssr/\(fixtureName)"
         let flightURL = "http://localhost:6000/fixtures/\(fixtureName)"
 
+        // Start SSR and hydration in parallel. The hydration path boots the
+        // JS runtime and fetches the Flight stream concurrently with SSR
+        // streaming. Root.hydrateRoot queues the actual hydration call until
+        // the SSR stream completes (pendingHydration mechanism).
         root?.renderWithSSR(serverURL: ssrURL) { [weak self] error in
             if let error = error {
                 print("[Falcon] Render failed for \(self?.fixtureName ?? ""): \(error)")
+            }
+        }
+        root?.hydrateRoot(serverURL: flightURL) { [weak self] error in
+            if let error = error {
+                print("[Falcon] Hydration failed: \(error)")
             } else {
-                self?.root?.hydrateRoot(serverURL: flightURL) { error in
-                    if let error = error {
-                        print("[Falcon] Hydration failed: \(error)")
-                    } else {
-                        print("[Falcon] Hydration complete for \(self?.fixtureName ?? "")")
-                    }
-                }
+                print("[Falcon] Hydration complete for \(self?.fixtureName ?? "")")
             }
         }
     }

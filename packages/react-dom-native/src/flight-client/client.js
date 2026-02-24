@@ -19,7 +19,7 @@ var Config = require('./config');
 // Chunk states
 // ---------------------------------------------------------------------------
 var PENDING = 'pending';
-var RESOLVED = 'resolved';
+var RESOLVED = 'fulfilled';
 var REJECTED = 'rejected';
 
 // ---------------------------------------------------------------------------

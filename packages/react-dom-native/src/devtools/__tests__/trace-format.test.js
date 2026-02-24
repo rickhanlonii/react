@@ -779,3 +779,214 @@ describe('Native commit timing trace events', () => {
     )).toHaveLength(0);
   });
 });
+
+describe('SSR commit timing trace events', () => {
+  let tracer;
+
+  beforeEach(() => {
+    delete globalThis.__PERFORMANCE_TRACER__;
+    delete globalThis.performance;
+    delete globalThis.$$handleSSRCommitTimings;
+    jest.resetModules();
+    require('../PerformanceTracer');
+    require('../PerformancePolyfill');
+    require('../ConsoleTimeStamp');
+    // Load HostConfig to register $$handleSSRCommitTimings
+    require('../../renderer/HostConfig');
+    tracer = globalThis.__PERFORMANCE_TRACER__;
+  });
+
+  function makeSSRFirstPaint(overrides) {
+    return Object.assign({
+      label: 'SSR First Paint',
+      commitStart: 50,
+      commitEnd: 70,
+      layoutStart: 50,
+      layoutEnd: 60,
+      mutationsStart: 60,
+      mutationsEnd: 70,
+      mutationCount: 10,
+      creates: 5,
+      inserts: 5,
+      deletes: 0,
+      removes: 0,
+      updates: 0,
+      nodeCount: 5,
+      treeDepth: 3,
+      rootTypes: 'div',
+    }, overrides);
+  }
+
+  function makeSSRReveal(overrides) {
+    return Object.assign({
+      label: 'SSR Reveal',
+      commitStart: 80,
+      commitEnd: 100,
+      layoutStart: 80,
+      layoutEnd: 85,
+      diffStart: 85,
+      diffEnd: 90,
+      mutationsStart: 90,
+      mutationsEnd: 95,
+      syncStart: 95,
+      syncEnd: 98,
+      mutationCount: 4,
+      creates: 2,
+      inserts: 2,
+      deletes: 1,
+      removes: 1,
+      updates: 0,
+      nodeCount: 8,
+      treeDepth: 4,
+      rootTypes: 'div',
+    }, overrides);
+  }
+
+  function getBeginEvents(events) {
+    return events
+      .filter(e => e.cat === 'blink.user_timing' && e.ph === 'b')
+      .map(e => ({
+        name: e.name,
+        detail: JSON.parse(e.args.detail),
+      }));
+  }
+
+  it('registers $$handleSSRCommitTimings global function', () => {
+    expect(typeof globalThis.$$handleSSRCommitTimings).toBe('function');
+  });
+
+  it('emits SSR First Paint on Shadow Tree and Layout tracks', () => {
+    tracer.startTracing();
+    globalThis.$$handleSSRCommitTimings([makeSSRFirstPaint()]);
+    const events = tracer.stopTracing();
+    const begins = getBeginEvents(events);
+
+    // Shadow Tree track should have the outer span with label
+    const commit = begins.find(e => e.name === 'SSR First Paint');
+    expect(commit).toBeDefined();
+    expect(commit.detail.devtools.track).toBe('Shadow Tree');
+    expect(commit.detail.devtools.trackGroup).toBe('Native \u269b');
+
+    // Layout track should have Calculate Layout
+    const layout = begins.find(e => e.name === 'Calculate Layout');
+    expect(layout).toBeDefined();
+    expect(layout.detail.devtools.track).toBe('Layout');
+    expect(layout.detail.devtools.trackGroup).toBe('Native \u269b');
+  });
+
+  it('emits SSR Reveal on Shadow Tree track with Diff and Apply Mutations', () => {
+    tracer.startTracing();
+    globalThis.$$handleSSRCommitTimings([makeSSRReveal()]);
+    const events = tracer.stopTracing();
+    const begins = getBeginEvents(events);
+
+    const shadowTreeEvents = begins.filter(e => e.detail.devtools.track === 'Shadow Tree');
+    const names = shadowTreeEvents.map(e => e.name);
+
+    expect(names).toContain('SSR Reveal');
+    expect(names).toContain('Diff');
+    expect(names).toContain('Sync Frames');
+    // Apply Mutations includes count in name
+    expect(names.some(n => n.startsWith('Apply Mutations'))).toBe(true);
+  });
+
+  it('handles multiple SSR commit timings in one array', () => {
+    tracer.startTracing();
+    globalThis.$$handleSSRCommitTimings([makeSSRFirstPaint(), makeSSRReveal()]);
+    const events = tracer.stopTracing();
+    const begins = getBeginEvents(events);
+
+    const commits = begins.filter(e =>
+      e.name === 'SSR First Paint' || e.name === 'SSR Reveal'
+    );
+    expect(commits).toHaveLength(2);
+  });
+
+  it('does not emit events when not tracing', () => {
+    // Don't start tracing
+    globalThis.$$handleSSRCommitTimings([makeSSRFirstPaint()]);
+
+    tracer.startTracing();
+    const events = tracer.stopTracing();
+    const begins = getBeginEvents(events);
+
+    const ssrEvents = begins.filter(e => e.name === 'SSR First Paint');
+    expect(ssrEvents).toHaveLength(0);
+  });
+
+  it('emits valid begin/end event pairs', () => {
+    tracer.startTracing();
+    globalThis.$$handleSSRCommitTimings([makeSSRReveal()]);
+    const events = tracer.stopTracing();
+    const userTiming = events.filter(e => e.cat === 'blink.user_timing');
+    const begins = userTiming.filter(e => e.ph === 'b');
+    const ends = userTiming.filter(e => e.ph === 'e');
+
+    expect(begins.length).toBe(ends.length);
+    for (let i = 0; i < begins.length; i++) {
+      expect(begins[i].id2.local).toBe(ends[i].id2.local);
+      expect(begins[i].name).toBe(ends[i].name);
+      expect(ends[i].ts).toBeGreaterThanOrEqual(begins[i].ts);
+    }
+  });
+
+  it('includes node count and tree depth properties on outer span', () => {
+    tracer.startTracing();
+    globalThis.$$handleSSRCommitTimings([makeSSRFirstPaint({nodeCount: 42, treeDepth: 7})]);
+    const events = tracer.stopTracing();
+    const begins = getBeginEvents(events);
+
+    const commit = begins.find(e => e.name === 'SSR First Paint');
+    expect(commit.detail.devtools.properties).toEqual(
+      expect.arrayContaining([
+        ['Nodes', '42'],
+        ['Tree depth', '7'],
+      ])
+    );
+  });
+
+  it('emits per-node component stacks from diffNodes, mutationNodes, and layoutNodes', () => {
+    tracer.startTracing();
+    globalThis.$$handleSSRCommitTimings([makeSSRReveal({
+      diffNodes: ['div', 85, 86, 'p', 86, 87],
+      mutationNodes: ['CREATE', 'div', 90, 91, 'INSERT', 'p', 91, 92],
+      layoutNodes: ['div', 95, 96, 'p', 96, 97],
+    })]);
+    const events = tracer.stopTracing();
+    const begins = getBeginEvents(events);
+
+    const shadowTreeNames = begins
+      .filter(e => e.detail.devtools.track === 'Shadow Tree')
+      .map(e => e.name);
+    const layoutNames = begins
+      .filter(e => e.detail.devtools.track === 'Layout')
+      .map(e => e.name);
+
+    // Diff nodes on Shadow Tree track
+    expect(shadowTreeNames).toContain('div');
+    expect(shadowTreeNames).toContain('p');
+    // Mutation nodes on Shadow Tree track
+    expect(shadowTreeNames).toContain('CREATE div');
+    expect(shadowTreeNames).toContain('INSERT p');
+    // Layout nodes on Layout track
+    expect(layoutNames).toContain('div');
+    expect(layoutNames).toContain('p');
+  });
+
+  it('emits per-mutation component stacks from SSR First Paint mutationNodes', () => {
+    tracer.startTracing();
+    globalThis.$$handleSSRCommitTimings([makeSSRFirstPaint({
+      mutationNodes: ['CREATE', 'div', 60, 62, 'INSERT', 'div', 62, 64, 'CREATE', 'h1', 64, 66],
+    })]);
+    const events = tracer.stopTracing();
+    const begins = getBeginEvents(events);
+
+    const shadowTreeNames = begins
+      .filter(e => e.detail.devtools.track === 'Shadow Tree')
+      .map(e => e.name);
+
+    expect(shadowTreeNames).toContain('CREATE div');
+    expect(shadowTreeNames).toContain('INSERT div');
+    expect(shadowTreeNames).toContain('CREATE h1');
+  });
+});

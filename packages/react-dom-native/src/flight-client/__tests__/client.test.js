@@ -60,7 +60,7 @@ function parseFlightPayload(payload, options) {
  */
 function resolveChunk(chunk) {
   return new Promise(function (resolve, reject) {
-    if (chunk.status === 'resolved') {
+    if (chunk.status === 'fulfilled') {
       resolve(chunk.value);
     } else if (chunk.status === 'rejected') {
       reject(chunk.reason);
@@ -241,43 +241,43 @@ describe('Flight Client Parser', function () {
   describe('model rows', function () {
     it('parses a simple string value', function () {
       var root = parseFlightPayload('0:"hello"\n');
-      expect(root.status).toBe('resolved');
+      expect(root.status).toBe('fulfilled');
       expect(root.value).toBe('hello');
     });
 
     it('parses a number value', function () {
       var root = parseFlightPayload('0:42\n');
-      expect(root.status).toBe('resolved');
+      expect(root.status).toBe('fulfilled');
       expect(root.value).toBe(42);
     });
 
     it('parses null value', function () {
       var root = parseFlightPayload('0:null\n');
-      expect(root.status).toBe('resolved');
+      expect(root.status).toBe('fulfilled');
       expect(root.value).toBe(null);
     });
 
     it('parses boolean true', function () {
       var root = parseFlightPayload('0:true\n');
-      expect(root.status).toBe('resolved');
+      expect(root.status).toBe('fulfilled');
       expect(root.value).toBe(true);
     });
 
     it('parses boolean false', function () {
       var root = parseFlightPayload('0:false\n');
-      expect(root.status).toBe('resolved');
+      expect(root.status).toBe('fulfilled');
       expect(root.value).toBe(false);
     });
 
     it('parses an object', function () {
       var root = parseFlightPayload('0:{"a":1,"b":"two"}\n');
-      expect(root.status).toBe('resolved');
+      expect(root.status).toBe('fulfilled');
       expect(root.value).toEqual({a: 1, b: 'two'});
     });
 
     it('parses an array', function () {
       var root = parseFlightPayload('0:[1,2,3]\n');
-      expect(root.status).toBe('resolved');
+      expect(root.status).toBe('fulfilled');
       expect(root.value).toEqual([1, 2, 3]);
     });
   });
@@ -290,7 +290,7 @@ describe('Flight Client Parser', function () {
       var payload = '0:["$","div",null,{"children":"Hello"}]\n';
       var root = parseFlightPayload(payload);
 
-      expect(root.status).toBe('resolved');
+      expect(root.status).toBe('fulfilled');
       var el = root.value;
       expect(el.$$typeof).toBe(Symbol.for('react.transitional.element'));
       expect(el.type).toBe('div');
@@ -303,7 +303,7 @@ describe('Flight Client Parser', function () {
         '0:["$","div",null,{"children":["$","span",null,{"children":"Hi"}]}]\n';
       var root = parseFlightPayload(payload);
 
-      expect(root.status).toBe('resolved');
+      expect(root.status).toBe('fulfilled');
       var el = root.value;
       expect(el.type).toBe('div');
 
@@ -400,7 +400,7 @@ describe('Flight Client Parser', function () {
       var root = parseFlightPayload(payload);
 
       // chunk 1 resolves first, then chunk 0 references it via $1
-      expect(root.status).toBe('resolved');
+      expect(root.status).toBe('fulfilled');
       expect(root.value.child).toEqual({text: 'child'});
     });
 
@@ -479,7 +479,7 @@ describe('Flight Client Parser', function () {
       client.close(response);
 
       var root = client.getRoot(response);
-      expect(root.status).toBe('resolved');
+      expect(root.status).toBe('fulfilled');
 
       // Chunk 1 resolves async after module loads
       var chunk1 = client._getOrCreateChunk(response, 1);
@@ -542,7 +542,7 @@ describe('Flight Client Parser', function () {
       client.close(response);
 
       var root = client.getRoot(response);
-      expect(root.status).toBe('resolved');
+      expect(root.status).toBe('fulfilled');
 
       var chunk1 = client._getOrCreateChunk(response, 1);
       expect(chunk1.status).toBe('rejected');
@@ -590,7 +590,7 @@ describe('Flight Client Parser', function () {
       );
 
       // Now root should be resolved
-      expect(root.status).toBe('resolved');
+      expect(root.status).toBe('fulfilled');
       expect(root.value.type).toBe('div');
     });
 
@@ -606,7 +606,7 @@ describe('Flight Client Parser', function () {
       );
 
       var root = client.getRoot(response);
-      expect(root.status).toBe('resolved');
+      expect(root.status).toBe('fulfilled');
 
       // Chunk 1 is pending
       var chunk1 = client._getOrCreateChunk(response, 1);
@@ -635,7 +635,7 @@ describe('Flight Client Parser', function () {
 
       var root = parseFlightPayload(payload);
 
-      expect(root.status).toBe('resolved');
+      expect(root.status).toBe('fulfilled');
       expect(root.value.a).toEqual({text: 'first'});
       expect(root.value.b).toEqual({text: 'second'});
     });
@@ -649,7 +649,7 @@ describe('Flight Client Parser', function () {
       client.close(response);
 
       var root = client.getRoot(response);
-      expect(root.status).toBe('resolved');
+      expect(root.status).toBe('fulfilled');
       expect(root.value.type).toBe('p');
       expect(root.value.props.children).toBe('Binary!');
     });
@@ -684,7 +684,7 @@ describe('Flight Client Parser', function () {
       client.processStringChunk(response, streamState, '0:"resolved"\n');
 
       var root = client.getRoot(response);
-      expect(root.status).toBe('resolved');
+      expect(root.status).toBe('fulfilled');
 
       // Create a pending chunk
       var chunk1 = client._getOrCreateChunk(response, 1);
@@ -692,7 +692,7 @@ describe('Flight Client Parser', function () {
       client.reportGlobalError(response, new Error('Error'));
 
       // Root should still be resolved
-      expect(root.status).toBe('resolved');
+      expect(root.status).toBe('fulfilled');
       expect(root.value).toBe('resolved');
 
       // Chunk 1 should be rejected
@@ -1592,7 +1592,7 @@ describe('end-to-end integration', function () {
 
     var root = parseFlightPayload(payload);
 
-    expect(root.status).toBe('resolved');
+    expect(root.status).toBe('fulfilled');
     var html = root.value;
     expect(html.type).toBe('html');
 
@@ -1627,7 +1627,7 @@ describe('end-to-end integration', function () {
     client.close(response);
 
     var root = client.getRoot(response);
-    expect(root.status).toBe('resolved');
+    expect(root.status).toBe('fulfilled');
     var div = root.value;
     expect(div.type).toBe('div');
 

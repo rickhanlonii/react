@@ -1,5 +1,6 @@
 import Foundation
 import CoreGraphics
+import QuartzCore
 import Yoga
 
 #if canImport(UIKit)
@@ -166,14 +167,21 @@ public class ShadowTreeBuilder {
         }
     }
 
+    /// Layout timing from the most recent rootComplete() call (ms since boot).
+    /// Always collected so SSR first paint timing can be reported retroactively.
+    public private(set) var layoutStartTime: Double = 0
+    public private(set) var layoutEndTime: Double = 0
+
     /// Root shell is complete — calculate layout and notify.
     public func rootComplete() {
+        layoutStartTime = CACurrentMediaTime() * 1000.0
         ShadowTreeLayout.performLayout(
             rootYogaNode: rootYogaNode,
             children: rootChildren,
             width: viewportWidth,
             height: .nan
         )
+        layoutEndTime = CACurrentMediaTime() * 1000.0
         onRootComplete?(rootChildren)
     }
 
