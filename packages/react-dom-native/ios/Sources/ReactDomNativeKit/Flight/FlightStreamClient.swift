@@ -63,6 +63,64 @@ class FlightStreamClient {
         loadedChunks.removeAll()
     }
 
+    /// Re-fetches and evaluates specific chunk files. Clears them from the
+    /// loaded cache first so they're fetched fresh. Called during Fast Refresh.
+    static func refreshChunks(
+        filenames: [String],
+        serverOrigin: String,
+        engine: JSEngine,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard !filenames.isEmpty else {
+            completion(.success(()))
+            return
+        }
+
+        let group = DispatchGroup()
+        var firstError: Error?
+
+        for filename in filenames {
+            let chunkURL = "\(serverOrigin)/\(filename)"
+
+            // Clear from cache so it's fetched fresh
+            loadedChunks.remove(chunkURL)
+
+            group.enter()
+            guard let url = URL(string: chunkURL) else {
+                group.leave()
+                continue
+            }
+
+            var request = URLRequest(url: url)
+            request.cachePolicy = .reloadIgnoringLocalCacheData
+            URLSession.shared.dataTask(with: request) { data, _, error in
+                DispatchQueue.main.async {
+                    defer { group.leave() }
+
+                    if let error = error {
+                        if firstError == nil { firstError = error }
+                        return
+                    }
+
+                    guard let data = data, let code = String(data: data, encoding: .utf8) else {
+                        return
+                    }
+
+                    engine.evaluate(code, sourceURL: url)
+                    loadedChunks.insert(chunkURL)
+                }
+            }.resume()
+        }
+
+        group.notify(queue: .main) {
+            if let error = firstError {
+                completion(.failure(error))
+            } else {
+                completion(.success(()))
+            }
+        }
+    }
+
     // MARK: - Init
 
     init(responseId: Int, engine: JSEngine, serverURL: String) {
@@ -327,7 +385,9 @@ class FlightStreamClient {
                 continue
             }
 
-            URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
+            var request = URLRequest(url: url)
+            request.cachePolicy = .reloadIgnoringLocalCacheData
+            URLSession.shared.dataTask(with: request) { [weak self] data, _, error in
                 DispatchQueue.main.async {
                     defer { group.leave() }
                     guard let self = self, let engine = self.engine else { return }

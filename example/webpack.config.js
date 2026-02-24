@@ -41,12 +41,20 @@ module.exports = function (env) {
         {
           test: /\.jsx?$/,
           exclude: /node_modules/,
-          use: {
-            loader: 'babel-loader',
-            options: {
-              presets: ['@babel/preset-react'],
+          use: [
+            // Runs second: wraps module with per-module $RefreshReg$ scoping
+            isDev && {
+              loader: require.resolve('./scripts/react-refresh-loader'),
             },
-          },
+            // Runs first: transpiles JSX + injects $RefreshReg$/$RefreshSig$ calls
+            {
+              loader: 'babel-loader',
+              options: {
+                presets: ['@babel/preset-react'],
+                plugins: isDev ? [require.resolve('react-refresh/babel')] : [],
+              },
+            },
+          ].filter(Boolean),
         },
       ],
     },
@@ -55,6 +63,26 @@ module.exports = function (env) {
         __DEV__: isDev ? 'true' : 'false',
         'process.env.NODE_ENV': JSON.stringify(mode),
       }),
+      // Expose __webpack_module_cache__ as __webpack_require__.c so that
+      // $$performFastRefresh can bust cached modules before re-requiring them.
+      isDev && {
+        apply(compiler) {
+          compiler.hooks.compilation.tap('ExposeModuleCache', (compilation) => {
+            compilation.hooks.additionalTreeRuntimeRequirements.tap(
+              'ExposeModuleCache',
+              (chunk) => {
+                compilation.addRuntimeModule(
+                  chunk,
+                  new (class extends webpack.RuntimeModule {
+                    constructor() { super('expose module cache'); }
+                    generate() { return '__webpack_require__.c = __webpack_module_cache__;'; }
+                  })()
+                );
+              }
+            );
+          });
+        },
+      },
       // Auto-discovers 'use client' files in the components directory,
       // adds them as async dependencies, and emits manifest JSON files.
       new ReactFlightWebpackPlugin({
@@ -65,7 +93,7 @@ module.exports = function (env) {
           include: /\.(js|jsx)$/,
         },
       }),
-    ],
+    ].filter(Boolean),
     devtool: isDev ? 'source-map' : false,
     optimization: {
       minimize: !isDev,

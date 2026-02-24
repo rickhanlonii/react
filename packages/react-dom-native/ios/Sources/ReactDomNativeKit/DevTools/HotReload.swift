@@ -14,6 +14,10 @@ public class HotReloadClient {
     /// Callback invoked on the main thread when a reload message arrives.
     public var onReload: (() -> Void)?
 
+    /// Callback invoked on the main thread when a refresh message arrives
+    /// with changed chunk info for Fast Refresh.
+    public var onRefresh: (([[String: Any]]) -> Void)?
+
     /// Creates a hot reload client.
     ///
     /// - Parameters:
@@ -92,6 +96,11 @@ public class HotReloadClient {
             case "reload":
                 print("[HotReload] Reloading JS bundle...")
                 self.onReload?()
+
+            case "refresh":
+                let chunks = json["chunks"] as? [[String: Any]] ?? []
+                print("[HotReload] Fast refresh with \(chunks.count) chunk(s)")
+                self.onRefresh?(chunks)
 
             case "error":
                 let message = json["message"] as? String ?? "Unknown error"

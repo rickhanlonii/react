@@ -30,5 +30,8 @@
     "jest": "^29.7.0",
     "typescript": "^5.7.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "react-refresh": "^0.18.0"
+  }
 }

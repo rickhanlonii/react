@@ -2,12 +2,12 @@
 
 const React = require('react');
 
-class ThrowOnHydration extends React.Component {
+class ThrowOnServer extends React.Component {
   constructor(props) {
     super(props);
     // On the server this component renders fine.
     // On the client during hydration, it throws.
-    if (typeof globalThis.$$createNode !== 'undefined' || typeof window !== 'undefined') {
+    if (typeof globalThis.$$createNode === 'undefined' && typeof window === 'undefined') {
       throw new Error(props.message || 'Hydration error');
     }
   }
@@ -16,5 +16,5 @@ class ThrowOnHydration extends React.Component {
   }
 }
 
-module.exports = ThrowOnHydration;
-module.exports.default = ThrowOnHydration;
+module.exports = ThrowOnServer;
+module.exports.default = ThrowOnServer;

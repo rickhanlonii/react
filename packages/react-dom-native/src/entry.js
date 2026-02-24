@@ -28,6 +28,19 @@ if (__DEV__) {
   require('./devtools/InspectorMessageHandler'); // Must be last — dispatches to all above
 }
 
+// ---------------------------------------------------------------------------
+// React Fast Refresh runtime — must initialize before React loads
+// ---------------------------------------------------------------------------
+if (__DEV__) {
+  var RefreshRuntime = require('react-refresh/runtime');
+  RefreshRuntime.injectIntoGlobalHook(globalThis);
+
+  // Default no-op globals. The refresh wrapper loader overrides these
+  // per-module with scoped versions that include the module path.
+  globalThis.$RefreshReg$ = function() {};
+  globalThis.$RefreshSig$ = function() { return function(type) { return type; }; };
+}
+
 var React = require('react');
 var use = React.use;
 var startTransition = React.startTransition;
@@ -127,6 +140,42 @@ globalThis.$$reportFlightError = function $$reportFlightError(responseId, errorM
     delete responses[responseId];
   }
 };
+
+// Performs React Fast Refresh after changed chunks have been re-evaluated.
+// Busts webpack module cache for the given module IDs, re-requires them
+// (triggering $RefreshReg$ calls), and calls performReactRefresh().
+// Returns true on success, false to signal that a full reload is needed.
+if (__DEV__) {
+  globalThis.$$performFastRefresh = function $$performFastRefresh(moduleIds) {
+    var RefreshRuntime = require('react-refresh/runtime');
+    var cache = __webpack_require__.c;
+    var len = moduleIds.length;
+
+    // 1. Bust webpack module cache for changed modules
+    for (var i = 0; i < len; i++) {
+      delete cache[moduleIds[i]];
+    }
+
+    // 2. Re-require each module — triggers $RefreshReg$ calls
+    for (var i = 0; i < len; i++) {
+      try {
+        __webpack_require__(moduleIds[i]);
+      } catch (e) {
+        console.error('[FastRefresh] Module re-require failed:', e);
+        return false;
+      }
+    }
+
+    // 3. Perform the refresh — React updates components in-place
+    try {
+      RefreshRuntime.performReactRefresh();
+      return true;
+    } catch (e) {
+      console.error('[FastRefresh] performReactRefresh failed:', e);
+      return false;
+    }
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Global API exposed to native Swift code

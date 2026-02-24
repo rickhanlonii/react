@@ -25,6 +25,7 @@ import f24 from '@example/fixtures/24-flight-parallel-async';
 import f25 from '@example/fixtures/25-flight-server-error';
 import f26 from '@example/fixtures/26-flight-aborted-suspense';
 import f27 from '@example/fixtures/27-flight-deduped-component';
+import f28 from '@example/fixtures/28-client-render-errors.js';
 
 const allFixtures = [
   {name: '01-rsc-only', component: f01, ...(f01.fixture || {})},
@@ -54,6 +55,7 @@ const allFixtures = [
   {name: '25-flight-server-error', component: f25, ...(f25.fixture || {})},
   {name: '26-flight-aborted-suspense', component: f26, ...(f26.fixture || {})},
   {name: '27-flight-deduped-component', component: f27, ...(f27.fixture || {})},
+  {name: '28-flight-deduped-component', component: f28, ...(f28.fixture || {})},
 ];
 
 export function getCategories() {

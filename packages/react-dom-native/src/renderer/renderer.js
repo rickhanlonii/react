@@ -140,6 +140,7 @@ function hydrateRoot(nativeRootView, initialElement, options) {
       reconciler.updateContainer(element, root, null, null);
     },
     unmount() {
+      console.log('### unmount called.');
       reconciler.updateContainer(null, root, null, null);
     },
   };

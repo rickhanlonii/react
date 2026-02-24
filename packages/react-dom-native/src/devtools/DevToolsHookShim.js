@@ -16,6 +16,7 @@ var fiberRoots = new Map(); // rendererId -> Set of FiberRoot
 globalThis.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
   supportsFiber: true,
   isDisabled: false,
+  renderers: renderers,
   inject: function (renderer) {
     var id = renderers.size + 1;
     renderers.set(id, renderer);

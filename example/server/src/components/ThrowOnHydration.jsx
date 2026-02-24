@@ -7,7 +7,7 @@ class ThrowOnHydration extends React.Component {
     super(props);
     // On the server this component renders fine.
     // On the client during hydration, it throws.
-    if (typeof globalThis.$$createNode !== 'undefined') {
+    if (typeof globalThis.$$createNode !== 'undefined' || typeof window !== 'undefined') {
       throw new Error(props.message || 'Hydration error');
     }
   }

@@ -40,12 +40,6 @@ public class ReactRuntime {
     /// Hot reload client (one WebSocket to dev server).
     private var hotReloadClient: HotReloadClient?
 
-    /// Polling timer for bundle version changes (one timer, not per-surface).
-    private var reloadTimer: Timer?
-
-    /// Last known bundle version for polling-based reload.
-    private var lastBundleVersion: Double = 0
-
     /// Active surfaces: surfaceId -> SurfaceInfo.
     private var activeSurfaces: [Int: SurfaceInfo] = [:]
 
@@ -67,6 +61,14 @@ public class ReactRuntime {
 
     /// Queued callbacks waiting for boot to complete.
     private var bootCompletionQueue: [((Error?) -> Void)] = []
+
+    /// Whether the last Fast Refresh failed. When true, the next refresh
+    /// skips the fast path and does a full reload to get a clean state.
+    /// This handles recovery: after a failed refresh causes a full reload,
+    /// the reloaded app still has the bad code and the root may be unmounted.
+    /// The next refresh (when the user fixes the code) needs a full reload
+    /// because there's no mounted root to update in-place.
+    private var lastRefreshFailed: Bool = false
 
     /// Tracks per-surface info for reload recovery.
     struct SurfaceInfo {
@@ -333,6 +335,91 @@ public class ReactRuntime {
         }
     }
 
+    /// Fast Refresh: re-fetch changed chunks, re-require modules, call performReactRefresh().
+    /// Falls back to full reload if react-refresh can't handle the update.
+    private func performChunkRefresh(chunks: [[String: Any]]) {
+        // If the previous refresh failed (render error, etc.), the app may be
+        // in a broken state (unmounted root). Skip fast refresh and do a full
+        // reload so the fixed code gets a clean start.
+        if lastRefreshFailed {
+            print("[ReactRuntime] Previous refresh failed — forcing full reload for recovery")
+            lastRefreshFailed = false
+            reload(fullReset: true)
+            return
+        }
+
+        guard let engine = runtime?.engine,
+              let devURL = devBundleURL,
+              let scheme = devURL.scheme,
+              let host = devURL.host,
+              let port = devURL.port else {
+            reload(fullReset: true)
+            return
+        }
+
+        let serverOrigin = "\(scheme)://\(host):\(port)"
+
+        // Collect chunk filenames and module IDs
+        var filenames: [String] = []
+        var moduleIds: [String] = []
+        for chunk in chunks {
+            if let file = chunk["file"] as? String {
+                filenames.append(file)
+            }
+            if let modules = chunk["modules"] as? [String] {
+                moduleIds.append(contentsOf: modules)
+            }
+        }
+
+        guard !filenames.isEmpty else {
+            reload(fullReset: true)
+            return
+        }
+
+        print("[ReactRuntime] Fast Refresh: \(filenames.count) chunk(s), \(moduleIds.count) module(s)")
+
+        ReloadBanner.shared.show(mode: .fastRefresh)
+
+        // 1. Re-fetch and evaluate changed chunks
+        FlightStreamClient.refreshChunks(
+            filenames: filenames,
+            serverOrigin: serverOrigin,
+            engine: engine
+        ) { [weak self] result in
+            guard let self = self else { return }
+
+            switch result {
+            case .failure(let error):
+                print("[ReactRuntime] Chunk fetch failed: \(error), falling back to full reload")
+                self.lastRefreshFailed = true
+                self.reload(fullReset: true)
+
+            case .success:
+                // 2. Call $$performFastRefresh(moduleIds) — returns true/false
+                guard let fn = engine.getGlobalProperty("$$performFastRefresh") else {
+                    print("[ReactRuntime] $$performFastRefresh not available, falling back to full reload")
+                    self.reload(fullReset: true)
+                    return
+                }
+
+                let jsModuleIds = moduleIds.map { engine.makeString($0) }
+                let jsArray = engine.makeArray(jsModuleIds)
+                let result = engine.callFunction(fn, args: [jsArray])
+
+                let success = result.flatMap { engine.toBool($0) } ?? false
+                if success {
+                    print("[ReactRuntime] Fast Refresh complete")
+                    self.lastRefreshFailed = false
+                    ReloadBanner.shared.dismiss()
+                } else {
+                    print("[ReactRuntime] Fast Refresh returned false, falling back to full reload")
+                    self.lastRefreshFailed = true
+                    self.reload(fullReset: true)
+                }
+            }
+        }
+    }
+
     /// Full reset: destroy JSContext, create new one, re-render all surfaces.
     private func performFullReset() {
         // Check if any surface uses SSR before snapshotting
@@ -342,11 +429,9 @@ public class ReactRuntime {
         // 1. Snapshot active surfaces
         let snapshot = activeSurfaces
 
-        // 2. Disconnect HotReloadClient and stop polling
+        // 2. Disconnect HotReloadClient
         hotReloadClient?.disconnect()
         hotReloadClient = nil
-        reloadTimer?.invalidate()
-        reloadTimer = nil
 
         // 3. Destroy old runtime
         FlightStreamClient.clearModuleCache(engine: runtime?.engine)
@@ -440,7 +525,9 @@ public class ReactRuntime {
     }
 
     private func downloadRemoteBundle(from url: URL, completion: @escaping (Result<String, Error>) -> Void) {
-        URLSession.shared.dataTask(with: url) { data, response, error in
+        var request = URLRequest(url: url)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(RootError.downloadFailed(error)))
@@ -479,7 +566,15 @@ public class ReactRuntime {
         // On reload message, do a full reset (since we can't do
         // in-place fast refresh without knowing individual surface URLs)
         client.onReload = { [weak self] in
+            print("[ReactRuntime] onReload triggered — performing full reset")
             self?.reload(fullReset: true)
+        }
+
+        // On refresh message, try Fast Refresh (re-evaluate chunks, preserve state).
+        // Falls back to full reload if react-refresh can't handle it.
+        client.onRefresh = { [weak self] chunks in
+            print("[ReactRuntime] onRefresh triggered — \(chunks.count) chunk(s)")
+            self?.performChunkRefresh(chunks: chunks)
         }
 
         // JS -> dev server: $$sendInspectorMessage calls this
@@ -501,57 +596,9 @@ public class ReactRuntime {
 
         client.connect()
 
-        // Start polling for bundle version changes
-        startBundleVersionPolling()
-
         // Install Cmd+Shift+R keyboard shortcut for manual reload
         DevKeyCommands.install()
         #endif
     }
 
-    // MARK: - Bundle Version Polling (Private)
-
-    /// Polls the dev server's /bundle-version endpoint every 2 seconds.
-    /// When the version changes (esbuild rebuilt), triggers a full reset reload.
-    private func startBundleVersionPolling() {
-        guard let devURL = devBundleURL,
-              let host = devURL.host,
-              let port = devURL.port else { return }
-
-        let versionURL = URL(string: "http://\(host):\(port)/bundle-version")!
-
-        // Fetch initial version
-        fetchBundleVersion(from: versionURL) { [weak self] version in
-            self?.lastBundleVersion = version
-            print("[ReactRuntime] Initial bundle version: \(version)")
-        }
-
-        // Poll every 2 seconds
-        reloadTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-            self?.checkForBundleUpdate(versionURL: versionURL)
-        }
-    }
-
-    private func checkForBundleUpdate(versionURL: URL) {
-        fetchBundleVersion(from: versionURL) { [weak self] version in
-            guard let self = self, version > 0, version != self.lastBundleVersion else { return }
-            self.lastBundleVersion = version
-            print("[ReactRuntime] Bundle updated (version \(version)), reloading...")
-            self.reload(fullReset: true)
-        }
-    }
-
-    private func fetchBundleVersion(from url: URL, completion: @escaping (Double) -> Void) {
-        URLSession.shared.dataTask(with: url) { data, _, _ in
-            DispatchQueue.main.async {
-                guard let data = data,
-                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                      let version = json["version"] as? Double else {
-                    completion(0)
-                    return
-                }
-                completion(version)
-            }
-        }.resume()
-    }
 }

@@ -35,8 +35,40 @@ wss.on('connection', function onConnection(ws) {
   }
 
   ws.on('message', function onMessage(data) {
+    var text = data.toString();
+    var message;
+    try {
+      message = JSON.parse(text);
+    } catch (e) {
+      return;
+    }
+
+    // Webpack watcher sends notify-reload or notify-refresh after a successful rebuild.
+    // Broadcast the appropriate message to all OTHER connected clients (the app).
+    if (message.type === 'notify-reload') {
+      console.log('[Inspector] Broadcasting reload to ' + (clients.size - 1) + ' app client(s)');
+      var reloadMsg = JSON.stringify({type: 'reload'});
+      for (var client of clients) {
+        if (client !== ws && client.readyState === 1) {
+          client.send(reloadMsg);
+        }
+      }
+      return;
+    }
+
+    if (message.type === 'notify-refresh') {
+      console.log('[Inspector] Broadcasting refresh (' + message.chunks.length + ' chunk(s)) to ' + (clients.size - 1) + ' app client(s)');
+      var refreshMsg = JSON.stringify({type: 'refresh', chunks: message.chunks});
+      for (var client of clients) {
+        if (client !== ws && client.readyState === 1) {
+          client.send(refreshMsg);
+        }
+      }
+      return;
+    }
+
     // Forward app messages (trace-data) to the inspector proxy
-    proxy.handleAppMessage(data.toString());
+    proxy.handleAppMessage(text);
   });
 
   ws.on('close', function onClose() {

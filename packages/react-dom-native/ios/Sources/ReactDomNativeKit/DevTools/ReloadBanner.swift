@@ -1,5 +1,11 @@
 import UIKit
 
+public enum ReloadBannerMode {
+    case serverReload   // Green — SSR/server component reload
+    case reload         // Blue — client render reload
+    case fastRefresh    // Orange — fast refresh (state preserved)
+}
+
 public class ReloadBanner {
     private var bannerWindow: UIWindow?
     private var bannerView: ReloadBannerView?
@@ -14,8 +20,12 @@ public class ReloadBanner {
     private init() {}
 
     public func show(serverRefresh: Bool = false) {
+        show(mode: serverRefresh ? .serverReload : .reload)
+    }
+
+    public func show(mode: ReloadBannerMode) {
         DispatchQueue.main.async { [weak self] in
-            self?.presentBanner(serverRefresh: serverRefresh)
+            self?.presentBanner(mode: mode)
         }
     }
 
@@ -54,11 +64,14 @@ public class ReloadBanner {
         })
     }
 
-    private func presentBanner(serverRefresh: Bool = false) {
-        // If already showing, no-op (but cancel any pending dismiss)
+    private func presentBanner(mode: ReloadBannerMode) {
+        // If already showing a different banner, tear it down so the new one can appear
         if bannerWindow != nil {
+            bannerWindow?.isHidden = true
+            bannerWindow = nil
+            bannerView = nil
+            showTime = nil
             dismissRequested = false
-            return
         }
 
         guard let scene = UIApplication.shared.connectedScenes
@@ -72,7 +85,7 @@ public class ReloadBanner {
         let vc = UIViewController()
         vc.view.backgroundColor = .clear
 
-        let banner = ReloadBannerView(serverRefresh: serverRefresh)
+        let banner = ReloadBannerView(mode: mode)
         banner.translatesAutoresizingMaskIntoConstraints = false
         vc.view.addSubview(banner)
 
@@ -102,20 +115,25 @@ public class ReloadBanner {
 }
 
 private class ReloadBannerView: UIView {
-    init(serverRefresh: Bool) {
+    init(mode: ReloadBannerMode) {
         super.init(frame: .zero)
-        setupUI(serverRefresh: serverRefresh)
+        setupUI(mode: mode)
     }
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
-        setupUI(serverRefresh: false)
+        setupUI(mode: .reload)
     }
 
-    private func setupUI(serverRefresh: Bool) {
-        backgroundColor = serverRefresh
-            ? UIColor(red: 0.13, green: 0.55, blue: 0.13, alpha: 0.92)
-            : UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 0.92)
+    private func setupUI(mode: ReloadBannerMode) {
+        switch mode {
+        case .serverReload:
+            backgroundColor = UIColor(red: 0.13, green: 0.55, blue: 0.13, alpha: 0.92)
+        case .reload:
+            backgroundColor = UIColor(red: 1.0, green: 0.58, blue: 0.0, alpha: 0.92)
+        case .fastRefresh:
+            backgroundColor = UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 0.92)
+        }
         layer.cornerRadius = 10
 
         let spinner = UIActivityIndicatorView(style: .medium)
@@ -124,7 +142,14 @@ private class ReloadBannerView: UIView {
         spinner.translatesAutoresizingMaskIntoConstraints = false
 
         let label = UILabel()
-        label.text = serverRefresh ? "Server refresh" : "Reloading..."
+        switch mode {
+        case .serverReload:
+            label.text = "Server reload"
+        case .reload:
+            label.text = "Reload"
+        case .fastRefresh:
+            label.text = "Fast Refresh"
+        }
         label.font = .systemFont(ofSize: 14, weight: .medium)
         label.textColor = .white
         label.translatesAutoresizingMaskIntoConstraints = false
