@@ -49,6 +49,10 @@ public class ReactRuntime {
     /// Active surfaces: surfaceId -> SurfaceInfo.
     private var activeSurfaces: [Int: SurfaceInfo] = [:]
 
+    /// Active Flight stream clients: responseId -> (client, delegate, session).
+    /// Tracked so we can cancel active streams on unmount/reset.
+    private var activeFlightClients: [Int: (client: FlightStreamClient, delegate: FlightStreamDelegate, session: URLSession)] = [:]
+
     /// Next surface ID to assign (auto-incrementing).
     private var nextSurfaceId: Int = 1
 
@@ -184,25 +188,91 @@ public class ReactRuntime {
 
     // MARK: - Rendering
 
-    /// Triggers CSR rendering for a surface via JS-side renderFromURL.
+    /// Triggers CSR rendering for a surface using a Swift-managed Flight stream.
+    /// Creates a Flight response in JS, sets up the React render pipeline,
+    /// then starts a URLSession stream to parse Flight rows natively.
     internal func renderSurface(surfaceId: Int, serverURL: String) {
+        guard let engine = runtime?.engine else { return }
         activeSurfaces[surfaceId]?.serverURL = serverURL
-        let js = "globalThis.__REACT_DOM_NATIVE__.renderFromURL('\(serverURL)', {surfaceId: \(surfaceId)})"
-        runtime?.engine.evaluate(js)
+
+        // 1. Create a Flight response in JS
+        guard let createFn = engine.getGlobalProperty("$$createFlightResponse") else { return }
+        guard let responseIdRef = engine.callFunction(createFn, args: [
+            engine.makeString(serverURL)
+        ]) else { return }
+        let responseId = engine.toInt(responseIdRef) ?? 0
+
+        // 2. Set up the React render pipeline (subscribes to root chunk)
+        let js = "globalThis.__REACT_DOM_NATIVE__.renderFromStream(\(surfaceId), \(responseId))"
+        engine.evaluate(js)
+
+        // 3. Start the Flight stream via URLSession
+        startFlightStream(responseId: responseId, serverURL: serverURL, engine: engine)
     }
 
     /// Triggers hydration for a surface with buffered SSR Flight data.
+    /// Creates a Flight response in JS, sets up hydration, then replays
+    /// the buffered Flight rows through the Swift parser.
     internal func hydrateSurface(surfaceId: Int, serverURL: String, ssrData: [String]) throws {
+        guard let engine = runtime?.engine else {
+            throw RootError.runtimeNotInitialized
+        }
         activeSurfaces[surfaceId]?.serverURL = serverURL
+
         guard !ssrData.isEmpty else {
             throw RootError.hydrationDataMissing
         }
-        guard let jsonData = try? JSONSerialization.data(withJSONObject: ssrData),
-              let jsonString = String(data: jsonData, encoding: .utf8) else {
-            throw RootError.hydrationDataSerializationFailed
+
+        // 1. Create a Flight response in JS
+        guard let createFn = engine.getGlobalProperty("$$createFlightResponse") else {
+            throw RootError.runtimeNotInitialized
         }
-        let js = "globalThis.__REACT_DOM_NATIVE__.hydrateFromSSRData('\(serverURL)', \(jsonString), {surfaceId: \(surfaceId)})"
-        runtime?.engine.evaluate(js)
+        guard let responseIdRef = engine.callFunction(createFn, args: [
+            engine.makeString(serverURL)
+        ]) else {
+            throw RootError.runtimeNotInitialized
+        }
+        let responseId = engine.toInt(responseIdRef) ?? 0
+
+        // 2. Set up the React hydration pipeline
+        let js = "globalThis.__REACT_DOM_NATIVE__.hydrateFromStream(\(surfaceId), \(responseId))"
+        engine.evaluate(js)
+
+        // 3. Replay buffered SSR rows through the Swift parser.
+        // Store the client so it stays alive until async module fetches complete.
+        let client = FlightStreamClient(responseId: responseId, engine: engine, serverURL: serverURL)
+        activeFlightClients[responseId] = (client: client, delegate: FlightStreamDelegate(client: client), session: URLSession.shared)
+        for row in ssrData {
+            client.processString(row + "\n")
+        }
+        client.close()
+    }
+
+    /// Starts a Flight HTTP stream for a given response.
+    private func startFlightStream(responseId: Int, serverURL: String, engine: JSEngine) {
+        guard let url = URL(string: serverURL) else {
+            print("[ReactRuntime] Invalid server URL: \(serverURL)")
+            return
+        }
+
+        let client = FlightStreamClient(responseId: responseId, engine: engine, serverURL: serverURL)
+        let delegate = FlightStreamDelegate(client: client)
+        let session = URLSession(configuration: .default, delegate: delegate, delegateQueue: .main)
+
+        // Track for cleanup
+        activeFlightClients[responseId] = (client: client, delegate: delegate, session: session)
+
+        var request = URLRequest(url: url)
+        request.setValue("text/x-component", forHTTPHeaderField: "Accept")
+        session.dataTask(with: request).resume()
+    }
+
+    /// Cancels all active Flight streams (used during reset/unmount).
+    private func cancelAllFlightStreams() {
+        for (_, entry) in activeFlightClients {
+            entry.session.invalidateAndCancel()
+        }
+        activeFlightClients.removeAll()
     }
 
     // MARK: - Bindings Access
@@ -279,6 +349,8 @@ public class ReactRuntime {
         reloadTimer = nil
 
         // 3. Destroy old runtime
+        FlightStreamClient.clearModuleCache(engine: runtime?.engine)
+        cancelAllFlightStreams()
         runtime = nil
         isBundleLoaded = false
         hasBooted = false

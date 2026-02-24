@@ -1,45 +1,20 @@
 'use strict';
 
 // ---------------------------------------------------------------------------
-// Flight Client Config for Native — On-Demand Module Loading
+// Flight Client Config for Native
 //
 // Implements the interface defined by react-client's
-// ReactFlightClientConfig.custom.js. This config handles string decoding,
-// client/server reference resolution, and on-demand module fetching for a
-// native JavaScriptCore environment.
+// ReactFlightClientConfig.custom.js. This config handles client/server
+// reference resolution for a native JavaScriptCore environment.
 //
-// Client components are NOT pre-bundled. When the Flight stream references
-// a client component, this config fetches it from the server on demand,
-// evaluates the IIFE, and caches the result.
+// Module loading (preloadModule/requireModule) has been moved to Swift
+// (FlightStreamClient.swift) where modules are fetched via URLSession and
+// evaluated via JSEngine.evaluate(code, sourceURL:).
 // ---------------------------------------------------------------------------
-
-// Module cache: url -> {status, value, reason, promise}
-var moduleCache = {};
-
-/**
- * Creates a string decoder for converting binary chunks to strings.
- * TextDecoder is available in modern JavaScriptCore.
- */
-function createStringDecoder() {
-  return new TextDecoder();
-}
-
-/**
- * Decodes a partial binary chunk to string (more data coming).
- */
-function readPartialStringChunk(decoder, buffer) {
-  return decoder.decode(buffer, {stream: true});
-}
-
-/**
- * Decodes the final binary chunk to string (stream complete).
- */
-function readFinalStringChunk(decoder, buffer) {
-  return decoder.decode(buffer);
-}
 
 /**
  * Resolves a client reference from Flight metadata.
+ * Used by Fantom tests which still run the JS-side parser.
  *
  * @param {string} bundlerConfig - Server base URL (e.g. 'http://localhost:6000')
  * @param {object|Array} metadata - Module metadata from I rows
@@ -83,93 +58,6 @@ function resolveServerReference(config, id) {
 }
 
 /**
- * Prepares the environment for a module. No-op for native (no script
- * injection needed).
- */
-function prepareDestinationForModule(moduleLoading, nonce, metadata) {
-  // No-op: no script injection needed in native
-}
-
-/**
- * Starts async loading of a client module. Fetches the module IIFE from
- * the server, evaluates it, and caches the result.
- *
- * @param {object} clientRef - { url, name, id } from resolveClientReference
- * @returns {Promise|null} A thenable if loading, null if already loaded
- */
-function preloadModule(clientRef) {
-  if (!clientRef) return null;
-
-  var url = clientRef.url;
-  var cached = moduleCache[url];
-
-  if (cached) {
-    if (cached.status === 'fulfilled') return null;
-    if (cached.status === 'pending') return cached.promise;
-    if (cached.status === 'rejected') return cached.promise;
-  }
-
-  var entry = {status: 'pending', value: null, reason: null, promise: null, _data: ''};
-  moduleCache[url] = entry;
-
-  entry.promise = new Promise(function(resolve, reject) {
-    $$fetch(url, {}, function(type, payload) {
-      if (type === 'data') {
-        entry._data += payload;
-      } else if (type === 'end') {
-        try {
-          // The module is a self-contained IIFE that assigns to globalThis.__module
-          // e.g.: var __module = (() => { ... return {default: Counter}; })();
-          // Use indirect eval (0, eval)() to execute in global scope so that
-          // `var __module` creates a global variable regardless of calling context.
-          (0, eval)(entry._data);
-          var moduleExports = globalThis.__module;
-          delete globalThis.__module;
-          entry.status = 'fulfilled';
-          entry.value = moduleExports;
-          resolve(moduleExports);
-        } catch (err) {
-          entry.status = 'rejected';
-          entry.reason = err;
-          reject(err);
-        }
-      } else if (type === 'error') {
-        var err = new Error(payload || 'Failed to load module: ' + url);
-        entry.status = 'rejected';
-        entry.reason = err;
-        reject(err);
-      }
-    });
-  });
-
-  return entry.promise;
-}
-
-/**
- * Returns an already-loaded module export. Called after preloadModule
- * has resolved.
- *
- * @param {object} clientRef - { url, name, id } from resolveClientReference
- * @returns {any} The module export
- */
-function requireModule(clientRef) {
-  if (!clientRef) return null;
-
-  var url = clientRef.url;
-  var cached = moduleCache[url];
-
-  if (!cached || cached.status !== 'fulfilled') {
-    throw new Error('Module not loaded: ' + clientRef.id + ' (' + url + ')');
-  }
-
-  var mod = cached.value;
-  if (clientRef.name === 'default' || clientRef.name === '' || clientRef.name === '*') {
-    return mod.default || mod;
-  }
-  return mod[clientRef.name];
-}
-
-/**
  * Handles resource hints (H rows). No-op for native since resource hints
  * like preload, prefetch, etc. are DOM-specific.
  */
@@ -188,16 +76,8 @@ function bindToConsole(methodName, args, badgeName) {
 }
 
 module.exports = {
-  createStringDecoder: createStringDecoder,
-  readPartialStringChunk: readPartialStringChunk,
-  readFinalStringChunk: readFinalStringChunk,
   resolveClientReference: resolveClientReference,
   resolveServerReference: resolveServerReference,
-  prepareDestinationForModule: prepareDestinationForModule,
-  preloadModule: preloadModule,
-  requireModule: requireModule,
   dispatchHint: dispatchHint,
   bindToConsole: bindToConsole,
-  // Testing only
-  _clearModuleCache: function() { moduleCache = {}; },
 };

@@ -23,7 +23,7 @@ var RESOLVED = 'fulfilled';
 var REJECTED = 'rejected';
 
 // ---------------------------------------------------------------------------
-// Parser states for processBinaryChunk state machine
+// Parser states for processStringChunk state machine
 // ---------------------------------------------------------------------------
 var ROW_ID = 0;
 var ROW_TAG = 1;
@@ -386,8 +386,14 @@ function processModelRow(response, id, json) {
 }
 
 /**
- * Processes an Import/Module row (I tag). Resolves the client reference,
- * fetches the module on demand if needed, and stores it in the chunk.
+ * Processes an Import/Module row (I tag).
+ *
+ * In production: 'I' rows are intercepted by the Swift FlightStreamClient
+ * and never reach this function. Module loading is handled natively via
+ * URLSession + JSEngine.evaluate().
+ *
+ * In Fantom tests: 'I' rows are resolved against bundlerConfig.modules
+ * (a test-provided module map).
  */
 function processModuleRow(response, id, json) {
   var metadata = JSON.parse(json);
@@ -396,27 +402,30 @@ function processModuleRow(response, id, json) {
     metadata,
   );
 
-  var preloaded = Config.preloadModule(clientRef);
-
-  if (preloaded !== null && typeof preloaded === 'object' && typeof preloaded.then === 'function') {
-    // Module needs async loading — wait for preload, then resolve chunk
-    preloaded.then(
-      function() {
-        var mod = Config.requireModule(clientRef);
-        var chunk = getOrCreateChunk(response, id);
-        resolveChunk(chunk, mod);
-      },
-      function(error) {
-        var chunk = getOrCreateChunk(response, id);
-        rejectChunk(chunk, error);
+  // Fantom/test path: resolve from bundlerConfig.modules map
+  var modules = response.bundlerConfig && response.bundlerConfig.modules;
+  if (modules) {
+    var mod = modules[clientRef.id];
+    if (mod) {
+      var chunk = getOrCreateChunk(response, id);
+      var exportName = clientRef.name;
+      var exportValue;
+      if (exportName === 'default' || exportName === '' || exportName === '*') {
+        exportValue = mod.default || mod;
+      } else {
+        exportValue = mod[exportName];
       }
-    );
-  } else {
-    // Module already loaded (synchronous)
-    var mod = Config.requireModule(clientRef);
-    var chunk = getOrCreateChunk(response, id);
-    resolveChunk(chunk, mod);
+      resolveChunk(chunk, exportValue);
+      return;
+    }
   }
+
+  // No module available — reject the chunk
+  var chunk = getOrCreateChunk(response, id);
+  rejectChunk(chunk, new Error(
+    'Module not available: ' + clientRef.id +
+    ' (module loading moved to Swift; use bundlerConfig.modules for tests)'
+  ));
 }
 
 /**
@@ -681,24 +690,6 @@ function processStringChunk(response, streamState, text) {
         break;
       }
     }
-  }
-}
-
-/**
- * Processes a binary (Uint8Array) chunk by decoding it to a string
- * and feeding it through the string parser.
- *
- * @param {object} response - The Flight response state
- * @param {object} streamState - The parser state
- * @param {Uint8Array} chunk - Binary data chunk
- */
-function processBinaryChunk(response, streamState, chunk) {
-  if (!streamState._decoder) {
-    streamState._decoder = Config.createStringDecoder();
-  }
-  var text = Config.readPartialStringChunk(streamState._decoder, chunk);
-  if (text) {
-    processStringChunk(response, streamState, text);
   }
 }
 
@@ -1090,116 +1081,26 @@ function reportGlobalError(response, error) {
 
 // ---------------------------------------------------------------------------
 // High-level API: createFromStream, createFromFetch
+//
+// REMOVED: Stream parsing and HTTP streaming moved to Swift
+// (FlightStreamClient.swift + FlightStreamDelegate.swift).
+// The processStringChunk parser is kept for Fantom tests which run in
+// Node.js (not JSC) and still need the JS-side parser.
 // ---------------------------------------------------------------------------
 
-/**
- * Creates a Flight response from a bridge-provided stream object.
- * The stream must have onChunk(cb), onDone(cb), and onError(cb) methods.
- *
- * @param {object} stream - Stream with onChunk/onDone/onError
- * @param {object} [options] - Options
- * @param {string} [options.serverURL] - Server base URL for on-demand module loading
- * @returns {Thenable} A thenable that resolves to the root element
- */
-function createFromStream(stream, options) {
-  if (!options) options = {};
-  var bundlerConfig = options.serverURL || '';
-  var response = createResponse(bundlerConfig, options);
-  var streamState = createStreamState();
-
-  stream.onChunk(function (chunk) {
-    if (chunk instanceof Uint8Array) {
-      processBinaryChunk(response, streamState, chunk);
-    } else if (typeof chunk === 'string') {
-      processStringChunk(response, streamState, chunk);
-    }
-  });
-
-  stream.onDone(function () {
-    // Flush any remaining partial data from the decoder
-    if (streamState._decoder) {
-      var remaining = Config.readFinalStringChunk(
-        streamState._decoder,
-        new Uint8Array(0),
-      );
-      if (remaining) {
-        processStringChunk(response, streamState, remaining);
-      }
-    }
-    close(response);
-  });
-
-  stream.onError(function (error) {
-    reportGlobalError(response, error);
-  });
-
-  return getRoot(response);
-}
-
-/**
- * Creates a Flight response from a bridge fetch promise.
- * The promise should resolve to a stream object.
- *
- * @param {Promise<Stream>} fetchPromise - Promise resolving to a stream
- * @param {object} [options] - Options
- * @param {string} [options.serverURL] - Server base URL for on-demand module loading
- * @returns {Thenable} A thenable that resolves to the root element
- */
-function createFromFetch(fetchPromise, options) {
-  if (!options) options = {};
-  var bundlerConfig = options.serverURL || '';
-  var response = createResponse(bundlerConfig, options);
-  var streamState = createStreamState();
-
-  fetchPromise.then(
-    function onStream(stream) {
-      stream.onChunk(function (chunk) {
-        if (chunk instanceof Uint8Array) {
-          processBinaryChunk(response, streamState, chunk);
-        } else if (typeof chunk === 'string') {
-          processStringChunk(response, streamState, chunk);
-        }
-      });
-
-      stream.onDone(function () {
-        if (streamState._decoder) {
-          var remaining = Config.readFinalStringChunk(
-            streamState._decoder,
-            new Uint8Array(0),
-          );
-          if (remaining) {
-            processStringChunk(response, streamState, remaining);
-          }
-        }
-        close(response);
-      });
-
-      stream.onError(function (error) {
-        console.error('[Flight] Stream error:', error);
-        reportGlobalError(response, error);
-      });
-    },
-    function onError(error) {
-      console.error('[Flight] Fetch error:', error);
-      reportGlobalError(response, error);
-    },
-  );
-
-  return getRoot(response);
-}
-
 module.exports = {
-  // Low-level API
+  // Low-level API (kept for Fantom tests + bridge globals)
   createResponse: createResponse,
   createStreamState: createStreamState,
   processStringChunk: processStringChunk,
-  processBinaryChunk: processBinaryChunk,
   getRoot: getRoot,
   close: close,
   reportGlobalError: reportGlobalError,
-  // High-level API
-  createFromStream: createFromStream,
-  createFromFetch: createFromFetch,
+  // Chunk management (used by bridge globals in entry.js)
+  processRow: processRow,
+  getOrCreateChunk: getOrCreateChunk,
+  resolveChunk: resolveChunk,
+  rejectChunk: rejectChunk,
   // Internals (exported for testing)
   _processRow: processRow,
   _createPendingChunk: createPendingChunk,

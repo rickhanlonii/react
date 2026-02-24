@@ -13,8 +13,6 @@ var mockFetch = jest.fn();
 beforeEach(function () {
   mockFetch.mockReset();
   global.$$fetch = mockFetch;
-  // Clear module cache between tests to prevent pollution
-  config._clearModuleCache();
 });
 
 afterEach(function () {
@@ -74,31 +72,6 @@ function resolveChunk(chunk) {
 // Config tests
 // ===========================================================================
 describe('Flight Client Config', function () {
-  describe('createStringDecoder', function () {
-    it('returns a TextDecoder instance', function () {
-      var decoder = config.createStringDecoder();
-      expect(decoder).toBeInstanceOf(TextDecoder);
-    });
-  });
-
-  describe('readPartialStringChunk', function () {
-    it('decodes a Uint8Array to string with streaming', function () {
-      var decoder = config.createStringDecoder();
-      var chunk = encode('Hello');
-      var result = config.readPartialStringChunk(decoder, chunk);
-      expect(result).toBe('Hello');
-    });
-  });
-
-  describe('readFinalStringChunk', function () {
-    it('decodes a final Uint8Array to string', function () {
-      var decoder = config.createStringDecoder();
-      var chunk = encode(' World');
-      var result = config.readFinalStringChunk(decoder, chunk);
-      expect(result).toBe(' World');
-    });
-  });
-
   describe('resolveClientReference', function () {
     it('resolves metadata to a fetchable URL with array format', function () {
       var bundlerConfig = 'http://localhost:6000';
@@ -138,18 +111,6 @@ describe('Flight Client Config', function () {
     });
   });
 
-  describe('requireModule', function () {
-    it('returns null for null reference', function () {
-      expect(config.requireModule(null)).toBeNull();
-    });
-
-    it('throws for module not in cache', function () {
-      expect(function () {
-        config.requireModule({url: '/modules/NotCached.js', name: 'default', id: 'NotCached'});
-      }).toThrow('Module not loaded');
-    });
-  });
-
   describe('resolveClientReference — webpack object format', function () {
     it('resolves metadata as {id, chunks, name} object', function () {
       var metadata = {id: 'Counter', chunks: [], name: 'default'};
@@ -164,55 +125,6 @@ describe('Flight Client Config', function () {
       var metadata = {id: 'Unknown', chunks: [], name: 'default'};
       var ref = config.resolveClientReference('http://localhost:6000', metadata);
       expect(ref.url).toBe('http://localhost:6000/modules/Unknown.js');
-    });
-  });
-
-  describe('preloadModule', function () {
-    it('returns null for null reference', function () {
-      expect(config.preloadModule(null)).toBeNull();
-    });
-
-    it('fetches module from server and caches result', function (done) {
-      var moduleCode = 'var __module = (function() { return {default: function MyComp() {}}; })();';
-      mockFetch.mockImplementation(function (url, headers, callback) {
-        callback('data', moduleCode);
-        callback('end', '');
-      });
-
-      var clientRef = {url: 'http://localhost:6000/modules/MyComp.js', name: 'default', id: 'MyComp'};
-      var result = config.preloadModule(clientRef);
-      expect(result).not.toBeNull();
-      expect(typeof result.then).toBe('function');
-
-      result.then(function () {
-        // After preload, requireModule should return the component
-        var mod = config.requireModule(clientRef);
-        expect(typeof mod).toBe('function');
-        done();
-      });
-    });
-
-    it('returns null for already-loaded module', function (done) {
-      var moduleCode = 'var __module = (function() { return {default: function Cached() {}}; })();';
-      mockFetch.mockImplementation(function (url, headers, callback) {
-        callback('data', moduleCode);
-        callback('end', '');
-      });
-
-      var clientRef = {url: 'http://localhost:6000/modules/Cached.js', name: 'default', id: 'Cached'};
-      var firstLoad = config.preloadModule(clientRef);
-      firstLoad.then(function () {
-        // Second call should return null (already cached)
-        expect(config.preloadModule(clientRef)).toBeNull();
-        done();
-      });
-    });
-  });
-
-  describe('prepareDestinationForModule', function () {
-    it('is a no-op', function () {
-      // Should not throw
-      config.prepareDestinationForModule(null, null, null);
     });
   });
 
@@ -461,19 +373,21 @@ describe('Flight Client Parser', function () {
   // Client references (I rows)
   // -----------------------------------------------------------------------
   describe('client references (I rows)', function () {
-    it('resolves a client component module via I row (async)', function (done) {
+    it('resolves a client component module via I row', function () {
       var CounterComponent = function Counter() {};
-      var moduleCode = 'var __module = (function() { return {default: ' + CounterComponent.toString() + '}; })();';
-      mockFetch.mockImplementation(function (url, headers, callback) {
-        callback('data', moduleCode);
-        callback('end', '');
-      });
+
+      // Use bundlerConfig.modules map (test/Fantom path)
+      var bundlerConfig = {
+        modules: {
+          Counter: { default: CounterComponent },
+        },
+      };
 
       var payload =
         '1:I["Counter",[],"default"]\n' +
         '0:["$","$L1",null,{"count":0}]\n';
 
-      var response = client.createResponse('http://localhost:6000');
+      var response = client.createResponse(bundlerConfig);
       var streamState = client.createStreamState();
       client.processStringChunk(response, streamState, payload);
       client.close(response);
@@ -481,35 +395,32 @@ describe('Flight Client Parser', function () {
       var root = client.getRoot(response);
       expect(root.status).toBe('fulfilled');
 
-      // Chunk 1 resolves async after module loads
+      // Chunk 1 resolves synchronously from modules map
       var chunk1 = client._getOrCreateChunk(response, 1);
-      chunk1.then(function (value) {
-        expect(typeof value).toBe('function');
-        done();
-      });
+      expect(chunk1.status).toBe('fulfilled');
+      expect(chunk1.value).toBe(CounterComponent);
     });
 
-    it('resolves I row to named export (async)', function (done) {
+    it('resolves I row to named export', function () {
       var SearchInput = function SearchInput() {};
-      var moduleCode = 'var __module = (function() { return {SearchInput: ' + SearchInput.toString() + '}; })();';
-      mockFetch.mockImplementation(function (url, headers, callback) {
-        callback('data', moduleCode);
-        callback('end', '');
-      });
+
+      var bundlerConfig = {
+        modules: {
+          SearchInput: { SearchInput: SearchInput },
+        },
+      };
 
       var payload =
         '1:I["SearchInput",[],"SearchInput"]\n';
 
-      var response = client.createResponse('http://localhost:6000');
+      var response = client.createResponse(bundlerConfig);
       var streamState = client.createStreamState();
       client.processStringChunk(response, streamState, payload);
       client.close(response);
 
       var chunk = client._getOrCreateChunk(response, 1);
-      chunk.then(function (value) {
-        expect(typeof value).toBe('function');
-        done();
-      });
+      expect(chunk.status).toBe('fulfilled');
+      expect(chunk.value).toBe(SearchInput);
     });
   });
 
@@ -639,22 +550,6 @@ describe('Flight Client Parser', function () {
       expect(root.value.a).toEqual({text: 'first'});
       expect(root.value.b).toEqual({text: 'second'});
     });
-
-    it('handles binary chunks via processBinaryChunk', function () {
-      var response = client.createResponse('');
-      var streamState = client.createStreamState();
-
-      var chunk = encode('0:["$","p",null,{"children":"Binary!"}]\n');
-      client.processBinaryChunk(response, streamState, chunk);
-      client.close(response);
-
-      var root = client.getRoot(response);
-      expect(root.status).toBe('fulfilled');
-      expect(root.value.type).toBe('p');
-      expect(root.value.props.children).toBe('Binary!');
-    });
-  });
-
   // -----------------------------------------------------------------------
   // reportGlobalError
   // -----------------------------------------------------------------------
@@ -1257,251 +1152,13 @@ describe('Flight Client Parser', function () {
       delete console.timeStamp;
     });
   });
-});
-
-// ===========================================================================
-// High-level API tests (createFromStream / createFromFetch)
-// ===========================================================================
-describe('createFromStream', function () {
-  it('parses a stream and returns root element', function (done) {
-    var stream = http.createStream();
-
-    var root = client.createFromStream(stream, {serverURL: ''});
-
-    root.then(function (value) {
-      expect(value.type).toBe('div');
-      expect(value.props.children).toBe('Hello');
-      done();
-    });
-
-    // Emit data
-    var chunk = encode('0:["$","div",null,{"children":"Hello"}]\n');
-    stream._emitChunk(chunk);
-    stream._emitDone();
-  });
-
-  it('handles string chunks', function (done) {
-    var stream = http.createStream();
-
-    var root = client.createFromStream(stream, {serverURL: ''});
-
-    root.then(function (value) {
-      expect(value).toBe('test');
-      done();
-    });
-
-    // Emit as string
-    stream._emitChunk('0:"test"\n');
-    stream._emitDone();
-  });
-
-  it('rejects on stream error', function (done) {
-    var stream = http.createStream();
-
-    var root = client.createFromStream(stream, {serverURL: ''});
-
-    root.then(
-      function () {
-        done(new Error('Should not resolve'));
-      },
-      function (err) {
-        expect(err.message).toBe('Stream failed');
-        done();
-      },
-    );
-
-    stream._emitError(new Error('Stream failed'));
-  });
-
-  it('resolves client references via on-demand module loading', function (done) {
-    var MyButton = function MyButton() {};
-    var moduleCode = 'var __module = (function() { return {default: ' + MyButton.toString() + '}; })();';
-    mockFetch.mockImplementation(function (url, headers, callback) {
-      if (url.indexOf('/modules/') !== -1) {
-        callback('data', moduleCode);
-        callback('end', '');
-      }
-    });
-
-    var stream = http.createStream();
-    var root = client.createFromStream(stream, {serverURL: 'http://localhost:6000'});
-
-    root.then(function (value) {
-      // Root is a div, whose child is a lazy reference to chunk 1
-      expect(value.type).toBe('div');
-      done();
-    });
-
-    var payload =
-      '1:I["my-button-module",[],"default"]\n' +
-      '0:["$","div",null,{"children":"$L1"}]\n';
-    stream._emitChunk(encode(payload));
-    stream._emitDone();
-  });
-});
-
-describe('createFromFetch', function () {
-  it('handles resolved fetch promise', function (done) {
-    var stream = http.createStream();
-    var fetchPromise = Promise.resolve(stream);
-
-    var root = client.createFromFetch(fetchPromise, {serverURL: ''});
-
-    root.then(function (value) {
-      expect(value).toBe('fetched');
-      done();
-    });
-
-    // Need to wait for the promise to resolve before emitting
-    fetchPromise.then(function () {
-      stream._emitChunk(encode('0:"fetched"\n'));
-      stream._emitDone();
-    });
-  });
-
-  it('handles rejected fetch promise', function (done) {
-    var fetchPromise = Promise.reject(new Error('Fetch failed'));
-
-    var root = client.createFromFetch(fetchPromise, {serverURL: ''});
-
-    // The root chunk should be rejected
-    // Need to give the promise time to reject
-    setTimeout(function () {
-      root.then(
-        function () {
-          done(new Error('Should not resolve'));
-        },
-        function (err) {
-          expect(err.message).toBe('Fetch failed');
-          done();
-        },
-      );
-    }, 10);
   });
 });
 
 // ===========================================================================
 // HTTP layer tests
 // ===========================================================================
-describe('HTTP layer', function () {
-  describe('fetchRSC', function () {
-    it('calls $$fetch with RSC headers', function () {
-      http.fetchRSC('/page');
-
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-      var args = mockFetch.mock.calls[0];
-      expect(args[0]).toBe('/page');
-      // Check headers
-      var headers = args[1];
-      expect(headers.RSC).toBe('1');
-      expect(headers['Next-URL']).toBe('/page');
-      expect(JSON.parse(headers['Next-Router-State-Tree'])).toEqual(['']);
-    });
-
-    it('includes custom headers', function () {
-      http.fetchRSC('/page', {
-        headers: {'X-Custom': 'value'},
-      });
-
-      var headers = mockFetch.mock.calls[0][1];
-      expect(headers['X-Custom']).toBe('value');
-      expect(headers.RSC).toBe('1');
-    });
-
-    it('includes custom router state tree', function () {
-      http.fetchRSC('/page', {
-        routerStateTree: ['app', {segment: 'page'}],
-      });
-
-      var headers = mockFetch.mock.calls[0][1];
-      expect(JSON.parse(headers['Next-Router-State-Tree'])).toEqual([
-        'app',
-        {segment: 'page'},
-      ]);
-    });
-
-    it('resolves with a stream on data callback', function (done) {
-      mockFetch.mockImplementation(function (url, headers, callback) {
-        callback('data', '0:"hello"\n');
-      });
-
-      http.fetchRSC('/page').then(function (stream) {
-        expect(stream).toBeDefined();
-        expect(typeof stream.onChunk).toBe('function');
-        expect(typeof stream.onDone).toBe('function');
-        expect(typeof stream.onError).toBe('function');
-        done();
-      });
-    });
-
-    it('rejects on error callback before data', function (done) {
-      mockFetch.mockImplementation(function (url, headers, callback) {
-        callback('error', 'Network error');
-      });
-
-      http.fetchRSC('/page').catch(function (err) {
-        expect(err.message).toBe('Network error');
-        done();
-      });
-    });
-
-    it('emits chunks to registered listeners', function (done) {
-      var savedCallback;
-      mockFetch.mockImplementation(function (url, headers, callback) {
-        savedCallback = callback;
-        // First call triggers resolve
-        callback('data', 'first');
-      });
-
-      http.fetchRSC('/page').then(function (stream) {
-        var chunks = [];
-        stream.onChunk(function (chunk) {
-          // chunk is a Uint8Array
-          chunks.push(new TextDecoder().decode(chunk));
-        });
-
-        // Emit more data
-        savedCallback('data', 'second');
-
-        // onChunk replays buffered chunks, so both are captured
-        expect(chunks).toEqual(['first', 'second']);
-        done();
-      });
-    });
-
-    it('emits done to registered listeners', function (done) {
-      var savedCallback;
-      mockFetch.mockImplementation(function (url, headers, callback) {
-        savedCallback = callback;
-        callback('data', 'data');
-      });
-
-      http.fetchRSC('/page').then(function (stream) {
-        stream.onDone(function () {
-          done();
-        });
-        savedCallback('end', '');
-      });
-    });
-
-    it('emits error to registered listeners after resolve', function (done) {
-      var savedCallback;
-      mockFetch.mockImplementation(function (url, headers, callback) {
-        savedCallback = callback;
-        callback('data', 'data');
-      });
-
-      http.fetchRSC('/page').then(function (stream) {
-        stream.onError(function (err) {
-          expect(err.message).toBe('Late error');
-          done();
-        });
-        savedCallback('error', 'Late error');
-      });
-    });
-  });
-
-  describe('callServer', function () {
+describe('HTTP layer', function () {  describe('callServer', function () {
     it('calls $$fetch with action headers', function () {
       http.callServer('action-123', [], {
         url: '/page',
@@ -1607,18 +1264,11 @@ describe('end-to-end integration', function () {
     expect(p.props.children).toBe('Welcome to the app');
   });
 
-  it('parses a Flight payload with client component references (async)', function (done) {
-    var Counter = function Counter() {};
-    var moduleCode = 'var __module = (function() { return {default: ' + Counter.toString() + '}; })();';
-    mockFetch.mockImplementation(function (url, headers, callback) {
-      if (url.indexOf('/modules/') !== -1) {
-        callback('data', moduleCode);
-        callback('end', '');
-      }
-    });
-
+  it('parses a Flight payload with client component references (module row)', function () {
+    // Module rows ('I') are now handled by Swift in production.
+    // In test context, processModuleRow rejects since no bundlerConfig.modules map.
     var payload =
-      '1:I["Counter",[],"default"]\n' +
+      '1:I{"id":"Counter","chunks":[],"name":"default"}\n' +
       '0:["$","div",null,{"children":"$L1"}]\n';
 
     var response = client.createResponse('http://localhost:6000');
@@ -1635,25 +1285,38 @@ describe('end-to-end integration', function () {
     var lazy = div.props.children;
     expect(lazy.$$typeof).toBe(Symbol.for('react.lazy'));
 
-    // Chunk 1 resolves async — wait for it
+    // Chunk 1 should be rejected (no module map provided)
     var chunk1 = client._getOrCreateChunk(response, 1);
-    chunk1.then(function (value) {
-      // Now initializing the lazy should return the Counter component
-      var resolved = lazy._init(lazy._payload);
-      expect(typeof resolved).toBe('function');
-      done();
-    });
+    expect(chunk1.status).toBe('rejected');
+  });
+
+  it('resolves module rows via bundlerConfig.modules map', function () {
+    var Counter = function Counter() {};
+    var payload =
+      '1:I{"id":"Counter","chunks":[],"name":"default"}\n' +
+      '0:["$","div",null,{"children":"$L1"}]\n';
+
+    var response = client.createResponse({modules: {Counter: {default: Counter}}});
+    var streamState = client.createStreamState();
+    client.processStringChunk(response, streamState, payload);
+    client.close(response);
+
+    var root = client.getRoot(response);
+    expect(root.status).toBe('fulfilled');
+
+    var chunk1 = client._getOrCreateChunk(response, 1);
+    expect(chunk1.status).toBe('fulfilled');
+    expect(chunk1.value).toBe(Counter);
   });
 
   it('simulates progressive streaming with Suspense-like behavior', function (done) {
-    var stream = http.createStream();
-    var root = client.createFromStream(stream, {serverURL: ''});
+    var response = client.createResponse('');
+    var streamState = client.createStreamState();
 
     // First: send root with a lazy reference
-    stream._emitChunk(
-      encode('0:["$","div",null,{"children":"$L1"}]\n'),
-    );
+    client.processStringChunk(response, streamState, '0:["$","div",null,{"children":"$L1"}]\n');
 
+    var root = client.getRoot(response);
     root.then(function (value) {
       expect(value.type).toBe('div');
 
@@ -1681,12 +1344,10 @@ describe('end-to-end integration', function () {
         });
 
         // Later: send the async content
-        stream._emitChunk(
-          encode(
-            '1:["$","span",null,{"children":"Async content"}]\n',
-          ),
+        client.processStringChunk(response, streamState,
+          '1:["$","span",null,{"children":"Async content"}]\n',
         );
-        stream._emitDone();
+        client.close(response);
       }
     });
   });
