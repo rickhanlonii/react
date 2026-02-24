@@ -5,10 +5,8 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '../..');
-const BUNDLE_PATH = path.resolve(
-  ROOT,
-  '../packages/react-dom-native/ios/Sources/ReactDomNativeKit/Resources/bundle.js',
-);
+const BUILD_DIR = path.resolve(ROOT, 'build');
+const BUNDLE_PATH = path.resolve(BUILD_DIR, 'bundle.js');
 
 describe('JS build system', () => {
   beforeAll(() => {

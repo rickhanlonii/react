@@ -17,7 +17,6 @@ beforeEach(function () {
 
 afterEach(function () {
   delete global.$$fetch;
-  delete globalThis.__module;
 });
 
 var client = require('../client');

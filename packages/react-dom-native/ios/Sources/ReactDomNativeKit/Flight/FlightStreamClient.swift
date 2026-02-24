@@ -9,9 +9,10 @@ import JSEngine
 // `<hex_id>:<tag><data>\n` and dispatches them to the JS Flight client via
 // bridge globals ($$processFlightRow, $$resolveFlightModule, etc.).
 //
-// For module ('I') rows, the module is fetched and evaluated natively via
-// URLSession + JSEngine.evaluate(code, sourceURL:), matching how browsers
-// handle <script> tags during SSR.
+// For module ('I') rows, webpack chunk files are fetched via URLSession and
+// evaluated in JSC. Each chunk self-registers its modules via the webpack
+// JSONP push handler. After all chunks for a module are loaded,
+// $$webpackRequire(moduleId, exportName) resolves the module exports.
 // ---------------------------------------------------------------------------
 
 /// Parses a Flight byte stream and dispatches rows to JS via bridge globals.
@@ -50,26 +51,16 @@ class FlightStreamClient {
         "T", "A", "O", "o", "b", "U", "S", "s", "L", "l", "G", "g", "M", "m", "V"
     ]
 
-    // MARK: - Module Cache
+    // MARK: - Chunk Cache
 
-    /// Shared module cache across all FlightStreamClient instances.
-    /// Survives individual stream lifetimes but cleared on full reset.
-    enum ModuleCacheEntry {
-        case pending(callbacks: [(Result<JSValueRef, Error>) -> Void])
-        case resolved(exports: JSValueRef)
-        case rejected(error: Error)
-    }
+    /// Set of chunk URLs that have been fetched and evaluated.
+    /// Webpack chunks self-register their modules when evaluated, so we only
+    /// need to track which chunks have been loaded to avoid re-fetching.
+    private static var loadedChunks: Set<String> = []
 
-    private static var moduleCache: [String: ModuleCacheEntry] = [:]
-
-    /// Clears the module cache. Called during ReactRuntime.performFullReset().
+    /// Clears the chunk cache. Called during ReactRuntime.performFullReset().
     static func clearModuleCache(engine: JSEngine?) {
-        for (_, entry) in moduleCache {
-            if case .resolved(let exports) = entry {
-                engine?.unprotect(exports)
-            }
-        }
-        moduleCache.removeAll()
+        loadedChunks.removeAll()
     }
 
     // MARK: - Init
@@ -239,14 +230,20 @@ class FlightStreamClient {
         ])
     }
 
-    /// Handles an 'I' (module) row: parse metadata, fetch + evaluate module.
+    /// Handles an 'I' (module) row: parse metadata, fetch webpack chunks, resolve module.
+    ///
+    /// Webpack metadata format:
+    ///   Array:  [moduleId, [chunkId, chunkFilename, ...], exportName]
+    ///   Object: {id: moduleId, chunks: [chunkId, chunkFilename, ...], name: exportName}
+    ///
+    /// The chunks array is double-indexed: [chunkId, filename, chunkId, filename, ...].
+    /// Each chunk file is fetched and evaluated — it self-registers its modules in the
+    /// webpack runtime via the JSONP push handler. After all chunks are loaded, we call
+    /// $$webpackRequire(moduleId, exportName) to get the resolved module exports.
     private func processModuleRow(id: Int, data: String) {
         guard let engine = engine else { return }
 
-        // Parse metadata JSON to extract moduleId and exportName.
-        // Two formats are used by the Flight protocol:
-        //   Array:  ["moduleId", chunks, "exportName"]
-        //   Object: {"id": "moduleId", "chunks": [], "name": "exportName"}
+        // Parse metadata JSON
         guard let jsonData = data.data(using: .utf8),
               let parsed = try? JSONSerialization.jsonObject(with: jsonData) else {
             rejectModule(chunkId: id, errorMessage: "Failed to parse module metadata: \(data)")
@@ -255,16 +252,21 @@ class FlightStreamClient {
 
         let moduleId: String
         let exportName: String
+        var chunkFilenames: [String] = []
 
         if let arr = parsed as? [Any] {
             // Array format: [moduleId, chunks, exportName]
-            guard let mid = arr[0] as? String else {
-                rejectModule(chunkId: id, errorMessage: "Missing module id in array metadata: \(data)")
-                return
-            }
-            moduleId = mid
+            moduleId = "\(arr[0])"
             let name = (arr.count > 2 ? arr[2] as? String : nil) ?? "default"
             exportName = name.isEmpty ? "default" : name
+            if arr.count > 1, let chunks = arr[1] as? [Any] {
+                // Double-indexed: [chunkId, filename, chunkId, filename, ...]
+                for i in stride(from: 1, to: chunks.count, by: 2) {
+                    if let filename = chunks[i] as? String {
+                        chunkFilenames.append(filename)
+                    }
+                }
+            }
         } else if let dict = parsed as? [String: Any] {
             // Object format: {id, chunks, name}
             if let mid = dict["id"] as? String {
@@ -276,133 +278,106 @@ class FlightStreamClient {
                 return
             }
             exportName = (dict["name"] as? String) ?? "default"
+            if let chunks = dict["chunks"] as? [Any] {
+                for i in stride(from: 1, to: chunks.count, by: 2) {
+                    if let filename = chunks[i] as? String {
+                        chunkFilenames.append(filename)
+                    }
+                }
+            }
         } else {
             rejectModule(chunkId: id, errorMessage: "Unexpected metadata format: \(data)")
             return
         }
 
-        let moduleURL = "\(serverOrigin)/modules/\(moduleId).js"
-
-        // Check static module cache
-        if let cached = Self.moduleCache[moduleURL] {
-            switch cached {
-            case .resolved(let exports):
-                // Already loaded — resolve immediately
-                resolveModule(chunkId: id, exports: exports, exportName: exportName)
-                return
-
-            case .pending(var callbacks):
-                // Loading in progress — queue callback
-                callbacks.append { [weak self] result in
-                    guard let self = self else { return }
-                    switch result {
-                    case .success(let exports):
-                        self.resolveModule(chunkId: id, exports: exports, exportName: exportName)
-                    case .failure(let error):
-                        self.rejectModule(chunkId: id, errorMessage: error.localizedDescription)
-                    }
-                }
-                Self.moduleCache[moduleURL] = .pending(callbacks: callbacks)
-                return
-
-            case .rejected(let error):
-                rejectModule(chunkId: id, errorMessage: error.localizedDescription)
-                return
-            }
-        }
-
-        // Not cached — start fetch
-        Self.moduleCache[moduleURL] = .pending(callbacks: [{ [weak self] result in
+        // Load all chunks, then resolve the module via $$webpackRequire
+        loadChunks(chunkFilenames: chunkFilenames) { [weak self] result in
             guard let self = self else { return }
             switch result {
-            case .success(let exports):
-                self.resolveModule(chunkId: id, exports: exports, exportName: exportName)
+            case .success:
+                self.resolveWebpackModule(chunkId: id, moduleId: moduleId, exportName: exportName)
             case .failure(let error):
                 self.rejectModule(chunkId: id, errorMessage: error.localizedDescription)
             }
-        }])
+        }
+    }
 
-        guard let url = URL(string: moduleURL) else {
-            completeModuleFetch(moduleURL: moduleURL, result: .failure(
-                NSError(domain: "FlightStreamClient", code: -1, userInfo: [
-                    NSLocalizedDescriptionKey: "Invalid module URL: \(moduleURL)"
-                ])
-            ))
+    /// Loads webpack chunk files by fetching and evaluating them.
+    /// Each chunk self-registers its modules in the webpack runtime when evaluated.
+    private func loadChunks(chunkFilenames: [String], completion: @escaping (Result<Void, Error>) -> Void) {
+        guard !chunkFilenames.isEmpty else {
+            completion(.success(()))
             return
         }
 
-        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
+        let group = DispatchGroup()
+        var firstError: Error?
 
-                if let error = error {
-                    self.completeModuleFetch(moduleURL: moduleURL, result: .failure(error))
-                    return
-                }
+        for filename in chunkFilenames {
+            let chunkURL = "\(serverOrigin)/\(filename)"
 
-                guard let data = data,
-                      let code = String(data: data, encoding: .utf8) else {
-                    self.completeModuleFetch(moduleURL: moduleURL, result: .failure(
-                        NSError(domain: "FlightStreamClient", code: -2, userInfo: [
-                            NSLocalizedDescriptionKey: "Invalid module data from \(moduleURL)"
-                        ])
-                    ))
-                    return
-                }
-
-                guard let engine = self.engine else { return }
-
-                // Evaluate the module IIFE via JSEngine (not JS eval)
-                // Module assigns to globalThis.__module
-                engine.evaluate(code, sourceURL: url)
-
-                guard let exports = engine.getGlobalProperty("__module") else {
-                    self.completeModuleFetch(moduleURL: moduleURL, result: .failure(
-                        NSError(domain: "FlightStreamClient", code: -3, userInfo: [
-                            NSLocalizedDescriptionKey: "Module did not export __module: \(moduleURL)"
-                        ])
-                    ))
-                    return
-                }
-
-                // Clean up the global
-                engine.evaluate("delete globalThis.__module")
-
-                // Protect the exports from GC
-                engine.protect(exports)
-
-                self.completeModuleFetch(moduleURL: moduleURL, result: .success(exports))
+            // Skip already-loaded chunks
+            if Self.loadedChunks.contains(chunkURL) {
+                continue
             }
-        }.resume()
+
+            group.enter()
+            guard let url = URL(string: chunkURL) else {
+                group.leave()
+                continue
+            }
+
+            URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
+                DispatchQueue.main.async {
+                    defer { group.leave() }
+                    guard let self = self, let engine = self.engine else { return }
+
+                    if let error = error {
+                        if firstError == nil { firstError = error }
+                        return
+                    }
+
+                    guard let data = data, let code = String(data: data, encoding: .utf8) else {
+                        return
+                    }
+
+                    // Evaluate the chunk — it self-registers via JSONP push:
+                    // globalThis["webpackChunkfalcon"].push([...])
+                    engine.evaluate(code, sourceURL: url)
+                    Self.loadedChunks.insert(chunkURL)
+                }
+            }.resume()
+        }
+
+        group.notify(queue: .main) {
+            if let error = firstError {
+                completion(.failure(error))
+            } else {
+                completion(.success(()))
+            }
+        }
     }
 
-    /// Completes a module fetch, updating the cache and notifying all waiters.
-    private func completeModuleFetch(moduleURL: String, result: Result<JSValueRef, Error>) {
-        // Extract pending callbacks before updating cache
-        var callbacks: [(Result<JSValueRef, Error>) -> Void] = []
-        if case .pending(let pending) = Self.moduleCache[moduleURL] {
-            callbacks = pending
-        }
-
-        // Update cache
-        switch result {
-        case .success(let exports):
-            Self.moduleCache[moduleURL] = .resolved(exports: exports)
-        case .failure(let error):
-            Self.moduleCache[moduleURL] = .rejected(error: error)
-        }
-
-        // Notify all waiters
-        for callback in callbacks {
-            callback(result)
-        }
-    }
-
-    /// Resolves a module chunk via $$resolveFlightModule bridge global.
-    private func resolveModule(chunkId: Int, exports: JSValueRef, exportName: String) {
+    /// Resolves a webpack module after its chunks have been loaded.
+    /// Calls $$webpackRequire(moduleId, exportName) to get the module exports.
+    private func resolveWebpackModule(chunkId: Int, moduleId: String, exportName: String) {
         guard let engine = engine else { return }
-        guard let fn = engine.getGlobalProperty("$$resolveFlightModule") else { return }
-        _ = engine.callFunction(fn, args: [
+        guard let fn = engine.getGlobalProperty("$$webpackRequire") else {
+            rejectModule(chunkId: chunkId, errorMessage: "$$webpackRequire not available")
+            return
+        }
+
+        guard let exports = engine.callFunction(fn, args: [
+            engine.makeString(moduleId),
+            engine.makeString(exportName)
+        ]) else {
+            rejectModule(chunkId: chunkId, errorMessage: "$$webpackRequire returned nil for \(moduleId)")
+            return
+        }
+
+        // Resolve the Flight chunk with the module exports
+        guard let resolveFn = engine.getGlobalProperty("$$resolveFlightModule") else { return }
+        _ = engine.callFunction(resolveFn, args: [
             engine.makeNumber(Double(responseId)),
             engine.makeNumber(Double(chunkId)),
             exports,

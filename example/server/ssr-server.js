@@ -28,34 +28,52 @@ var PORT = 6001;
 var FLIGHT_SERVER = 'http://localhost:6000';
 
 // __webpack_require__ — the Flight client calls this to resolve client
-// component modules from I rows. In this SSR process, we simply require
-// the actual component file (babel handles JSX, 'use client' is harmless).
-var COMPONENTS_DIR = path.resolve(__dirname, 'src/components');
-
+// component modules from I rows. In this SSR process, we resolve webpack
+// module IDs (relative paths like "./server/src/components/Counter.jsx")
+// back to the actual source files on disk.
 globalThis.__webpack_require__ = function (id) {
-  return require(path.join(COMPONENTS_DIR, id + '.jsx'));
+  var resolved = path.resolve(__dirname, '..', id);
+  return require(resolved);
 };
 
-// Build SSR module map: maps module IDs to their export metadata.
-// The Flight client uses this to resolve client references (I rows).
-function buildSSRModuleMap() {
-  var moduleMap = {};
-  var components = fs.readdirSync(COMPONENTS_DIR)
-    .filter(function(f) { return f.endsWith('.jsx'); })
-    .map(function(f) { return f.replace('.jsx', ''); });
+// __webpack_chunk_load__ — the Flight client calls this to load chunks.
+// In SSR we don't load chunks (modules are required directly from disk),
+// so this returns a resolved promise.
+globalThis.__webpack_chunk_load__ = function () {
+  return Promise.resolve();
+};
 
-  for (var i = 0; i < components.length; i++) {
-    var name = components[i];
-    moduleMap[name] = {
-      '*': {id: name, chunks: [], name: '*'},
-      'default': {id: name, chunks: [], name: 'default'},
-    };
+// Webpack-generated manifests. Re-read on every request in dev
+// so webpack rebuilds are picked up without restarting the server.
+var SSR_MANIFEST_PATH = path.resolve(__dirname, '../build/react-ssr-manifest.json');
+
+function getSSRManifest() {
+  var ssrManifest = JSON.parse(fs.readFileSync(SSR_MANIFEST_PATH, 'utf8'));
+
+  // The plugin generates SSR manifest entries as { specifier, name } but
+  // react-server-dom-webpack/client.node expects { id, chunks, name }.
+  // Transform: use the webpack module ID as the id for __webpack_require__,
+  // with empty chunks (SSR requires modules directly from disk).
+  var transformedModuleMap = {};
+  var moduleMap = ssrManifest.moduleMap;
+  for (var moduleId in moduleMap) {
+    var exports = moduleMap[moduleId];
+    var transformedExports = {};
+    for (var exportName in exports) {
+      transformedExports[exportName] = {
+        id: moduleId,
+        chunks: [],
+        name: exports[exportName].name,
+      };
+    }
+    transformedModuleMap[moduleId] = transformedExports;
   }
 
-  return moduleMap;
+  return {
+    moduleLoading: null,
+    moduleMap: transformedModuleMap,
+  };
 }
-
-// SSR module map is rebuilt per-request in dev so new components are picked up.
 
 // ---------------------------------------------------------------------------
 // SSR endpoint — produces native instruction stream
@@ -135,11 +153,7 @@ function handleSSR(flightURL, req, res) {
     var createFromNodeStream =
       require('react-server-dom-webpack/client.node').createFromNodeStream;
 
-    var ssrManifest = {
-      moduleMap: buildSSRModuleMap(),
-      moduleLoading: null,
-      serverModuleMap: null,
-    };
+    var ssrManifest = getSSRManifest();
 
     // Create a Root component that consumes Flight data via React.use().
     // Flight data arrives progressively, and Fizz renders each chunk as

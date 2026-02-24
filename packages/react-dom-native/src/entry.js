@@ -36,18 +36,17 @@ var renderer = require('./renderer/index');
 var createRoot = renderer.createRoot;
 var hydrateRoot = renderer.hydrateRoot;
 var client = require('./flight-client/client');
-var http = require('./flight-client/http');
-var fetchWithBridge = http.fetchWithBridge;
+
+// Required for ReactFlightWebpackPlugin to discover and code-split 'use client'
+// components. The plugin attaches async dependency blocks to this module during
+// webpack compilation. We don't use its Flight parsing (Swift handles that).
+// Must use client.browser explicitly — the plugin checks for client.browser.js,
+// but target:'webworker' resolves the bare /client to client.edge.js.
+require('react-server-dom-webpack/client.browser');
 
 function Root(props) {
   return use(props.tree);
 }
-
-// ---------------------------------------------------------------------------
-// Expose React globally so on-demand client component modules can use it.
-// Component IIFEs are built with `react` aliased to globalThis.React.
-// ---------------------------------------------------------------------------
-globalThis.React = React;
 
 // ---------------------------------------------------------------------------
 // Flight response registry — Swift creates responses by ID, then feeds rows
@@ -87,6 +86,18 @@ globalThis.$$resolveFlightModule = function $$resolveFlightModule(responseId, ch
     mod = moduleExports[exportName];
   }
   client.resolveChunk(chunk, mod);
+};
+
+// Resolves a webpack module after its chunk has been evaluated.
+// Called by Swift FlightStreamClient after evaluating a chunk file.
+// The chunk self-registers its modules via the JSONP push handler,
+// so __webpack_require__ can find them.
+globalThis.$$webpackRequire = function $$webpackRequire(moduleId, exportName) {
+  var mod = __webpack_require__(moduleId);
+  if (exportName === 'default' || exportName === '' || exportName === '*') {
+    return mod.default || mod;
+  }
+  return mod[exportName];
 };
 
 // Rejects a module chunk when Swift fails to fetch or evaluate the module.

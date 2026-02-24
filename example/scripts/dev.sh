@@ -4,6 +4,19 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 EXAMPLE_ROOT="$(dirname "$SCRIPT_DIR")"
 
+# Run initial webpack build (must complete before servers start —
+# the Flight server reads react-client-manifest.json from build/)
+echo "Running webpack build..."
+cd "$EXAMPLE_ROOT"
+node scripts/build.js
+echo "Webpack build complete."
+
+# Start webpack in watch mode for rebuilds on file changes
+echo "Starting webpack watcher..."
+node scripts/build.js --watch &
+WEBPACK_PID=$!
+cd "$EXAMPLE_ROOT"
+
 # Start Flight server (RSC) — runs with react-server condition
 echo "Starting Flight server (RSC)..."
 cd "$EXAMPLE_ROOT/server"
@@ -26,6 +39,7 @@ INSPECTOR_PID=$!
 # Cleanup on exit — only kill PIDs that are still alive and belong to us
 cleanup() {
   echo "Shutting down..."
+  kill $WEBPACK_PID 2>/dev/null || true
   kill $RSC_PID 2>/dev/null || true
   kill $SSR_PID 2>/dev/null || true
   kill $INSPECTOR_PID 2>/dev/null || true
@@ -59,7 +73,7 @@ echo "Development servers running:"
 echo "  Flight server (RSC): PID $RSC_PID (http://localhost:6000)"
 echo "  SSR server (Fizz):   PID $SSR_PID (http://localhost:6001)"
 echo "  CDP inspector proxy: PID $INSPECTOR_PID (http://localhost:8976)"
-echo "  Bundle URL: http://localhost:6000/bundle.js (built on-the-fly)"
+echo "  Bundle URL: http://localhost:6000/bundle.js (webpack, watching for changes)"
 echo ""
 echo "Chrome DevTools:"
 echo "  $DEVTOOLS_URL"

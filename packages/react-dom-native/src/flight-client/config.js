@@ -7,9 +7,9 @@
 // ReactFlightClientConfig.custom.js. This config handles client/server
 // reference resolution for a native JavaScriptCore environment.
 //
-// Module loading (preloadModule/requireModule) has been moved to Swift
-// (FlightStreamClient.swift) where modules are fetched via URLSession and
-// evaluated via JSEngine.evaluate(code, sourceURL:).
+// Module loading is handled by Swift (FlightStreamClient.swift) which
+// fetches webpack chunks via URLSession and resolves modules via
+// $$webpackRequire. This config is only used by Fantom tests.
 // ---------------------------------------------------------------------------
 
 /**
