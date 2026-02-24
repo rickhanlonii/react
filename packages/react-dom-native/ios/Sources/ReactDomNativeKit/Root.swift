@@ -2,6 +2,7 @@ import UIKit
 import JSEngine
 import ShadowTree
 import Yoga
+import QuartzCore
 
 // ---------------------------------------------------------------------------
 // Root
@@ -216,15 +217,14 @@ public class Root {
 
         case .ssr(let ssrURL, let flightURL):
             print("[Root] Re-rendering (SSR + hydration) — \(ssrURL)")
-            renderWithSSR(serverURL: ssrURL) { [weak self] error in
+            renderWithSSR(serverURL: ssrURL) { error in
                 if let error = error {
                     print("[Root] SSR re-render failed: \(error)")
-                } else {
-                    self?.hydrateRoot(serverURL: flightURL) { error in
-                        if let error = error {
-                            print("[Root] Hydration after re-render failed: \(error)")
-                        }
-                    }
+                }
+            }
+            hydrateRoot(serverURL: flightURL) { error in
+                if let error = error {
+                    print("[Root] Hydration after re-render failed: \(error)")
                 }
             }
 
@@ -248,6 +248,23 @@ public class Root {
     private var ssrStreamComplete: Bool = false
     /// Queued hydration call waiting for SSR stream to complete (so D instructions are buffered).
     private var pendingHydration: (() -> Void)?
+
+    // MARK: - SSR Timing (always collected for retroactive tracing)
+
+    /// Timestamp when renderWithSSR was called.
+    private var ssrStartTime: Double = 0
+
+    /// Timestamp when the first data chunk arrived from the server (TTFB).
+    private var ssrFirstChunkTime: Double = 0
+
+    /// Timestamp after layout + view creation — UIKit views are on screen.
+    private var ssrFirstPaintTime: Double = 0
+
+    /// Timestamp when the SSR stream completed (all data received).
+    private var ssrStreamCompleteTime: Double = 0
+
+    /// Timestamp when React hydration begins (before hydrateSurface call).
+    private var ssrHydrationStartTime: Double = 0
 
     /// SSR URL used for the initial render (stored for reload recovery).
     private var ssrURL: String?
@@ -404,6 +421,7 @@ public class Root {
             // Generate mutations from the shadow tree and apply them.
             // For root-level nodes, we create + insert into the container.
             self.createViewsFromTree(rootChildren, applier: applier, rootView: self.container)
+            self.ssrFirstPaintTime = CACurrentMediaTime() * 1000.0
 
             print("[ReactDomNativeKit] SSR first paint complete (\(rootChildren.count) root children)")
             completion?(nil)
@@ -418,9 +436,14 @@ public class Root {
             return
         }
 
-        let streamDelegate = SSRStreamDelegate(parser: parser) { [weak self] in
+        self.ssrStartTime = CACurrentMediaTime() * 1000.0
+
+        let streamDelegate = SSRStreamDelegate(parser: parser, onFirstChunk: { [weak self] in
+            self?.ssrFirstChunkTime = CACurrentMediaTime() * 1000.0
+        }) { [weak self] in
             guard let self = self else { return }
             self.ssrStreamComplete = true
+            self.ssrStreamCompleteTime = CACurrentMediaTime() * 1000.0
             let revealCount = boundaryManager.revealedCount
             print("[ReactDomNativeKit] SSR stream complete, reveals processed: \(revealCount)")
             // If hydrateRoot() was called before the stream finished,
@@ -539,6 +562,11 @@ public class Root {
                 }
 
                 rt.bindings?.markHydrationStarted(surfaceId: surfaceId)
+
+                // Collect SSR timing data and pass to Bindings for trace reporting
+                self.ssrHydrationStartTime = CACurrentMediaTime() * 1000.0
+                rt.bindings?.setSSRTimings(surfaceId: surfaceId, timings: self.buildSSRTimings())
+
                 do {
                     try rt.hydrateSurface(
                         surfaceId: surfaceId,
@@ -636,6 +664,36 @@ public class Root {
 
     // MARK: - Private
 
+    /// Builds the SSR timing dictionary for trace reporting.
+    /// Timestamps are in CACurrentMediaTime() * 1000 (ms since boot), matching
+    /// the format used by $$completeRoot commit timings.
+    private func buildSSRTimings() -> [String: Any] {
+        var timings: [String: Any] = [
+            "ssrStart": ssrStartTime,
+            "firstChunkTime": ssrFirstChunkTime,
+            "parseCompleteTime": ssrCoordinator?.parseCompleteTime ?? 0,
+            "firstPaintTime": ssrFirstPaintTime,
+            "streamCompleteTime": ssrStreamCompleteTime,
+            "hydrationStartTime": ssrHydrationStartTime,
+        ]
+
+        // Boundary reveals: flat array [boundaryId, start, end, ...]
+        let reveals = ssrCoordinator?.revealTimings ?? []
+        if !reveals.isEmpty {
+            var flat: [Any] = []
+            for reveal in reveals {
+                flat.append(reveal.boundaryId)
+                flat.append(reveal.start)
+                flat.append(reveal.end)
+            }
+            timings["reveals"] = flat
+        }
+
+        print("[SSR Tracing] buildSSRTimings: ssrStart=\(ssrStartTime), firstChunk=\(ssrFirstChunkTime), parseComplete=\(ssrCoordinator?.parseCompleteTime ?? 0), firstPaint=\(ssrFirstPaintTime), streamComplete=\(ssrStreamCompleteTime), hydrationStart=\(ssrHydrationStartTime), reveals=\(reveals.count)")
+
+        return timings
+    }
+
     /// Cleans up SSR infrastructure after hydration completes.
     /// Called from Bindings.onHydrationComplete after the first $$completeRoot.
     /// React now owns the tree — SSR objects are no longer needed.
@@ -654,6 +712,11 @@ public class Root {
         ssrRevealHasOccurred = false
         ssrStreamComplete = false
         pendingHydration = nil
+        ssrStartTime = 0
+        ssrFirstChunkTime = 0
+        ssrFirstPaintTime = 0
+        ssrStreamCompleteTime = 0
+        ssrHydrationStartTime = 0
 
         print("[ReactDomNativeKit] SSR state cleaned up after hydration")
     }
