@@ -162,17 +162,55 @@ class SSRCoordinator: InstructionStreamDelegate {
 
     // MARK: - Segment Content Access
 
-    /// Returns the content nodes for a given boundary ID (for use by Root.swift during reveal).
+    /// Returns the assembled content nodes for a given boundary ID (for use by Root.swift during reveal).
+    /// Resolves any #placeholder markers by splicing in sub-segment content.
     func segmentContentNodes(for boundaryId: Int) -> [ShadowNodeWrapper]? {
-        return segmentContentNodes[boundaryId]
+        let assembled = assembleContentNodes(for: boundaryId)
+        return assembled.isEmpty ? nil : assembled
+    }
+
+    /// Assembles the final content nodes for a segment by resolving any
+    /// #placeholder markers. Placeholders reference sub-segments whose content
+    /// should be spliced in at that position.
+    private func assembleContentNodes(for segmentId: Int) -> [ShadowNodeWrapper] {
+        guard let nodes = segmentContentNodes[segmentId] else { return [] }
+        var assembled: [ShadowNodeWrapper] = []
+        for node in nodes {
+            if node.family.elementType == "#placeholder",
+               let subSegmentId = node.props["segmentId"] as? Int {
+                // Replace placeholder with sub-segment content (recursive)
+                let subContent = assembleContentNodes(for: subSegmentId)
+                assembled.append(contentsOf: subContent)
+            } else {
+                assembled.append(node)
+            }
+        }
+        return assembled
+    }
+
+    /// Collects all sub-segment IDs referenced by #placeholder nodes in a segment's content.
+    private func collectSubSegmentIds(for segmentId: Int) -> [Int] {
+        guard let nodes = segmentContentNodes[segmentId] else { return [] }
+        var ids: [Int] = []
+        for node in nodes {
+            if node.family.elementType == "#placeholder",
+               let subId = node.props["segmentId"] as? Int {
+                ids.append(subId)
+                ids.append(contentsOf: collectSubSegmentIds(for: subId))
+            }
+        }
+        return ids
     }
 
     // MARK: - Reveal Processing
 
     /// Executes the visual update for a boundary reveal (called from Root.swift after throttle).
     func processReveal(id: Int) {
-        let contentNodes = segmentContentNodes[id] ?? []
-        guard let wrapper = boundaryWrappers[id] else { return }
+        let contentNodes = assembleContentNodes(for: id)
+        let subSegmentIds = collectSubSegmentIds(for: id)
+        guard let wrapper = boundaryWrappers[id] else {
+            return
+        }
         let oldRootChildren = currentRootChildren ?? treeBuilder.rootChildren
         let newRootChildren = ShadowTreeBuilder.revealBoundaryImmutable(
             rootChildren: oldRootChildren, suspenseNode: wrapper, contentNodes: contentNodes
@@ -180,14 +218,21 @@ class SSRCoordinator: InstructionStreamDelegate {
         currentRootChildren = newRootChildren
         boundaryWrappers.removeValue(forKey: id)
         segmentBuilders.removeValue(forKey: id)
+        segmentContentNodes.removeValue(forKey: id)
+
+        // Clean up sub-segments
+        for subId in subSegmentIds {
+            segmentBuilders.removeValue(forKey: subId)
+            segmentContentNodes.removeValue(forKey: subId)
+        }
+
         boundaryManager.revealBoundary(id: id)
         onViewsNeedUpdate?(oldRootChildren, newRootChildren)
-        segmentContentNodes.removeValue(forKey: id)
     }
 
     func didReceiveRevealBoundary(id: Int) {
         print("[ReactDomNativeKit] Reveal boundary \(id)")
-        let contentNodes = segmentContentNodes[id] ?? []
+        let contentNodes = assembleContentNodes(for: id)
         guard boundaryWrappers[id] != nil else { return }
         onBoundaryRevealQueued?(id, contentNodes)
     }
@@ -197,7 +242,11 @@ class SSRCoordinator: InstructionStreamDelegate {
     }
 
     func didReceivePlaceholder(id: Int) {
-        print("[SSR] Placeholder \(id)")
+        // Insert a marker node in the active segment builder at this position.
+        // The marker records which sub-segment's content should be spliced here.
+        // Resolved before reveal in assembleContentNodes(for:).
+        activeBuilder.openElement(type: "#placeholder", props: ["segmentId": id])
+        activeBuilder.closeElement()
     }
 
     func didReceiveFlightData(row: String) {
