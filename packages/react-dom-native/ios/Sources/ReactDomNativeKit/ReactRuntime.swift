@@ -215,7 +215,13 @@ public class ReactRuntime {
     /// Triggers hydration for a surface with buffered SSR Flight data.
     /// Creates a Flight response in JS, sets up hydration, then replays
     /// the buffered Flight rows through the Swift parser.
-    internal func hydrateSurface(surfaceId: Int, serverURL: String, ssrData: [String]) throws {
+    ///
+    /// - Parameter keepOpen: When true, the Flight response stays open for
+    ///   real-time streaming of additional rows. When false (default), the
+    ///   response is closed after replaying buffered rows.
+    /// - Returns: The responseId for the Flight response (used for streaming).
+    @discardableResult
+    internal func hydrateSurface(surfaceId: Int, serverURL: String, ssrData: [String], keepOpen: Bool = false) throws -> Int {
         guard let engine = runtime?.engine else {
             throw RootError.runtimeNotInitialized
         }
@@ -247,7 +253,22 @@ public class ReactRuntime {
         for row in ssrData {
             client.processString(row + "\n")
         }
-        client.close()
+        if !keepOpen {
+            client.close()
+        }
+        return responseId
+    }
+
+    /// Forwards a raw Flight row to an active FlightStreamClient for real-time processing.
+    internal func processFlightRow(responseId: Int, row: String) {
+        guard let entry = activeFlightClients[responseId] else { return }
+        entry.client.processString(row + "\n")
+    }
+
+    /// Closes an active Flight response (signals end of data to JS).
+    internal func closeFlightResponse(responseId: Int) {
+        guard let entry = activeFlightClients[responseId] else { return }
+        entry.client.close()
     }
 
     /// Starts a Flight HTTP stream for a given response.
@@ -607,6 +628,8 @@ public class ReactRuntime {
         engine.setGlobalFunction("$$nativeOnUncaughtError") { [weak engine] args in
             let message = args.first.flatMap { engine?.toString($0) } ?? "Unknown error"
             let stack = args.count > 1 ? engine?.toString(args[1]) : nil
+            print("[JS ERROR] Uncaught: \(message)")
+            if let stack = stack { print("[JS ERROR] Stack: \(stack)") }
             LogBox.shared.addEntry(
                 level: .fatalError,
                 source: .rendererUncaught,
@@ -620,6 +643,8 @@ public class ReactRuntime {
         engine.setGlobalFunction("$$nativeOnCaughtError") { [weak engine] args in
             let message = args.first.flatMap { engine?.toString($0) } ?? "Unknown error"
             let stack = args.count > 1 ? engine?.toString(args[1]) : nil
+            print("[JS ERROR] Caught: \(message)")
+            if let stack = stack { print("[JS ERROR] Stack: \(stack)") }
             LogBox.shared.addEntry(
                 level: .error,
                 source: .rendererCaught,
@@ -632,6 +657,8 @@ public class ReactRuntime {
         engine.setGlobalFunction("$$nativeOnRecoverableError") { [weak engine] args in
             let message = args.first.flatMap { engine?.toString($0) } ?? "Unknown error"
             let stack = args.count > 1 ? engine?.toString(args[1]) : nil
+            print("[JS WARN] Recoverable: \(message)")
+            if let stack = stack { print("[JS WARN] Stack: \(stack)") }
             LogBox.shared.addEntry(
                 level: .warning,
                 source: .rendererRecoverable,

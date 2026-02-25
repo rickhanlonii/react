@@ -230,6 +230,24 @@ class SSRCoordinator: InstructionStreamDelegate {
         onViewsNeedUpdate?(oldRootChildren, newRootChildren)
     }
 
+    /// Cleans up SSR state for a revealed boundary without triggering a visual update.
+    /// Used post-hydration when reveals are applied to the current committed tree
+    /// (via Bindings.revealBoundaryInCurrentTree) instead of the SSR coordinator's tree.
+    func cleanupRevealState(id: Int) {
+        let subSegmentIds = collectSubSegmentIds(for: id)
+
+        boundaryWrappers.removeValue(forKey: id)
+        segmentBuilders.removeValue(forKey: id)
+        segmentContentNodes.removeValue(forKey: id)
+
+        for subId in subSegmentIds {
+            segmentBuilders.removeValue(forKey: subId)
+            segmentContentNodes.removeValue(forKey: subId)
+        }
+
+        boundaryManager.revealBoundary(id: id)
+    }
+
     func didReceiveRevealBoundary(id: Int) {
         print("[ReactDomNativeKit] Reveal boundary \(id)")
         let contentNodes = assembleContentNodes(for: id)

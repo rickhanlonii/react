@@ -40,6 +40,13 @@ function replaceEventHandlers(props) {
 // ---------------------------------------------------------------------------
 const pendingSuspenseByBoundary = new Map();
 
+// Tracks boundary IDs that were revealed (via $$notifyBoundaryRevealed) before
+// their retry callback was registered (via registerSuspenseInstanceRetry).
+// This handles the race condition in progressive hydration where boundary
+// content arrives from the SSR stream before React finishes setting up
+// dehydrated Suspense fibers.
+const preRevealedBoundaries = new Set();
+
 // ---------------------------------------------------------------------------
 // Text element set — elements that create a text context for children
 // ---------------------------------------------------------------------------
@@ -133,6 +140,7 @@ exports.createInstance = function createInstance(
     hostContext.isInsideTextContext,
     internalHandle,
   );
+  console.log('[HostConfig] createInstance <' + type + '> nativeNode=' + nativeNode + ' family=' + (nativeNode._family || nativeNode));
   return {
     _nativeNode: nativeNode,
     _nativeFamily: nativeNode._family || nativeNode,
@@ -154,6 +162,7 @@ exports.createTextInstance = function createTextInstance(
     rootContainer.surfaceId,
     internalHandle,
   );
+  console.log('[HostConfig] createTextInstance "' + text + '" nativeNode=' + nativeNode);
   return {
     _nativeNode: nativeNode,
     _nativeFamily: nativeNode._family || nativeNode,
@@ -163,6 +172,7 @@ exports.createTextInstance = function createTextInstance(
 };
 
 exports.appendInitialChild = function appendInitialChild(parentInstance, child) {
+  console.log('[HostConfig] appendInitialChild <' + (child.type || '#text') + '> into <' + parentInstance.type + '>');
   $$appendChild(parentInstance._nativeNode, child._nativeNode);
   parentInstance.children.push(child);
 };
@@ -209,6 +219,8 @@ exports.cloneInstance = function cloneInstance(
       nativeNewProps,
     );
   }
+  var familyShared = newNativeNode._family === instance._nativeFamily;
+  console.log('[HostConfig] cloneInstance <' + type + '> keepChildren=' + keepChildren + ' familyShared=' + familyShared + ' oldNode=' + instance._nativeNode + ' newNode=' + newNativeNode);
   return {
     _nativeNode: newNativeNode,
     _nativeFamily: instance._nativeFamily,
@@ -261,7 +273,20 @@ exports.finalizeContainerChildren = function finalizeContainerChildren(container
 };
 
 exports.replaceContainerChildren = function replaceContainerChildren(container, newChildren) {
-  if (newChildren == null) return;
+  if (newChildren == null) {
+    // Hydration commit — React reused the existing SSR tree, no children to swap.
+    // Signal completion so native side can clean up SSR state.
+    console.log('[HostConfig] replaceContainerChildren: hydration commit (null children)');
+    if (typeof $$onHydrationCommit === 'function') {
+      $$onHydrationCommit(container.surfaceId);
+    }
+    return;
+  }
+  console.log('[HostConfig] replaceContainerChildren: ' + newChildren.length + ' children');
+  for (var i = 0; i < newChildren.length; i++) {
+    var c = newChildren[i];
+    console.log('[HostConfig]   [' + i + '] <' + c.type + '> family=' + (c._nativeFamily ? 'shared' : 'new') + ' children=' + (c.children ? c.children.length : 0));
+  }
   const childNodes = newChildren.map(c => c._nativeNode);
   const timings = $$completeRoot(container.surfaceId, childNodes);
   if (timings) {
@@ -529,7 +554,9 @@ exports.HostTransitionContext = {
 
 exports.NotPendingTransition = null;
 
-exports.scheduleMicrotask = queueMicrotask;
+exports.scheduleMicrotask = function scheduleMicrotask(fn) {
+  queueMicrotask(fn);
+};
 
 exports.resetFormInstance = function resetFormInstance() {};
 
@@ -657,6 +684,13 @@ exports.registerSuspenseInstanceRetry = function(instance, callback) {
   // Track by boundary ID so $$notifyBoundaryRevealed can find this instance
   if (instance.boundaryId != null) {
     pendingSuspenseByBoundary.set(instance.boundaryId, instance);
+
+    // If the boundary was already revealed before this retry was registered
+    // (race condition in progressive hydration), fire the reveal now.
+    if (preRevealedBoundaries.has(instance.boundaryId)) {
+      preRevealedBoundaries.delete(instance.boundaryId);
+      globalThis.$$notifyBoundaryRevealed(instance.boundaryId);
+    }
   }
 };
 exports.canHydrateFormStateMarker = function() { return false; };
@@ -672,6 +706,9 @@ exports.canHydrateFormStateMarker = function() { return false; };
 globalThis.$$notifyBoundaryRevealed = function(boundaryId) {
   var instance = pendingSuspenseByBoundary.get(boundaryId);
   if (!instance) {
+    // Retry callback not registered yet — mark as pre-revealed so
+    // registerSuspenseInstanceRetry can fire the reveal immediately.
+    preRevealedBoundaries.add(boundaryId);
     return;
   }
   // Mark as resolved so isSuspenseInstancePending returns false
@@ -685,7 +722,11 @@ globalThis.$$notifyBoundaryRevealed = function(boundaryId) {
   if (callbacks) {
     instance._retryCallbacks = null;
     for (var i = 0; i < callbacks.length; i++) {
-      callbacks[i]();
+      try {
+        callbacks[i]();
+      } catch (e) {
+        console.error('[Hydration] Retry callback error:', e);
+      }
     }
   }
   pendingSuspenseByBoundary.delete(boundaryId);
@@ -730,6 +771,7 @@ exports.canHydrateSuspenseInstance = function(instance) {
 };
 
 exports.hydrateInstance = function(instance, type, props, hostContext, internalHandle) {
+  console.log('[HostConfig] hydrateInstance <' + type + '> ssrNodeRef=' + instance._ssrNodeRef + ' ssrFamily=' + instance._ssrFamily);
   instance._nativeNode = instance._ssrNodeRef;
   instance._nativeFamily = instance._ssrFamily;
   instance._internalInstanceHandle = internalHandle;
@@ -744,6 +786,7 @@ exports.hydrateInstance = function(instance, type, props, hostContext, internalH
 };
 
 exports.hydrateTextInstance = function(textInstance, text, internalHandle) {
+  console.log('[HostConfig] hydrateTextInstance "' + text + '" ssrNodeRef=' + textInstance._ssrNodeRef);
   textInstance._nativeNode = textInstance._ssrNodeRef;
   textInstance._nativeFamily = textInstance._ssrFamily;
   textInstance._internalInstanceHandle = internalHandle;

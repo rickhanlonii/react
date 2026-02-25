@@ -166,6 +166,11 @@ public class Root {
         ssrMutationApplier = nil
         ssrRevealHasOccurred = false
         ssrStreamComplete = false
+        ssrShellComplete = false
+        hydrationStarted = false
+        hydrationCommitted = false
+        flightResponseId = nil
+        postHydrationFlightBuffer.removeAll()
         pendingHydration = nil
 
         // Cancel any pending throttled reveals
@@ -210,6 +215,11 @@ public class Root {
         ssrMutationApplier = nil
         ssrRevealHasOccurred = false
         ssrStreamComplete = false
+        ssrShellComplete = false
+        hydrationStarted = false
+        hydrationCommitted = false
+        flightResponseId = nil
+        postHydrationFlightBuffer.removeAll()
         pendingHydration = nil
 
         // Cancel any pending throttled reveals
@@ -256,7 +266,19 @@ public class Root {
     private var ssrMutationApplier: UIKitMutationApplier?
     private var ssrRevealHasOccurred: Bool = false
     private var ssrStreamComplete: Bool = false
-    /// Queued hydration call waiting for SSR stream to complete (so D instructions are buffered).
+    /// Whether the SSR shell (initial content) has been painted.
+    private var ssrShellComplete: Bool = false
+    /// Whether hydration has started (Flight rows should be forwarded, not buffered).
+    private var hydrationStarted: Bool = false
+    /// Whether React has committed the initial hydration render ($$completeRoot fired).
+    private var hydrationCommitted: Bool = false
+    /// Flight rows that arrived after hydration started but before the initial commit.
+    /// Forwarded to the Flight client after $$completeRoot so they don't interfere
+    /// with React's render phase by resolving lazy chunks mid-render.
+    private var postHydrationFlightBuffer: [String] = []
+    /// The Flight response ID for the active hydration session.
+    private var flightResponseId: Int?
+    /// Queued hydration call waiting for SSR shell to complete.
     private var pendingHydration: (() -> Void)?
 
     // MARK: - SSR Commit Timings (always collected for retroactive tracing)
@@ -333,7 +355,18 @@ public class Root {
             rootView: container
         )
         coordinator.onFlightDataReceived = { [weak self] row in
-            self?.ssrFlightDataBuffer.append(row)
+            guard let self = self else { return }
+            if self.hydrationCommitted, let responseId = self.flightResponseId {
+                // Hydration committed — forward to JS Flight client immediately
+                ReactRuntime.shared.processFlightRow(responseId: responseId, row: row)
+            } else if self.hydrationStarted {
+                // Hydration in progress — buffer to avoid resolving lazy chunks
+                // mid-render, which would restart React's render and prevent commit.
+                self.postHydrationFlightBuffer.append(row)
+            } else {
+                // Hydration not started — buffer for replay in hydrateSurface
+                self.ssrFlightDataBuffer.append(row)
+            }
         }
         coordinator.onBoundaryRevealQueued = { [weak self] id, contentNodes in
             self?.queueBoundaryReveal(id: id, contentNodes: contentNodes)
@@ -546,10 +579,14 @@ public class Root {
 
             print("[ReactDomNativeKit] SSR first paint complete (\(rootChildren.count) root children)")
             self.shellPaintTime = CACurrentMediaTime() * 1000.0
+            self.ssrShellComplete = true
             completion?(nil)
 
-            // Hydration is now available via root.hydrateRoot(serverURL:)
-            // called separately after renderWithSSR completes.
+            // If hydration was requested and JS is ready, start now
+            if let pending = self.pendingHydration {
+                self.pendingHydration = nil
+                pending()
+            }
         }
 
         // Start streaming SSR data
@@ -563,12 +600,21 @@ public class Root {
             self.ssrStreamComplete = true
             let revealCount = boundaryManager.revealedCount
             print("[ReactDomNativeKit] SSR stream complete, reveals processed: \(revealCount)")
+
+            // Close the Flight response if hydration has committed
+            if self.hydrationCommitted, let responseId = self.flightResponseId {
+                ReactRuntime.shared.closeFlightResponse(responseId: responseId)
+            }
+
             // If hydrateRoot() was called before the stream finished,
             // execute the queued hydration now that D instructions are buffered.
             if let pending = self.pendingHydration {
                 self.pendingHydration = nil
                 pending()
             }
+
+            // Clean up SSR stream infrastructure
+            self.cleanupSSRState()
         }
 
         let session = URLSession(
@@ -622,9 +668,11 @@ public class Root {
                 return
             }
 
-            // Wire hydration completion callback to clean up SSR infrastructure
+            // Wire hydration completion callback — signals that React committed
+            // the initial hydration render. Now it's safe to forward boundary
+            // Flight data and flush deferred SSR reveals.
             rt.bindings?.onHydrationComplete = { [weak self] surfaceId in
-                self?.cleanupSSRState()
+                self?.onHydrationCommitted()
             }
 
             // Wire boundary reveal callback — when the SSR stream reveals a
@@ -645,6 +693,7 @@ public class Root {
             let doHydrate = { [weak self] in
                 guard let self = self, let surfaceId = self.surfaceId else { return }
 
+                self.hydrationStarted = true
                 print("[ReactDomNativeKit] Hydration starting")
 
                 // Register surface for hydration and the SSR tree
@@ -671,15 +720,18 @@ public class Root {
 
                 // Now rewire onViewsNeedUpdate to Bindings — from this point,
                 // any boundary reveals go through Bindings for proper diffing.
+                // Note: We only call updateCurrentTree (visual diff + mutations),
+                // NOT updateSSRTree. The SSR reference tree is updated in-place
+                // by revealBoundaryInSSRTree, which preserves node identity so
+                // React's _ssrNodeRef pointers remain valid for hydration.
+                // Calling updateSSRTree would replace the tree with cloned nodes,
+                // breaking those pointers and forcing React to fall back to
+                // client-side render instead of hydration.
                 self.ssrCoordinator?.onViewsNeedUpdate = { [weak self] oldRootChildren, newRootChildren in
                     guard let self = self, let bindings = rt.bindings, let surfaceId = self.surfaceId else { return }
                     bindings.updateCurrentTree(
                         surfaceId: surfaceId,
                         oldTree: oldRootChildren,
-                        newTree: newRootChildren
-                    )
-                    bindings.updateSSRTree(
-                        surfaceId: surfaceId,
                         newTree: newRootChildren
                     )
                 }
@@ -693,11 +745,19 @@ public class Root {
                 }
 
                 do {
-                    try rt.hydrateSurface(
+                    let responseId = try rt.hydrateSurface(
                         surfaceId: surfaceId,
                         serverURL: serverURL,
-                        ssrData: self.ssrFlightDataBuffer
+                        ssrData: self.ssrFlightDataBuffer,
+                        keepOpen: true
                     )
+                    self.flightResponseId = responseId
+
+                    // If the SSR stream already completed, close the Flight response
+                    if self.ssrStreamComplete {
+                        rt.closeFlightResponse(responseId: responseId)
+                    }
+
                     completion?(nil)
                 } catch {
                     print("[ReactDomNativeKit] Hydration failed: \(error)")
@@ -706,10 +766,9 @@ public class Root {
                 }
             }
 
-            if self.ssrStreamComplete {
+            if self.ssrShellComplete {
                 doHydrate()
             } else {
-                // SSR stream still delivering — queue hydration for when it finishes
                 self.pendingHydration = doHydrate
             }
         }
@@ -843,6 +902,19 @@ public class Root {
     /// Schedules a flush of pending reveals using throttling.
     /// If a timer is already pending, this is a no-op (the existing timer will flush all).
     private func scheduleRevealFlush() {
+        // Don't flush reveals during active hydration — mutating the SSR tree
+        // (pending=false) while React is walking it causes hydration mismatches.
+        // After hydration commits, reveals are safe (React has dehydrated fibers
+        // and will re-render via $$notifyBoundaryRevealed retry callbacks).
+        if hydrationStarted && !hydrationCommitted { return }
+
+        // After hydration commits, flush immediately — no visual batching needed
+        // since we skip SSR visual reveals and just notify React.
+        if hydrationCommitted {
+            flushPendingReveals()
+            return
+        }
+
         guard revealTimer == nil else { return }
 
         let now = CACurrentMediaTime() * 1000.0
@@ -877,41 +949,102 @@ public class Root {
         let rt = ReactRuntime.shared
 
         for reveal in reveals {
-            // 1. Process the visual update (diff + mutations)
-            ssrCoordinator?.processReveal(id: reveal.id)
+            if hydrationCommitted {
+                // After hydration commits, apply reveals to the actual current tree
+                // (which reflects React's commits) instead of the SSR coordinator's
+                // stale internal tree. This prevents overwriting React state changes
+                // (e.g., useEffect updates) with stale SSR data.
 
-            // 2. Mutate the SSR reference tree in place for hydration traversal
-            if let surfaceId = surfaceId {
+                // Assemble content nodes BEFORE cleanup removes them
                 let contentNodes = ssrCoordinator?.segmentContentNodes(for: reveal.id) ?? reveal.contentNodes
-                rt.bindings?.revealBoundaryInSSRTree(
-                    surfaceId: surfaceId, boundaryId: reveal.id, contentNodes: contentNodes
-                )
-            }
 
-            // 3. Notify JS side so React can fire retry callbacks
-            if let engine = rt.engine {
-                engine.evaluate("globalThis.$$notifyBoundaryRevealed(\(reveal.id))")
+                // 1. Clean up SSR state without visual update
+                ssrCoordinator?.cleanupRevealState(id: reveal.id)
+
+                // 2. Apply reveal to the actual current tree in Bindings
+                if let surfaceId = surfaceId {
+                    rt.bindings?.revealBoundaryInCurrentTree(
+                        surfaceId: surfaceId, boundaryId: reveal.id, contentNodes: contentNodes
+                    )
+                }
+
+                // 3. Update SSR reference tree for hydration traversal
+                if let surfaceId = surfaceId {
+                    rt.bindings?.revealBoundaryInSSRTree(
+                        surfaceId: surfaceId, boundaryId: reveal.id, contentNodes: contentNodes
+                    )
+                }
+
+                // 4. Notify React so it can fire retry callbacks
+                if let engine = rt.engine {
+                    engine.evaluate("globalThis.$$notifyBoundaryRevealed(\(reveal.id))")
+                }
+            } else {
+                // Before hydration: process the visual update (diff + mutations)
+                ssrCoordinator?.processReveal(id: reveal.id)
+
+                // Mutate the SSR reference tree in place for hydration traversal
+                if let surfaceId = surfaceId {
+                    let contentNodes = ssrCoordinator?.segmentContentNodes(for: reveal.id) ?? reveal.contentNodes
+                    rt.bindings?.revealBoundaryInSSRTree(
+                        surfaceId: surfaceId, boundaryId: reveal.id, contentNodes: contentNodes
+                    )
+                }
+
+                // Notify JS side so React can fire retry callbacks
+                if let engine = rt.engine {
+                    engine.evaluate("globalThis.$$notifyBoundaryRevealed(\(reveal.id))")
+                }
             }
         }
     }
 
-    /// Cleans up SSR infrastructure after hydration completes.
-    /// Called from Bindings.onHydrationComplete after the first $$completeRoot.
-    /// React now owns the tree — SSR objects are no longer needed.
+    /// Called when React commits the initial hydration render. Schedules boundary
+    /// data forwarding and reveal flushing on the NEXT run loop tick, giving React
+    /// time to finish setting up dehydrated Suspense fibers (registerSuspenseInstanceRetry)
+    /// in a second commit before we forward D rows that would resolve lazy chunks.
+    private func onHydrationCommitted() {
+        print("[ReactDomNativeKit] Hydration committed — scheduling boundary data forwarding")
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.hydrationCommitted = true
+            print("[ReactDomNativeKit] Enabling boundary data forwarding")
+
+        // Forward boundary Flight data that was buffered during the hydration
+        // render phase. Now that React has committed the initial render with
+        // dehydrated Suspense fibers, resolving lazy chunks is safe — React
+        // will re-render boundaries via $$notifyBoundaryRevealed retry callbacks.
+        if let responseId = self.flightResponseId, !self.postHydrationFlightBuffer.isEmpty {
+            print("[ReactDomNativeKit] Forwarding \(self.postHydrationFlightBuffer.count) buffered boundary Flight rows")
+            for row in self.postHydrationFlightBuffer {
+                ReactRuntime.shared.processFlightRow(responseId: responseId, row: row)
+            }
+            self.postHydrationFlightBuffer.removeAll()
+        }
+
+        // If the SSR stream already completed, close the Flight response
+        if self.ssrStreamComplete, let responseId = self.flightResponseId {
+            ReactRuntime.shared.closeFlightResponse(responseId: responseId)
+        }
+
+        // Flush any reveals deferred during hydration
+        if !pendingReveals.isEmpty {
+            flushPendingReveals()
+        }
+        }  // end DispatchQueue.main.async
+    }
+
+    /// Cleans up SSR hydration state. Called when the SSR stream completes
+    /// and hydration has committed.
     private func cleanupSSRState() {
-        ssrDataTask?.cancel()
-        ssrDataTask = nil
-        ssrParser = nil
-        ssrTreeBuilder = nil
-        ssrBoundaryManager = nil
-        ssrCoordinator = nil
         ssrFlightDataBuffer.removeAll()
+        postHydrationFlightBuffer.removeAll()
         ssrViewRegistry = nil
         // Keep ssrMutationApplier alive — SSR-created buttons hold a weak
         // reference to it as their tap target. If deallocated, taps silently
         // stop working. It stays alive until the root is unmounted.
         ssrRevealHasOccurred = false
-        ssrStreamComplete = false
         pendingHydration = nil
         ssrCommitTimings.removeAll()
 
@@ -920,7 +1053,19 @@ public class Root {
         revealTimer = nil
         pendingReveals.removeAll()
 
-        print("[ReactDomNativeKit] SSR state cleaned up after hydration")
+        // DON'T clean up SSR tree in Bindings here — React's retry callbacks
+        // (from dehydrated Suspense) run asynchronously after this and need the
+        // SSR tree for hydration traversal. SSR tree is cleaned up on unmount.
+
+        // Clean up SSR stream infrastructure
+        ssrDataTask = nil
+        ssrParser = nil
+        ssrTreeBuilder = nil
+        ssrBoundaryManager = nil
+        ssrCoordinator = nil
+        flightResponseId = nil
+
+        print("[ReactDomNativeKit] SSR state fully cleaned up")
     }
 
     private func setupLayoutObserver() {

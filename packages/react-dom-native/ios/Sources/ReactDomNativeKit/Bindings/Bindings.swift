@@ -239,6 +239,12 @@ public class Bindings {
         #endif
     }
 
+    /// Removes the SSR tree for a surface. Called after the SSR stream completes
+    /// and all boundary retries have been processed.
+    public func cleanupSSRTree(surfaceId: Int) {
+        ssrTrees.removeValue(forKey: surfaceId)
+    }
+
     private func findSuspenseNodeByBoundaryId(_ boundaryId: Int, in nodes: [ShadowNodeWrapper]) -> ShadowNodeWrapper? {
         for node in nodes {
             if node.family.elementType == "#suspense",
@@ -454,6 +460,26 @@ public class Bindings {
         }
     }
 
+    /// Applies a boundary reveal to the current committed tree (currentTrees[surfaceId])
+    /// instead of the SSR coordinator's internal tree. Used post-hydration to avoid
+    /// overwriting React's committed state with stale SSR data.
+    public func revealBoundaryInCurrentTree(
+        surfaceId: Int,
+        boundaryId: Int,
+        contentNodes: [ShadowNodeWrapper]
+    ) {
+        guard let oldTree = currentTrees[surfaceId] else { return }
+        guard let suspenseNode = findSuspenseNodeByBoundaryId(boundaryId, in: oldTree) else { return }
+
+        let newTree = ShadowTreeBuilder.revealBoundaryImmutable(
+            rootChildren: oldTree,
+            suspenseNode: suspenseNode,
+            contentNodes: contentNodes
+        )
+
+        updateCurrentTree(surfaceId: surfaceId, oldTree: oldTree, newTree: newTree)
+    }
+
     /// Updates the SSR tree for hydration traversal after a boundary reveal.
     /// Called when a boundary reveals after hydration has started so that
     /// $$getSSRChildOf / $$getNextSSRSibling see the content nodes.
@@ -665,6 +691,16 @@ public class Bindings {
                         // Remove #suspense from yoga tree
                         YGNodeRemoveChild(parent.yogaNode, existing.yogaNode)
                         parent.children.remove(at: i)
+                        // Splice content children's families into oldChildFamilies
+                        // at the position where the #suspense was, so findInsertionIndex
+                        // can locate them for correct ordering.
+                        if var families = parent.oldChildFamilies,
+                           let suspenseIdx = families.firstIndex(where: { $0 === existing.family }) {
+                            let contentFamilies = existing.children.map { $0.family }
+                            families.remove(at: suspenseIdx)
+                            families.insert(contentsOf: contentFamilies, at: suspenseIdx)
+                            parent.oldChildFamilies = families
+                        }
                         break
                     }
                 }
@@ -927,6 +963,11 @@ public class Bindings {
             // 1. Get old tree (empty on first commit)
             let oldChildren = self.currentTrees[surfaceId] ?? []
 
+            // Debug: dump old and new tree structures with family identity
+            print("[completeRoot] surfaceId=\(surfaceId) oldChildren=\(oldChildren.count) newChildren=\(newChildren.count)")
+            self.debugDumpTree("  OLD", oldChildren, depth: 0)
+            self.debugDumpTree("  NEW", newChildren, depth: 0)
+
             // 1b. Unwrap revealed #suspense nodes from old tree before diffing.
             // The hydration commit preserves #suspense wrapper nodes from SSR,
             // but React's retry render produces trees WITHOUT these wrappers
@@ -1188,6 +1229,24 @@ public class Bindings {
 
             return result
         }
+
+        // Hydration-only commit signal — called when React's hydration render
+        // commits but doesn't need to swap container children (dehydrated Suspense
+        // case). The SSR tree is already in place; this just signals completion.
+        engine.setGlobalFunction("$$onHydrationCommit") { [weak self, weak engine] args in
+            guard let self = self, let engine = engine else { return nil }
+            let surfaceId = engine.toInt(args[0]) ?? 0
+
+            if self.hydrationInProgress.contains(surfaceId) {
+                self.hydrationInProgress.remove(surfaceId)
+                print("[ReactDomNativeKit] Hydration commit (dehydrated) for surfaceId \(surfaceId)")
+                self.onHydrationComplete?(surfaceId)
+                // DON'T remove ssrTrees here — dehydrated boundary retries still
+                // need the SSR tree for hydration traversal via revealBoundaryInSSRTree.
+                // Cleanup happens when the SSR stream completes.
+            }
+            return nil
+        }
     }
 
     /// Computes tree statistics (total node count and max depth) by walking
@@ -1219,6 +1278,28 @@ public class Bindings {
     }
 
     // MARK: - Suspense Interleaving
+
+    // MARK: - Debug Tree Dump
+
+    /// Recursively dumps the tree structure with family identity (ObjectIdentifier)
+    /// and key props for debugging diff/mutation issues.
+    private func debugDumpTree(_ label: String, _ nodes: [ShadowNodeWrapper], depth: Int) {
+        let indent = String(repeating: "  ", count: depth)
+        for (i, node) in nodes.enumerated() {
+            let familyId = ObjectIdentifier(node.family)
+            let nodeId = ObjectIdentifier(node)
+            let text = node.text ?? ""
+            let pending = node.props["pending"] as? Bool
+            let boundaryId = node.props["boundaryId"] as? Int
+            var extra = ""
+            if !text.isEmpty { extra += " text=\"\(text)\"" }
+            if let p = pending { extra += " pending=\(p)" }
+            if let bid = boundaryId { extra += " boundaryId=\(bid)" }
+            let hasView = viewRegistry.view(for: node.family) != nil
+            print("\(label) \(indent)[\(i)] <\(node.family.elementType)> family=\(familyId) node=\(nodeId) hasView=\(hasView)\(extra)")
+            debugDumpTree(label, node.children, depth: depth + 1)
+        }
+    }
 
     /// Finds the correct insertion index for a new child among preserved
     /// #suspense siblings, using the old child ordering as reference.

@@ -1,5 +1,6 @@
 const React = require('react');
 const {Suspense} = React;
+const Counter = require('../components/Counter');
 
 const fixture = {
   title: 'Nested Suspense',
@@ -37,6 +38,7 @@ function NestedSuspense() {
       </div>
       <Suspense fallback={<Skeleton />}>
         <SlowSection label="Fast (500ms)" delay={500} />
+        <Counter initalCount={0} />
       </Suspense>
       <Suspense fallback={<Skeleton />}>
         <SlowSection label="Medium (1000ms)" delay={1000} />
