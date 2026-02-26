@@ -12,7 +12,13 @@
       "Bash(test:*)",
       "mcp__XcodeBuildMCP__*",
       "WebSearch",
-      "WebFetch"
+      "WebFetch",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__list_pages",
+      "mcp__claude_mcp_add_chrome-devtools_--scope_user_npx_chrome-devtools-mcp_latest__list_pages",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__navigate_page",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__take_snapshot",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__click",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__take_screenshot"
     ],
     "deny": [
       "Bash(xcrun:*)",
