@@ -36,7 +36,10 @@ const CHUNK_SIZE = 1000; // Events per Tracing.dataCollected message (matches RN
 // ---------------------------------------------------------------------------
 // Logging helper
 // ---------------------------------------------------------------------------
+var verboseLogging = false;
+
 function log(tag, msg, data) {
+  if (!verboseLogging) return;
   var ts = new Date().toISOString().slice(11, 23);
   if (data !== undefined) {
     var str = typeof data === 'string' ? data : JSON.stringify(data);
@@ -45,6 +48,12 @@ function log(tag, msg, data) {
   } else {
     console.log('[' + ts + '] [' + tag + '] ' + msg);
   }
+}
+
+// Always prints regardless of verboseLogging
+function logAlways(tag, msg) {
+  var ts = new Date().toISOString().slice(11, 23);
+  console.log('[' + ts + '] [' + tag + '] ' + msg);
 }
 
 // ---------------------------------------------------------------------------
@@ -1648,6 +1657,20 @@ function createInspectorProxy(options) {
       return;
     }
 
+    // Toggle verbose logging on/off
+    if (url === '/debug/verbose') {
+      verboseLogging = !verboseLogging;
+      logAlways('Debug', 'Verbose logging ' + (verboseLogging ? 'ENABLED' : 'DISABLED'));
+      sendJSON(res, {verbose: verboseLogging});
+      return;
+    }
+
+    // Check current debug status
+    if (url === '/debug/status') {
+      sendJSON(res, {verbose: verboseLogging});
+      return;
+    }
+
     // SSE endpoint — pushes "refresh" events when the native tree updates
     if (url === '/preview/events') {
       res.writeHead(200, {
@@ -1860,10 +1883,11 @@ function createInspectorProxy(options) {
   // Start
   // -----------------------------------------------------------------------
   httpServer.listen(cdpPort, function () {
-    log('Init', 'CDP server listening on http://localhost:' + cdpPort);
-    log('Init', 'Target: ' + targetId);
-    log('Init', 'DevTools URL: ' + devtoolsFrontendUrl);
-    log('Init', 'Preview URL: http://localhost:' + cdpPort + '/preview');
+    logAlways('Init', 'CDP server listening on http://localhost:' + cdpPort);
+    logAlways('Init', 'Target: ' + targetId);
+    logAlways('Init', 'DevTools URL: ' + devtoolsFrontendUrl);
+    logAlways('Init', 'Preview URL: http://localhost:' + cdpPort + '/preview');
+    logAlways('Init', 'Verbose logging: curl http://localhost:' + cdpPort + '/debug/verbose');
   });
 
   return {
