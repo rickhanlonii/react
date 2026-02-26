@@ -242,6 +242,174 @@ final class EndToEndSSRTests: XCTestCase {
         }), "Suspense-recovered content should be visible after hydration recovery, got: \(texts)")
     }
 
+    // MARK: - Group A: Pure Server Components (SSR-only)
+
+    func testFieldsetSSRRenders() {
+        let ssrDone = expectation(description: "SSR complete")
+        root.renderWithSSR(serverURL: "\(Self.ssrBaseURL)/ssr/13-fieldset") { error in
+            XCTAssertNil(error, "SSR should complete without error")
+            ssrDone.fulfill()
+        }
+        wait(for: [ssrDone], timeout: 15.0)
+
+        let scroll = scrollView(in: container)
+        XCTAssertNotNil(scroll, "SSR should create a UIScrollView")
+
+        let texts = findLabelTexts(in: scroll!)
+        XCTAssertTrue(texts.contains(where: { $0.contains("Fieldset") }),
+                       "Should find title, got: \(texts)")
+        XCTAssertTrue(texts.contains(where: { $0.contains("Account Settings") }),
+                       "Should find legend text, got: \(texts)")
+    }
+
+    func testButtonVariantsSSRRenders() {
+        let ssrDone = expectation(description: "SSR complete")
+        root.renderWithSSR(serverURL: "\(Self.ssrBaseURL)/ssr/14-button-variants") { error in
+            XCTAssertNil(error, "SSR should complete without error")
+            ssrDone.fulfill()
+        }
+        wait(for: [ssrDone], timeout: 15.0)
+
+        let scroll = scrollView(in: container)
+        XCTAssertNotNil(scroll, "SSR should create a UIScrollView")
+
+        let texts = findLabelTexts(in: scroll!)
+        XCTAssertTrue(texts.contains(where: { $0.contains("Button Variants") }),
+                       "Should find title, got: \(texts)")
+        XCTAssertTrue(texts.contains(where: { $0.contains("Default Button") }),
+                       "Should find button label, got: \(texts)")
+        XCTAssertTrue(texts.contains(where: { $0.contains("Styled Button") }),
+                       "Should find styled button label, got: \(texts)")
+    }
+
+    func testImageSquareSSRRenders() {
+        let ssrDone = expectation(description: "SSR complete")
+        root.renderWithSSR(serverURL: "\(Self.ssrBaseURL)/ssr/15-image-square") { error in
+            XCTAssertNil(error, "SSR should complete without error")
+            ssrDone.fulfill()
+        }
+        wait(for: [ssrDone], timeout: 15.0)
+
+        let scroll = scrollView(in: container)
+        XCTAssertNotNil(scroll, "SSR should create a UIScrollView")
+
+        let texts = findLabelTexts(in: scroll!)
+        XCTAssertTrue(texts.contains(where: { $0.contains("Square Image") }),
+                       "Should find title, got: \(texts)")
+    }
+
+    func testImageLandscapeSSRRenders() {
+        let ssrDone = expectation(description: "SSR complete")
+        root.renderWithSSR(serverURL: "\(Self.ssrBaseURL)/ssr/16-image-landscape") { error in
+            XCTAssertNil(error, "SSR should complete without error")
+            ssrDone.fulfill()
+        }
+        wait(for: [ssrDone], timeout: 15.0)
+
+        let scroll = scrollView(in: container)
+        XCTAssertNotNil(scroll, "SSR should create a UIScrollView")
+
+        let texts = findLabelTexts(in: scroll!)
+        XCTAssertTrue(texts.contains(where: { $0.contains("Landscape Image") }),
+                       "Should find title, got: \(texts)")
+    }
+
+    func testImageRowSSRRenders() {
+        let ssrDone = expectation(description: "SSR complete")
+        root.renderWithSSR(serverURL: "\(Self.ssrBaseURL)/ssr/17-image-row") { error in
+            XCTAssertNil(error, "SSR should complete without error")
+            ssrDone.fulfill()
+        }
+        wait(for: [ssrDone], timeout: 15.0)
+
+        let scroll = scrollView(in: container)
+        XCTAssertNotNil(scroll, "SSR should create a UIScrollView")
+
+        let texts = findLabelTexts(in: scroll!)
+        XCTAssertTrue(texts.contains(where: { $0.contains("Image Row") }),
+                       "Should find title, got: \(texts)")
+    }
+
+    func testUnorderedListSSRRenders() {
+        let ssrDone = expectation(description: "SSR complete")
+        root.renderWithSSR(serverURL: "\(Self.ssrBaseURL)/ssr/18-unordered-list") { error in
+            XCTAssertNil(error, "SSR should complete without error")
+            ssrDone.fulfill()
+        }
+        wait(for: [ssrDone], timeout: 15.0)
+
+        let scroll = scrollView(in: container)
+        XCTAssertNotNil(scroll, "SSR should create a UIScrollView")
+
+        let texts = findLabelTexts(in: scroll!)
+        XCTAssertTrue(texts.contains(where: { $0.contains("Unordered List") }),
+                       "Should find title, got: \(texts)")
+        XCTAssertTrue(texts.contains(where: { $0.contains("React Server Components") }),
+                       "Should find list item text, got: \(texts)")
+        XCTAssertTrue(texts.contains(where: { $0.contains("UIKit Native Views") }),
+                       "Should find list item text, got: \(texts)")
+    }
+
+    func testOrderedListSSRRenders() {
+        let ssrDone = expectation(description: "SSR complete")
+        root.renderWithSSR(serverURL: "\(Self.ssrBaseURL)/ssr/19-ordered-list") { error in
+            XCTAssertNil(error, "SSR should complete without error")
+            ssrDone.fulfill()
+        }
+        wait(for: [ssrDone], timeout: 15.0)
+
+        let scroll = scrollView(in: container)
+        XCTAssertNotNil(scroll, "SSR should create a UIScrollView")
+
+        let texts = findLabelTexts(in: scroll!)
+        XCTAssertTrue(texts.contains(where: { $0.contains("Ordered List") }),
+                       "Should find title, got: \(texts)")
+        XCTAssertTrue(texts.contains(where: { $0.contains("Server renders RSC") }),
+                       "Should find list item text, got: \(texts)")
+        XCTAssertTrue(texts.contains(where: { $0.contains("Interactive components activate") }),
+                       "Should find list item text, got: \(texts)")
+    }
+
+    func testNestedListSSRRenders() {
+        let ssrDone = expectation(description: "SSR complete")
+        root.renderWithSSR(serverURL: "\(Self.ssrBaseURL)/ssr/20-nested-list") { error in
+            XCTAssertNil(error, "SSR should complete without error")
+            ssrDone.fulfill()
+        }
+        wait(for: [ssrDone], timeout: 15.0)
+
+        let scroll = scrollView(in: container)
+        XCTAssertNotNil(scroll, "SSR should create a UIScrollView")
+
+        let texts = findLabelTexts(in: scroll!)
+        XCTAssertTrue(texts.contains(where: { $0.contains("Nested List") }),
+                       "Should find title, got: \(texts)")
+        XCTAssertTrue(texts.contains(where: { $0.contains("RSC rendering") }),
+                       "Should find nested item text, got: \(texts)")
+        XCTAssertTrue(texts.contains(where: { $0.contains("JavaScriptCore") }),
+                       "Should find nested item text, got: \(texts)")
+    }
+
+    func testTableSSRRenders() {
+        let ssrDone = expectation(description: "SSR complete")
+        root.renderWithSSR(serverURL: "\(Self.ssrBaseURL)/ssr/21-table") { error in
+            XCTAssertNil(error, "SSR should complete without error")
+            ssrDone.fulfill()
+        }
+        wait(for: [ssrDone], timeout: 15.0)
+
+        let scroll = scrollView(in: container)
+        XCTAssertNotNil(scroll, "SSR should create a UIScrollView")
+
+        let texts = findLabelTexts(in: scroll!)
+        XCTAssertTrue(texts.contains(where: { $0.contains("Table") }),
+                       "Should find title, got: \(texts)")
+        XCTAssertTrue(texts.contains(where: { $0.contains("Feature") }),
+                       "Should find header text, got: \(texts)")
+        XCTAssertTrue(texts.contains(where: { $0.contains("RSC Streaming") }),
+                       "Should find cell text, got: \(texts)")
+    }
+
     // MARK: - Test 5: Text Formatting Fixture Renders via SSR
 
     func testTextFormattingSSRRenders() {
