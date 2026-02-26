@@ -9,7 +9,7 @@ import UIKit
 
 class LogBoxDetailView: UIView {
     var onBack: (() -> Void)?
-    var onDismissEntry: ((UUID) -> Void)?
+    var onDismissEntry: (() -> Void)?
     var onDismissAll: (() -> Void)?
     var onNavigate: ((Int) -> Void)?  // delta: -1 = prev, +1 = next
 
@@ -503,8 +503,7 @@ class LogBoxDetailView: UIView {
         }
     }
     @objc private func handleDismissEntry() {
-        guard let id = entryId else { return }
-        onDismissEntry?(id)
+        onDismissEntry?()
     }
     @objc private func handleDismissAll() { onDismissAll?() }
 }

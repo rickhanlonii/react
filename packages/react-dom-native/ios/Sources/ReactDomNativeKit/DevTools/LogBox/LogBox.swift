@@ -186,7 +186,7 @@ public class LogBox {
             .compactMap({ $0 as? UIWindowScene })
             .first else { return }
 
-        let window = UIWindow(windowScene: scene)
+        let window = PassThroughWindow(windowScene: scene)
         window.windowLevel = .alert + 1
         window.isUserInteractionEnabled = true
         window.backgroundColor = .clear
@@ -208,9 +208,6 @@ public class LogBox {
 
         window.rootViewController = vc
         window.isHidden = false
-
-        // Make the window pass through touches except on the badge
-        vc.view.isUserInteractionEnabled = true
 
         self.overlayWindow = window
         self.badge = badgeView
@@ -278,12 +275,8 @@ public class LogBox {
         detailView.onBack = { [weak self] in
             self?.showList()
         }
-        detailView.onDismissEntry = { [weak self] id in
-            self?.store.dismiss(id)
-            // If no more entries, hide everything
-            guard let self = self, !self.store.entries.isEmpty else { return }
-            let newIndex = min(index, self.store.entries.count - 1)
-            self.showDetail(at: newIndex)
+        detailView.onDismissEntry = { [weak self] in
+            self?.dismissToState()
         }
         detailView.onDismissAll = { [weak self] in
             self?.store.clearAll()
@@ -351,5 +344,22 @@ public class LogBox {
             ])
         }
         return ["callFrames": frames]
+    }
+}
+
+// MARK: - Pass-Through Touch Handling
+
+/// A UIWindow that only handles touches landing on a LogBoxBadge (or its
+/// subviews). All other touches pass through to the app window below.
+private class PassThroughWindow: UIWindow {
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        guard let hitView = super.hitTest(point, with: event) else { return nil }
+        // Walk up from the hit view — only handle if it's inside a LogBoxBadge
+        var current: UIView? = hitView
+        while let view = current {
+            if view is LogBoxBadge { return hitView }
+            current = view.superview
+        }
+        return nil
     }
 }

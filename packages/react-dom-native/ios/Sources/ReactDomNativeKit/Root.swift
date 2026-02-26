@@ -180,6 +180,11 @@ public class Root {
 
         surfaceId = nil
 
+        // Clear LogBox errors
+        #if DEBUG
+        LogBox.shared.clearAll()
+        #endif
+
         print("[ReactDomNativeKit] Root unmounted")
     }
 
@@ -625,6 +630,184 @@ public class Root {
         let task = session.dataTask(with: ssrURL)
         self.ssrDataTask = task
         task.resume()
+    }
+
+    // MARK: - Test Hooks (SSR)
+
+    /// Test-only: Feeds SSR instruction data directly, bypassing HTTP.
+    /// Sets up the full SSR pipeline (coordinator, parser, tree builder)
+    /// and processes the instruction stream synchronously.
+    ///
+    /// - Parameters:
+    ///   - instructions: Newline-delimited SSR instruction stream string.
+    ///   - finish: Whether to signal end of stream (default true).
+    ///     Pass false for incremental testing, then use `feedSSRSegment` for more data.
+    ///   - completion: Called when root shell completes.
+    internal func feedSSRData(_ instructions: String, finish: Bool = true, completion: ((Error?) -> Void)? = nil) {
+        guard !isUnmounted else {
+            completion?(RootError.alreadyUnmounted)
+            return
+        }
+
+        // Reserve surfaceId if needed (same as renderWithSSR)
+        if surfaceId == nil {
+            surfaceId = ReactRuntime.shared.reserveSurface(root: self, container: container)
+        }
+
+        // Create SSR infrastructure (same components as renderWithSSR)
+        let treeBuilder = ShadowTreeBuilder(
+            surfaceId: surfaceId!,
+            viewportWidth: Float(container.bounds.width > 0 ? container.bounds.width : 390),
+            viewportHeight: Float(container.bounds.height > 0 ? container.bounds.height : 844)
+        )
+
+        let boundaryManager = BoundaryManager(treeBuilder: treeBuilder)
+        let parser = InstructionStreamParser()
+
+        let coordinator = SSRCoordinator(
+            treeBuilder: treeBuilder,
+            boundaryManager: boundaryManager,
+            rootView: container
+        )
+
+        // Wire Flight data callback (same as renderWithSSR)
+        coordinator.onFlightDataReceived = { [weak self] row in
+            guard let self = self else { return }
+            if self.hydrationCommitted, let responseId = self.flightResponseId {
+                ReactRuntime.shared.processFlightRow(responseId: responseId, row: row)
+            } else if self.hydrationStarted {
+                self.postHydrationFlightBuffer.append(row)
+            } else {
+                self.ssrFlightDataBuffer.append(row)
+            }
+        }
+
+        // Wire boundary reveal queueing (same as renderWithSSR)
+        coordinator.onBoundaryRevealQueued = { [weak self] id, contentNodes in
+            self?.queueBoundaryReveal(id: id, contentNodes: contentNodes)
+        }
+
+        parser.delegate = coordinator
+
+        // Wire boundary reveal view updates (same core logic as renderWithSSR)
+        coordinator.onViewsNeedUpdate = { [weak self] oldRootChildren, newRootChildren in
+            guard let self = self else { return }
+            self.ssrRevealHasOccurred = true
+
+            guard let applier = self.ssrMutationApplier,
+                  let registry = self.ssrViewRegistry else { return }
+
+            guard let scrollView = self.container.subviews.first(where: { $0 is UIScrollView }) as? UIScrollView else { return }
+
+            // 1. Calculate layout on the new tree
+            let width = Float(self.container.bounds.width > 0 ? self.container.bounds.width : 390)
+            let rootYogaNode = YGNodeNewWithConfig(YogaConfig.shared)!
+            YGNodeStyleSetFlexDirection(rootYogaNode, .column)
+            YGNodeStyleSetWidth(rootYogaNode, width)
+
+            for (index, child) in newRootChildren.enumerated() {
+                if let owner = YGNodeGetOwner(child.yogaNode) {
+                    YGNodeRemoveChild(owner, child.yogaNode)
+                }
+                YGNodeInsertChild(rootYogaNode, child.yogaNode, index)
+            }
+
+            ShadowTreeLayout.performLayout(
+                rootYogaNode: rootYogaNode,
+                children: newRootChildren,
+                width: width,
+                height: .nan
+            )
+
+            YGNodeRemoveAllChildren(rootYogaNode)
+            YGNodeFree(rootYogaNode)
+
+            // 2. Diff old vs new tree
+            let differentiator = Differentiator()
+            let mutations = differentiator.diff(
+                oldChildren: oldRootChildren,
+                newChildren: newRootChildren,
+                parent: nil
+            )
+
+            // 3. Apply mutations
+            applier.applyMutations(mutations, rootView: scrollView)
+
+            // 4. Sync all frames
+            self.syncSSRFrames(newRootChildren)
+
+            // 5. Attach new root-level views to scroll view
+            for child in newRootChildren {
+                if let view = registry.view(for: child.family) {
+                    if view.superview == nil {
+                        scrollView.addSubview(view)
+                    }
+                }
+            }
+
+            // 6. Update scroll content size
+            let contentHeight = ShadowTreeLayout.computeActualContentHeight(for: newRootChildren)
+            scrollView.contentSize = CGSize(
+                width: scrollView.bounds.width,
+                height: contentHeight
+            )
+        }
+
+        // Store references
+        self.ssrParser = parser
+        self.ssrTreeBuilder = treeBuilder
+        self.ssrBoundaryManager = boundaryManager
+        self.ssrCoordinator = coordinator
+
+        // Wire root completion — first paint (same core logic as renderWithSSR)
+        treeBuilder.onRootComplete = { [weak self] rootChildren in
+            guard let self = self else { return }
+
+            guard !self.ssrRevealHasOccurred else {
+                completion?(nil)
+                return
+            }
+
+            let viewRegistry = ViewRegistry()
+            let applier = UIKitMutationApplier(viewRegistry: viewRegistry, logPrefix: "MutationApplier SSR Test")
+            self.ssrViewRegistry = viewRegistry
+            self.ssrMutationApplier = applier
+
+            var timings: [(mutationType: String, elementType: String, start: Double, end: Double)] = []
+            self.createViewsFromTree(rootChildren, applier: applier, rootView: self.container, mutationTimings: &timings)
+
+            self.ssrShellComplete = true
+            completion?(nil)
+
+            if let pending = self.pendingHydration {
+                self.pendingHydration = nil
+                pending()
+            }
+        }
+
+        // Feed data directly (instead of URLSession streaming)
+        if let data = instructions.data(using: .utf8) {
+            parser.receive(data: data)
+        }
+
+        if finish {
+            parser.finish()
+            ssrStreamComplete = true
+        }
+    }
+
+    /// Test-only: Feeds additional SSR data (segments/reveals) after the shell.
+    internal func feedSSRSegment(_ instructions: String) {
+        guard let parser = ssrParser,
+              let data = instructions.data(using: .utf8) else { return }
+        parser.receive(data: data)
+    }
+
+    /// Test-only: Flushes any pending throttled reveals immediately.
+    internal func flushPendingRevealsForTesting() {
+        revealTimer?.cancel()
+        revealTimer = nil
+        flushPendingReveals()
     }
 
     /// Hydrates SSR content by attaching React's runtime to the pre-rendered tree.

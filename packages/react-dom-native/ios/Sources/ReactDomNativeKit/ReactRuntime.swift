@@ -317,6 +317,46 @@ public class ReactRuntime {
         runtime?.updateViewportSize(width: width, height: height)
     }
 
+    // MARK: - Testing
+
+    /// Test-only: Boots the runtime with a pre-loaded bundle string.
+    /// Skips URL resolution and DevTools setup.
+    internal func bootWithBundle(_ source: String) {
+        guard !hasBooted else { return }
+
+        runtime = JSRuntime()
+        runtime?.engine.evaluate(source)
+        isBundleLoaded = true
+        hasBooted = true
+        isBooting = false
+    }
+
+    /// Test-only: Resets all state between tests.
+    internal func resetForTesting() {
+        // Cancel all active streams
+        cancelAllFlightStreams()
+
+        // Disconnect hot reload
+        hotReloadClient?.disconnect()
+        hotReloadClient = nil
+
+        // Unregister all surfaces
+        for (surfaceId, _) in activeSurfaces {
+            runtime?.bindings.unregisterSurface(surfaceId: surfaceId)
+        }
+        activeSurfaces.removeAll()
+
+        // Destroy runtime
+        runtime = nil
+        isBundleLoaded = false
+        hasBooted = false
+        isBooting = false
+        nextSurfaceId = 1
+        bootCompletionQueue.removeAll()
+        tracingActive = false
+        lastRefreshFailed = false
+    }
+
     // MARK: - Reload
 
     /// Reloads the JS bundle. Called by HotReloadClient on "reload" message.
@@ -461,6 +501,11 @@ public class ReactRuntime {
         isBundleLoaded = false
         hasBooted = false
         activeSurfaces.removeAll()
+
+        // 4. Clear LogBox errors from previous session
+        #if DEBUG
+        LogBox.shared.clearAll()
+        #endif
 
         // 4. Create new runtime
         runtime = JSRuntime()
