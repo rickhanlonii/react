@@ -675,6 +675,16 @@ public class ReactRuntime {
                     }
                     return
                 }
+
+                // Handle capture-screenshot from DevTools screencast
+                if type == "capture-screenshot" {
+                    let maxWidth = (obj["maxWidth"] as? NSNumber)?.intValue ?? 0
+                    let quality = (obj["quality"] as? NSNumber)?.doubleValue ?? 0.8
+                    DispatchQueue.main.async {
+                        bindings?.captureScreenshot(maxWidth: maxWidth, quality: CGFloat(quality))
+                    }
+                    return
+                }
             }
             bindings?.deliverInspectorMessage(json)
         }

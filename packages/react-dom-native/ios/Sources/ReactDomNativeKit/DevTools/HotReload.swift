@@ -119,7 +119,7 @@ public class HotReloadClient {
             case "clear-errors":
                 LogBox.shared.clearAll()
 
-            case "start-tracing", "stop-tracing", "cdp-request", "dispatch-touch":
+            case "start-tracing", "stop-tracing", "cdp-request", "dispatch-touch", "capture-screenshot":
                 self.onInspectorMessage?(text)
 
             default:
