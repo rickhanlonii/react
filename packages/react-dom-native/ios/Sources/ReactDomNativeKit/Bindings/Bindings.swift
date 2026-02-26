@@ -1642,6 +1642,56 @@ public class Bindings {
         }
     }
 
+    // MARK: - DevTools Screenshot Capture
+
+    /// Captures a screenshot of the app window as a JPEG and sends it via
+    /// `sendInspectorMessage` as a base64-encoded `screenshot-data` message.
+    /// Called from the DevTools screencast proxy to capture frames in-process
+    /// instead of shelling out to `xcrun simctl`.
+    ///
+    /// - Parameters:
+    ///   - maxWidth: Maximum width in pixels for the rendered image. If the
+    ///     window's pixel width exceeds this, the render is scaled down
+    ///     proportionally. Pass 0 or negative to capture at full resolution.
+    ///   - quality: JPEG compression quality from 0.0 (most compression) to
+    ///     1.0 (least compression).
+    public func captureScreenshot(maxWidth: Int, quality: CGFloat) {
+        guard let windowScene = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first,
+              let window = windowScene.windows.first else {
+            return
+        }
+
+        let scale = windowScene.screen.scale
+        let bounds = window.bounds
+        let pixelWidth = Int(bounds.width * scale)
+        let pixelHeight = Int(bounds.height * scale)
+
+        // Determine the render size — scale down if maxWidth is set and
+        // the window's pixel width exceeds it.
+        var renderSize = bounds.size
+        if maxWidth > 0 && pixelWidth > maxWidth {
+            let ratio = CGFloat(maxWidth) / CGFloat(pixelWidth)
+            renderSize = CGSize(
+                width: bounds.width * ratio,
+                height: bounds.height * ratio
+            )
+        }
+
+        let renderer = UIGraphicsImageRenderer(size: renderSize)
+        let jpegData = renderer.jpegData(withCompressionQuality: quality) { _ in
+            window.drawHierarchy(in: CGRect(origin: .zero, size: renderSize), afterScreenUpdates: false)
+        }
+
+        let base64 = jpegData.base64EncodedString()
+
+        // Send the original pixel dimensions (not the possibly-downscaled
+        // render size) so the proxy can map click coordinates correctly.
+        let message = "{\"type\":\"screenshot-data\",\"data\":\"\(base64)\",\"width\":\(pixelWidth),\"height\":\(pixelHeight),\"scale\":\(Int(scale))}"
+        sendInspectorMessage?(message)
+    }
+
     // MARK: - DevTools Touch Dispatch
 
     /// Dispatches a synthetic tap at a point in window coordinates.
