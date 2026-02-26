@@ -10,8 +10,9 @@ const BUNDLE_PATH = path.resolve(BUILD_DIR, 'bundle.js');
 
 describe('JS build system', () => {
   beforeAll(() => {
-    // Run the build
-    execSync('node scripts/build.js', {cwd: ROOT, stdio: 'pipe'});
+    // Run the build — override NODE_ENV since Jest sets it to 'test',
+    // which causes react-refresh/babel to reject the environment.
+    execSync('node scripts/build.js', {cwd: ROOT, stdio: 'pipe', env: {...process.env, NODE_ENV: 'development'}});
   });
 
   it('produces a bundle file', () => {
@@ -56,11 +57,12 @@ describe('JS build system', () => {
     execSync('node scripts/build.js --production', {
       cwd: ROOT,
       stdio: 'pipe',
+      env: {...process.env, NODE_ENV: 'development'},
     });
     const devSize = fs.statSync(BUNDLE_PATH).size;
 
     // Rebuild in dev mode for other tests
-    execSync('node scripts/build.js', {cwd: ROOT, stdio: 'pipe'});
+    execSync('node scripts/build.js', {cwd: ROOT, stdio: 'pipe', env: {...process.env, NODE_ENV: 'development'}});
     const prodBundlePath = BUNDLE_PATH;
 
     // Production build was the last one written — check it was smaller

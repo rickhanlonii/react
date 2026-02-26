@@ -226,7 +226,7 @@ function createFromFlight(payload) {
   flightClient.processStringChunk(response, streamState, payload);
   flightClient.close(response);
   var root = flightClient.getRoot(response);
-  if (root.status === 'resolved') {
+  if (root.status === 'fulfilled') {
     return root.value;
   }
   if (root.status === 'rejected') {

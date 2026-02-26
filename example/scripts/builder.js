@@ -24,7 +24,7 @@ function createBuilder(options) {
     });
   }
 
-  return { build, compiler };
+  return { build, compiler, config };
 }
 
 module.exports = { createBuilder };

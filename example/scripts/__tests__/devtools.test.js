@@ -1,5 +1,6 @@
 'use strict';
 
+const {execSync} = require('child_process');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '../..');
@@ -59,23 +60,24 @@ describe('builder', () => {
 
   it('configures development mode by default', () => {
     const builder = createBuilder({rootDir: ROOT});
-    expect(builder.config.define.__DEV__).toBe('true');
-    expect(builder.config.define['process.env.NODE_ENV']).toBe('"development"');
-    expect(builder.config.minify).toBe(false);
+    expect(builder.config.mode).toBe('development');
+    expect(builder.config.devtool).toBe('source-map');
   });
 
   it('configures production mode', () => {
     const builder = createBuilder({rootDir: ROOT, mode: 'production'});
-    expect(builder.config.define.__DEV__).toBe('false');
-    expect(builder.config.define['process.env.NODE_ENV']).toBe('"production"');
-    expect(builder.config.minify).toBe(true);
+    expect(builder.config.mode).toBe('production');
+    expect(builder.config.optimization.minimize).toBe(true);
   });
 
-  it('builds successfully', async () => {
-    const builder = createBuilder({rootDir: ROOT});
-    const result = await builder.build();
-    expect(result.errors).toEqual([]);
-    expect(result.outfile).toContain('bundle.js');
+  it('builds successfully', () => {
+    // Run as child process — babel-loader uses dynamic import() which is
+    // incompatible with Jest's VM without --experimental-vm-modules.
+    execSync('node scripts/build.js', {
+      cwd: ROOT,
+      stdio: 'pipe',
+      env: {...process.env, NODE_ENV: 'development'},
+    });
   });
 });
 
