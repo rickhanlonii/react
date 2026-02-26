@@ -14,7 +14,8 @@
 // DevTools polyfills must load BEFORE React so React detects `performance`
 // and `console.timeStamp` during its module initialization.
 if (__DEV__) {
-  require('./devtools/DevToolsHookShim');        // Must be first — sets __REACT_DEVTOOLS_GLOBAL_HOOK__
+  require('./devtools/ReactDevToolsSetup');         // Must be first — installs full DevTools hook + connects backend
+  require('./devtools/DevToolsHookShim');            // Fallback — sets __REACT_DEVTOOLS_GLOBAL_HOOK__ if not already set
   require('./devtools/PerformanceTracer');
   require('./devtools/PerformancePolyfill');
   require('./devtools/ConsoleTimeStamp');

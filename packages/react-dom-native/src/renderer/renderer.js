@@ -7,7 +7,11 @@ const reconciler = Reconciler(HostConfig);
 
 // Register with __REACT_DEVTOOLS_GLOBAL_HOOK__ — this triggers
 // injectInternals() which enables profiling hooks and DevTools integration.
-reconciler.injectIntoDevTools();
+reconciler.injectIntoDevTools({
+  bundleType: typeof __DEV__ !== 'undefined' && __DEV__ ? 1 : 0,
+  version: '19.1',
+  rendererPackageName: 'react-dom-native',
+});
 
 // Register the event handler that maps native events to React props.
 // When a native event arrives (e.g. type='click'), the handler looks up

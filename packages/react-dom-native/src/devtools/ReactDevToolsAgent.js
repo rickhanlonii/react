@@ -12,16 +12,33 @@
 
 globalThis.$$getComponentTree = function () {
   var hook = globalThis.__REACT_DEVTOOLS_GLOBAL_HOOK__;
-  if (!hook || !hook._fiberRoots) return null;
+  if (!hook) return null;
 
   var trees = [];
-  hook._fiberRoots.forEach(function (roots) {
-    roots.forEach(function (root) {
-      if (root.current) {
-        trees.push(fiberToTree(root.current, 0));
+
+  if (hook._fiberRoots) {
+    // Lightweight shim format: _fiberRoots is a Map of rendererId -> Set<FiberRoot>
+    hook._fiberRoots.forEach(function (roots) {
+      roots.forEach(function (root) {
+        if (root.current) {
+          trees.push(fiberToTree(root.current, 0));
+        }
+      });
+    });
+  } else if (hook.getFiberRoots) {
+    // Full DevTools hook format: getFiberRoots(rendererId) returns Set<FiberRoot>
+    hook.renderers.forEach(function (_, id) {
+      var roots = hook.getFiberRoots(id);
+      if (roots) {
+        roots.forEach(function (root) {
+          if (root.current) {
+            trees.push(fiberToTree(root.current, 0));
+          }
+        });
       }
     });
-  });
+  }
+
   return trees;
 };
 
