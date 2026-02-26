@@ -659,12 +659,7 @@ final class EndToEndSSRTests: XCTestCase {
                        "Success section should be visible via SSR streaming, got: \(texts)")
     }
 
-    func testFlightAbortedSuspense() throws {
-        // VerySlowSection has 30s delay — impractical to wait for in tests
-        throw XCTSkip("VerySlowSection (30s delay) makes this fixture impractical for e2e testing")
-    }
-
-    func testFlightDedupedComponentRenders() {
+func testFlightDedupedComponentRenders() {
         // 1. SSR render — shared async component in two cards (500ms)
         let ssrDone = expectation(description: "SSR complete")
         root.renderWithSSR(serverURL: "\(Self.ssrBaseURL)/ssr/27-flight-deduped-component") { error in
