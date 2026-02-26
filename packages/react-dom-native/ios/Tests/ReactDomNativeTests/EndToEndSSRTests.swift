@@ -410,6 +410,150 @@ final class EndToEndSSRTests: XCTestCase {
                        "Should find cell text, got: \(texts)")
     }
 
+    // MARK: - Group B: Client Components + Suspense (SSR + hydrate)
+
+    func testSingleSuspenseRendersAndHydrates() {
+        // 1. SSR render — single suspense with 1500ms server delay
+        let ssrDone = expectation(description: "SSR complete")
+        root.renderWithSSR(serverURL: "\(Self.ssrBaseURL)/ssr/03-single-suspense") { error in
+            XCTAssertNil(error, "SSR should complete without error")
+            ssrDone.fulfill()
+        }
+        wait(for: [ssrDone], timeout: 15.0)
+
+        let scroll = scrollView(in: container)
+        XCTAssertNotNil(scroll, "SSR should create a UIScrollView")
+
+        let ssrTexts = findLabelTexts(in: scroll!)
+        XCTAssertTrue(ssrTexts.contains(where: { $0.contains("Single Suspense") }),
+                       "Should find title in SSR output, got: \(ssrTexts)")
+
+        // 2. Hydrate
+        let hydrateDone = expectation(description: "Hydration complete")
+        root.hydrateRoot(serverURL: "\(Self.flightBaseURL)/fixtures/03-single-suspense") { error in
+            XCTAssertNil(error, "Hydration should complete without error")
+            hydrateDone.fulfill()
+        }
+        wait(for: [hydrateDone], timeout: 20.0)
+
+        // 3. Wait for Suspense content to appear
+        waitForCondition(timeout: 15.0, description: "suspense content appears") {
+            let texts = self.findLabelTexts(in: scroll!)
+            return texts.contains(where: { $0.contains("Loaded Content") })
+        }
+
+        let texts = findLabelTexts(in: scroll!)
+        XCTAssertTrue(texts.contains(where: { $0.contains("Loaded Content") }),
+                       "Loaded Content should be visible after hydration, got: \(texts)")
+    }
+
+    func testClientComponentsRendersAndHydrates() {
+        // 1. SSR render
+        let ssrDone = expectation(description: "SSR complete")
+        root.renderWithSSR(serverURL: "\(Self.ssrBaseURL)/ssr/04-client-components") { error in
+            XCTAssertNil(error, "SSR should complete without error")
+            ssrDone.fulfill()
+        }
+        wait(for: [ssrDone], timeout: 15.0)
+
+        let scroll = scrollView(in: container)
+        XCTAssertNotNil(scroll, "SSR should create a UIScrollView")
+
+        let ssrTexts = findLabelTexts(in: scroll!)
+        XCTAssertTrue(ssrTexts.contains(where: { $0.contains("Client Components") }),
+                       "Should find title in SSR output, got: \(ssrTexts)")
+
+        // 2. Hydrate
+        let hydrateDone = expectation(description: "Hydration complete")
+        root.hydrateRoot(serverURL: "\(Self.flightBaseURL)/fixtures/04-client-components") { error in
+            XCTAssertNil(error, "Hydration should complete without error")
+            hydrateDone.fulfill()
+        }
+        wait(for: [hydrateDone], timeout: 20.0)
+
+        // 3. Wait for client components to be interactive
+        waitForCondition(timeout: 15.0, description: "client components visible") {
+            let texts = self.findLabelTexts(in: scroll!)
+            return texts.contains(where: { $0.contains("Counter") })
+                && texts.contains(where: { $0.contains("Tabs") })
+        }
+
+        let texts = findLabelTexts(in: scroll!)
+        XCTAssertTrue(texts.contains(where: { $0.contains("Counter") }),
+                       "Counter heading should be visible after hydration, got: \(texts)")
+        XCTAssertTrue(texts.contains(where: { $0.contains("Tabs") }),
+                       "Tabs heading should be visible after hydration, got: \(texts)")
+    }
+
+    func testContactFormRendersAndHydrates() {
+        // 1. SSR render
+        let ssrDone = expectation(description: "SSR complete")
+        root.renderWithSSR(serverURL: "\(Self.ssrBaseURL)/ssr/12-contact-form") { error in
+            XCTAssertNil(error, "SSR should complete without error")
+            ssrDone.fulfill()
+        }
+        wait(for: [ssrDone], timeout: 15.0)
+
+        let scroll = scrollView(in: container)
+        XCTAssertNotNil(scroll, "SSR should create a UIScrollView")
+
+        let ssrTexts = findLabelTexts(in: scroll!)
+        XCTAssertTrue(ssrTexts.contains(where: { $0.contains("Contact Form") }),
+                       "Should find title in SSR output, got: \(ssrTexts)")
+
+        // 2. Hydrate
+        let hydrateDone = expectation(description: "Hydration complete")
+        root.hydrateRoot(serverURL: "\(Self.flightBaseURL)/fixtures/12-contact-form") { error in
+            XCTAssertNil(error, "Hydration should complete without error")
+            hydrateDone.fulfill()
+        }
+        wait(for: [hydrateDone], timeout: 20.0)
+
+        // 3. Wait for form controls to appear
+        waitForCondition(timeout: 15.0, description: "form labels visible") {
+            let texts = self.findLabelTexts(in: scroll!)
+            return texts.contains(where: { $0.contains("Name") })
+        }
+
+        let texts = findLabelTexts(in: scroll!)
+        XCTAssertTrue(texts.contains(where: { $0.contains("Contact Form") }),
+                       "Title should survive hydration, got: \(texts)")
+        XCTAssertTrue(texts.contains(where: { $0.contains("Name") }),
+                       "Form field label should be visible after hydration, got: \(texts)")
+    }
+
+    func testMetaAIHomepageRendersAndHydrates() {
+        // 1. SSR render — pure server component, no client JS
+        let ssrDone = expectation(description: "SSR complete")
+        root.renderWithSSR(serverURL: "\(Self.ssrBaseURL)/ssr/22-meta-ai-homepage") { error in
+            XCTAssertNil(error, "SSR should complete without error")
+            ssrDone.fulfill()
+        }
+        wait(for: [ssrDone], timeout: 15.0)
+
+        let scroll = scrollView(in: container)
+        XCTAssertNotNil(scroll, "SSR should create a UIScrollView")
+
+        let ssrTexts = findLabelTexts(in: scroll!)
+        XCTAssertTrue(ssrTexts.contains(where: { $0.contains("What can I do for you?") }),
+                       "Should find title in SSR output, got: \(ssrTexts)")
+
+        // 2. Hydrate
+        let hydrateDone = expectation(description: "Hydration complete")
+        root.hydrateRoot(serverURL: "\(Self.flightBaseURL)/fixtures/22-meta-ai-homepage") { error in
+            XCTAssertNil(error, "Hydration should complete without error")
+            hydrateDone.fulfill()
+        }
+        wait(for: [hydrateDone], timeout: 20.0)
+
+        // 3. Verify content survived hydration
+        let texts = findLabelTexts(in: scroll!)
+        XCTAssertTrue(texts.contains(where: { $0.contains("What can I do for you?") }),
+                       "Title should survive hydration, got: \(texts)")
+        XCTAssertTrue(texts.contains(where: { $0.contains("Ask anything") }),
+                       "Input placeholder should be visible, got: \(texts)")
+    }
+
     // MARK: - Test 5: Text Formatting Fixture Renders via SSR
 
     func testTextFormattingSSRRenders() {
