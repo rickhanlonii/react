@@ -24,8 +24,8 @@ var React = require('react');
 var {PassThrough, Transform} = require('stream');
 
 var app = express();
-var PORT = 6001;
-var FLIGHT_SERVER = 'http://localhost:6000';
+var PORT = parseInt(process.env.PORT, 10) || 6001;
+var FLIGHT_SERVER = process.env.FLIGHT_SERVER || 'http://localhost:6000';
 
 // __webpack_require__ — the Flight client calls this to resolve client
 // component modules from I rows. In this SSR process, we resolve webpack

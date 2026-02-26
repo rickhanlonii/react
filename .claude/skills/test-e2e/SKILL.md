@@ -1,6 +1,6 @@
 ---
 name: test-e2e
-description: Run end-to-end test — start RSC server, build iOS app, verify native rendering.
+description: Run end-to-end test — start RSC server, build iOS app, verify native rendering. For Swift E2E tests (EndToEndSSRTests + EndToEndCSRTests), use `npm run test:e2e-swift` instead.
 ---
 
 # End-to-End Test

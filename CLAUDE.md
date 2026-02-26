@@ -108,6 +108,12 @@ This runs `xcodebuild test` with the `ReactDomNativeKit-Package` scheme on the i
 npm run test:fantom
 ```
 
+**E2E Swift tests** (full pipeline: real HTTP servers → real React → real UIKit views):
+```bash
+npm run test:e2e-swift
+```
+This starts Flight + SSR servers on ports 7100/7101, then runs `EndToEndSSRTests` (SSR + hydration) and `EndToEndCSRTests` (client-side rendering) via `xcodebuild test`.
+
 ### Dev server
 
 Run `cd example && npm run dev` to start:

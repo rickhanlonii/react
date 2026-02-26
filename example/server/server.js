@@ -19,7 +19,7 @@ var express = require('express');
 var React = require('react');
 
 var app = express();
-var PORT = 6000;
+var PORT = parseInt(process.env.PORT, 10) || 6000;
 
 // Webpack-generated client manifest. Re-read on every request in dev
 // so webpack rebuilds are picked up without restarting the server.

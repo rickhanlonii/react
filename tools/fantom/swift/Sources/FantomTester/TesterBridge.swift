@@ -540,6 +540,40 @@ class TesterBridge {
             self.ssrNodeToParent.removeAll()
             return nil
         }
+
+        // $$markBoundaryRevealed(nodeId) -> void
+        // Called from JS when a boundary is revealed to sync pending=false
+        // to the Swift-side ShadowNodeWrapper props.
+        engine.setGlobalFunction("$$markBoundaryRevealed") { [weak self, weak engine] args in
+            guard let self = self, let engine = engine else { return nil }
+            guard let nodeId = engine.toInt(args[0]) else { return nil }
+            guard let node = self.nodeRegistry[nodeId] else { return nil }
+            node.props["pending"] = false
+            return nil
+        }
+
+        // $$onHydrationCommit(surfaceId) -> void
+        // Signals that React's hydration render has committed.
+        // No-op in FantomTester — we don't track hydration lifecycle.
+        engine.setGlobalFunction("$$onHydrationCommit") { _ in
+            return nil
+        }
+
+        // $$setInstanceHandle(nodeId, instanceHandle, hasClickHandler) -> void
+        // Called during hydration to attach the React fiber reference to an
+        // SSR-created node's family so that event dispatch works.
+        engine.setGlobalFunction("$$setInstanceHandle") { [weak self, weak engine] args in
+            guard let self = self, let engine = engine else { return nil }
+            guard let nodeId = engine.toInt(args[0]) else { return nil }
+            guard let node = self.nodeRegistry[nodeId] else { return nil }
+            let instanceHandle = args[1]
+            engine.protect(instanceHandle)
+            node.family.instanceHandle = instanceHandle
+            if args.count > 2, engine.toBool(args[2]) == true {
+                node.family.hasClickHandler = true
+            }
+            return nil
+        }
     }
 
     /// Creates a JS object representing an SSR node for hydration traversal.
