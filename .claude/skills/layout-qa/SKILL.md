@@ -21,11 +21,17 @@ You are **read-only**. Do not edit any source files. You only interact with the 
 
 ## Setup
 
-**You cannot build apps** — the sandbox prevents `build_run_sim`. The team lead handles all builds. Never use `build_sim`, `build_run_sim`, `launch_app_sim`, or any XcodeBuildMCP build/launch tools. Use `session_set_defaults` to configure your simulator, then use `npm run e2e:test` (via Bash) to trigger tests and get structured results from the already-running app.
+**You cannot build apps** — the sandbox prevents `xcodebuild`. The team lead handles all builds via the build server. Never use `build_sim`, `build_run_sim`, `launch_app_sim`, or any XcodeBuildMCP build/launch tools. Use `session_set_defaults` to configure your simulator, then use `npm run e2e:test` (via Bash) to trigger tests and get structured results from the already-running app.
 
 **Do NOT wrap commands** in custom bash — no `2>/dev/null`, piping through `python3 -c`, or similar. Just run the npm scripts directly and read the output.
 
-Configure XcodeBuildMCP for the LayoutCompare app:
+**For screenshots**, use the build server (if configured for this simulator) or `xcrun simctl io` directly:
+```bash
+xcrun simctl io 50E9E48E-D7F7-4338-9873-3EB801137EE7 screenshot /tmp/e2e-screenshot.png
+```
+Then view: `Read /tmp/e2e-screenshot.png`
+
+Configure XcodeBuildMCP for the LayoutCompare app (needed for `snapshot_ui`, `tap`, etc.):
 ```
 session_set_defaults:
   projectPath: tests/e2e/LayoutCompare/LayoutCompare/LayoutCompare.xcodeproj

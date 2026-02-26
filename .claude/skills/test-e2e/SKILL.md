@@ -9,7 +9,7 @@ description: Run end-to-end test — start RSC server, build iOS app, verify nat
 
 - npm dependencies installed (`cd example && npm install`)
 - Xcode project exists at `example/Falcon/`
-- XcodeBuildMCP session defaults configured (scheme, simulator)
+- **Build server running** in a separate terminal: `npm run build-server`
 
 ## Instructions
 
@@ -27,25 +27,37 @@ description: Run end-to-end test — start RSC server, build iOS app, verify nat
    ```
    Wait 5 seconds, then re-check the health endpoint to confirm it's up.
 
-2. **Set XcodeBuildMCP session defaults** and **build the iOS app**:
+2. **Set XcodeBuildMCP session defaults** (for UI inspection tools):
    ```
    session_set_defaults:
      projectPath: example/Falcon/Falcon.xcodeproj
      scheme: Falcon
      simulatorName: Falcon Demo
      simulatorId: 61F83D8B-36DF-474F-9AAD-61DC6D60FFED
+     bundleId: com.react.Falcon
    ```
-   Then use `build_run_sim` to build and launch the app.
 
-3. **Verify**:
-   - Check build succeeded
-   - Use the `screenshot` tool to capture the simulator screen
-   - Use the `snapshot_ui` tool to inspect the view hierarchy
+3. **Build and launch** via the build server:
+   ```bash
+   curl -s -X POST http://localhost:6002/run -H 'Content-Type: application/json' -d '{"operation":"run"}'
+   ```
+
+4. **Verify**:
+   - Check the response has `"code": 0` and `"step": "complete"`
+   - Take a screenshot:
+     ```bash
+     curl -s -X POST http://localhost:6002/run -H 'Content-Type: application/json' -d '{"operation":"sim-screenshot"}'
+     ```
+     Then view: `Read /tmp/falcon-screenshot.png`
+   - Use `snapshot_ui` (XcodeBuildMCP) to inspect the view hierarchy
    - Verify the app connects to the RSC server and renders content
 
-4. **Cleanup**:
-   - Use `stop_app_sim` to stop the app
+5. **Cleanup**:
+   - Terminate the app:
+     ```bash
+     curl -s -X POST http://localhost:6002/run -H 'Content-Type: application/json' -d '{"operation":"sim-terminate"}'
+     ```
    - Do NOT kill the dev server — other sessions may be using it
    - Report build results
 
-5. If anything fails, document the failure and suggest what needs to be fixed.
+6. If anything fails, document the failure and suggest what needs to be fixed.

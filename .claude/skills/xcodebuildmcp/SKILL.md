@@ -7,6 +7,14 @@ description: Official skill for XcodeBuildMCP. Use when doing iOS/macOS/watchOS/
 
 Prefer XcodeBuildMCP over raw `xcodebuild`, `xcrun`, or `simctl`.
 
+## Sandbox Limitation
+
+**Claude Code runs inside a macOS sandbox that blocks `sandbox-exec`.** This means XcodeBuildMCP build/run/test/log tools (`build_sim`, `build_run_sim`, `test_sim`, `launch_app_sim`, `start_sim_log_cap`, `stop_sim_log_cap`, `screenshot`) will fail with `sandbox-exec: sandbox_apply: Operation not permitted`.
+
+**Workaround**: Use the build server (`npm run build-server`, running in a separate terminal on port 6002) for build/run/screenshot/log operations. See the `/build-demo` skill for details.
+
+**XcodeBuildMCP UI tools still work**: `session_set_defaults`, `session_show_defaults`, `snapshot_ui`, `tap`, `swipe`, `gesture`, `type_text`, `long_press`, `button`, `key_press`, `key_sequence`, `discover_projs`, `list_schemes`, `show_build_settings`, `list_sims`, `boot_sim`, `open_sim`.
+
 If a capability is missing, assume your tool list may be hiding tools (search/progressive disclosure) or not loading tool schemas yet. Use your tool-search or “load tools” mechanism. If you still can’t find the tools, ask the user to enable them in the MCP client's configuration.
 
 ## Tools (exact names + official descriptions)

@@ -5,11 +5,21 @@ description: Build and run the LayoutCompare e2e app on the Falcon E2E simulator
 
 # Build E2E
 
-Builds and runs the LayoutCompare e2e app on the **Falcon E2E** simulator using XcodeBuildMCP.
+Builds and runs the LayoutCompare e2e app on the **Falcon E2E** simulator.
+
+## Prerequisites
+
+The **build server** (`npm run build-server`) is currently configured for the Falcon demo app only. To build the LayoutCompare app, use `xcodebuild` directly via the Bash tool:
+
+```bash
+cd /Users/rickhanlonii/oss/falcon && xcodebuild -project tests/e2e/LayoutCompare/LayoutCompare/LayoutCompare.xcodeproj -scheme LayoutCompare -destination 'id=50E9E48E-D7F7-4338-9873-3EB801137EE7' build
+```
+
+If this fails with `sandbox-exec: sandbox_apply: Operation not permitted`, the build must be done outside Claude's sandbox (ask the user to build manually, or add LayoutCompare operations to the build server).
 
 ## Setup
 
-1. **Set MCP session defaults**:
+1. **Set MCP session defaults** (needed for UI tools):
    ```
    session_set_defaults:
      projectPath: tests/e2e/LayoutCompare/LayoutCompare/LayoutCompare.xcodeproj
@@ -34,9 +44,9 @@ Builds and runs the LayoutCompare e2e app on the **Falcon E2E** simulator using 
 
 ## Build Decision
 
-- **Swift or Xcode project changed** → `build_run_sim` (full rebuild + launch)
-- **JS-only changes** → `launch_app_sim` (app auto-reloads JS from dev server)
-- **Not sure** → `build_run_sim` (safe default)
+- **Swift or Xcode project changed** → full rebuild + launch (see above)
+- **JS-only changes** → app auto-reloads from dev server, no rebuild needed
+- **Not sure** → full rebuild (safe default)
 
 ## Verification
 

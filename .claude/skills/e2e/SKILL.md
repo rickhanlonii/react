@@ -48,7 +48,15 @@ Bash(command: "cd /Users/rickhanlonii/oss/falcon && npm run dev:e2e", run_in_bac
 ```
 Wait 5 seconds, then re-check the health endpoint to confirm it's up.
 
-Then `build_run_sim` to build and launch the app.
+Then build and launch the app via the build server (see note below) or ask the user to build manually.
+
+**Build server** (`npm run build-server`, running in a separate terminal on port 6002) is currently configured for the **Falcon demo app only**. To build the LayoutCompare app, use `xcodebuild` directly via the Bash tool:
+```bash
+cd /Users/rickhanlonii/oss/falcon && xcodebuild -project tests/e2e/LayoutCompare/LayoutCompare/LayoutCompare.xcodeproj -scheme LayoutCompare -destination 'id=50E9E48E-D7F7-4338-9873-3EB801137EE7' build
+```
+If this fails with `sandbox-exec: sandbox_apply: Operation not permitted`, the build must be done outside Claude's sandbox (ask the user to build manually).
+
+**Do NOT use `build_run_sim`, `build_sim`, or `launch_app_sim`** — these XcodeBuildMCP tools fail due to Claude's sandbox blocking `sandbox-exec`.
 
 ## Workflow: Run All Tests
 
@@ -62,7 +70,7 @@ Then `build_run_sim` to build and launch the app.
 4. When `status` is `"complete"`, read `passed`, `total`, and `fixtures` for details
 
 ### After Swift changes (~12s)
-1. `build_run_sim` — rebuild and relaunch the app
+1. Rebuild the app — use `xcodebuild` directly or ask the user to rebuild (see Setup above). **Do NOT use `build_run_sim`** — it fails due to sandbox restrictions.
 2. Wait 3-5s for the app to start and auto-run fixtures
 3. Poll for results:
    ```bash
@@ -79,9 +87,9 @@ curl -s http://localhost:6101/results
 ```
 
 ### Launch with auto-run (no UI interaction needed)
-Build the app with `build_sim`, then:
-```
-launch_app_sim with args: ["--run-all"]
+Build the app (see Setup above), then launch with:
+```bash
+xcrun simctl launch 50E9E48E-D7F7-4338-9873-3EB801137EE7 com.react.LayoutCompare --run-all
 ```
 Poll `http://localhost:6101/results` for results.
 
@@ -135,7 +143,7 @@ Each `pixelDiff` has: `mismatchedPixels`, `totalPixels`, `percentage`. This comp
 
 3. The dev server auto-rebuilds. Wait 2-3s, then check results via HTTP.
 
-4. If dev server is not running: `node tests/e2e/scripts/build.js`, then `build_run_sim`
+4. If dev server is not running: `node tests/e2e/scripts/build.js`, then rebuild the app (see Setup above)
 
 ## Workflow: Fix Layout Issues
 
@@ -161,7 +169,7 @@ When diffs are found, the fix is usually in one of these files:
 2. Determine cause (e.g., native `<p>` has 16px marginTop but web CSS reset removed it)
 3. Fix in `defaults.js` or `ElementDefaults.swift`
 4. JS change: dev server auto-rebuilds, app auto-reruns — poll results in ~2s
-5. Swift change: `build_run_sim` — poll results in ~12s
+5. Swift change: rebuild the app (see Setup above) — poll results in ~12s
 6. Verify fix via HTTP results
 
 ## Project Structure

@@ -20,17 +20,36 @@ You are **read-only**. Do not edit any source files. You interact with the simul
 
 ## Setup
 
-**You cannot build apps** — the sandbox prevents `build_run_sim`. The team lead handles all builds. Never use `build_sim`, `build_run_sim`, `launch_app_sim`, or any XcodeBuildMCP build/launch tools. Use `session_set_defaults` to configure your simulator, then use inspection tools (`screenshot`, `snapshot_ui`, `tap`, `type_text`, `swipe`, `gesture`) on the already-running app.
+**You cannot build apps** — the sandbox prevents `xcodebuild`. The team lead handles all builds via the build server. Never use `build_sim`, `build_run_sim`, `launch_app_sim`, or any XcodeBuildMCP build/launch tools. Use `session_set_defaults` to configure your simulator, then use inspection tools (`snapshot_ui`, `tap`, `type_text`, `swipe`, `gesture`) on the already-running app.
+
+**For screenshots**, use the build server:
+```bash
+curl -s -X POST http://localhost:6002/run -H 'Content-Type: application/json' -d '{"operation":"sim-screenshot"}'
+```
+Then view: `Read /tmp/falcon-screenshot.png`
+
+**For logs**, use the build server:
+```bash
+curl -s -X POST http://localhost:6002/run -H 'Content-Type: application/json' -d '{"operation":"log-start"}'
+```
+After interacting with the app:
+```bash
+curl -s -X POST http://localhost:6002/run -H 'Content-Type: application/json' -d '{"operation":"log-stop"}'
+```
+Or read logs without stopping: `{"operation":"log-read"}`
+
+**Do NOT use** `start_sim_log_cap` / `stop_sim_log_cap` or `screenshot` MCP tools — they fail due to sandbox restrictions.
 
 **Do NOT wrap commands** in custom bash — no `2>/dev/null`, piping through `python3 -c`, or similar. Just run commands directly and read the output yourself.
 
-Configure XcodeBuildMCP for the example app on a SEPARATE simulator from Layout QA:
+Configure XcodeBuildMCP for the example app on a SEPARATE simulator from Layout QA (needed for `snapshot_ui`, `tap`, etc.):
 ```
 session_set_defaults:
   projectPath: example/Falcon/Falcon.xcodeproj
   scheme: Falcon
   simulatorName: Falcon Demo
   simulatorId: 61F83D8B-36DF-474F-9AAD-61DC6D60FFED
+  bundleId: com.react.Falcon
 ```
 
 ## Workflow: Test a Demo Feature
@@ -40,14 +59,24 @@ session_set_defaults:
 2. **Wait** 5-8 seconds for the app to load, connect to servers, SSR, and hydrate
 
 4. **Inspect rendering**:
-   - `screenshot` — visual check of the rendered UI
+   - Take a screenshot via the build server:
+     ```bash
+     curl -s -X POST http://localhost:6002/run -H 'Content-Type: application/json' -d '{"operation":"sim-screenshot"}'
+     ```
+     Then view: `Read /tmp/falcon-screenshot.png`
    - `snapshot_ui` — view hierarchy with element types and frames
    - Check for: missing elements, wrong layout, visual glitches
 
 5. **Check logs** for errors:
-   - Start log capture: `start_sim_log_cap`
+   - Start log capture via build server:
+     ```bash
+     curl -s -X POST http://localhost:6002/run -H 'Content-Type: application/json' -d '{"operation":"log-start"}'
+     ```
    - Interact with the app (tap buttons, scroll, type in inputs)
-   - Stop log capture: `stop_sim_log_cap`
+   - Stop log capture and read logs:
+     ```bash
+     curl -s -X POST http://localhost:6002/run -H 'Content-Type: application/json' -d '{"operation":"log-stop"}'
+     ```
    - Search logs for: `HydrationMismatch`, `onRecoverableError`, `Error`, `crash`, `assertion`
 
 6. **Test interactions**:

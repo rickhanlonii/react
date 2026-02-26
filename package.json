@@ -22,7 +22,9 @@
     "dev:e2e": "node tests/e2e/scripts/dev.js",
     "e2e:check": "node tests/e2e/scripts/check.js",
     "e2e:test": "node tests/e2e/scripts/test.js",
-    "test:trace": "node example/scripts/test-trace.js"
+    "test:trace": "node example/scripts/test-trace.js",
+    "build-server": "node scripts/build-server.js",
+    "test:e2e-swift": "bash scripts/test-e2e-swift.sh"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
@@ -32,6 +34,7 @@
   },
   "license": "MIT",
   "dependencies": {
+    "esbuild": "^0.27.3",
     "react-refresh": "^0.18.0"
   }
 }
