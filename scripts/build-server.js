@@ -95,6 +95,17 @@ const OPERATIONS = {
     args: ['-a', 'Simulator'],
     timeout: 10000,
   },
+  'test-e2e-swift': {
+    command: 'xcodebuild',
+    args: ['test',
+           '-scheme', 'ReactDomNativeKit-Package',
+           '-destination', `id=${SIMULATOR_ID}`,
+           '-skipPackagePluginValidation',
+           '-only-testing:ReactDomNativeTests/EndToEndSSRTests',
+           '-only-testing:ReactDomNativeTests/EndToEndCSRTests'],
+    cwd: 'packages/react-dom-native/ios',
+    timeout: 300000,
+  },
 };
 
 // Resolved DerivedData app path (cached after first build-settings call)
@@ -127,10 +138,10 @@ function resolveAppPath(stdout) {
   return null;
 }
 
-function exec(command, args, timeout) {
+function exec(command, args, timeout, cwd) {
   return new Promise((resolve) => {
     const proc = spawn(command, args, {
-      cwd: PROJECT_ROOT,
+      cwd: cwd || PROJECT_ROOT,
       env: { ...process.env },
       timeout,
     });
@@ -315,7 +326,8 @@ const server = http.createServer((req, res) => {
       const args = [...op.args];
 
       console.log(`\n> [${operation}] ${op.command} ${args.join(' ')}`);
-      const result = await exec(op.command, args, op.timeout);
+      const opCwd = op.cwd ? path.join(PROJECT_ROOT, op.cwd) : undefined;
+      const result = await exec(op.command, args, op.timeout, opCwd);
       console.log(`  exit: ${result.code}`);
 
       res.writeHead(200, { 'Content-Type': 'application/json' });

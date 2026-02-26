@@ -22,15 +22,22 @@ final class EndToEndCSRTests: XCTestCase {
     static var flightBaseURL: String { "http://localhost:\(flightPort)" }
 
     private var container: UIView!
+    private var root: Root!
 
     override func setUp() {
         super.setUp()
         ReactRuntime.shared.resetForTesting()
         ReactRuntime.shared.devBundleURL = URL(string: "\(Self.flightBaseURL)/bundle.js")
         container = UIView(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        root = Root(container: container)
     }
 
     override func tearDown() {
+        root.unmount()
+        // Drain the run loop so async cleanup (URLSession delegates, GCD blocks) completes
+        // before the next test's setUp resets ReactRuntime.
+        RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+        root = nil
         container = nil
         super.tearDown()
     }
@@ -78,8 +85,6 @@ final class EndToEndCSRTests: XCTestCase {
     // MARK: - Test 1: RSC-Only Fixture Renders via CSR
 
     func testRSCOnlyRendersViaCSR() {
-        let root = Root(container: container)
-
         // Start CSR render — completion fires immediately, before views exist
         let renderDone = expectation(description: "render called")
         root.render(serverURL: "\(Self.flightBaseURL)/fixtures/01-rsc-only") { error in
@@ -99,15 +104,11 @@ final class EndToEndCSRTests: XCTestCase {
         let texts = findLabelTexts(in: scroll)
         XCTAssertTrue(texts.contains("RSC Only"), "Should find 'RSC Only' in CSR output, got: \(texts)")
         XCTAssertTrue(texts.contains("Server Content"), "Should find 'Server Content' in CSR output, got: \(texts)")
-
-        root.unmount()
     }
 
     // MARK: - Test 2: Text Formatting Fixture Renders via CSR
 
     func testTextFormattingRendersViaCSR() {
-        let root = Root(container: container)
-
         let renderDone = expectation(description: "render called")
         root.render(serverURL: "\(Self.flightBaseURL)/fixtures/02-text-formatting") { error in
             XCTAssertNil(error, "CSR render should start without error")
@@ -125,15 +126,11 @@ final class EndToEndCSRTests: XCTestCase {
         XCTAssertTrue(scroll.subviews.count > 0, "Should have content views")
         let texts = findLabelTexts(in: scroll)
         XCTAssertTrue(texts.count > 0, "Should have visible text content, got: \(texts)")
-
-        root.unmount()
     }
 
     // MARK: - Test 3: Kitchen Sink Fixture Renders via CSR (Smoke Test)
 
     func testKitchenSinkRendersViaCSR() {
-        let root = Root(container: container)
-
         // Kitchen sink has Suspense boundaries + client components
         let renderDone = expectation(description: "render called")
         root.render(serverURL: "\(Self.flightBaseURL)/fixtures/06-kitchen-sink") { error in
@@ -152,7 +149,5 @@ final class EndToEndCSRTests: XCTestCase {
         XCTAssertTrue(scroll.subviews.count > 0, "Should have content views after CSR")
         let texts = findLabelTexts(in: scroll)
         XCTAssertTrue(texts.count > 0, "Should have visible text after CSR, got: \(texts)")
-
-        root.unmount()
     }
 }

@@ -934,6 +934,7 @@ public class Root {
                         ssrData: self.ssrFlightDataBuffer,
                         keepOpen: true
                     )
+                    self.ssrFlightDataBuffer.removeAll()
                     self.flightResponseId = responseId
 
                     // If the SSR stream already completed, close the Flight response
@@ -1221,7 +1222,9 @@ public class Root {
     /// Cleans up SSR hydration state. Called when the SSR stream completes
     /// and hydration has committed.
     private func cleanupSSRState() {
-        ssrFlightDataBuffer.removeAll()
+        // NOTE: Don't clear ssrFlightDataBuffer here — hydrateRoot() may still
+        // be booting the JS runtime (async) and hasn't consumed the buffer yet.
+        // The buffer is cleared after doHydrate consumes it, or on unmount.
         postHydrationFlightBuffer.removeAll()
         ssrViewRegistry = nil
         // Keep ssrMutationApplier alive — SSR-created buttons hold a weak
