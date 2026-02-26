@@ -64,12 +64,34 @@ public class ShadowNodeWrapper {
         self.yogaNode = YGNodeNewWithConfig(YogaConfig.shared)
     }
 
+    /// Internal init for cloning — uses a pre-created yoga node (from YGNodeClone)
+    /// instead of creating a new one. This preserves the source node's layout
+    /// cache and dirty flag, enabling Yoga's incremental layout.
+    private init(
+        props: [String: Any],
+        children: [ShadowNodeWrapper],
+        family: ShadowNodeFamily,
+        text: String?,
+        yogaNode: YGNodeRef
+    ) {
+        self.props = props
+        self.children = children
+        self.family = family
+        self.text = text
+        self.yogaNode = yogaNode
+    }
+
     deinit {
         // Clean up text measure context if set
         YogaTextMeasure.cleanupMeasureContext(for: yogaNode)
         // Remove from parent before freeing to avoid dangling pointers
         if let owner = YGNodeGetOwner(yogaNode) {
             YGNodeRemoveChild(owner, yogaNode)
+        }
+        // Remove yoga children before freeing to prevent dangling owner
+        // pointers when children are deallocated after this node.
+        if YGNodeGetChildCount(yogaNode) > 0 {
+            YGNodeRemoveAllChildren(yogaNode)
         }
         YGNodeFree(yogaNode)
     }
@@ -201,20 +223,27 @@ public class ShadowNodeWrapper {
     // MARK: - Cloning helpers
 
     /// Clone with new props, keeping existing children.
+    ///
+    /// Uses YGNodeClone to preserve the yoga node's layout cache and dirty
+    /// flag. Children's ownership is transferred via YGNodeSwapChild which
+    /// does NOT dirty the parent — so if the new style is identical, the
+    /// clone stays clean and Yoga can skip its entire subtree.
     public func cloneWithNewProps(_ newProps: [String: Any]) -> ShadowNodeWrapper {
+        let clonedYoga = YGNodeClone(self.yogaNode)!
         let cloned = ShadowNodeWrapper(
             props: newProps,
             children: self.children,
             family: self.family,
-            text: self.text
+            text: self.text,
+            yogaNode: clonedYoga
         )
-        YGNodeCopyStyle(cloned.yogaNode, self.yogaNode)
-        // Re-insert children's yogaNodes
+        cloned.layoutFrame = self.layoutFrame
+        // Transfer children's ownership to the clone without dirtying.
+        // YGNodeClone copied the children vector, so the clone already
+        // has references to the same child yoga nodes. YGNodeSwapChild
+        // just updates each child's owner pointer.
         for (index, child) in cloned.children.enumerated() {
-            if YGNodeGetOwner(child.yogaNode) != nil {
-                YGNodeRemoveChild(YGNodeGetOwner(child.yogaNode)!, child.yogaNode)
-            }
-            YGNodeInsertChild(cloned.yogaNode, child.yogaNode, index)
+            YGNodeSwapChild(clonedYoga, child.yogaNode, index)
         }
         return cloned
     }
@@ -261,20 +290,22 @@ public class ShadowNodeWrapper {
     }
 
     /// Clone preserving everything (shallow copy with same family).
+    ///
+    /// Uses YGNodeClone to preserve layout cache. The clone stays clean
+    /// (same props, same children) so Yoga can skip it entirely.
     public func clone() -> ShadowNodeWrapper {
+        let clonedYoga = YGNodeClone(self.yogaNode)!
         let cloned = ShadowNodeWrapper(
             props: self.props,
             children: self.children,
             family: self.family,
-            text: self.text
+            text: self.text,
+            yogaNode: clonedYoga
         )
-        YGNodeCopyStyle(cloned.yogaNode, self.yogaNode)
-        // Re-insert children's yogaNodes
+        cloned.layoutFrame = self.layoutFrame
+        // Transfer children's ownership to the clone without dirtying.
         for (index, child) in cloned.children.enumerated() {
-            if YGNodeGetOwner(child.yogaNode) != nil {
-                YGNodeRemoveChild(YGNodeGetOwner(child.yogaNode)!, child.yogaNode)
-            }
-            YGNodeInsertChild(cloned.yogaNode, child.yogaNode, index)
+            YGNodeSwapChild(clonedYoga, child.yogaNode, index)
         }
         return cloned
     }

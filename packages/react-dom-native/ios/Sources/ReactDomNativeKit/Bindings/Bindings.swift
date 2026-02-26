@@ -56,6 +56,11 @@ public class Bindings {
     /// Current tree per surface. Keyed by surfaceId.
     private var currentTrees: [Int: [ShadowNodeWrapper]] = [:]
 
+    /// Persistent Yoga root nodes per surface. Survives across commits so
+    /// Yoga's incremental layout can skip unchanged subtrees — children that
+    /// remain in the tree keep their cached layout results.
+    private var rootYogaNodes: [Int: YGNodeRef] = [:]
+
     /// Root UIViews per surface. Keyed by surfaceId.
     private var rootViews: [Int: UIView] = [:]
 
@@ -148,6 +153,10 @@ public class Bindings {
         rootViews[surfaceId]?.removeFromSuperview()
         rootViews.removeValue(forKey: surfaceId)
         currentTrees.removeValue(forKey: surfaceId)
+        if let rootYoga = rootYogaNodes.removeValue(forKey: surfaceId) {
+            YGNodeRemoveAllChildren(rootYoga)
+            YGNodeFree(rootYoga)
+        }
     }
 
     /// Registers a surface for hydration, reusing existing SSR views.
@@ -312,7 +321,7 @@ public class Bindings {
         let layoutStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
         var contentSize: CGSize = .zero
         if let rootView = rootViews[surfaceId] {
-            contentSize = calculateYogaLayout(for: newTree, in: rootView.bounds, tracing: tracing)
+            contentSize = calculateYogaLayout(for: newTree, in: rootView.bounds, surfaceId: surfaceId, tracing: tracing)
         }
         let layoutEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
 
@@ -994,7 +1003,7 @@ public class Bindings {
             var contentSize: CGSize = .zero
             if let rootView = self.rootViews[surfaceId] {
                 let bounds = rootView.bounds
-                contentSize = self.calculateYogaLayout(for: newChildren, in: bounds, tracing: tracing)
+                contentSize = self.calculateYogaLayout(for: newChildren, in: bounds, surfaceId: surfaceId, tracing: tracing)
             }
             let layoutEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
 
@@ -1486,29 +1495,44 @@ public class Bindings {
 
     /// Calculate layout using Yoga for the given top-level children within bounds.
     ///
-    /// Creates a temporary root YGNode sized to the container, inserts
-    /// top-level children, calculates layout, reads results into layoutFrame,
-    /// then cleans up the temporary root.
+    /// Uses a persistent root YGNode per surface that survives across commits.
+    /// YGNodeSetChildren preserves layout caches for children whose yoga nodes
+    /// haven't changed (unchanged subtrees), so Yoga can skip recalculating
+    /// them on subsequent commits.
     ///
     /// Returns the natural content size (width × height) from Yoga layout.
     @discardableResult
-    private func calculateYogaLayout(for children: [ShadowNodeWrapper], in bounds: CGRect, tracing: Bool = false) -> CGSize {
+    private func calculateYogaLayout(for children: [ShadowNodeWrapper], in bounds: CGRect, surfaceId: Int, tracing: Bool = false) -> CGSize {
         guard !children.isEmpty else { return .zero }
 
-        // 1. Create temporary root node sized to container
-        let rootNode = YGNodeNewWithConfig(YogaConfig.shared)!
-        YGNodeStyleSetFlexDirection(rootNode, .column)    // Override web default (row → column)
+        // 1. Get or create persistent root node for this surface
+        let rootNode: YGNodeRef
+        if let existing = rootYogaNodes[surfaceId] {
+            rootNode = existing
+        } else {
+            rootNode = YGNodeNewWithConfig(YogaConfig.shared)!
+            YGNodeStyleSetFlexDirection(rootNode, .column)
+            rootYogaNodes[surfaceId] = rootNode
+        }
+
+        // Update width (may change on rotation)
         YGNodeStyleSetWidth(rootNode, Float(bounds.width))
         // Don't set height — let content determine its own height.
         // On the web, the viewport scrolls when content overflows rather
         // than shrinking children via flexShrink.
 
-        // 2. Insert top-level children into temporary root
-        for (index, child) in children.enumerated() {
-            if let owner = YGNodeGetOwner(child.yogaNode) {
+        // 2. Update root's children using YGNodeSetChildren.
+        // This preserves layout caches for yoga nodes that remain in the
+        // tree (unchanged subtrees) while properly cleaning up removed ones.
+        // Children with other owners need to be detached first.
+        for child in children {
+            if let owner = YGNodeGetOwner(child.yogaNode), owner != rootNode {
                 YGNodeRemoveChild(owner, child.yogaNode)
             }
-            YGNodeInsertChild(rootNode, child.yogaNode, index)
+        }
+        var childYogaNodes: [YGNodeRef?] = children.map { $0.yogaNode }
+        childYogaNodes.withUnsafeBufferPointer { buffer in
+            YGNodeSetChildren(rootNode, buffer.baseAddress, buffer.count)
         }
 
         // 3. Calculate layout (first pass)
@@ -1531,7 +1555,7 @@ public class Bindings {
         let textRemeasureEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
         let yogaEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
 
-        // Read content size from temp root (which has unbounded height)
+        // Read content size from root (which has unbounded height)
         let yogaHeight = CGFloat(YGNodeLayoutGetHeight(rootNode))
 
         // 4. Walk tree reading layout results into layoutFrame
@@ -1566,11 +1590,8 @@ public class Bindings {
         }
         let scrollEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
 
-        // 5. Remove children from temporary root (ownership stays with ShadowNodeWrappers)
-        YGNodeRemoveAllChildren(rootNode)
-
-        // 6. Free temporary root
-        YGNodeFree(rootNode)
+        // Children stay attached to the persistent root — their layout
+        // caches are preserved for the next commit's incremental layout.
 
         if tracing {
             lastLayoutTimings = [

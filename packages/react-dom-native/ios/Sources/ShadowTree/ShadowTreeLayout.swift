@@ -56,7 +56,15 @@ public enum ShadowTreeLayout {
     /// Recursively apply Yoga layout results to layoutFrame on each node.
     /// Uses local (parent-relative) coordinates since UIKit subview frames
     /// are relative to their superview, not the root.
+    ///
+    /// Skips nodes where Yoga's hasNewLayout flag is false — these nodes
+    /// (and their subtrees) were not recalculated and retain their previous
+    /// layoutFrame values. This works because cloneWithNewProps uses
+    /// YGNodeClone which preserves the flag from the source node.
     public static func readLayoutFrames(node: ShadowNodeWrapper) {
+        guard YGNodeGetHasNewLayout(node.yogaNode) else { return }
+        YGNodeSetHasNewLayout(node.yogaNode, false)
+
         var x = CGFloat(YGNodeLayoutGetLeft(node.yogaNode))
         var y = CGFloat(YGNodeLayoutGetTop(node.yogaNode))
         let width = CGFloat(YGNodeLayoutGetWidth(node.yogaNode))
@@ -105,11 +113,16 @@ public enum ShadowTreeLayout {
 
     /// Recursively apply Yoga layout results to layoutFrame on each node,
     /// with optional per-node timing collection for flame graph visualization.
+    ///
+    /// Skips nodes where Yoga's hasNewLayout flag is false.
     public static func readLayoutFrames(
         node: ShadowNodeWrapper,
         tracing: Bool,
         nodeTimings: inout [(type: String, start: Double, end: Double)]
     ) {
+        guard YGNodeGetHasNewLayout(node.yogaNode) else { return }
+        YGNodeSetHasNewLayout(node.yogaNode, false)
+
         let nodeStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
 
         var x = CGFloat(YGNodeLayoutGetLeft(node.yogaNode))
