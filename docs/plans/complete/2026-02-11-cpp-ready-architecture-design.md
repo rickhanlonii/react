@@ -11,7 +11,7 @@ We want to eventually share core runtime logic across iOS and Android via C++. R
 - Ship and iterate in Swift today
 - Port one component at a time to C++ later
 - Keep the app working at every step
-- Avoid C++ ergonomic costs until they're justified by actual cross-platform needs
+- Avoid C++ ergonomic costs until they're justified by actua[2026-02-11-cpp-ready-architecture-design.md](2026-02-11-cpp-ready-architecture-design.md)l cross-platform needs
 
 ## What Stays in Swift Permanently
 

@@ -159,6 +159,10 @@ Every new element requires updating these files in lockstep:
 
 Reference descriptors with exact values: `docs/research/html-elements/`
 
+## Planning
+
+Always write plans to ./docs/plans. When a plan is finished, move it to ./docs/plans/complete and include it in your commit.
+
 ## Session Hygiene
 
 - **Commit completed work** before ending a session. Don't leave uncommitted changes spanning multiple features.
