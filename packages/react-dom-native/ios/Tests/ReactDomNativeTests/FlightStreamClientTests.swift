@@ -128,19 +128,15 @@ final class FlightStreamClientTests: XCTestCase {
         }
 
         let client = makeClient()
-        // Length a (hex) = 10 bytes
+        // Length a (hex) = 10 bytes. Split: "hel" (3) + "lo worl" (7) = 10 exactly.
         client.processString("0:Ta,hel")
         XCTAssertEqual(receivedRows.count, 0, "Should not emit row with partial binary data")
 
-        client.processString("lo world")
-        XCTAssertEqual(receivedRows.count, 0, "Still waiting for remaining bytes")
-
-        // This won't happen in practice since 3+7=10 bytes already, but let's test
-        // Actually hel=3, lo world=8 total=11 > 10, so the row should have been
-        // completed at byte 10
-        // Let me fix: "hel" = 3 chars, "lo worl" = 7 chars = 10 total
-        // Actually "lo world" = 8 chars, 3+8=11 > 10, so row completes at char 7
-        // The row should have been emitted
+        client.processString("lo worl")
+        XCTAssertEqual(receivedRows.count, 1, "Row should emit once all 10 bytes received")
+        XCTAssertEqual(receivedRows[0].0, 0)
+        XCTAssertEqual(receivedRows[0].1, "T")
+        XCTAssertEqual(receivedRows[0].2, "hello worl")
     }
 
     func testParseBinaryRowExactChunks() {

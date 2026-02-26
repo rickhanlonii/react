@@ -95,6 +95,17 @@ const OPERATIONS = {
     args: ['-a', 'Simulator'],
     timeout: 10000,
   },
+  'test-swift': {
+    command: 'xcodebuild',
+    args: ['test',
+           '-scheme', 'ReactDomNativeKit-Package',
+           '-destination', `id=${SIMULATOR_ID}`,
+           '-skipPackagePluginValidation',
+           '-skip-testing:ReactDomNativeTests/EndToEndSSRTests',
+           '-skip-testing:ReactDomNativeTests/EndToEndCSRTests'],
+    cwd: 'packages/react-dom-native/ios',
+    timeout: 300000,
+  },
   'test-e2e-swift': {
     command: 'xcodebuild',
     args: ['test',
