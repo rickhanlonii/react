@@ -95,6 +95,37 @@ function handleDOMRequest(requestId, method, params) {
       break;
     }
 
+    case 'getPreviewHTML': {
+      // Returns the full body HTML for web preview rendering.
+      // Calls getDocumentTree to register nodes, then getOuterHTML on each
+      // body child (body itself is synthetic and not in the node registry).
+      var html = '';
+      if (typeof $$getDocumentTree === 'function' && typeof $$getOuterHTML === 'function') {
+        var doc = $$getDocumentTree(0);
+        if (doc && doc.root && doc.root.children) {
+          var htmlNode = doc.root.children[0];
+          if (htmlNode && htmlNode.children) {
+            var bodyNode = htmlNode.children[1];
+            if (bodyNode && bodyNode.children) {
+              var parts = [];
+              for (var i = 0; i < bodyNode.children.length; i++) {
+                var child = bodyNode.children[i];
+                if (child && child.nodeId) {
+                  var outerResult = $$getOuterHTML(child.nodeId);
+                  if (outerResult && outerResult.outerHTML) {
+                    parts.push(outerResult.outerHTML);
+                  }
+                }
+              }
+              html = parts.join('\n');
+            }
+          }
+        }
+      }
+      result = {html: html};
+      break;
+    }
+
     case 'getBoxModel': {
       if (typeof $$getBoxModel === 'function' && params.nodeId) {
         result = $$getBoxModel(params.nodeId);

@@ -1642,6 +1642,72 @@ public class Bindings {
         }
     }
 
+    // MARK: - DevTools Touch Dispatch
+
+    /// Dispatches a synthetic tap at a point in window coordinates.
+    /// Called from the DevTools screencast when the user clicks on the preview.
+    public func dispatchTouchAtWindowPoint(x: Double, y: Double) {
+        let windowPoint = CGPoint(x: x, y: y)
+        print("[DevTools Touch] Window point: (\(x), \(y))")
+
+        guard let window = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first?.windows.first else {
+            print("[DevTools Touch] No window found")
+            return
+        }
+
+        // Show a debug dot at the window coordinate
+        let dot = UIView(frame: CGRect(x: windowPoint.x - 10, y: windowPoint.y - 10, width: 20, height: 20))
+        dot.backgroundColor = UIColor.red.withAlphaComponent(0.7)
+        dot.layer.cornerRadius = 10
+        window.addSubview(dot)
+        UIView.animate(withDuration: 0.5, delay: 0.3, options: [], animations: {
+            dot.alpha = 0
+            dot.transform = CGAffineTransform(scaleX: 2, y: 2)
+        }, completion: { _ in
+            dot.removeFromSuperview()
+        })
+
+        // Hit test from the window — UIKit finds the right view regardless
+        // of whether it's in a nav bar, tab bar, scroll view, etc.
+        guard let hitView = window.hitTest(windowPoint, with: nil) else {
+            print("[DevTools Touch] hitTest returned nil")
+            return
+        }
+        print("[DevTools Touch] hitView: \(type(of: hitView)), frame=\(hitView.frame)")
+
+        // Find the nearest UIControl (UIButton, _UIButtonBarButton, etc.)
+        // and fire its primary action. This handles nav bar buttons, tab bar
+        // items, and any other UIControl subclass.
+        var controlSearch: UIView? = hitView
+        while let view = controlSearch {
+            if let control = view as? UIControl {
+                print("[DevTools Touch] Sending actions for \(type(of: control))")
+                control.sendActions(for: .touchUpInside)
+                return
+            }
+            controlSearch = view.superview
+        }
+
+        // UITextField: focus it
+        if hitView is UITextField {
+            hitView.becomeFirstResponder()
+            return
+        }
+
+        // React-managed views: walk up dispatching click events (event bubbling)
+        var current: UIView? = hitView
+        while let view = current {
+            if let family = viewRegistry.family(for: view),
+               family.hasClickHandler {
+                print("[DevTools Touch] Dispatching click on \(family.elementType)")
+                dispatchEvent(from: view, eventType: "click", payload: ["_nativeTimestamp": CACurrentMediaTime() * 1000])
+            }
+            current = view.superview
+        }
+    }
+
     // MARK: - Event Dispatch (Native -> JS)
 
     /// Dispatches a native event to the JS event handler. Called from UIKit
@@ -2246,12 +2312,14 @@ public class Bindings {
             let pb = CGFloat(self.nanToZero(YGNodeLayoutGetPadding(yoga, .bottom)))
             let pl = CGFloat(self.nanToZero(YGNodeLayoutGetPadding(yoga, .left)))
 
-            // Compute absolute position by walking up to root
+            // Compute absolute position in screen (window) coordinates.
+            // This must match the screenshot coordinate system — converting to
+            // nil (window) includes the status bar offset, which the scroll
+            // view's content coordinates (used by the highlight overlay) do not.
             var absX = frame.origin.x
             var absY = frame.origin.y
-            if let view = self.viewRegistry.view(for: node.family),
-               let rootView = self.rootViews[node.family.surfaceId] {
-                let absFrame = view.convert(view.bounds, to: rootView)
+            if let view = self.viewRegistry.view(for: node.family) {
+                let absFrame = view.convert(view.bounds, to: nil)
                 absX = absFrame.origin.x
                 absY = absFrame.origin.y
             }

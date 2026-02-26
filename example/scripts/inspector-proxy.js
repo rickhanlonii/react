@@ -28,6 +28,9 @@ const http = require('http');
 const {WebSocketServer} = require('ws');
 const {SourceMapResolver} = require('./source-map-resolver');
 const path = require('path');
+const {exec} = require('child_process');
+const fs = require('fs');
+const os = require('os');
 
 const DEFAULT_CDP_PORT = 9222;
 const CHUNK_SIZE = 1000; // Events per Tracing.dataCollected message (matches RN)
@@ -603,7 +606,108 @@ function createProfilerDomain() {
 // ---------------------------------------------------------------------------
 
 function createPageDomain(targetId) {
+  // Screencast state — captures simulator screenshots and sends as CDP frames
+  var screencastActive = false;
+  var screencastWs = null;
+  var screencastSessionId = 0;
+  var screencastFormat = 'jpeg';
+  var screencastQuality = 80;
+  var screencastMaxWidth = 0;
+  var screencastMaxHeight = 0;
+  var captureInFlight = false;
+  var sendCDPRef = null;
+
+  // Actual device physical pixel dimensions and scale factor
+  // (detected from first screenshot)
+  var devicePixelWidth = 0;
+  var devicePixelHeight = 0;
+  var deviceScale = 3;
+
+  var tmpScreenshot = path.join(os.tmpdir(), 'falcon-screencast.png');
+  var tmpResized = path.join(os.tmpdir(), 'falcon-screencast-out');
+
+  // Detect physical pixel dimensions and scale factor from a screenshot.
+  function detectDeviceDimensions(callback) {
+    if (devicePixelWidth > 0) { callback(); return; }
+    exec('sips -g pixelWidth -g pixelHeight ' + tmpScreenshot + ' 2>/dev/null', function (err, stdout) {
+      if (err) { devicePixelWidth = 1179; devicePixelHeight = 2556; deviceScale = 3; callback(); return; }
+      var wMatch = stdout.match(/pixelWidth:\s*(\d+)/);
+      var hMatch = stdout.match(/pixelHeight:\s*(\d+)/);
+      if (wMatch && hMatch) {
+        devicePixelWidth = parseInt(wMatch[1]);
+        devicePixelHeight = parseInt(hMatch[1]);
+        deviceScale = devicePixelWidth > 1000 ? 3 : 2;
+        log('Page', 'Detected device: ' + devicePixelWidth + 'x' + devicePixelHeight +
+          ' @ ' + deviceScale + 'x (logical: ' +
+          Math.round(devicePixelWidth / deviceScale) + 'x' +
+          Math.round(devicePixelHeight / deviceScale) + ')');
+      } else {
+        devicePixelWidth = 1179;
+        devicePixelHeight = 2556;
+        deviceScale = 3;
+      }
+      callback();
+    });
+  }
+
+  function captureFrame() {
+    if (!screencastActive || !screencastWs || captureInFlight) return;
+    captureInFlight = true;
+
+    var outPath;
+    var cmd = 'xcrun simctl io booted screenshot --type=png ' + tmpScreenshot;
+
+    if (screencastMaxWidth > 0) {
+      outPath = tmpResized + '.' + screencastFormat;
+      if (screencastFormat === 'jpeg') {
+        cmd += ' && sips --resampleWidth ' + screencastMaxWidth +
+          ' -s format jpeg -s formatOptions ' + screencastQuality +
+          ' ' + tmpScreenshot + ' --out ' + outPath + ' 2>/dev/null';
+      } else {
+        cmd += ' && sips --resampleWidth ' + screencastMaxWidth +
+          ' ' + tmpScreenshot + ' --out ' + outPath + ' 2>/dev/null';
+      }
+    } else {
+      outPath = tmpScreenshot;
+    }
+
+    exec(cmd, function (err) {
+      if (err || !screencastActive) {
+        captureInFlight = false;
+        return;
+      }
+      // Detect device dimensions on first capture, then send frame
+      detectDeviceDimensions(function () {
+        fs.readFile(outPath, function (err, data) {
+          captureInFlight = false;
+          if (err || !screencastActive || !screencastWs) return;
+
+          var sessionId = screencastSessionId++;
+          if (sendCDPRef && screencastWs.readyState === 1) {
+            sendCDPRef(screencastWs, {
+              method: 'Page.screencastFrame',
+              params: {
+                data: data.toString('base64'),
+                metadata: {
+                  offsetTop: 0,
+                  pageScaleFactor: deviceScale,
+                  deviceWidth: devicePixelWidth,
+                  deviceHeight: devicePixelHeight,
+                  scrollOffsetX: 0,
+                  scrollOffsetY: 0,
+                  timestamp: Date.now() / 1000,
+                },
+                sessionId: sessionId,
+              },
+            });
+          }
+        });
+      });
+    });
+  }
+
   function handle(method, params, ctx) {
+    sendCDPRef = ctx.sendCDP;
     log('Page', method);
     switch (method) {
       case 'enable':
@@ -825,6 +929,34 @@ function createPageDomain(targetId) {
         return {};
       }
 
+      case 'startScreencast': {
+        screencastActive = true;
+        screencastWs = ctx.ws;
+        screencastSessionId = 0;
+        screencastFormat = (params && params.format) || 'jpeg';
+        screencastQuality = (params && params.quality) || 80;
+        screencastMaxWidth = (params && params.maxWidth) || 0;
+        screencastMaxHeight = (params && params.maxHeight) || 0;
+        log('Page', 'Screencast started (' + screencastFormat +
+          ', ' + screencastMaxWidth + 'x' + screencastMaxHeight + ')');
+        captureFrame();
+        return {};
+      }
+
+      case 'screencastFrameAck': {
+        if (screencastActive) {
+          captureFrame();
+        }
+        return {};
+      }
+
+      case 'stopScreencast': {
+        screencastActive = false;
+        screencastWs = null;
+        log('Page', 'Screencast stopped');
+        return {};
+      }
+
       default:
         return {};
     }
@@ -833,6 +965,14 @@ function createPageDomain(targetId) {
   return {
     name: 'Page',
     handle: handle,
+    // Called on dom-updated to push a fresh frame when the tree changes
+    onTreeUpdated: function () {
+      if (screencastActive) {
+        captureFrame();
+      }
+    },
+    // Expose device scale for Input domain coordinate conversion
+    getDeviceScale: function () { return deviceScale; },
   };
 }
 
@@ -844,6 +984,7 @@ function createDOMDomain(broadcastCDP) {
   var pendingRequests = new Map();
   var nextReqId = 0;
   var enabled = false;
+  var onDomUpdated = null;
 
   function forward(method, params, ctx) {
     var reqId = 'dom-' + (nextReqId++);
@@ -875,10 +1016,14 @@ function createDOMDomain(broadcastCDP) {
       case 'getDocument':
       case 'getOuterHTML':
       case 'getBoxModel':
-      case 'highlightNode':
-      case 'hideHighlight':
       case 'resolveNode':
         return forward(method, params, ctx);
+
+      // Handled by DevTools screencast overlay — no in-simulator highlight
+      case 'highlightNode':
+      case 'hideHighlight':
+      case 'highlightRect':
+        return {};
 
       // Local stubs
       case 'requestChildNodes':
@@ -886,11 +1031,8 @@ function createDOMDomain(broadcastCDP) {
       case 'pushNodesByBackendIdsToFrontend':
         return {};
 
-      // Forward to app — triggers highlight
       case 'setInspectedNode':
-        return forward(method, params, ctx);
-      case 'highlightRect':
-        return forward('highlightNode', params, ctx);
+        return {};
       case 'querySelector':
         return {nodeId: 0};
       case 'querySelectorAll':
@@ -901,9 +1043,37 @@ function createDOMDomain(broadcastCDP) {
     }
   }
 
+  // Request full body HTML from the app for the /preview page.
+  // Uses a callback instead of a CDP WebSocket response.
+  function requestPreviewHTML(sendToApp, callback) {
+    var reqId = 'dom-' + (nextReqId++);
+    log('DOM', 'Requesting preview HTML (reqId=' + reqId + ')');
+    if (!sendToApp) {
+      callback(null);
+      return;
+    }
+    pendingRequests.set(reqId, {callback: callback});
+    sendToApp(JSON.stringify({
+      type: 'cdp-request',
+      requestId: reqId,
+      domain: 'DOM',
+      method: 'getPreviewHTML',
+      params: {},
+    }));
+    // Timeout after 5 seconds
+    setTimeout(function () {
+      if (pendingRequests.has(reqId)) {
+        pendingRequests.delete(reqId);
+        callback(null);
+      }
+    }, 5000);
+  }
+
   return {
     name: 'DOM',
     handle: handle,
+    requestPreviewHTML: requestPreviewHTML,
+    setOnDomUpdated: function (fn) { onDomUpdated = fn; },
     handleAppMessage: function (message) {
       // Handle cdp-response for forwarded requests
       if (message.type === 'cdp-response') {
@@ -911,14 +1081,23 @@ function createDOMDomain(broadcastCDP) {
         if (pending) {
           log('DOM', 'Got cdp-response for ' + message.requestId);
           pendingRequests.delete(message.requestId);
-          pending.ws.readyState === 1 &&
-            pending.ws.send(JSON.stringify({id: pending.id, result: message.result}));
+          if (pending.callback) {
+            pending.callback(message.result);
+          } else {
+            pending.ws.readyState === 1 &&
+              pending.ws.send(JSON.stringify({id: pending.id, result: message.result}));
+          }
         }
       }
       // Handle live tree updates
-      if (message.type === 'dom-updated' && broadcastCDP) {
-        log('DOM', 'Tree updated — broadcasting DOM.documentUpdated');
-        broadcastCDP({method: 'DOM.documentUpdated', params: {}});
+      if (message.type === 'dom-updated') {
+        if (broadcastCDP) {
+          log('DOM', 'Tree updated — broadcasting DOM.documentUpdated');
+          broadcastCDP({method: 'DOM.documentUpdated', params: {}});
+        }
+        if (onDomUpdated) {
+          onDomUpdated();
+        }
       }
     },
   };
@@ -1204,10 +1383,10 @@ function createOverlayDomain() {
   function handle(method, params, ctx) {
     log('Overlay', method + ' params=' + JSON.stringify(params).slice(0, 300));
     switch (method) {
+      // Handled by DevTools screencast overlay — no in-simulator highlight
       case 'highlightNode':
-        return forward('highlightNode', params, ctx);
       case 'hideHighlight':
-        return forward('hideHighlight', params, ctx);
+        return {};
       default:
         return {};
     }
@@ -1235,6 +1414,46 @@ function createEmulationDomain() {
     return {};
   }
   return {name: 'Emulation', handle: handle};
+}
+
+// ---------------------------------------------------------------------------
+// Input domain — forwards mouse events from DevTools screencast to the app
+// ---------------------------------------------------------------------------
+function createInputDomain(pageDomain) {
+  function handle(method, params, ctx) {
+    log('Input', method + ' ' + JSON.stringify(params));
+    switch (method) {
+      case 'dispatchMouseEvent': {
+        // Only dispatch on mousePressed (not mouseMoved, mouseReleased)
+        if (params.type !== 'mousePressed') {
+          return {};
+        }
+        // DevTools sends coordinates in device pixels (physical pixels).
+        // Divide by deviceScale to get UIKit logical points.
+        var scale = pageDomain.getDeviceScale() || 3;
+        var x = params.x / scale;
+        var y = params.y / scale;
+        log('Input', 'Dispatching tap at (' + x + ', ' + y + ') logical points (raw: ' + params.x + ', ' + params.y + ', scale: ' + scale + ')');
+        if (ctx.sendToApp) {
+          ctx.sendToApp(JSON.stringify({
+            type: 'dispatch-touch',
+            x: x,
+            y: y,
+          }));
+        }
+        return {};
+      }
+
+      case 'dispatchTouchEvent':
+      case 'dispatchKeyEvent':
+      case 'emulateTouchFromMouseEvent':
+        return {};
+
+      default:
+        return {};
+    }
+  }
+  return {name: 'Input', handle: handle};
 }
 
 function createHeapProfilerDomain() {
@@ -1328,7 +1547,7 @@ function createPerformanceDomain() {
 
 function createInspectorProxy(options) {
   const cdpPort = (options && options.port) || DEFAULT_CDP_PORT;
-  const targetId = 'falcon-' + Math.random().toString(36).slice(2, 10);
+  const targetId = 'falcon-' + cdpPort;
   var devtoolsFrontendUrl =
     'chrome-devtools://devtools/bundled/devtools_app.html?experiments=true&ws=127.0.0.1:' +
     cdpPort +
@@ -1370,6 +1589,16 @@ function createInspectorProxy(options) {
   var profilerDomain = createProfilerDomain();
   var pageDomain = createPageDomain(targetId);
   var domDomain = createDOMDomain(function(msg) { broadcastCDP(msg); });
+
+  // SSE clients for live preview page
+  var previewClients = new Set();
+  domDomain.setOnDomUpdated(function () {
+    for (var client of previewClients) {
+      client.write('data: refresh\n\n');
+    }
+    // Also push a fresh screencast frame when the tree changes
+    pageDomain.onTreeUpdated();
+  });
   var logDomain = createLogDomain();
   var networkDomain = createNetworkDomain();
   var debuggerDomain = createDebuggerDomain(sourceMapResolver);
@@ -1390,6 +1619,7 @@ function createInspectorProxy(options) {
     createInspectorDomain(),
     cssDomain,
     overlayDomain,
+    createInputDomain(pageDomain),
     createEmulationDomain(),
     createHeapProfilerDomain(),
     createServiceWorkerDomain(),
@@ -1446,6 +1676,82 @@ function createInspectorProxy(options) {
           webSocketDebuggerUrl: 'ws://127.0.0.1:' + cdpPort + '/' + targetId,
         },
       ]);
+      return;
+    }
+
+    // SSE endpoint — pushes "refresh" events when the native tree updates
+    if (url === '/preview/events') {
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      });
+      res.write('data: connected\n\n');
+      previewClients.add(res);
+      req.on('close', function () { previewClients.delete(res); });
+      // Send an initial refresh so the page picks up any tree that
+      // was already rendered before the SSE connection was established.
+      setTimeout(function () {
+        if (previewClients.has(res)) {
+          res.write('data: refresh\n\n');
+        }
+      }, 300);
+      return;
+    }
+
+    // Returns just the body HTML (no wrapper) for incremental updates
+    if (url === '/preview/html') {
+      domDomain.requestPreviewHTML(sendToApp, function (result) {
+        var bodyHTML = (result && result.html) || '';
+        res.writeHead(200, {
+          'Content-Type': 'text/html; charset=UTF-8',
+          'Cache-Control': 'no-cache',
+        });
+        res.end(bodyHTML);
+      });
+      return;
+    }
+
+    // Web preview — renders the native shadow tree as a real HTML page
+    if (url === '/preview') {
+      var page = [
+        '<!DOCTYPE html>',
+        '<html>',
+        '<head>',
+        '  <meta charset="utf-8">',
+        '  <meta name="viewport" content="width=device-width, initial-scale=1">',
+        '  <title>Falcon Preview</title>',
+        '  <style>',
+        '    * { box-sizing: border-box; }',
+        '    body { margin: 0; font-family: -apple-system, system-ui, sans-serif; }',
+        '    #preview-root { min-height: 100vh; }',
+        '    #preview-waiting { color: #888; padding: 20px; }',
+        '  </style>',
+        '</head>',
+        '<body>',
+        '  <div id="preview-root">',
+        '    <p id="preview-waiting">Waiting for app\u2026</p>',
+        '  </div>',
+        '  <script>',
+        '    var root = document.getElementById("preview-root");',
+        '    function refresh() {',
+        '      fetch("/preview/html").then(function(r) { return r.text(); }).then(function(html) {',
+        '        if (html) root.innerHTML = html;',
+        '      });',
+        '    }',
+        '    var es = new EventSource("/preview/events");',
+        '    es.onmessage = function(e) {',
+        '      if (e.data === "refresh") refresh();',
+        '    };',
+        '  </script>',
+        '</body>',
+        '</html>',
+      ].join('\n');
+      res.writeHead(200, {
+        'Content-Type': 'text/html; charset=UTF-8',
+        'Cache-Control': 'no-cache',
+      });
+      res.end(page);
       return;
     }
 
@@ -1585,6 +1891,7 @@ function createInspectorProxy(options) {
     log('Init', 'CDP server listening on http://localhost:' + cdpPort);
     log('Init', 'Target: ' + targetId);
     log('Init', 'DevTools URL: ' + devtoolsFrontendUrl);
+    log('Init', 'Preview URL: http://localhost:' + cdpPort + '/preview');
   });
 
   return {

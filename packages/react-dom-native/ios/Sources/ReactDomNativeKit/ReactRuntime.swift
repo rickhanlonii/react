@@ -333,6 +333,14 @@ public class ReactRuntime {
 
     /// Test-only: Resets all state between tests.
     internal func resetForTesting() {
+        // Clear the static chunk cache BEFORE destroying the runtime.
+        // Without this, the next test's fresh JSContext would skip fetching
+        // webpack chunks (Counter.js, Tabs.js, etc.) because the static
+        // loadedChunks set still contains their URLs from a previous test.
+        // The new JSContext's webpack runtime doesn't have those modules,
+        // so $$webpackRequire fails and hydration breaks.
+        FlightStreamClient.clearModuleCache(engine: runtime?.engine)
+
         // Cancel all active streams
         cancelAllFlightStreams()
 
@@ -656,6 +664,17 @@ public class ReactRuntime {
                let type = obj["type"] as? String {
                 if type == "start-tracing" { self?.tracingActive = true }
                 if type == "stop-tracing" { self?.tracingActive = false }
+
+                // Handle dispatch-touch from DevTools screencast
+                if type == "dispatch-touch" {
+                    let x = (obj["x"] as? NSNumber)?.doubleValue ?? 0
+                    let y = (obj["y"] as? NSNumber)?.doubleValue ?? 0
+                    print("[ReactRuntime] dispatch-touch received: x=\(x), y=\(y)")
+                    DispatchQueue.main.async {
+                        bindings?.dispatchTouchAtWindowPoint(x: x, y: y)
+                    }
+                    return
+                }
             }
             bindings?.deliverInspectorMessage(json)
         }

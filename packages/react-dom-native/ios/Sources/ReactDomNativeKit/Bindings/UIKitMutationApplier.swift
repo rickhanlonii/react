@@ -750,6 +750,38 @@ public class UIKitMutationApplier: NSObject {
         }
     }
 
+    /// Dispatches a synthetic tap at a point in the given root view's coordinate space.
+    /// Used by the DevTools screencast to forward clicks from Chrome DevTools.
+    public func dispatchTapAtPoint(in rootView: UIView, at point: CGPoint) {
+        guard let hitView = rootView.hitTest(point, with: nil) else {
+            print("[DevTools Touch] hitTest returned nil at \(point)")
+            return
+        }
+        print("[DevTools Touch] hitView: \(type(of: hitView)), frame=\(hitView.frame)")
+
+        // For UIButton/UITextField, fire their target actions directly
+        if let button = hitView as? UIButton {
+            print("[DevTools Touch] Sending actions for UIButton")
+            button.sendActions(for: .touchUpInside)
+            return
+        }
+        if let textField = hitView as? UITextField {
+            textField.becomeFirstResponder()
+            return
+        }
+
+        // Walk up the view hierarchy dispatching click events (event bubbling)
+        var current: UIView? = hitView
+        while let view = current, view !== rootView {
+            if let family = viewRegistry.family(for: view),
+               family.hasClickHandler {
+                print("[DevTools Touch] Dispatching click on \(family.elementType)")
+                dispatchEvent?(view, "click", ["_nativeTimestamp": CACurrentMediaTime() * 1000])
+            }
+            current = view.superview
+        }
+    }
+
     @objc private func handleButtonTap(_ sender: UIButton) {
         dispatchEvent?(sender, "click", ["_nativeTimestamp": CACurrentMediaTime() * 1000])
     }
