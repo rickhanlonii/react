@@ -150,4 +150,29 @@ final class EndToEndCSRTests: XCTestCase {
         let texts = findLabelTexts(in: scroll)
         XCTAssertTrue(texts.count > 0, "Should have visible text after CSR, got: \(texts)")
     }
+
+    // MARK: - Test 4: Client Render Errors via CSR
+
+    func testClientRenderErrorsViaCSR() {
+        // Fixture 28: ThrowOnServer throws on server, renders on client
+        // Via CSR, the component should render successfully (only throws server-side)
+        let renderDone = expectation(description: "render called")
+        root.render(serverURL: "\(Self.flightBaseURL)/fixtures/28-client-render-errors") { error in
+            XCTAssertNil(error, "CSR render should start without error")
+            renderDone.fulfill()
+        }
+        wait(for: [renderDone], timeout: 15.0)
+
+        // Wait for views to appear
+        waitForCondition(timeout: 15.0, description: "client render content appears") {
+            guard let scroll = self.scrollView(in: self.container) else { return false }
+            let texts = self.findLabelTexts(in: scroll)
+            return texts.contains(where: { $0.contains("Suspense Recovery") })
+        }
+
+        let scroll = scrollView(in: container)!
+        let texts = findLabelTexts(in: scroll)
+        XCTAssertTrue(texts.contains(where: { $0.contains("Suspense Recovery") }),
+                       "Should find section heading, got: \(texts)")
+    }
 }

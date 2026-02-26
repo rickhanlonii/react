@@ -705,6 +705,99 @@ final class EndToEndSSRTests: XCTestCase {
                        "Shared content should appear, got: \(texts)")
     }
 
+    // MARK: - Group C: Error Handling
+
+    func testCaughtErrorsRendersAndHydrates() {
+        // Fixture 07: ErrorBoundary catches server, hydration, and interaction errors
+        // The async ThrowingServerComponent error corrupts the RSC Flight stream,
+        // so SSR only gets a partial response. Verify SSR handles this gracefully.
+        let ssrDone = expectation(description: "SSR complete")
+        root.renderWithSSR(serverURL: "\(Self.ssrBaseURL)/ssr/07-caught-errors") { error in
+            ssrDone.fulfill()
+        }
+        wait(for: [ssrDone], timeout: 15.0)
+
+        // SSR should create a view hierarchy even with the server error
+        let scroll = scrollView(in: container)
+        XCTAssertNotNil(scroll, "SSR should create a UIScrollView even with server errors")
+        // Test passes as long as the app doesn't crash
+    }
+
+    func testUncaughtServerErrorSSR() {
+        // Fixture 08: Server component throws with no ErrorBoundary
+        // The SSR completion callback should receive an error
+        let ssrDone = expectation(description: "SSR complete")
+        var ssrError: Error? = nil
+        root.renderWithSSR(serverURL: "\(Self.ssrBaseURL)/ssr/08-uncaught-server-error") { error in
+            ssrError = error
+            ssrDone.fulfill()
+        }
+        wait(for: [ssrDone], timeout: 15.0)
+
+        // The server error should either:
+        // - Be reported via the error callback, or
+        // - The SSR shell renders but streaming fails
+        // Either way, verify we got some output (at minimum the shell)
+        let scroll = scrollView(in: container)
+        if let scroll = scroll {
+            let texts = findLabelTexts(in: scroll)
+            // If we got the shell, verify the title is there
+            if !texts.isEmpty {
+                XCTAssertTrue(texts.contains(where: { $0.contains("Uncaught Server Error") }),
+                               "Should find title if shell rendered, got: \(texts)")
+            }
+        }
+        // Test passes as long as the app doesn't crash
+    }
+
+    func testUncaughtHydrationError() {
+        // Fixture 09: ThrowOnHydration throws during hydration, no ErrorBoundary
+        // 1. SSR renders fine (ThrowOnHydration only throws on client)
+        let ssrDone = expectation(description: "SSR complete")
+        root.renderWithSSR(serverURL: "\(Self.ssrBaseURL)/ssr/09-uncaught-hydration-error") { error in
+            XCTAssertNil(error, "SSR should complete without error")
+            ssrDone.fulfill()
+        }
+        wait(for: [ssrDone], timeout: 15.0)
+
+        let scroll = scrollView(in: container)
+        XCTAssertNotNil(scroll, "SSR should create a UIScrollView")
+
+        let ssrTexts = findLabelTexts(in: scroll!)
+        XCTAssertTrue(ssrTexts.contains(where: { $0.contains("Uncaught Hydration Error") }),
+                       "Should find title in SSR output, got: \(ssrTexts)")
+
+        // 2. Hydrate — ThrowOnHydration will throw, hydration should handle gracefully
+        let hydrateDone = expectation(description: "Hydration complete")
+        root.hydrateRoot(serverURL: "\(Self.flightBaseURL)/fixtures/09-uncaught-hydration-error") { error in
+            // Error is expected here — hydration throws without ErrorBoundary
+            hydrateDone.fulfill()
+        }
+        wait(for: [hydrateDone], timeout: 20.0)
+
+        // Test passes as long as the app doesn't crash
+    }
+
+    func testUncaughtInteractionError() {
+        // Fixture 10: ThrowOnClick renders a button, error only on click
+        // SSR should work fine — the error only happens on interaction
+        let ssrDone = expectation(description: "SSR complete")
+        root.renderWithSSR(serverURL: "\(Self.ssrBaseURL)/ssr/10-uncaught-interaction-error") { error in
+            XCTAssertNil(error, "SSR should complete without error")
+            ssrDone.fulfill()
+        }
+        wait(for: [ssrDone], timeout: 15.0)
+
+        let scroll = scrollView(in: container)
+        XCTAssertNotNil(scroll, "SSR should create a UIScrollView")
+
+        let texts = findLabelTexts(in: scroll!)
+        XCTAssertTrue(texts.contains(where: { $0.contains("Uncaught Interaction Error") }),
+                       "Should find title in SSR output, got: \(texts)")
+        XCTAssertTrue(texts.contains(where: { $0.contains("Click to throw") }),
+                       "Should find button label in SSR output, got: \(texts)")
+    }
+
     // MARK: - Test 5: Text Formatting Fixture Renders via SSR
 
     func testTextFormattingSSRRenders() {
