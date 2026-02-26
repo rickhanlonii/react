@@ -603,7 +603,7 @@ function createProfilerDomain() {
 // Page domain
 // ---------------------------------------------------------------------------
 
-function createPageDomain(targetId) {
+function createPageDomain(targetId, getSendToApp) {
   // Screencast state
   var screencastActive = false;
   var screencastWs = null;
@@ -623,8 +623,9 @@ function createPageDomain(targetId) {
     if (!screencastActive || !screencastWs || captureInFlight) return;
     captureInFlight = true;
     // Use the module-level sendToApp (always points to current connection)
-    if (sendToApp) {
-      sendToApp(JSON.stringify({
+    var currentSendToApp = getSendToApp();
+    if (currentSendToApp) {
+      currentSendToApp(JSON.stringify({
         type: 'capture-screenshot',
         maxWidth: screencastMaxWidth || 0,
         quality: (screencastQuality || 80) / 100,
@@ -1555,7 +1556,7 @@ function createInspectorProxy(options) {
   var nodeTracingDomain = createNodeTracingDomain(targetId);
   var runtimeDomain = createRuntimeDomain(sourceMapResolver);
   var profilerDomain = createProfilerDomain();
-  var pageDomain = createPageDomain(targetId);
+  var pageDomain = createPageDomain(targetId, function () { return sendToApp; });
   var domDomain = createDOMDomain(function(msg) { broadcastCDP(msg); });
 
   // SSE clients for live preview page
