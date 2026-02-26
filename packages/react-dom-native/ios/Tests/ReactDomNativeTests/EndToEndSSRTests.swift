@@ -190,6 +190,58 @@ final class EndToEndSSRTests: XCTestCase {
                        "Slowest boundary should be visible, got: \(texts)")
     }
 
+    // MARK: - Test 6: Recoverable Errors — Hydration Mismatch Recovery
+
+    func testRecoverableErrorsHydrate() {
+        // 1. SSR render
+        let ssrDone = expectation(description: "SSR complete")
+        root.renderWithSSR(serverURL: "\(Self.ssrBaseURL)/ssr/11-recoverable-errors") { error in
+            XCTAssertNil(error, "SSR should complete without error")
+            ssrDone.fulfill()
+        }
+        wait(for: [ssrDone], timeout: 15.0)
+
+        // Verify SSR produced views
+        let scroll = scrollView(in: container)
+        XCTAssertNotNil(scroll, "SSR should create a UIScrollView")
+
+        let ssrTexts = findLabelTexts(in: scroll!)
+        XCTAssertTrue(ssrTexts.contains(where: { $0.contains("Recoverable Errors") }),
+                       "Should find title in SSR output, got: \(ssrTexts)")
+
+        // 2. Hydrate — this triggers recoverable errors that React should recover from
+        let hydrateDone = expectation(description: "Hydration complete")
+        root.hydrateRoot(serverURL: "\(Self.flightBaseURL)/fixtures/11-recoverable-errors") { error in
+            XCTAssertNil(error, "Hydration should complete without error")
+            hydrateDone.fulfill()
+        }
+        wait(for: [hydrateDone], timeout: 20.0)
+
+        // 3. Wait for recovery — React should client-render the mismatched subtrees
+        waitForCondition(timeout: 15.0, description: "recoverable error content appears") {
+            let texts = self.findLabelTexts(in: scroll!)
+            // The title and section headers should survive
+            let hasTitle = texts.contains(where: { $0.contains("Recoverable Errors") })
+            // The Suspense recovery section should show recovered content
+            let hasSuspenseRecovery = texts.contains(where: {
+                $0.contains("This renders on the server, then recovers on the client")
+            })
+            return hasTitle && hasSuspenseRecovery
+        }
+
+        // 4. Assert final state
+        let texts = findLabelTexts(in: scroll!)
+        XCTAssertTrue(texts.contains(where: { $0.contains("Recoverable Errors") }),
+                       "Title should survive hydration recovery, got: \(texts)")
+        XCTAssertTrue(texts.contains(where: { $0.contains("Text Mismatch") }),
+                       "Text Mismatch section header should be visible, got: \(texts)")
+        XCTAssertTrue(texts.contains(where: { $0.contains("Suspense Recovery") }),
+                       "Suspense Recovery section header should be visible, got: \(texts)")
+        XCTAssertTrue(texts.contains(where: {
+            $0.contains("This renders on the server, then recovers on the client")
+        }), "Suspense-recovered content should be visible after hydration recovery, got: \(texts)")
+    }
+
     // MARK: - Test 5: Text Formatting Fixture Renders via SSR
 
     func testTextFormattingSSRRenders() {
