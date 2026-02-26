@@ -65,9 +65,7 @@ wait_for_server 6000 "Flight server" "/bundle-version" || exit 1
 wait_for_server 6001 "SSR server" "/healthz" || exit 1
 wait_for_server 8976 "CDP inspector proxy" "/json/version" || exit 1
 
-# Grab the DevTools URL from the inspector proxy
-DEVTOOLS_URL=$(curl -s http://localhost:8976/json | node -e "process.stdin.on('data',d=>console.log(JSON.parse(d)[0].devtoolsFrontendUrl))" 2>/dev/null)
-
+# DevTools URL is dynamic now (shown when an app connects and identifies itself)
 echo ""
 echo "Development servers running:"
 echo "  Flight server (RSC): PID $RSC_PID (http://localhost:6000)"
@@ -76,7 +74,7 @@ echo "  CDP inspector proxy: PID $INSPECTOR_PID (http://localhost:8976)"
 echo "  Bundle URL: http://localhost:6000/bundle.js (webpack, watching for changes)"
 echo ""
 echo "Chrome DevTools:"
-echo "  $DEVTOOLS_URL"
+echo "  curl -s http://localhost:8976/json  (shows connected targets)"
 echo ""
 echo "Press Ctrl+C to stop."
 

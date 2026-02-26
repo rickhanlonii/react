@@ -3,10 +3,11 @@
 // ---------------------------------------------------------------------------
 // Standalone inspector proxy launcher
 //
-// Starts the CDP inspector proxy (port 9222) with its own WebSocket server
-// (port 8082) for receiving trace data from the native app.
+// Starts the CDP inspector proxy (port 8976) with its own WebSocket server
+// (port 8082) for receiving messages from native apps.
 //
-// This is launched as a separate process by dev.sh.
+// Each app sends a "connect" message with identity info on WebSocket open.
+// The proxy creates a separate CDP target per connected app.
 // ---------------------------------------------------------------------------
 
 const {createInspectorProxy} = require('./inspector-proxy');
@@ -15,24 +16,22 @@ const {WebSocketServer} = require('ws');
 const WS_PORT = 8082;
 const CDP_PORT = 8976;
 
-// 1. Start the CDP inspector proxy
+// 1. Start the CDP inspector proxy (multi-target)
 const proxy = createInspectorProxy({port: CDP_PORT});
 
 // 2. Start a WebSocket server for app communication
 const wss = new WebSocketServer({port: WS_PORT});
-const clients = new Set();
-var tracingActive = false;
+
+// Track which app WebSocket belongs to which target
+// Map<ws, { targetId: string, identified: boolean }>
+const clientInfo = new Map();
+
+// Track tracing state per target so it survives reconnects
+const tracingState = new Map(); // targetId -> boolean
 
 wss.on('connection', function onConnection(ws) {
-  clients.add(ws);
-  console.log('[Inspector] App connected via WebSocket (tracingActive=' + tracingActive + ')');
-
-  // If tracing was active before this connection, re-send start-tracing
-  // so the new JSContext (after reload) picks up where we left off.
-  if (tracingActive && ws.readyState === 1) {
-    console.log('[Inspector] Re-sending start-tracing to new connection');
-    ws.send(JSON.stringify({type: 'start-tracing'}));
-  }
+  clientInfo.set(ws, {targetId: null, identified: false});
+  console.log('[Inspector] App connected via WebSocket (awaiting identity)');
 
   ws.on('message', function onMessage(data) {
     var text = data.toString();
@@ -43,12 +42,33 @@ wss.on('connection', function onConnection(ws) {
       return;
     }
 
-    // Webpack watcher sends notify-reload or notify-refresh after a successful rebuild.
-    // Broadcast the appropriate message to all OTHER connected clients (the app).
+    var info = clientInfo.get(ws);
+
+    // Handle identity handshake
+    if (message.type === 'connect') {
+      var targetId = proxy.addTarget(message, function sendToApp(msg) {
+        if (ws.readyState === 1) {
+          ws.send(msg);
+        }
+      });
+      info.targetId = targetId;
+      info.identified = true;
+      console.log('[Inspector] App identified: ' + targetId +
+        ' (' + message.appName + ' — ' + message.deviceName + ')');
+
+      // If tracing was active for this target, re-send start-tracing
+      if (tracingState.get(targetId) && ws.readyState === 1) {
+        console.log('[Inspector] Re-sending start-tracing to ' + targetId);
+        ws.send(JSON.stringify({type: 'start-tracing'}));
+      }
+      return;
+    }
+
+    // Broadcast reload/refresh to all OTHER app clients (from esbuild watcher)
     if (message.type === 'notify-reload') {
-      console.log('[Inspector] Broadcasting reload to ' + (clients.size - 1) + ' app client(s)');
+      console.log('[Inspector] Broadcasting reload');
       var reloadMsg = JSON.stringify({type: 'reload'});
-      for (var client of clients) {
+      for (var [client] of clientInfo) {
         if (client !== ws && client.readyState === 1) {
           client.send(reloadMsg);
         }
@@ -57,9 +77,9 @@ wss.on('connection', function onConnection(ws) {
     }
 
     if (message.type === 'notify-refresh') {
-      console.log('[Inspector] Broadcasting refresh (' + message.chunks.length + ' chunk(s)) to ' + (clients.size - 1) + ' app client(s)');
+      console.log('[Inspector] Broadcasting refresh (' + message.chunks.length + ' chunk(s))');
       var refreshMsg = JSON.stringify({type: 'refresh', chunks: message.chunks});
-      for (var client of clients) {
+      for (var [client] of clientInfo) {
         if (client !== ws && client.readyState === 1) {
           client.send(refreshMsg);
         }
@@ -67,37 +87,33 @@ wss.on('connection', function onConnection(ws) {
       return;
     }
 
-    // Forward app messages (trace-data) to the inspector proxy
-    proxy.handleAppMessage(text);
+    // Forward app messages to the correct target
+    if (info.identified && info.targetId) {
+      proxy.handleAppMessage(info.targetId, text);
+    }
   });
 
   ws.on('close', function onClose() {
-    clients.delete(ws);
+    var info = clientInfo.get(ws);
+    if (info && info.targetId) {
+      console.log('[Inspector] App disconnected: ' + info.targetId);
+      proxy.removeTarget(info.targetId);
+    }
+    clientInfo.delete(ws);
   });
   ws.on('error', function onError() {
-    clients.delete(ws);
+    var info = clientInfo.get(ws);
+    if (info && info.targetId) {
+      proxy.removeTarget(info.targetId);
+    }
+    clientInfo.delete(ws);
   });
 });
 
-// Wire proxy → app: send tracing commands to all connected apps
-proxy.setSendToApp(function sendToApp(data) {
-  try {
-    var parsed = JSON.parse(data);
-    if (parsed.type === 'start-tracing') {
-      tracingActive = true;
-      console.log('[Inspector] tracingActive = true (from proxy)');
-    }
-    if (parsed.type === 'stop-tracing') {
-      tracingActive = false;
-      console.log('[Inspector] tracingActive = false (from proxy)');
-    }
-  } catch (e) {}
-  for (const client of clients) {
-    if (client.readyState === 1) {
-      client.send(data);
-    }
-  }
-});
+// Track tracing state changes from proxy
+proxy.onTracingStateChange = function (targetId, active) {
+  tracingState.set(targetId, active);
+};
 
 console.log('[Inspector] WebSocket server on ws://localhost:' + WS_PORT);
 

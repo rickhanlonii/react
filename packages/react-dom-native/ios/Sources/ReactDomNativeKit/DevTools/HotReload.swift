@@ -7,6 +7,13 @@ public class HotReloadClient {
     private var isConnected = false
     private var reconnectTimer: Timer?
 
+    // Identity info sent on connect
+    private let appName: String
+    private let deviceName: String
+    private let deviceModel: String
+    private let simulatorUDID: String?
+    private let platform: String
+
     /// Callback invoked on the main thread when an inspector message arrives
     /// from the dev server (e.g. start-tracing, stop-tracing).
     public var onInspectorMessage: ((String) -> Void)?
@@ -23,8 +30,26 @@ public class HotReloadClient {
     /// - Parameters:
     ///   - host: WebSocket server host (default: "localhost")
     ///   - port: WebSocket server port (default: 8082)
-    public init(host: String = "localhost", port: Int = 8082) {
+    ///   - appName: App display name (e.g. "Falcon")
+    ///   - deviceName: Simulator/device name (e.g. "Falcon Demo")
+    ///   - deviceModel: Device model (e.g. "iPhone 16 Pro")
+    ///   - simulatorUDID: Simulator UDID if running in simulator
+    ///   - platform: "iOS Simulator" or "iOS"
+    public init(
+        host: String = "localhost",
+        port: Int = 8082,
+        appName: String = "Falcon",
+        deviceName: String = "iOS Device",
+        deviceModel: String = "iPhone",
+        simulatorUDID: String? = nil,
+        platform: String = "iOS"
+    ) {
         self.webSocketURL = URL(string: "ws://\(host):\(port)")!
+        self.appName = appName
+        self.deviceName = deviceName
+        self.deviceModel = deviceModel
+        self.simulatorUDID = simulatorUDID
+        self.platform = platform
     }
 
     public func connect() {
@@ -34,6 +59,22 @@ public class HotReloadClient {
         self.webSocketTask = task
         task.resume()
         isConnected = true
+
+        // Send identity info immediately
+        var connectInfo: [String: Any] = [
+            "type": "connect",
+            "appName": appName,
+            "deviceName": deviceName,
+            "deviceModel": deviceModel,
+            "platform": platform,
+        ]
+        if let udid = simulatorUDID {
+            connectInfo["simulatorUDID"] = udid
+        }
+        if let jsonData = try? JSONSerialization.data(withJSONObject: connectInfo),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            send(jsonString)
+        }
 
         print("[HotReload] Connected to \(webSocketURL)")
         receiveMessage()

@@ -24,11 +24,11 @@ Wait 5 seconds, then re-check the endpoint.
 
 ## Connect
 
-1. **Get the WebSocket debugger URL** from the inspector proxy:
+1. **Get the target list** from the inspector proxy:
    ```bash
    curl -s http://localhost:8976/json
    ```
-   Extract the `id` field from the response (e.g. `falcon-477b2nad`).
+   This returns one entry per connected app/simulator. Extract the `id` field (e.g. `falcon-61F83D8B-36DF-474F-9AAD-61DC6D60FFED`). The target ID is stable across dev server restarts (derived from simulator UDID).
 
 2. **Navigate the MCP browser** to the DevTools inspector with the WebSocket connection:
    ```
@@ -36,7 +36,7 @@ Wait 5 seconds, then re-check the endpoint.
    ```
    Replace `<id>` with the actual id from step 1.
 
-3. **Verify** by taking a screenshot — you should see the Chrome DevTools UI connected to "Falcon JSC".
+3. **Verify** by taking a screenshot — you should see the Chrome DevTools UI connected to the app.
 
 ## Usage
 
@@ -74,6 +74,6 @@ This logs all CDP messages, WebSocket traffic, domain routing, and screencast ev
 
 - Use the **plugin** MCP server (`mcp__plugin_chrome-devtools-mcp_chrome-devtools__*`), not the user-scoped one (which requires Chrome Beta).
 - The `devtools://` URL **must** include `remoteFrontend=true` to load correctly.
-- The inspector proxy WebSocket ID changes each time the dev server restarts — always fetch it fresh from `/json`.
+- The inspector proxy WebSocket ID is stable per simulator (derived from UDID) — it won't change across dev server restarts.
 - The DevTools page won't appear in `list_pages` results, but you can still take screenshots and interact with it via snapshots.
 - Screencast requires an **app rebuild** when Swift files change (proxy-only changes just need a dev server restart).

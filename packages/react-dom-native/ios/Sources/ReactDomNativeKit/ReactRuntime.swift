@@ -625,6 +625,35 @@ public class ReactRuntime {
 
     // MARK: - DevTools (Private)
 
+    /// Returns the device marketing name (e.g. "iPhone 16 Pro") from the
+    /// simulator model identifier, falling back to UIDevice.current.model.
+    private static func deviceModelName(env: [String: String]) -> String {
+        guard let modelId = env["SIMULATOR_MODEL_IDENTIFIER"] else {
+            return UIDevice.current.model
+        }
+        let models: [String: String] = [
+            // iPhone 17 series
+            "iPhone18,1": "iPhone 17 Pro",
+            // iPhone 16 series
+            "iPhone17,1": "iPhone 16 Pro",
+            "iPhone17,2": "iPhone 16 Pro Max",
+            "iPhone17,3": "iPhone 16",
+            "iPhone17,4": "iPhone 16 Plus",
+            "iPhone17,5": "iPhone 16e",
+            // iPhone 15 series
+            "iPhone16,1": "iPhone 15 Pro",
+            "iPhone16,2": "iPhone 15 Pro Max",
+            "iPhone15,4": "iPhone 15",
+            "iPhone15,5": "iPhone 15 Plus",
+            // iPad Pro (M4)
+            "iPad16,3": "iPad Pro 11-inch (M4)",
+            "iPad16,4": "iPad Pro 11-inch (M4)",
+            "iPad16,5": "iPad Pro 13-inch (M4)",
+            "iPad16,6": "iPad Pro 13-inch (M4)",
+        ]
+        return models[modelId] ?? modelId
+    }
+
     /// Sets up the devtools WebSocket connection for tracing/inspector support.
     private func setupDevToolsConnection() {
         #if DEBUG
@@ -634,7 +663,15 @@ public class ReactRuntime {
         hotReloadClient?.disconnect()
 
         print("[ReactRuntime] Setting up devtools WebSocket connection")
-        let client = HotReloadClient()
+        let env = ProcessInfo.processInfo.environment
+        let simulatorUDID = env["SIMULATOR_UDID"]
+        let client = HotReloadClient(
+            appName: Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "Falcon",
+            deviceName: UIDevice.current.name,
+            deviceModel: Self.deviceModelName(env: env),
+            simulatorUDID: simulatorUDID,
+            platform: simulatorUDID != nil ? "iOS Simulator" : "iOS"
+        )
         hotReloadClient = client
 
         // On reload message, do a full reset (since we can't do

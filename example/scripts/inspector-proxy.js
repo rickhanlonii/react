@@ -1520,31 +1520,12 @@ function createPerformanceDomain() {
 }
 
 // ---------------------------------------------------------------------------
-// createInspectorProxy
+// createTarget — per-app domain handlers and CDP client tracking
 // ---------------------------------------------------------------------------
 
-function createInspectorProxy(options) {
-  const cdpPort = (options && options.port) || DEFAULT_CDP_PORT;
-  const targetId = 'falcon-' + cdpPort;
-  var devtoolsFrontendUrl =
-    'chrome-devtools://devtools/bundled/devtools_app.html?experiments=true&ws=127.0.0.1:' +
-    cdpPort +
-    '/' +
-    targetId;
-
-  // sendToApp — injected by the dev server to forward messages to the app
-  let sendToApp = null;
-
-  // CDP WebSocket clients
-  const cdpClients = new Set();
-
-  // Source map resolver — translates bundle.js stack frames to original sources
-  const BUILD_DIR = path.resolve(__dirname, '../build');
-  const sourceMapResolver = new SourceMapResolver(BUILD_DIR);
-  // Load asynchronously — resolution is a no-op until maps are loaded
-  sourceMapResolver.loadAll().then(function () {
-    sourceMapResolver.watchForChanges();
-  });
+function createTarget(targetId, sourceMapResolver) {
+  var cdpClients = new Set();
+  var sendToApp = null;
 
   function sendCDP(ws, msg) {
     if (ws.readyState === 1) {
@@ -1553,30 +1534,17 @@ function createInspectorProxy(options) {
   }
 
   function broadcastCDP(msg) {
-    for (const client of cdpClients) {
+    for (var client of cdpClients) {
       sendCDP(client, msg);
     }
   }
 
-  // -----------------------------------------------------------------------
-  // Create domain handlers
-  // -----------------------------------------------------------------------
   var tracingDomain = createTracingDomain(targetId);
   var nodeTracingDomain = createNodeTracingDomain(targetId);
   var runtimeDomain = createRuntimeDomain(sourceMapResolver);
   var profilerDomain = createProfilerDomain();
   var pageDomain = createPageDomain(targetId, function () { return sendToApp; });
   var domDomain = createDOMDomain(function(msg) { broadcastCDP(msg); });
-
-  // SSE clients for live preview page
-  var previewClients = new Set();
-  domDomain.setOnDomUpdated(function () {
-    for (var client of previewClients) {
-      client.write('data: refresh\n\n');
-    }
-    // Also push a fresh screencast frame when the tree changes
-    pageDomain.onTreeUpdated();
-  });
   var logDomain = createLogDomain();
   var networkDomain = createNetworkDomain();
   var debuggerDomain = createDebuggerDomain(sourceMapResolver);
@@ -1611,12 +1579,182 @@ function createInspectorProxy(options) {
     createPerformanceDomain(),
   ]);
 
+  return {
+    cdpClients: cdpClients,
+    router: router,
+    pageDomain: pageDomain,
+    domDomain: domDomain,
+    tracingDomain: tracingDomain,
+    nodeTracingDomain: nodeTracingDomain,
+    runtimeDomain: runtimeDomain,
+    profilerDomain: profilerDomain,
+    logDomain: logDomain,
+    cssDomain: cssDomain,
+    overlayDomain: overlayDomain,
+    sendCDP: sendCDP,
+    broadcastCDP: broadcastCDP,
+
+    setSendToApp: function (fn) { sendToApp = fn; },
+    getSendToApp: function () { return sendToApp; },
+
+    handleAppMessage: function (data) {
+      var message;
+      try { message = JSON.parse(data); } catch (e) { return; }
+
+      log('App', '← ' + (message.type || 'unknown'), message.type === 'console-message' ? (message.args || []).map(function(a) { return a.value || a.type; }).join(' ') : undefined);
+
+      tracingDomain.handleAppMessage(message);
+      nodeTracingDomain.handleAppMessage(message);
+      if (runtimeDomain.handleAppMessage) runtimeDomain.handleAppMessage(message);
+      if (profilerDomain.handleAppMessage) profilerDomain.handleAppMessage(message);
+      if (domDomain.handleAppMessage) domDomain.handleAppMessage(message);
+      if (cssDomain.handleAppMessage) cssDomain.handleAppMessage(message);
+      if (overlayDomain.handleAppMessage) overlayDomain.handleAppMessage(message);
+      if (pageDomain.handleAppMessage) pageDomain.handleAppMessage(message);
+
+      if (message.type === 'cdp-event') {
+        log('App', 'Broadcasting cdp-event: ' + message.method);
+        var params = message.params;
+        if (message.method === 'Runtime.exceptionThrown' && params && params.exceptionDetails) {
+          params = Object.assign({}, params, {
+            exceptionDetails: sourceMapResolver.resolveExceptionDetails(params.exceptionDetails),
+          });
+        }
+        broadcastCDP({ method: message.method, params: params });
+      }
+
+      if (message.type === 'console-message') {
+        broadcastCDP({
+          method: 'Runtime.consoleAPICalled',
+          params: {
+            type: message.cdpType || 'log',
+            args: message.args || [],
+            executionContextId: 1,
+            timestamp: message.timestamp || Date.now(),
+            stackTrace: sourceMapResolver.resolveStackTrace(message.stackTrace || {callFrames: []}),
+          },
+        });
+        if (message.cdpType === 'error' && logDomain.isEnabled()) {
+          broadcastCDP({
+            method: 'Log.entryAdded',
+            params: {
+              entry: {
+                source: 'javascript',
+                level: 'error',
+                text: (message.args || []).map(function (a) { return a.value || a.description || ''; }).join(' '),
+                timestamp: message.timestamp || Date.now(),
+                stackTrace: sourceMapResolver.resolveStackTrace(message.stackTrace || {callFrames: []}),
+              },
+            },
+          });
+        }
+      }
+    },
+
+    handleCDPMessage: function (ws, message) {
+      var ctx = {
+        sendToApp: sendToApp,
+        sendCDP: sendCDP,
+        broadcastCDP: broadcastCDP,
+        targetId: targetId,
+        cdpClients: cdpClients,
+        _currentId: message.id,
+      };
+      router.route(ws, message, ctx);
+    },
+
+    close: function () {
+      for (var client of cdpClients) { client.close(); }
+      cdpClients.clear();
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// createInspectorProxy — multi-target
+// ---------------------------------------------------------------------------
+
+function createInspectorProxy(options) {
+  var cdpPort = (options && options.port) || DEFAULT_CDP_PORT;
+
+  // Source map resolver (shared across targets)
+  var BUILD_DIR = path.resolve(__dirname, '../build');
+  var sourceMapResolver = new SourceMapResolver(BUILD_DIR);
+  sourceMapResolver.loadAll().then(function () {
+    sourceMapResolver.watchForChanges();
+  });
+
+  // Connected targets: targetId -> { target, info }
+  var targets = new Map();
+
+  // SSE preview clients (shared — preview shows first target's DOM)
+  var previewClients = new Set();
+
+  // Callback for tracing state changes
+  var onTracingStateChange = null;
+
+  function deriveTargetId(connectInfo) {
+    if (connectInfo.simulatorUDID) {
+      return 'falcon-' + connectInfo.simulatorUDID;
+    }
+    // Sanitize device name for URL path
+    return 'falcon-' + (connectInfo.deviceName || 'unknown')
+      .replace(/[^a-zA-Z0-9_-]/g, '-')
+      .replace(/-+/g, '-')
+      .toLowerCase();
+  }
+
+  function addTarget(connectInfo, sendToAppFn) {
+    var targetId = deriveTargetId(connectInfo);
+
+    // If target already exists (reconnect), clean up old one
+    if (targets.has(targetId)) {
+      targets.get(targetId).target.close();
+    }
+
+    var target = createTarget(targetId, sourceMapResolver);
+    target.setSendToApp(sendToAppFn);
+
+    // Wire up preview SSE for this target's DOM updates
+    target.domDomain.setOnDomUpdated(function () {
+      for (var client of previewClients) {
+        client.write('data: refresh\n\n');
+      }
+      target.pageDomain.onTreeUpdated();
+    });
+
+    targets.set(targetId, {
+      target: target,
+      info: connectInfo,
+    });
+
+    logAlways('Proxy', 'Target added: ' + targetId + ' (' +
+      connectInfo.appName + ' — ' + connectInfo.deviceName + ')');
+
+    return targetId;
+  }
+
+  function removeTarget(targetId) {
+    var entry = targets.get(targetId);
+    if (entry) {
+      entry.target.close();
+      targets.delete(targetId);
+      logAlways('Proxy', 'Target removed: ' + targetId);
+    }
+  }
+
+  // Helper: get the first target (for preview endpoints)
+  function getFirstTarget() {
+    for (var [, entry] of targets) {
+      return entry;
+    }
+    return null;
+  }
+
   // -----------------------------------------------------------------------
   // HTTP server for CDP discovery endpoints
   // -----------------------------------------------------------------------
 
-  // Chrome DevTools requires Content-Length header for discovery.
-  // Match React Native's InspectorProxy response format exactly.
   function sendJSON(res, data) {
     var body = JSON.stringify(data);
     res.writeHead(200, {
@@ -1628,32 +1766,37 @@ function createInspectorProxy(options) {
     res.end(body);
   }
 
-  const httpServer = http.createServer(function (req, res) {
-    const url = req.url;
+  var httpServer = http.createServer(function (req, res) {
+    var url = req.url;
     log('HTTP', req.method + ' ' + url);
 
     if (url === '/json/version') {
       sendJSON(res, {
-        Browser: 'Mobile JavaScript',
+        Browser: 'React DOM Native',
         'Protocol-Version': '1.1',
       });
       return;
     }
 
     if (url === '/json' || url === '/json/list') {
-      sendJSON(res, [
-        {
-          description: 'Falcon JSC',
-          devtoolsFrontendUrl: devtoolsFrontendUrl,
-          devtoolsFrontendUrlCompat: devtoolsFrontendUrl,
+      var pages = [];
+      for (var [id, entry] of targets) {
+        var info = entry.info;
+        var devtoolsUrl = 'chrome-devtools://devtools/bundled/devtools_app.html?experiments=true&ws=127.0.0.1:' +
+          cdpPort + '/' + id;
+        pages.push({
+          description: (info.deviceModel || 'iOS') + (info.platform === 'iOS Simulator' ? ' Simulator' : ''),
+          devtoolsFrontendUrl: devtoolsUrl,
+          devtoolsFrontendUrlCompat: devtoolsUrl,
           faviconUrl: 'https://reactnative.dev/img/favicon.ico',
-          id: targetId,
-          title: 'Falcon — react-dom-native',
+          id: id,
+          title: (info.appName || 'Falcon') + ' — ' + (info.deviceName || 'Unknown') + ' (' + (info.deviceModel || 'iOS') + ')',
           type: 'page',
-          url: 'file://',
-          webSocketDebuggerUrl: 'ws://127.0.0.1:' + cdpPort + '/' + targetId,
-        },
-      ]);
+          url: (info.deviceModel || 'iOS') + (info.platform === 'iOS Simulator' ? ' (Simulator)' : ''),
+          webSocketDebuggerUrl: 'ws://127.0.0.1:' + cdpPort + '/' + id,
+        });
+      }
+      sendJSON(res, pages);
       return;
     }
 
@@ -1681,8 +1824,6 @@ function createInspectorProxy(options) {
       res.write('data: connected\n\n');
       previewClients.add(res);
       req.on('close', function () { previewClients.delete(res); });
-      // Send an initial refresh so the page picks up any tree that
-      // was already rendered before the SSE connection was established.
       setTimeout(function () {
         if (previewClients.has(res)) {
           res.write('data: refresh\n\n');
@@ -1693,14 +1834,23 @@ function createInspectorProxy(options) {
 
     // Returns just the body HTML (no wrapper) for incremental updates
     if (url === '/preview/html') {
-      domDomain.requestPreviewHTML(sendToApp, function (result) {
-        var bodyHTML = (result && result.html) || '';
+      var first = getFirstTarget();
+      if (first) {
+        first.target.domDomain.requestPreviewHTML(first.target.getSendToApp(), function (result) {
+          var bodyHTML = (result && result.html) || '';
+          res.writeHead(200, {
+            'Content-Type': 'text/html; charset=UTF-8',
+            'Cache-Control': 'no-cache',
+          });
+          res.end(bodyHTML);
+        });
+      } else {
         res.writeHead(200, {
           'Content-Type': 'text/html; charset=UTF-8',
           'Cache-Control': 'no-cache',
         });
-        res.end(bodyHTML);
-      });
+        res.end('');
+      }
       return;
     }
 
@@ -1752,160 +1902,68 @@ function createInspectorProxy(options) {
   });
 
   // -----------------------------------------------------------------------
-  // CDP WebSocket server
+  // CDP WebSocket server — routes by target ID in URL path
   // -----------------------------------------------------------------------
-  const wss = new WebSocketServer({server: httpServer});
+  var wss = new WebSocketServer({server: httpServer});
 
-  wss.on('connection', function onConnection(ws) {
-    cdpClients.add(ws);
-    log('WS', 'Chrome DevTools connected (total clients: ' + cdpClients.size + ')');
+  wss.on('connection', function onConnection(ws, req) {
+    // Extract target ID from URL path (e.g. /falcon-61F83D8B-...)
+    var urlPath = req.url || '/';
+    var requestedTargetId = urlPath.slice(1); // remove leading /
+
+    var entry = targets.get(requestedTargetId);
+    if (!entry) {
+      log('WS', 'No target found for: ' + requestedTargetId);
+      ws.close(1008, 'Target not found');
+      return;
+    }
+
+    var target = entry.target;
+    target.cdpClients.add(ws);
+    logAlways('WS', 'Chrome DevTools connected to ' + requestedTargetId +
+      ' (total clients: ' + target.cdpClients.size + ')');
 
     ws.on('message', function onMessage(data) {
-      let message;
-      try {
-        message = JSON.parse(data.toString());
-      } catch (e) {
-        log('WS', 'Failed to parse message: ' + data.toString().slice(0, 100));
-        return;
-      }
-
-      handleCDPMessage(ws, message);
+      var message;
+      try { message = JSON.parse(data.toString()); } catch (e) { return; }
+      target.handleCDPMessage(ws, message);
     });
 
     ws.on('close', function onClose() {
-      cdpClients.delete(ws);
-      log('WS', 'Chrome DevTools disconnected (remaining: ' + cdpClients.size + ')');
+      target.cdpClients.delete(ws);
+      logAlways('WS', 'Chrome DevTools disconnected from ' + requestedTargetId);
     });
 
     ws.on('error', function onError(err) {
       log('WS', 'WebSocket error: ' + err.message);
-      cdpClients.delete(ws);
+      target.cdpClients.delete(ws);
     });
   });
-
-  // -----------------------------------------------------------------------
-  // CDP message handling — delegated to domain router
-  // -----------------------------------------------------------------------
-  function handleCDPMessage(ws, message) {
-    var ctx = {
-      sendToApp: sendToApp,
-      sendCDP: sendCDP,
-      broadcastCDP: broadcastCDP,
-      targetId: targetId,
-      cdpClients: cdpClients,
-      _currentId: message.id,
-    };
-    router.route(ws, message, ctx);
-  }
-
-  // -----------------------------------------------------------------------
-  // App -> proxy: receive messages from the app
-  // -----------------------------------------------------------------------
-  function handleAppMessage(data) {
-    let message;
-    try {
-      message = JSON.parse(data);
-    } catch (e) {
-      log('App', 'Failed to parse app message: ' + String(data).slice(0, 100));
-      return;
-    }
-
-    log('App', '← ' + (message.type || 'unknown'), message.type === 'console-message' ? (message.args || []).map(function(a) { return a.value || a.type; }).join(' ') : undefined);
-
-    // Route to domain handlers that care about app messages
-    tracingDomain.handleAppMessage(message);
-    nodeTracingDomain.handleAppMessage(message);
-    if (runtimeDomain.handleAppMessage) {
-      runtimeDomain.handleAppMessage(message);
-    }
-    if (profilerDomain.handleAppMessage) {
-      profilerDomain.handleAppMessage(message);
-    }
-    if (domDomain.handleAppMessage) {
-      domDomain.handleAppMessage(message);
-    }
-    if (cssDomain.handleAppMessage) {
-      cssDomain.handleAppMessage(message);
-    }
-    if (overlayDomain.handleAppMessage) {
-      overlayDomain.handleAppMessage(message);
-    }
-    if (pageDomain.handleAppMessage) {
-      pageDomain.handleAppMessage(message);
-    }
-
-    if (message.type === 'cdp-event') {
-      log('App', 'Broadcasting cdp-event: ' + message.method);
-      var params = message.params;
-      // Resolve source maps in exception stack traces
-      if (message.method === 'Runtime.exceptionThrown' && params && params.exceptionDetails) {
-        params = Object.assign({}, params, {
-          exceptionDetails: sourceMapResolver.resolveExceptionDetails(params.exceptionDetails),
-        });
-      }
-      broadcastCDP({
-        method: message.method,
-        params: params,
-      });
-    }
-
-    if (message.type === 'console-message') {
-      broadcastCDP({
-        method: 'Runtime.consoleAPICalled',
-        params: {
-          type: message.cdpType || 'log',
-          args: message.args || [],
-          executionContextId: 1,
-          timestamp: message.timestamp || Date.now(),
-          stackTrace: sourceMapResolver.resolveStackTrace(message.stackTrace || {callFrames: []}),
-        },
-      });
-
-      // Also emit Log.entryAdded for error-level messages
-      if (message.cdpType === 'error' && logDomain.isEnabled()) {
-        broadcastCDP({
-          method: 'Log.entryAdded',
-          params: {
-            entry: {
-              source: 'javascript',
-              level: 'error',
-              text: (message.args || []).map(function (a) { return a.value || a.description || ''; }).join(' '),
-              timestamp: message.timestamp || Date.now(),
-              stackTrace: sourceMapResolver.resolveStackTrace(message.stackTrace || {callFrames: []}),
-            },
-          },
-        });
-      }
-    }
-  }
 
   // -----------------------------------------------------------------------
   // Start
   // -----------------------------------------------------------------------
   httpServer.listen(cdpPort, function () {
     logAlways('Init', 'CDP server listening on http://localhost:' + cdpPort);
-    logAlways('Init', 'Target: ' + targetId);
-    logAlways('Init', 'DevTools URL: ' + devtoolsFrontendUrl);
+    logAlways('Init', 'Multi-target mode — targets registered via addTarget()');
     logAlways('Init', 'Preview URL: http://localhost:' + cdpPort + '/preview');
     logAlways('Init', 'Verbose logging: curl http://localhost:' + cdpPort + '/debug/verbose');
   });
 
   return {
     port: cdpPort,
-
-    setSendToApp: function (fn) {
-      log('Init', 'sendToApp ' + (fn ? 'SET' : 'CLEARED'));
-      sendToApp = fn;
-    },
-
-    handleAppMessage: handleAppMessage,
-    router: router,
-
-    close: function () {
-      for (const client of cdpClients) {
-        client.close();
+    addTarget: addTarget,
+    removeTarget: removeTarget,
+    handleAppMessage: function (targetId, data) {
+      var entry = targets.get(targetId);
+      if (entry) {
+        entry.target.handleAppMessage(data);
       }
-      cdpClients.clear();
+    },
+    set onTracingStateChange(fn) { onTracingStateChange = fn; },
+    close: function () {
+      for (var [, entry] of targets) { entry.target.close(); }
+      targets.clear();
       httpServer.close();
     },
   };
