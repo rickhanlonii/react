@@ -612,7 +612,7 @@ function createPageDomain(targetId) {
   var screencastMaxWidth = 0;
   var captureInFlight = false;
   var sendCDPRef = null;
-  var sendToAppRef = null;
+  var captureTimeout = null;
 
   // Device dimensions (populated from first screenshot-data response)
   var devicePixelWidth = 0;
@@ -622,12 +622,22 @@ function createPageDomain(targetId) {
   function captureFrame() {
     if (!screencastActive || !screencastWs || captureInFlight) return;
     captureInFlight = true;
-    if (sendToAppRef) {
-      sendToAppRef(JSON.stringify({
+    // Use the module-level sendToApp (always points to current connection)
+    if (sendToApp) {
+      sendToApp(JSON.stringify({
         type: 'capture-screenshot',
         maxWidth: screencastMaxWidth || 0,
         quality: (screencastQuality || 80) / 100,
       }));
+      // Timeout: if app doesn't respond within 2s (e.g. disconnected/reloading),
+      // reset captureInFlight so we can try again
+      captureTimeout = setTimeout(function () {
+        if (captureInFlight) {
+          captureInFlight = false;
+          log('Page', 'Screenshot capture timed out — retrying');
+          captureFrame();
+        }
+      }, 2000);
     } else {
       captureInFlight = false;
     }
@@ -635,7 +645,6 @@ function createPageDomain(targetId) {
 
   function handle(method, params, ctx) {
     sendCDPRef = ctx.sendCDP;
-    sendToAppRef = ctx.sendToApp;
     log('Page', method);
     switch (method) {
       case 'enable':
@@ -901,6 +910,7 @@ function createPageDomain(targetId) {
     // Handle screenshot-data responses from the app
     handleAppMessage: function (message) {
       if (message.type !== 'screenshot-data') return;
+      if (captureTimeout) { clearTimeout(captureTimeout); captureTimeout = null; }
       captureInFlight = false;
       if (!screencastActive || !screencastWs) return;
 
