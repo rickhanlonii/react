@@ -669,7 +669,6 @@ public class ReactRuntime {
                 if type == "dispatch-touch" {
                     let x = (obj["x"] as? NSNumber)?.doubleValue ?? 0
                     let y = (obj["y"] as? NSNumber)?.doubleValue ?? 0
-                    print("[ReactRuntime] dispatch-touch received: x=\(x), y=\(y)")
                     DispatchQueue.main.async {
                         bindings?.dispatchTouchAtWindowPoint(x: x, y: y)
                     }
