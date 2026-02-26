@@ -26,6 +26,8 @@
 
 const http = require('http');
 const {WebSocketServer} = require('ws');
+const {SourceMapResolver} = require('./source-map-resolver');
+const path = require('path');
 
 const DEFAULT_CDP_PORT = 9222;
 const CHUNK_SIZE = 1000; // Events per Tracing.dataCollected message (matches RN)
@@ -365,7 +367,7 @@ function emitTraceEvents(ws, id, events, domainPrefix, targetId, ctx) {
 // Runtime domain
 // ---------------------------------------------------------------------------
 
-function createRuntimeDomain() {
+function createRuntimeDomain(sourceMapResolver) {
   var pendingCDPRequests = new Map();
 
   function handle(method, params, ctx) {
@@ -432,8 +434,15 @@ function createRuntimeDomain() {
         if (pending) {
           log('Runtime', 'Got cdp-response for ' + message.requestId);
           pendingCDPRequests.delete(message.requestId);
+          var result = message.result;
+          // Resolve source maps in eval error stack traces
+          if (sourceMapResolver && result && result.exceptionDetails) {
+            result = Object.assign({}, result, {
+              exceptionDetails: sourceMapResolver.resolveExceptionDetails(result.exceptionDetails),
+            });
+          }
           pending.ws.readyState === 1 &&
-            pending.ws.send(JSON.stringify({id: pending.id, result: message.result}));
+            pending.ws.send(JSON.stringify({id: pending.id, result: result}));
         }
       }
     },
@@ -980,29 +989,90 @@ function createNetworkDomain() {
 // Debugger domain
 // ---------------------------------------------------------------------------
 
-function createDebuggerDomain() {
+function createDebuggerDomain(sourceMapResolver) {
+  // Map scriptId -> source URL for original source lookups
+  var sourceScriptIds = {};
+
   function handle(method, params, ctx) {
     log('Debugger', method);
     switch (method) {
-      case 'enable':
-        ctx.sendCDP(ctx.ws, {
-          method: 'Debugger.scriptParsed',
-          params: {
-            scriptId: '1',
-            url: 'http://localhost:6000/bundle.js',
-            startLine: 0,
-            startColumn: 0,
-            endLine: 999999,
-            endColumn: 0,
-            executionContextId: 1,
-            hash: '',
-          },
-        });
+      case 'enable': {
+        // Emit scriptParsed for each bundle file (bundle.js + client chunks)
+        var filenames = sourceMapResolver ? sourceMapResolver.getConsumerFilenames() : [];
+        for (var f = 0; f < filenames.length; f++) {
+          var filename = filenames[f];
+          ctx.sendCDP(ctx.ws, {
+            method: 'Debugger.scriptParsed',
+            params: {
+              scriptId: 'bundle-' + f,
+              url: 'http://localhost:6000/' + filename,
+              startLine: 0,
+              startColumn: 0,
+              endLine: 999999,
+              endColumn: 0,
+              executionContextId: 1,
+              hash: '',
+              sourceMapURL: 'http://localhost:6000/' + filename + '.map',
+            },
+          });
+        }
+
+        // Build a flat index across all source maps and emit scriptParsed
+        // for each original source file
+        var entries = sourceMapResolver ? sourceMapResolver.buildSourceIndex() : [];
+        sourceScriptIds = {};
+        for (var i = 0; i < entries.length; i++) {
+          var entry = entries[i];
+          sourceScriptIds[entry.scriptId] = entry.source;
+          ctx.sendCDP(ctx.ws, {
+            method: 'Debugger.scriptParsed',
+            params: {
+              scriptId: entry.scriptId,
+              url: entry.source,
+              startLine: 0,
+              startColumn: 0,
+              endLine: 999999,
+              endColumn: 0,
+              executionContextId: 1,
+              hash: '',
+              sourceMapURL: '',
+            },
+          });
+        }
+        log('Debugger', 'Emitted scriptParsed for ' + filenames.length + ' bundles + ' + entries.length + ' original sources');
+
         return {debuggerId: 'falcon-debugger-1'};
+      }
       case 'disable':
         return {};
-      case 'getScriptSource':
+      case 'getScriptSource': {
+        var scriptId = params && params.scriptId;
+        // Bundle files: 'bundle-0', 'bundle-1', etc.
+        if (scriptId && scriptId.indexOf('bundle-') === 0) {
+          var bundleIdx = parseInt(scriptId.slice(7), 10);
+          var bundleFilenames = sourceMapResolver ? sourceMapResolver.getConsumerFilenames() : [];
+          if (bundleIdx < bundleFilenames.length) {
+            try {
+              var fs = require('fs');
+              var bundlePath = path.resolve(__dirname, '../build/' + bundleFilenames[bundleIdx]);
+              var bundleSource = fs.readFileSync(bundlePath, 'utf8');
+              return {scriptSource: bundleSource};
+            } catch (e) {
+              log('Debugger', 'Failed to read ' + bundleFilenames[bundleIdx] + ': ' + e.message);
+            }
+          }
+          return {scriptSource: ''};
+        }
+        // Original source files: 'source-0', 'source-1', etc.
+        if (scriptId && scriptId.indexOf('source-') === 0) {
+          var sourcePath = sourceScriptIds[scriptId];
+          if (sourcePath && sourceMapResolver) {
+            var content = sourceMapResolver.getSourceContent(sourcePath);
+            return {scriptSource: content || ''};
+          }
+        }
         return {scriptSource: ''};
+      }
       case 'setPauseOnExceptions':
         return {};
       case 'setAsyncCallStackDepth':
@@ -1271,6 +1341,14 @@ function createInspectorProxy(options) {
   // CDP WebSocket clients
   const cdpClients = new Set();
 
+  // Source map resolver — translates bundle.js stack frames to original sources
+  const BUILD_DIR = path.resolve(__dirname, '../build');
+  const sourceMapResolver = new SourceMapResolver(BUILD_DIR);
+  // Load asynchronously — resolution is a no-op until maps are loaded
+  sourceMapResolver.loadAll().then(function () {
+    sourceMapResolver.watchForChanges();
+  });
+
   function sendCDP(ws, msg) {
     if (ws.readyState === 1) {
       ws.send(JSON.stringify(msg));
@@ -1288,13 +1366,13 @@ function createInspectorProxy(options) {
   // -----------------------------------------------------------------------
   var tracingDomain = createTracingDomain(targetId);
   var nodeTracingDomain = createNodeTracingDomain(targetId);
-  var runtimeDomain = createRuntimeDomain();
+  var runtimeDomain = createRuntimeDomain(sourceMapResolver);
   var profilerDomain = createProfilerDomain();
   var pageDomain = createPageDomain(targetId);
   var domDomain = createDOMDomain(function(msg) { broadcastCDP(msg); });
   var logDomain = createLogDomain();
   var networkDomain = createNetworkDomain();
-  var debuggerDomain = createDebuggerDomain();
+  var debuggerDomain = createDebuggerDomain(sourceMapResolver);
   var cssDomain = createCSSDomain();
   var overlayDomain = createOverlayDomain();
 
@@ -1457,9 +1535,16 @@ function createInspectorProxy(options) {
 
     if (message.type === 'cdp-event') {
       log('App', 'Broadcasting cdp-event: ' + message.method);
+      var params = message.params;
+      // Resolve source maps in exception stack traces
+      if (message.method === 'Runtime.exceptionThrown' && params && params.exceptionDetails) {
+        params = Object.assign({}, params, {
+          exceptionDetails: sourceMapResolver.resolveExceptionDetails(params.exceptionDetails),
+        });
+      }
       broadcastCDP({
         method: message.method,
-        params: message.params,
+        params: params,
       });
     }
 
@@ -1471,7 +1556,7 @@ function createInspectorProxy(options) {
           args: message.args || [],
           executionContextId: 1,
           timestamp: message.timestamp || Date.now(),
-          stackTrace: message.stackTrace || {callFrames: []},
+          stackTrace: sourceMapResolver.resolveStackTrace(message.stackTrace || {callFrames: []}),
         },
       });
 
@@ -1485,7 +1570,7 @@ function createInspectorProxy(options) {
               level: 'error',
               text: (message.args || []).map(function (a) { return a.value || a.description || ''; }).join(' '),
               timestamp: message.timestamp || Date.now(),
-              stackTrace: message.stackTrace || {callFrames: []},
+              stackTrace: sourceMapResolver.resolveStackTrace(message.stackTrace || {callFrames: []}),
             },
           },
         });
