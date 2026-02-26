@@ -28,9 +28,7 @@ const http = require('http');
 const {WebSocketServer} = require('ws');
 const {SourceMapResolver} = require('./source-map-resolver');
 const path = require('path');
-const {exec} = require('child_process');
 const fs = require('fs');
-const os = require('os');
 
 const DEFAULT_CDP_PORT = 9222;
 const CHUNK_SIZE = 1000; // Events per Tracing.dataCollected message (matches RN)
@@ -606,108 +604,38 @@ function createProfilerDomain() {
 // ---------------------------------------------------------------------------
 
 function createPageDomain(targetId) {
-  // Screencast state — captures simulator screenshots and sends as CDP frames
+  // Screencast state
   var screencastActive = false;
   var screencastWs = null;
   var screencastSessionId = 0;
-  var screencastFormat = 'jpeg';
   var screencastQuality = 80;
   var screencastMaxWidth = 0;
-  var screencastMaxHeight = 0;
   var captureInFlight = false;
   var sendCDPRef = null;
+  var sendToAppRef = null;
 
-  // Actual device physical pixel dimensions and scale factor
-  // (detected from first screenshot)
+  // Device dimensions (populated from first screenshot-data response)
   var devicePixelWidth = 0;
   var devicePixelHeight = 0;
   var deviceScale = 3;
 
-  var tmpScreenshot = path.join(os.tmpdir(), 'falcon-screencast.png');
-  var tmpResized = path.join(os.tmpdir(), 'falcon-screencast-out');
-
-  // Detect physical pixel dimensions and scale factor from a screenshot.
-  function detectDeviceDimensions(callback) {
-    if (devicePixelWidth > 0) { callback(); return; }
-    exec('sips -g pixelWidth -g pixelHeight ' + tmpScreenshot + ' 2>/dev/null', function (err, stdout) {
-      if (err) { devicePixelWidth = 1179; devicePixelHeight = 2556; deviceScale = 3; callback(); return; }
-      var wMatch = stdout.match(/pixelWidth:\s*(\d+)/);
-      var hMatch = stdout.match(/pixelHeight:\s*(\d+)/);
-      if (wMatch && hMatch) {
-        devicePixelWidth = parseInt(wMatch[1]);
-        devicePixelHeight = parseInt(hMatch[1]);
-        deviceScale = devicePixelWidth > 1000 ? 3 : 2;
-        log('Page', 'Detected device: ' + devicePixelWidth + 'x' + devicePixelHeight +
-          ' @ ' + deviceScale + 'x (logical: ' +
-          Math.round(devicePixelWidth / deviceScale) + 'x' +
-          Math.round(devicePixelHeight / deviceScale) + ')');
-      } else {
-        devicePixelWidth = 1179;
-        devicePixelHeight = 2556;
-        deviceScale = 3;
-      }
-      callback();
-    });
-  }
-
   function captureFrame() {
     if (!screencastActive || !screencastWs || captureInFlight) return;
     captureInFlight = true;
-
-    var outPath;
-    var cmd = 'xcrun simctl io booted screenshot --type=png ' + tmpScreenshot;
-
-    if (screencastMaxWidth > 0) {
-      outPath = tmpResized + '.' + screencastFormat;
-      if (screencastFormat === 'jpeg') {
-        cmd += ' && sips --resampleWidth ' + screencastMaxWidth +
-          ' -s format jpeg -s formatOptions ' + screencastQuality +
-          ' ' + tmpScreenshot + ' --out ' + outPath + ' 2>/dev/null';
-      } else {
-        cmd += ' && sips --resampleWidth ' + screencastMaxWidth +
-          ' ' + tmpScreenshot + ' --out ' + outPath + ' 2>/dev/null';
-      }
+    if (sendToAppRef) {
+      sendToAppRef(JSON.stringify({
+        type: 'capture-screenshot',
+        maxWidth: screencastMaxWidth || 0,
+        quality: (screencastQuality || 80) / 100,
+      }));
     } else {
-      outPath = tmpScreenshot;
+      captureInFlight = false;
     }
-
-    exec(cmd, function (err) {
-      if (err || !screencastActive) {
-        captureInFlight = false;
-        return;
-      }
-      // Detect device dimensions on first capture, then send frame
-      detectDeviceDimensions(function () {
-        fs.readFile(outPath, function (err, data) {
-          captureInFlight = false;
-          if (err || !screencastActive || !screencastWs) return;
-
-          var sessionId = screencastSessionId++;
-          if (sendCDPRef && screencastWs.readyState === 1) {
-            sendCDPRef(screencastWs, {
-              method: 'Page.screencastFrame',
-              params: {
-                data: data.toString('base64'),
-                metadata: {
-                  offsetTop: 0,
-                  pageScaleFactor: deviceScale,
-                  deviceWidth: devicePixelWidth,
-                  deviceHeight: devicePixelHeight,
-                  scrollOffsetX: 0,
-                  scrollOffsetY: 0,
-                  timestamp: Date.now() / 1000,
-                },
-                sessionId: sessionId,
-              },
-            });
-          }
-        });
-      });
-    });
   }
 
   function handle(method, params, ctx) {
     sendCDPRef = ctx.sendCDP;
+    sendToAppRef = ctx.sendToApp;
     log('Page', method);
     switch (method) {
       case 'enable':
@@ -933,12 +861,9 @@ function createPageDomain(targetId) {
         screencastActive = true;
         screencastWs = ctx.ws;
         screencastSessionId = 0;
-        screencastFormat = (params && params.format) || 'jpeg';
         screencastQuality = (params && params.quality) || 80;
         screencastMaxWidth = (params && params.maxWidth) || 0;
-        screencastMaxHeight = (params && params.maxHeight) || 0;
-        log('Page', 'Screencast started (' + screencastFormat +
-          ', ' + screencastMaxWidth + 'x' + screencastMaxHeight + ')');
+        log('Page', 'Screencast started (maxWidth=' + screencastMaxWidth + ', quality=' + screencastQuality + ')');
         captureFrame();
         return {};
       }
@@ -973,6 +898,39 @@ function createPageDomain(targetId) {
     },
     // Expose device scale for Input domain coordinate conversion
     getDeviceScale: function () { return deviceScale; },
+    // Handle screenshot-data responses from the app
+    handleAppMessage: function (message) {
+      if (message.type !== 'screenshot-data') return;
+      captureInFlight = false;
+      if (!screencastActive || !screencastWs) return;
+
+      // Cache device dimensions from the app
+      if (message.width && message.height && message.scale) {
+        devicePixelWidth = message.width;
+        devicePixelHeight = message.height;
+        deviceScale = message.scale;
+      }
+
+      var sessionId = screencastSessionId++;
+      if (sendCDPRef && screencastWs.readyState === 1) {
+        sendCDPRef(screencastWs, {
+          method: 'Page.screencastFrame',
+          params: {
+            data: message.data,
+            metadata: {
+              offsetTop: 0,
+              pageScaleFactor: deviceScale,
+              deviceWidth: devicePixelWidth,
+              deviceHeight: devicePixelHeight,
+              scrollOffsetX: 0,
+              scrollOffsetY: 0,
+              timestamp: Date.now() / 1000,
+            },
+            sessionId: sessionId,
+          },
+        });
+      }
+    },
   };
 }
 
@@ -1837,6 +1795,9 @@ function createInspectorProxy(options) {
     }
     if (overlayDomain.handleAppMessage) {
       overlayDomain.handleAppMessage(message);
+    }
+    if (pageDomain.handleAppMessage) {
+      pageDomain.handleAppMessage(message);
     }
 
     if (message.type === 'cdp-event') {
