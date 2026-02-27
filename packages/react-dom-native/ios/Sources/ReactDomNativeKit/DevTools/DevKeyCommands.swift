@@ -48,11 +48,23 @@ extension UIWindow {
             modifierFlags: [.command, .shift]
         )
 
-        return existing + [reloadCommand]
+        let debugMenuCommand = UIKeyCommand(
+            title: "Debug Menu",
+            action: #selector(rdnHandleDebugMenu),
+            input: "d",
+            modifierFlags: [.command, .shift]
+        )
+
+        return existing + [reloadCommand, debugMenuCommand]
     }
 
     @objc private func rdnHandleReload() {
         print("[DevKeyCommands] Cmd+Shift+R — reloading")
         ReactRuntime.shared.reload(fullReset: true)
+    }
+
+    @objc private func rdnHandleDebugMenu() {
+        print("[DevKeyCommands] Cmd+Shift+D — opening debug menu")
+        DebugMenu.shared.show()
     }
 }

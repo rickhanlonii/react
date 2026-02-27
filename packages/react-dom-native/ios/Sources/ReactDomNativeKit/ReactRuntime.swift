@@ -365,6 +365,18 @@ public class ReactRuntime {
         lastRefreshFailed = false
     }
 
+    // MARK: - DevTools Actions
+
+    /// Sends an "open-devtools" message to the inspector proxy, which opens
+    /// Chrome DevTools connected to this app's JSC runtime.
+    public func openDevTools() {
+        let message: [String: Any] = ["type": "open-devtools"]
+        if let data = try? JSONSerialization.data(withJSONObject: message),
+           let json = String(data: data, encoding: .utf8) {
+            hotReloadClient?.send(json)
+        }
+    }
+
     // MARK: - Reload
 
     /// Reloads the JS bundle. Called by HotReloadClient on "reload" message.

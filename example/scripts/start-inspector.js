@@ -87,6 +87,16 @@ wss.on('connection', function onConnection(ws) {
       return;
     }
 
+    // Handle open-devtools request from the app
+    if (message.type === 'open-devtools') {
+      if (info && info.targetId) {
+        var devtoolsUrl = 'devtools://devtools/bundled/inspector.html?remoteFrontend=true&ws=127.0.0.1:' + CDP_PORT + '/' + info.targetId;
+        require('child_process').exec('open -a "Google Chrome" "' + devtoolsUrl + '"');
+        console.log('[Inspector] Opening DevTools for ' + info.targetId);
+      }
+      return;
+    }
+
     // Forward app messages to the correct target
     if (info.identified && info.targetId) {
       proxy.handleAppMessage(info.targetId, text);
