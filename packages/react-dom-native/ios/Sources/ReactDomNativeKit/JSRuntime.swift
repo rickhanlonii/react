@@ -323,30 +323,32 @@ public class JSRuntime {
             }
         """)
 
-        // TextEncoder/TextDecoder polyfills for UTF-8 encoding
-        engine.evaluate("""
-            if (typeof TextEncoder === 'undefined') {
-                globalThis.TextEncoder = function() {};
-                TextEncoder.prototype.encode = function(str) {
-                    var bytes = [];
-                    for (var i = 0; i < str.length; i++) {
-                        var c = str.charCodeAt(i);
-                        if (c < 0x80) {
-                            bytes.push(c);
-                        } else if (c < 0x800) {
-                            bytes.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f));
-                        } else if (c < 0xd800 || c >= 0xe000) {
-                            bytes.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
-                        } else {
-                            i++;
-                            c = 0x10000 + (((c & 0x3ff) << 10) | (str.charCodeAt(i) & 0x3ff));
-                            bytes.push(0xf0 | (c >> 18), 0x80 | ((c >> 12) & 0x3f), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
-                        }
-                    }
-                    return new Uint8Array(bytes);
-                };
-            }
-        """)
+        // TextEncoder polyfill — native Swift UTF-8 encoding.
+        // Swift's String.utf8 gives the bytes, then a thin JS helper wraps
+        // them in a Uint8Array (since JSEngine doesn't expose typed arrays).
+        engine.evaluate("globalThis.$$__u8 = function(a) { return new Uint8Array(a); };")
+        let newUint8Array = engine.getGlobalProperty("$$__u8")!
+        engine.protect(newUint8Array)
+        engine.evaluate("delete globalThis.$$__u8;")
+
+        let textEncoderCtor = engine.makeFunction { [weak engine] _ in
+            guard let engine = engine else { return nil }
+            let encoder = engine.makeObject()
+            engine.setProperty(encoder, "encode", engine.makeFunction { [weak engine] args in
+                guard let engine = engine else { return nil }
+                guard args.count > 0,
+                      let str = engine.toString(args[0]) else {
+                    return engine.callFunction(newUint8Array,
+                        args: [engine.makeArray([])])
+                }
+                let jsBytes = engine.makeArray(
+                    Array(str.utf8).map { engine.makeNumber(Double($0)) }
+                )
+                return engine.callFunction(newUint8Array, args: [jsBytes])
+            })
+            return encoder
+        }
+        engine.setGlobalProperty("TextEncoder", textEncoderCtor)
 
         // TextDecoder polyfill — native Swift UTF-8 decoding.
         // Uint8Array.toString() gives comma-separated byte values (single bridge
