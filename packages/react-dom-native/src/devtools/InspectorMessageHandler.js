@@ -39,13 +39,13 @@ globalThis.$$onInspectorMessage = function (jsonString) {
       if (!__PERFORMANCE_TRACER__.isTracing()) {
         return;
       }
-      var events = __PERFORMANCE_TRACER__.stopTracing();
+      var result = __PERFORMANCE_TRACER__.stopTracing();
       if (typeof $$sendInspectorMessage === 'function') {
         $$sendInspectorMessage(
           JSON.stringify({
             type: 'trace-data',
-            events: events,
-            tracingStartTs: __PERFORMANCE_TRACER__._tracingStartTs || 0,
+            events: result.events,
+            tracingStartTs: result.tracingStartTs || 0,
           }),
         );
       }

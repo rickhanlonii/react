@@ -1,206 +1,69 @@
 'use strict';
 
 // ---------------------------------------------------------------------------
-// PerformanceTracer
+// PerformanceTracer (thin shim)
 //
-// Singleton trace event buffer that collects Chrome Trace Format events while
-// tracing is active. Mirrors React Native's PerformanceTracer (C++).
+// Delegates all tracing operations to native Swift via $$ bridge functions.
+// The native PerformanceTracer.swift owns the event buffer and tracing state.
 //
-// Events are buffered in-process and flushed to the dev server when tracing
-// stops. The dev server wraps them in CDP Tracing.dataCollected notifications
-// for Chrome DevTools.
-//
-// Chrome DevTools Performance panel recognizes custom tracks from
-// blink.user_timing async events (ph:'b'/'e') where the begin event's
-// args.detail is a JSON string containing {devtools: {track, color, ...}}.
-// Both reportTimeStamp (console.timeStamp) and reportMeasure
-// (performance.measure) emit this format so events land on named tracks
-// like "Components ⚛" and "Scheduler ⚛".
+// This shim exists so that JS code (HostConfig.js, InspectorMessageHandler.js)
+// can continue calling __PERFORMANCE_TRACER__.reportTimeStamp() etc. without
+// changes.
 // ---------------------------------------------------------------------------
 
 var tracer = {
-  _tracing: false,
-  _events: [],
-  _nextId: 0,
-  _nextInteractionId: 1,
-  _pid: 1,
-  _tid: 1,
-
   startTracing: function () {
-    this._tracing = true;
-    this._tracingStartTs = performance.now() * 1000; // µs — for screenshot alignment
-    this._nextId = 0;
-    this._events = [
-      // Process/thread metadata — cat:'__metadata' and thread name
-      // 'CrRendererMain' are required by Chrome DevTools MetaHandler to
-      // identify the renderer process and its main thread.
-      {name: 'process_name', cat: '__metadata', ph: 'M', pid: this._pid, tid: 0, ts: 0, args: {name: 'Falcon'}},
-      {name: 'thread_name', cat: '__metadata', ph: 'M', pid: this._pid, tid: this._tid, ts: 0, args: {name: 'CrRendererMain'}},
-    ];
-    if (typeof $$setNativeTracingEnabled === 'function') {
-      $$setNativeTracingEnabled(true);
+    if (typeof $$startTracing === 'function') {
+      $$startTracing();
     }
   },
 
   stopTracing: function () {
-    this._tracing = false;
-    if (typeof $$setNativeTracingEnabled === 'function') {
-      $$setNativeTracingEnabled(false);
+    if (typeof $$stopTracing === 'function') {
+      var result = $$stopTracing();
+      console.log('[PerformanceTracer] stopTracing: collected ' +
+        (result && result.events ? result.events.length : 0) + ' events');
+      return result;
     }
-    var events = this._events;
-    this._events = [];
-    console.log('[PerformanceTracer] stopTracing: collected ' + events.length + ' events');
-    return events;
+    return { events: [], tracingStartTs: 0 };
   },
 
   isTracing: function () {
-    return this._tracing;
+    if (typeof $$isTracing === 'function') {
+      return $$isTracing();
+    }
+    return false;
   },
 
-  // Called by the extended console.timeStamp override.
-  // React uses console.timeStamp(name, start, end, track, trackGroup, color)
-  // for component renders (when supportsUserTiming is false) and scheduling
-  // events. We convert to blink.user_timing b/e events with devtools detail
-  // so Chrome DevTools places them on named custom tracks.
   reportTimeStamp: function (label, start, end, track, trackGroup, color, properties) {
-    if (!this._tracing) return;
-    // Log early events to verify initial render is captured
-    if (this._events.length < 20) {
-      console.log('[PerformanceTracer] timeStamp: ' + label + ' start=' + start.toFixed(1) + ' track=' + track);
+    if (typeof $$reportTimeStamp === 'function') {
+      $$reportTimeStamp(label, start, end, track, trackGroup, color, properties);
     }
-    var id = '0x' + (this._nextId++).toString(16);
-    var devtools = {track: track, color: color};
-    if (trackGroup) {
-      devtools.trackGroup = trackGroup;
-    }
-    if (properties) {
-      devtools.properties = properties;
-    }
-    var startUs = start * 1000; // ms → µs
-    var endUs = end * 1000;
-    // Begin event — detail as JSON string in args (Chrome DevTools
-    // UserTimingsHandler expects a string and calls parseDevtoolsDetails).
-    // id2.local is the scoped async id format Chrome uses internally.
-    this._events.push({
-      id2: {local: id},
-      name: label,
-      cat: 'blink.user_timing',
-      ph: 'b',
-      ts: startUs,
-      pid: this._pid,
-      tid: this._tid,
-      args: {detail: JSON.stringify({devtools: devtools})},
-    });
-    // End event
-    this._events.push({
-      id2: {local: id},
-      name: label,
-      cat: 'blink.user_timing',
-      ph: 'e',
-      ts: endUs,
-      pid: this._pid,
-      tid: this._tid,
-      args: {},
-    });
   },
 
-  // Called by the performance.measure polyfill.
-  // React uses performance.measure(name, {start, end, detail: {devtools: ...}})
-  // for component renders (when supportsUserTiming is true). The detail
-  // contains track assignment metadata that DevTools parses for custom tracks.
   reportMeasure: function (name, start, duration, detail) {
-    if (!this._tracing) return;
-    // Log early events to verify initial render is captured
-    if (this._events.length < 20) {
-      console.log('[PerformanceTracer] measure: ' + name + ' start=' + start.toFixed(1) + ' dur=' + duration.toFixed(1));
+    if (typeof $$reportMeasure === 'function') {
+      $$reportMeasure(name, start, duration, detail);
     }
-    var id = '0x' + (this._nextId++).toString(16);
-    // Begin event — detail as JSON string in args (Chrome expects string format)
-    this._events.push({
-      id2: {local: id},
-      name: name,
-      cat: 'blink.user_timing',
-      ph: 'b',
-      ts: start * 1000,
-      pid: this._pid,
-      tid: this._tid,
-      args: {detail: JSON.stringify(detail || {})},
-    });
-    // End event
-    this._events.push({
-      id2: {local: id},
-      name: name,
-      cat: 'blink.user_timing',
-      ph: 'e',
-      ts: (start + duration) * 1000,
-      pid: this._pid,
-      tid: this._tid,
-      args: {},
-    });
   },
 
-  // Called by the performance.mark polyfill.
-  // Emits an Instant event for user timing marks.
   reportMark: function (name, startTime) {
-    if (!this._tracing) return;
-    this._events.push({
-      name: name,
-      cat: 'blink.user_timing',
-      ph: 'I',
-      ts: startTime * 1000,
-      pid: this._pid,
-      tid: this._tid,
-      args: {},
-    });
+    if (typeof $$reportMark === 'function') {
+      $$reportMark(name, startTime);
+    }
+  },
+
+  reportInteraction: function (eventType, interactionId, inputTime, processingStart, processingEnd) {
+    if (typeof $$reportInteraction === 'function') {
+      $$reportInteraction(eventType, interactionId, inputTime, processingStart, processingEnd);
+    }
   },
 
   nextInteractionId: function () {
-    return this._nextInteractionId++;
-  },
-
-  // Emits EventTiming begin/end async event pairs for the Chrome DevTools
-  // Interactions track. The UserInteractionsHandler in DevTools parses these
-  // to show input delay, processing time, and presentation delay.
-  reportInteraction: function (eventType, interactionId, inputTime, processingStart, processingEnd) {
-    if (!this._tracing) return;
-    var id = 'interaction-' + interactionId;
-    var duration = Math.max(Math.round((processingEnd - inputTime) / 8) * 8, 1); // Round to 8ms, min 1
-    var inputTimeUs = inputTime * 1000;
-    var endTimeUs = processingEnd * 1000; // V1: endTime = processingEnd (0 presentation delay)
-    // Begin event
-    this._events.push({
-      name: 'EventTiming',
-      cat: 'devtools.timeline',
-      ph: 'b',
-      id: id,
-      ts: inputTimeUs,
-      pid: this._pid,
-      tid: this._tid,
-      args: {
-        data: {
-          type: eventType,
-          interactionId: interactionId,
-          duration: duration,
-          timeStamp: inputTime,
-          processingStart: processingStart,
-          processingEnd: processingEnd,
-          cancelable: true,
-          nodeId: 0,
-          interactionOffset: 0,
-        },
-      },
-    });
-    // End event
-    this._events.push({
-      name: 'EventTiming',
-      cat: 'devtools.timeline',
-      ph: 'e',
-      id: id,
-      ts: endTimeUs,
-      pid: this._pid,
-      tid: this._tid,
-      args: {},
-    });
+    if (typeof $$nextInteractionId === 'function') {
+      return $$nextInteractionId();
+    }
+    return 0;
   },
 };
 
