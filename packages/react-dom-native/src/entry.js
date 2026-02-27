@@ -16,11 +16,9 @@
 if (__DEV__) {
   require('./devtools/ReactDevToolsSetup');         // Must be first — installs full DevTools hook + connects backend
   require('./devtools/DevToolsHookShim');            // Fallback — sets __REACT_DEVTOOLS_GLOBAL_HOOK__ if not already set
-  require('./devtools/PerformanceTracer');
   require('./devtools/RuntimeAgent');             // CDP Runtime.evaluate/getProperties in JSC
   require('./devtools/ReactDevToolsAgent');       // $$getComponentTree() for Fiber inspection
   require('./devtools/DOMAgent');                 // CDP DOM/CSS domain handlers
-  require('./devtools/InspectorMessageHandler'); // Must be last — dispatches to all above
 }
 
 // ---------------------------------------------------------------------------

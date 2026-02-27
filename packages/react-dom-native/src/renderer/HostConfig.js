@@ -306,8 +306,7 @@ function durationColor(startMs, endMs) {
 }
 
 function reportNativeCommitTimings(t) {
-  var tracer = globalThis.__PERFORMANCE_TRACER__;
-  if (!tracer || !tracer.isTracing()) return;
+  if (typeof $$isTracing !== 'function' || !$$isTracing()) return;
 
   // Native timestamps are absolute (CACurrentMediaTime * 1000, ms since boot).
   // JS timestamps are relative (performance.now() = $$performanceNow() - timeOrigin).
@@ -338,7 +337,7 @@ function reportNativeCommitTimings(t) {
 
   // Shadow Tree track — outer Commit span
   var label = t.label || 'Commit';
-  tracer.reportTimeStamp(label, commitStart, commitEnd,
+  $$reportTimeStamp(label, commitStart, commitEnd,
     'Shadow Tree', 'Native \u269b', durationColor(commitStart, commitEnd),
     [['Nodes', String(t.nodeCount)],
      ['Tree depth', String(t.treeDepth)],
@@ -348,15 +347,15 @@ function reportNativeCommitTimings(t) {
   var prepareStart = (t.prepareStart || 0) - origin;
   var prepareEnd = (t.prepareEnd || 0) - origin;
   if (prepareEnd > prepareStart) {
-    tracer.reportTimeStamp('Prepare', prepareStart, prepareEnd,
+    $$reportTimeStamp('Prepare', prepareStart, prepareEnd,
       'Shadow Tree', 'Native \u269b', durationColor(prepareStart, prepareEnd));
   }
   if (layoutEnd > layoutStart) {
-    tracer.reportTimeStamp('Blocked (Layout)', layoutStart, layoutEnd,
+    $$reportTimeStamp('Blocked (Layout)', layoutStart, layoutEnd,
       'Shadow Tree', 'Native \u269b', 'secondary-light');
   }
   if (diffEnd > diffStart) {
-    tracer.reportTimeStamp('Diff', diffStart, diffEnd,
+    $$reportTimeStamp('Diff', diffStart, diffEnd,
       'Shadow Tree', 'Native \u269b', durationColor(diffStart, diffEnd),
       [['Mutations', String(t.mutationCount)],
        ['Creates', String(t.creates)],
@@ -364,21 +363,21 @@ function reportNativeCommitTimings(t) {
        ['Deletes', String(t.deletes)]]);
   }
   if (mutationsEnd > mutationsStart) {
-    tracer.reportTimeStamp('Apply Mutations (' + t.mutationCount + ')', mutationsStart, mutationsEnd,
+    $$reportTimeStamp('Apply Mutations (' + t.mutationCount + ')', mutationsStart, mutationsEnd,
       'Shadow Tree', 'Native \u269b', durationColor(mutationsStart, mutationsEnd),
       [['Inserts', String(t.inserts)],
        ['Removes', String(t.removes)],
        ['Affected elements', t.affectedTypes || 'none']]);
   }
   if (syncEnd > syncStart) {
-    tracer.reportTimeStamp('Sync Frames', syncStart, syncEnd,
+    $$reportTimeStamp('Sync Frames', syncStart, syncEnd,
       'Shadow Tree', 'Native \u269b', durationColor(syncStart, syncEnd));
   }
 
   var cleanupStart = (t.cleanupStart || 0) - origin;
   var cleanupEnd = (t.cleanupEnd || 0) - origin;
   if (cleanupEnd > cleanupStart) {
-    tracer.reportTimeStamp('Cleanup', cleanupStart, cleanupEnd,
+    $$reportTimeStamp('Cleanup', cleanupStart, cleanupEnd,
       'Shadow Tree', 'Native \u269b', durationColor(cleanupStart, cleanupEnd));
   }
 
@@ -386,27 +385,27 @@ function reportNativeCommitTimings(t) {
   var treePromoteStart = (t.treePromoteStart || 0) - origin;
   var treePromoteEnd = (t.treePromoteEnd || 0) - origin;
   if (treePromoteEnd > treePromoteStart) {
-    tracer.reportTimeStamp('Tree Promote', treePromoteStart, treePromoteEnd,
+    $$reportTimeStamp('Tree Promote', treePromoteStart, treePromoteEnd,
       'Shadow Tree', 'Native \u269b', durationColor(treePromoteStart, treePromoteEnd));
   }
 
   var nodeGCStart = (t.nodeGCStart || 0) - origin;
   var nodeGCEnd = (t.nodeGCEnd || 0) - origin;
   if (nodeGCEnd > nodeGCStart) {
-    tracer.reportTimeStamp('Node GC', nodeGCStart, nodeGCEnd,
+    $$reportTimeStamp('Node GC', nodeGCStart, nodeGCEnd,
       'Shadow Tree', 'Native \u269b', durationColor(nodeGCStart, nodeGCEnd));
   }
 
   var devtoolsNotifyStart = (t.devtoolsNotifyStart || 0) - origin;
   var devtoolsNotifyEnd = (t.devtoolsNotifyEnd || 0) - origin;
   if (devtoolsNotifyEnd > devtoolsNotifyStart) {
-    tracer.reportTimeStamp('DevTools Notify', devtoolsNotifyStart, devtoolsNotifyEnd,
+    $$reportTimeStamp('DevTools Notify', devtoolsNotifyStart, devtoolsNotifyEnd,
       'Shadow Tree', 'Native \u269b', durationColor(devtoolsNotifyStart, devtoolsNotifyEnd));
   }
 
   // Layout track — outer Calculate Layout span
   if (layoutEnd > layoutStart) {
-    tracer.reportTimeStamp('Calculate Layout', layoutStart, layoutEnd,
+    $$reportTimeStamp('Calculate Layout', layoutStart, layoutEnd,
       'Layout', 'Native \u269b', durationColor(layoutStart, layoutEnd),
       [['Nodes', String(t.nodeCount)],
        ['Second pass', t.didRemeasure ? 'yes' : 'no']]);
@@ -414,25 +413,25 @@ function reportNativeCommitTimings(t) {
 
   // Layout track — sub-spans
   if (yogaEnd > yogaStart) {
-    tracer.reportTimeStamp('Yoga', yogaStart, yogaEnd,
+    $$reportTimeStamp('Yoga', yogaStart, yogaEnd,
       'Layout', 'Native \u269b', durationColor(yogaStart, yogaEnd),
       [['Nodes', String(t.nodeCount)]]);
   }
   if (t.didRemeasure) {
-    tracer.reportTimeStamp('Text Remeasure', textRemeasureStart, textRemeasureEnd,
+    $$reportTimeStamp('Text Remeasure', textRemeasureStart, textRemeasureEnd,
       'Layout', 'Native \u269b', 'warning');
   }
 
   var readFramesStart = (t.readFramesStart || 0) - origin;
   var readFramesEnd = (t.readFramesEnd || 0) - origin;
   if (readFramesEnd > readFramesStart) {
-    tracer.reportTimeStamp('Read Frames', readFramesStart, readFramesEnd,
+    $$reportTimeStamp('Read Frames', readFramesStart, readFramesEnd,
       'Layout', 'Native \u269b', durationColor(readFramesStart, readFramesEnd),
       [['Nodes', String(t.nodeCount)]]);
   }
 
   if (scrollEnd > scrollStart) {
-    tracer.reportTimeStamp('Scroll Content', scrollStart, scrollEnd,
+    $$reportTimeStamp('Scroll Content', scrollStart, scrollEnd,
       'Layout', 'Native \u269b', durationColor(scrollStart, scrollEnd));
   }
 
@@ -440,7 +439,7 @@ function reportNativeCommitTimings(t) {
   var diffNodes = t.diffNodes;
   if (diffNodes && diffNodes.length > 0) {
     for (var i = 0; i < diffNodes.length; i += 3) {
-      tracer.reportTimeStamp(diffNodes[i], diffNodes[i + 1] - origin, diffNodes[i + 2] - origin,
+      $$reportTimeStamp(diffNodes[i], diffNodes[i + 1] - origin, diffNodes[i + 2] - origin,
         'Shadow Tree', 'Native \u269b', 'primary-light');
     }
   }
@@ -449,7 +448,7 @@ function reportNativeCommitTimings(t) {
   var mutationNodes = t.mutationNodes;
   if (mutationNodes && mutationNodes.length > 0) {
     for (var i = 0; i < mutationNodes.length; i += 4) {
-      tracer.reportTimeStamp(
+      $$reportTimeStamp(
         mutationNodes[i] + ' ' + mutationNodes[i + 1],
         mutationNodes[i + 2] - origin,
         mutationNodes[i + 3] - origin,
@@ -461,7 +460,7 @@ function reportNativeCommitTimings(t) {
   var layoutNodes = t.layoutNodes;
   if (layoutNodes && layoutNodes.length > 0) {
     for (var i = 0; i < layoutNodes.length; i += 3) {
-      tracer.reportTimeStamp(layoutNodes[i], layoutNodes[i + 1] - origin, layoutNodes[i + 2] - origin,
+      $$reportTimeStamp(layoutNodes[i], layoutNodes[i + 1] - origin, layoutNodes[i + 2] - origin,
         'Layout', 'Native \u269b', 'primary-light');
     }
   }

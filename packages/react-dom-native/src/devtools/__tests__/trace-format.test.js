@@ -1,18 +1,21 @@
 'use strict';
 
-// Test that the PerformanceTracer produces Chrome Trace Format events
+// Test that the native PerformanceTracer produces Chrome Trace Format events
 // matching what Chrome DevTools expects for custom performance tracks.
+//
+// Tests use mock $$ bridge functions that simulate the native Swift
+// PerformanceTracer. No JS shim is needed — HostConfig.js and renderer.js
+// call $$ bridge functions directly.
 //
 // Reference: React's ReactFiberPerformanceTrack.js emits:
 //   performance.measure(name, {start, end, detail: {devtools: {track, color, ...}}})
 //   console.timeStamp(name, start, end, track, trackGroup, color)
 
-// Reset globals before loading polyfills
-delete globalThis.__PERFORMANCE_TRACER__;
+// Reset globals before tests
 delete globalThis.performance;
 
 // Creates mock $$ bridge functions that simulate what the native Swift
-// PerformanceTracer does. Must be called before requiring PerformanceTracer.js.
+// PerformanceTracer does.
 function createMockNativeTracer() {
   var mock = {
     _tracing: false,
@@ -128,6 +131,61 @@ function cleanupMockBridgeFunctions() {
   delete globalThis.$$reportMark;
   delete globalThis.$$reportInteraction;
   delete globalThis.$$nextInteractionId;
+  delete globalThis.$$onInspectorMessage;
+  delete globalThis.$$sendInspectorMessage;
+}
+
+// Creates a tracer-like interface that calls $$ bridge functions directly.
+// Replaces the removed PerformanceTracer.js shim.
+function createTracerInterface() {
+  return {
+    startTracing: function() { $$startTracing(); },
+    stopTracing: function() { return $$stopTracing(); },
+    isTracing: function() { return $$isTracing(); },
+    reportTimeStamp: function(label, start, end, track, trackGroup, color, properties) {
+      $$reportTimeStamp(label, start, end, track, trackGroup, color, properties);
+    },
+    reportMeasure: function(name, start, duration, detail) {
+      $$reportMeasure(name, start, duration, detail);
+    },
+    reportMark: function(name, startTime) {
+      $$reportMark(name, startTime);
+    },
+    reportInteraction: function(eventType, interactionId, inputTime, processingStart, processingEnd) {
+      $$reportInteraction(eventType, interactionId, inputTime, processingStart, processingEnd);
+    },
+    nextInteractionId: function() { return $$nextInteractionId(); },
+  };
+}
+
+// Installs a mock $$onInspectorMessage that simulates the native Swift
+// handler in JSRuntime.setupPerformancePolyfill().
+function installMockInspectorMessageHandler() {
+  globalThis.$$onInspectorMessage = function(jsonString) {
+    var message;
+    try { message = JSON.parse(jsonString); } catch (e) { return; }
+    var type = message && message.type;
+    if (!type) return;
+
+    if (type === 'start-tracing') {
+      if ($$isTracing()) return;
+      $$startTracing();
+    } else if (type === 'stop-tracing') {
+      if (!$$isTracing()) return;
+      var result = $$stopTracing();
+      if (typeof $$sendInspectorMessage === 'function') {
+        $$sendInspectorMessage(JSON.stringify({
+          type: 'trace-data',
+          events: result.events,
+          tracingStartTs: result.tracingStartTs || 0,
+        }));
+      }
+    } else if (type === 'cdp-request') {
+      if (typeof $$handleCDPRequest === 'function') {
+        $$handleCDPRequest(jsonString);
+      }
+    }
+  };
 }
 
 describe('PerformanceTracer trace format', () => {
@@ -135,15 +193,13 @@ describe('PerformanceTracer trace format', () => {
 
   beforeEach(() => {
     // Fresh tracer for each test
-    delete globalThis.__PERFORMANCE_TRACER__;
     delete globalThis.performance;
     cleanupMockBridgeFunctions();
     jest.resetModules();
 
-    // Install mock bridge functions before loading the shim
+    // Install mock bridge functions and create tracer interface
     createMockNativeTracer();
-    require('../PerformanceTracer');
-    tracer = globalThis.__PERFORMANCE_TRACER__;
+    tracer = createTracerInterface();
 
     // Stub performance.measure to route to tracer (mirrors native polyfill)
     globalThis.performance = {
@@ -404,7 +460,6 @@ describe('InspectorMessageHandler roundtrip', () => {
   let sentMessages;
 
   beforeEach(() => {
-    delete globalThis.__PERFORMANCE_TRACER__;
     delete globalThis.performance;
     delete globalThis.$$onInspectorMessage;
     delete globalThis.$$sendInspectorMessage;
@@ -412,10 +467,9 @@ describe('InspectorMessageHandler roundtrip', () => {
     sentMessages = [];
     jest.resetModules();
 
-    // Install mock bridge functions before loading the shim
+    // Install mock bridge functions and create tracer interface
     createMockNativeTracer();
-    require('../PerformanceTracer');
-    tracer = globalThis.__PERFORMANCE_TRACER__;
+    tracer = createTracerInterface();
 
     // Stub performance.measure to route to tracer (mirrors native polyfill)
     globalThis.performance = {
@@ -467,7 +521,8 @@ describe('InspectorMessageHandler roundtrip', () => {
       sentMessages.push(JSON.parse(data));
     };
 
-    require('../InspectorMessageHandler');
+    // Install mock native inspector message handler
+    installMockInspectorMessageHandler();
   });
 
   it('start-tracing message starts the tracer', () => {
@@ -554,17 +609,15 @@ describe('Native commit timing trace events', () => {
   let tracer;
 
   beforeEach(() => {
-    delete globalThis.__PERFORMANCE_TRACER__;
     delete globalThis.performance;
     cleanupMockBridgeFunctions();
     jest.resetModules();
 
-    // Install mock bridge functions before loading the shim
+    // Install mock bridge functions and create tracer interface
     createMockNativeTracer();
-    require('../PerformanceTracer');
-    tracer = globalThis.__PERFORMANCE_TRACER__;
+    tracer = createTracerInterface();
 
-    // Stub performance.now for PerformanceTracer.startTracing()
+    // Stub performance.now for startTracing()
     globalThis.performance = {
       now: function() { return Date.now(); },
     };
@@ -1011,18 +1064,16 @@ describe('SSR commit timing trace events', () => {
   let tracer;
 
   beforeEach(() => {
-    delete globalThis.__PERFORMANCE_TRACER__;
     delete globalThis.performance;
     delete globalThis.$$handleSSRCommitTimings;
     cleanupMockBridgeFunctions();
     jest.resetModules();
 
-    // Install mock bridge functions before loading the shim
+    // Install mock bridge functions and create tracer interface
     createMockNativeTracer();
-    require('../PerformanceTracer');
-    tracer = globalThis.__PERFORMANCE_TRACER__;
+    tracer = createTracerInterface();
 
-    // Stub performance.now for PerformanceTracer.startTracing()
+    // Stub performance.now for startTracing()
     globalThis.performance = {
       now: function() { return Date.now(); },
       timeOrigin: 0,
@@ -1038,7 +1089,6 @@ describe('SSR commit timing trace events', () => {
 
     // Load HostConfig to register $$handleSSRCommitTimings
     require('../../renderer/HostConfig');
-    tracer = globalThis.__PERFORMANCE_TRACER__;
   });
 
   function makeSSRFirstPaint(overrides) {

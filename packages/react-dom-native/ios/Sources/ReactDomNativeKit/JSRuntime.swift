@@ -315,26 +315,52 @@ public class JSRuntime {
 
         eng.setGlobalProperty("performance", perfObj)
 
-        // --- Bridge functions for JS PerformanceTracer shim ---
+        // --- Bridge functions for PerformanceTracer ---
 
-        // $$startTracing()
-        eng.setGlobalFunction("$$startTracing") { [weak self] _ in
-            guard let self = self else { return nil }
-            self.tracer.startTracing()
-            self.bindings.nativeTracingEnabled = true
-            self.bindings.pushPendingSSRCommitTimingsToJS()
-            return nil
-        }
-
-        // $$stopTracing() -> {events, tracingStartTs}
-        eng.setGlobalFunction("$$stopTracing") { [weak self, weak eng] _ in
+        // $$onInspectorMessage(jsonString)
+        // Handles inspector messages from the dev server (start-tracing, stop-tracing, cdp-request).
+        // Replaces the JS-side InspectorMessageHandler.js.
+        eng.setGlobalFunction("$$onInspectorMessage") { [weak self, weak eng] args in
             guard let self = self, let eng = eng else { return nil }
-            let result = self.tracer.stopTracing()
-            self.bindings.nativeTracingEnabled = false
-            let obj = eng.makeObject()
-            eng.setProperty(obj, "events", JSRuntime.convertEventsToJS(result.events, engine: eng))
-            eng.setProperty(obj, "tracingStartTs", eng.makeNumber(result.tracingStartTs))
-            return obj
+            guard let jsonString = eng.toString(args[0]),
+                  let data = jsonString.data(using: .utf8),
+                  let message = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let type = message["type"] as? String else {
+                return nil
+            }
+
+            switch type {
+            case "start-tracing":
+                guard !self.tracer.isTracing else { return nil }
+                self.tracer.startTracing()
+                self.bindings.nativeTracingEnabled = true
+                self.bindings.pushPendingSSRCommitTimingsToJS()
+
+            case "stop-tracing":
+                guard self.tracer.isTracing else { return nil }
+                let result = self.tracer.stopTracing()
+                self.bindings.nativeTracingEnabled = false
+                // Serialize events to JSON and send via WebSocket
+                let response: [String: Any] = [
+                    "type": "trace-data",
+                    "events": result.events,
+                    "tracingStartTs": result.tracingStartTs,
+                ]
+                if let responseData = try? JSONSerialization.data(withJSONObject: response),
+                   let responseString = String(data: responseData, encoding: .utf8) {
+                    self.bindings.sendInspectorMessage?(responseString)
+                }
+
+            case "cdp-request":
+                // Forward CDP requests to the JS handler (RuntimeAgent, etc.)
+                if let cdpHandler = eng.getGlobalProperty("$$handleCDPRequest") {
+                    _ = eng.callFunction(cdpHandler, args: [eng.makeString(jsonString)])
+                }
+
+            default:
+                break
+            }
+            return nil
         }
 
         // $$isTracing() -> bool
