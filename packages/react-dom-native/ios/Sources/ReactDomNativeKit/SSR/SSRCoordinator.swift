@@ -1,5 +1,6 @@
 import UIKit
 import ShadowTree
+import Yoga
 
 // ---------------------------------------------------------------------------
 // SSRCoordinator
@@ -171,7 +172,10 @@ class SSRCoordinator: InstructionStreamDelegate {
 
     /// Assembles the final content nodes for a segment by resolving any
     /// #placeholder markers. Placeholders reference sub-segments whose content
-    /// should be spliced in at that position.
+    /// should be spliced in at that position. Resolves placeholders at all
+    /// levels of the tree, not just top-level — Fizz may wrap segment content
+    /// in container elements (e.g., a <div> containing async children) where
+    /// placeholders appear as nested children.
     private func assembleContentNodes(for segmentId: Int) -> [ShadowNodeWrapper] {
         guard let nodes = segmentContentNodes[segmentId] else { return [] }
         var assembled: [ShadowNodeWrapper] = []
@@ -182,24 +186,71 @@ class SSRCoordinator: InstructionStreamDelegate {
                 let subContent = assembleContentNodes(for: subSegmentId)
                 assembled.append(contentsOf: subContent)
             } else {
+                // Recursively resolve any placeholders in children
+                resolveNestedPlaceholders(in: node)
                 assembled.append(node)
             }
         }
         return assembled
     }
 
-    /// Collects all sub-segment IDs referenced by #placeholder nodes in a segment's content.
+    /// Recursively resolves #placeholder children within a node's subtree
+    /// by replacing them with the actual sub-segment content.
+    private func resolveNestedPlaceholders(in node: ShadowNodeWrapper) {
+        var resolved: [ShadowNodeWrapper] = []
+        var didReplace = false
+        for child in node.children {
+            if child.family.elementType == "#placeholder",
+               let subSegmentId = child.props["segmentId"] as? Int {
+                let subContent = assembleContentNodes(for: subSegmentId)
+                resolved.append(contentsOf: subContent)
+                didReplace = true
+            } else {
+                // Recurse into children of non-placeholder nodes
+                resolveNestedPlaceholders(in: child)
+                resolved.append(child)
+            }
+        }
+        if didReplace {
+            // Update the node's children with resolved content
+            node.children = resolved
+            // Update Yoga tree: remove all children and re-insert
+            while YGNodeGetChildCount(node.yogaNode) > 0 {
+                YGNodeRemoveChild(node.yogaNode, YGNodeGetChild(node.yogaNode, 0)!)
+            }
+            for (index, child) in resolved.enumerated() {
+                if let owner = YGNodeGetOwner(child.yogaNode) {
+                    YGNodeRemoveChild(owner, child.yogaNode)
+                }
+                YGNodeInsertChild(node.yogaNode, child.yogaNode, index)
+            }
+        }
+    }
+
+    /// Collects all sub-segment IDs referenced by #placeholder nodes in a segment's content,
+    /// including placeholders nested inside container elements.
     private func collectSubSegmentIds(for segmentId: Int) -> [Int] {
         guard let nodes = segmentContentNodes[segmentId] else { return [] }
         var ids: [Int] = []
+        collectSubSegmentIdsRecursive(in: nodes, ids: &ids)
+        return ids
+    }
+
+    /// Recursively finds all #placeholder nodes and collects their segment IDs.
+    private func collectSubSegmentIdsRecursive(in nodes: [ShadowNodeWrapper], ids: inout [Int]) {
         for node in nodes {
             if node.family.elementType == "#placeholder",
                let subId = node.props["segmentId"] as? Int {
                 ids.append(subId)
-                ids.append(contentsOf: collectSubSegmentIds(for: subId))
+                // Also collect sub-segments referenced within this sub-segment
+                if let subNodes = segmentContentNodes[subId] {
+                    collectSubSegmentIdsRecursive(in: subNodes, ids: &ids)
+                }
+            } else {
+                // Check children for nested placeholders
+                collectSubSegmentIdsRecursive(in: node.children, ids: &ids)
             }
         }
-        return ids
     }
 
     // MARK: - Reveal Processing

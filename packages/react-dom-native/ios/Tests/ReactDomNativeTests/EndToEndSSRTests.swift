@@ -596,6 +596,13 @@ final class EndToEndSSRTests: XCTestCase {
     }
 
     func testFlightParallelAsyncRendersAndHydrates() {
+        // Use a root with onRecoverableError to detect hydration mismatches
+        var recoverableErrors: [Error] = []
+        let options = RootOptions(onRecoverableError: { error in
+            recoverableErrors.append(error)
+        })
+        root = Root(container: container, options: options)
+
         // 1. SSR render — parallel async components (500ms/1500ms, 300ms/600ms/900ms)
         let ssrDone = expectation(description: "SSR complete")
         root.renderWithSSR(serverURL: "\(Self.ssrBaseURL)/ssr/24-flight-parallel-async") { error in
@@ -632,6 +639,11 @@ final class EndToEndSSRTests: XCTestCase {
                        "Left section should be visible, got: \(texts)")
         XCTAssertTrue(texts.contains(where: { $0.contains("Right") }),
                        "Right section should be visible, got: \(texts)")
+
+        // 4. Assert no hydration mismatches — nested placeholders within Suspense
+        //    boundaries must be resolved before hydration walks the SSR tree
+        XCTAssertEqual(recoverableErrors.count, 0,
+                       "Hydration should complete without recoverable errors (mismatches), got: \(recoverableErrors)")
     }
 
     func testFlightServerErrorHandled() {
