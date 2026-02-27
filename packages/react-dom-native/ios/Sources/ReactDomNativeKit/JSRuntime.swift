@@ -129,6 +129,9 @@ public class JSRuntime {
         // Register timer functions (must be after all stored properties are initialized)
         setupTimerPolyfills()
 
+        // Register ReadableStream polyfill (must be before bundle evaluation)
+        setupReadableStreamPolyfill()
+
         // Register WebSocket bridge functions for JS polyfill (DevTools, etc.)
         #if DEBUG
         setupWebSocketBridge()
@@ -367,70 +370,186 @@ public class JSRuntime {
                 };
             }
         """)
+    }
 
-        // ReadableStream polyfill — minimal subset for react-server-dom-webpack/client.
-        // Supports: constructor with start(controller), controller.enqueue/close/error,
-        // stream.getReader(), reader.read() -> Promise<{value, done}>.
-        engine.evaluate("""
-            if (typeof ReadableStream === 'undefined') {
-                (function() {
-                    function Controller(stream) { this._s = stream; }
-                    Controller.prototype.enqueue = function(chunk) {
-                        var s = this._s;
-                        if (s._e) throw s._err;
-                        if (s._c) throw new TypeError('Cannot enqueue to a closed ReadableStream');
-                        if (s._pr !== null) {
-                            var resolve = s._pr;
-                            s._pr = null; s._pj = null;
-                            resolve({value: chunk, done: false});
-                        } else {
-                            s._b.push(chunk);
-                        }
-                    };
-                    Controller.prototype.close = function() {
-                        var s = this._s;
-                        s._c = true;
-                        if (s._pr !== null) {
-                            var resolve = s._pr;
-                            s._pr = null; s._pj = null;
-                            resolve({value: undefined, done: true});
-                        }
-                    };
-                    Controller.prototype.error = function(err) {
-                        var s = this._s;
-                        s._e = true; s._err = err;
-                        if (s._pr !== null) {
-                            var reject = s._pj;
-                            s._pr = null; s._pj = null;
-                            reject(err);
-                        }
-                    };
+    /// Native ReadableStream polyfill — minimal subset for react-server-dom-webpack/client.
+    ///
+    /// All state (buffer, closed/errored flags, pending readers) is held in Swift
+    /// variables captured by closures. Only Promise construction and error throwing
+    /// use thin JS helpers since the JSEngine protocol doesn't expose those.
+    private func setupReadableStreamPolyfill() {
+        let eng = engine
 
-                    function Reader(stream) { this._s = stream; }
-                    Reader.prototype.read = function() {
-                        var s = this._s;
-                        if (s._e) return Promise.reject(s._err);
-                        if (s._b.length > 0) return Promise.resolve({value: s._b.shift(), done: false});
-                        if (s._c) return Promise.resolve({value: undefined, done: true});
-                        return new Promise(function(resolve, reject) {
-                            s._pr = resolve; s._pj = reject;
-                        });
-                    };
-
-                    globalThis.ReadableStream = function ReadableStream(source) {
-                        this._b = []; this._c = false; this._e = false; this._err = null;
-                        this._pr = null; this._pj = null; this._l = false;
-                        var ctrl = new Controller(this);
-                        if (source && typeof source.start === 'function') source.start(ctrl);
-                    };
-                    ReadableStream.prototype.getReader = function() {
-                        if (this._l) throw new TypeError('ReadableStream is already locked to a reader');
-                        this._l = true;
-                        return new Reader(this);
-                    };
-                })();
-            }
+        // Promise and error helpers — thin JS wrappers that let Swift create
+        // Promises and throw errors without direct JavaScriptCore coupling.
+        eng.evaluate("""
+            globalThis.$$__rs = {
+                newPromise: function(ex) { return new Promise(ex); },
+                resolve: function(v) { return Promise.resolve(v); },
+                reject: function(e) { return Promise.reject(e); },
+                throwTypeError: function(m) { throw new TypeError(m); },
+                throwValue: function(e) { throw e; }
+            };
         """)
+        let helpers = eng.getGlobalProperty("$$__rs")!
+        let newPromiseFn = eng.getProperty(helpers, "newPromise")!
+        let resolvePromiseFn = eng.getProperty(helpers, "resolve")!
+        let rejectPromiseFn = eng.getProperty(helpers, "reject")!
+        let throwTypeErrorFn = eng.getProperty(helpers, "throwTypeError")!
+        let throwValueFn = eng.getProperty(helpers, "throwValue")!
+        eng.protect(newPromiseFn)
+        eng.protect(resolvePromiseFn)
+        eng.protect(rejectPromiseFn)
+        eng.protect(throwTypeErrorFn)
+        eng.protect(throwValueFn)
+        eng.evaluate("delete globalThis.$$__rs;")
+
+        // ReadableStream constructor — returns a new stream object with
+        // getReader() attached. State is held in captured Swift vars.
+        let readableStreamCtor = eng.makeFunction { [weak eng] args in
+            guard let eng = eng else { return nil }
+
+            // --- Per-instance mutable state (shared across all closures) ---
+            var buffer: [JSValueRef] = []
+            var closed = false
+            var errored = false
+            var storedError: JSValueRef?
+            var pendingResolve: JSValueRef?
+            var pendingReject: JSValueRef?
+            var locked = false
+
+            // --- Controller ---
+            let controller = eng.makeObject()
+
+            // controller.enqueue(chunk)
+            eng.setProperty(controller, "enqueue", eng.makeFunction { [weak eng] cArgs in
+                guard let eng = eng else { return nil }
+                if errored {
+                    _ = eng.callFunction(throwValueFn, args: [storedError ?? eng.makeUndefined()])
+                    return nil
+                }
+                if closed {
+                    _ = eng.callFunction(throwTypeErrorFn,
+                        args: [eng.makeString("Cannot enqueue to a closed ReadableStream")])
+                    return nil
+                }
+                let chunk = cArgs.count > 0 ? cArgs[0] : eng.makeUndefined()
+                if let resolve = pendingResolve {
+                    if let pj = pendingReject { eng.unprotect(pj) }
+                    eng.unprotect(resolve)
+                    pendingResolve = nil
+                    pendingReject = nil
+                    let result = eng.makeObject()
+                    eng.setProperty(result, "value", chunk)
+                    eng.setProperty(result, "done", eng.makeBool(false))
+                    _ = eng.callFunction(resolve, args: [result])
+                } else {
+                    eng.protect(chunk)
+                    buffer.append(chunk)
+                }
+                return nil
+            })
+
+            // controller.close()
+            eng.setProperty(controller, "close", eng.makeFunction { [weak eng] _ in
+                guard let eng = eng else { return nil }
+                closed = true
+                if let resolve = pendingResolve {
+                    if let pj = pendingReject { eng.unprotect(pj) }
+                    eng.unprotect(resolve)
+                    pendingResolve = nil
+                    pendingReject = nil
+                    let result = eng.makeObject()
+                    eng.setProperty(result, "value", eng.makeUndefined())
+                    eng.setProperty(result, "done", eng.makeBool(true))
+                    _ = eng.callFunction(resolve, args: [result])
+                }
+                return nil
+            })
+
+            // controller.error(err)
+            eng.setProperty(controller, "error", eng.makeFunction { [weak eng] eArgs in
+                guard let eng = eng else { return nil }
+                let err = eArgs.count > 0 ? eArgs[0] : eng.makeUndefined()
+                errored = true
+                eng.protect(err)
+                storedError = err
+                if let reject = pendingReject {
+                    if let pr = pendingResolve { eng.unprotect(pr) }
+                    eng.unprotect(reject)
+                    pendingResolve = nil
+                    pendingReject = nil
+                    _ = eng.callFunction(reject, args: [err])
+                }
+                return nil
+            })
+
+            // --- Stream object ---
+            let stream = eng.makeObject()
+
+            // stream.getReader()
+            eng.setProperty(stream, "getReader", eng.makeFunction { [weak eng] _ in
+                guard let eng = eng else { return nil }
+                if locked {
+                    _ = eng.callFunction(throwTypeErrorFn,
+                        args: [eng.makeString("ReadableStream is already locked to a reader")])
+                    return nil
+                }
+                locked = true
+
+                let reader = eng.makeObject()
+
+                // reader.read()
+                eng.setProperty(reader, "read", eng.makeFunction { [weak eng] _ in
+                    guard let eng = eng else { return nil }
+
+                    if errored {
+                        return eng.callFunction(rejectPromiseFn,
+                            args: [storedError ?? eng.makeUndefined()])
+                    }
+
+                    if !buffer.isEmpty {
+                        let chunk = buffer.removeFirst()
+                        eng.unprotect(chunk)
+                        let result = eng.makeObject()
+                        eng.setProperty(result, "value", chunk)
+                        eng.setProperty(result, "done", eng.makeBool(false))
+                        return eng.callFunction(resolvePromiseFn, args: [result])
+                    }
+
+                    if closed {
+                        let result = eng.makeObject()
+                        eng.setProperty(result, "value", eng.makeUndefined())
+                        eng.setProperty(result, "done", eng.makeBool(true))
+                        return eng.callFunction(resolvePromiseFn, args: [result])
+                    }
+
+                    // Buffer empty, stream open — return a pending promise
+                    let executor = eng.makeFunction { [weak eng] exArgs in
+                        guard let eng = eng else { return nil }
+                        pendingResolve = exArgs[0]
+                        pendingReject = exArgs[1]
+                        eng.protect(exArgs[0])
+                        eng.protect(exArgs[1])
+                        return nil
+                    }
+                    return eng.callFunction(newPromiseFn, args: [executor])
+                })
+
+                return reader
+            })
+
+            // Call start(controller) if source provided
+            if !args.isEmpty && !eng.isUndefined(args[0]) && !eng.isNull(args[0]) {
+                if let startFn = eng.getProperty(args[0], "start") {
+                    _ = eng.callFunction(startFn, args: [controller])
+                }
+            }
+
+            return stream
+        }
+
+        eng.setGlobalProperty("ReadableStream", readableStreamCtor)
     }
 
     /// Schedules recurring interval execution. Extracted as a method to avoid
