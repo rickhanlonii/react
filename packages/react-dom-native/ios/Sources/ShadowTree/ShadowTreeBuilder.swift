@@ -490,6 +490,10 @@ extension ShadowTreeBuilder: InstructionStreamDelegate {
         // Handled by BoundaryManager
     }
 
+    public func didReceiveJavaScript(code: String) {
+        // Handled by SSRCoordinator
+    }
+
     public func didReceiveError(_ error: Error) {
         print("[ShadowTreeBuilder] Parse error: \(error)")
     }

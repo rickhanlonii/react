@@ -310,6 +310,12 @@ public class ReactRuntime {
         runtime?.engine
     }
 
+    /// Evaluate arbitrary JavaScript code in the JS engine.
+    /// Used by the SSR client to execute inline scripts (["JS", code] instructions).
+    internal func evaluateScript(_ code: String) {
+        runtime?.engine.evaluate(code)
+    }
+
     // MARK: - Viewport
 
     /// Updates the viewport size for the JS runtime.

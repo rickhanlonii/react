@@ -52,6 +52,10 @@ class SSRCoordinator: InstructionStreamDelegate {
     /// Used to buffer raw Flight rows for replay during hydration.
     var onFlightDataReceived: ((String) -> Void)?
 
+    /// Called when a JS instruction is received from the SSR stream.
+    /// Used to evaluate JavaScript code in the JSC engine.
+    var onJavaScriptReceived: ((String) -> Void)?
+
     /// Called when the SSR stream has fully completed (all data received and parsed,
     /// including D instructions that arrive after root complete).
     var onStreamComplete: (() -> Void)?
@@ -320,6 +324,10 @@ class SSRCoordinator: InstructionStreamDelegate {
 
     func didReceiveFlightData(row: String) {
         onFlightDataReceived?(row)
+    }
+
+    func didReceiveJavaScript(code: String) {
+        onJavaScriptReceived?(code)
     }
 
     func didReceiveClientRenderBoundary(id: Int, errorDigest: String?) {

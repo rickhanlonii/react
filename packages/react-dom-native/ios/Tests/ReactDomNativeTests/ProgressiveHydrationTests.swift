@@ -373,4 +373,58 @@ final class ProgressiveHydrationTests: XCTestCase {
 
         root.unmount()
     }
+
+    // MARK: - Test 9: JS Instructions Don't Interfere With SSR Rendering
+
+    func testJSInstructionsDontInterfereWithSSRRendering() {
+        // SSR stream with embedded JS instructions
+        // JS instructions should be buffered for later evaluation,
+        // not interfere with SSR view rendering.
+        let ssrStream = stream([
+            ["O", "div"],
+              ["T", "Hello"],
+            ["C"],
+            ["JS", "console.log('test')"],
+            ["R"],
+        ])
+
+        let root = Root(container: container)
+        root.feedSSRData(ssrStream)
+
+        // Verify the SSR content rendered correctly despite JS instructions
+        let scroll = scrollView(in: container)
+        XCTAssertNotNil(scroll)
+
+        let texts = findLabelTexts(in: scroll!)
+        XCTAssertTrue(texts.contains("Hello"), "SSR content should render despite JS instructions")
+
+        root.unmount()
+    }
+
+    // MARK: - Test 10: Multiple JS Instructions Get Buffered
+
+    func testMultipleJSInstructionsGetBuffered() {
+        // SSR stream with multiple JS instructions interleaved with content
+        let ssrStream = stream([
+            ["JS", "var x = 1"],
+            ["O", "div"],
+              ["T", "Content"],
+            ["C"],
+            ["JS", "var y = 2"],
+            ["JS", "var z = 3"],
+            ["R"],
+        ])
+
+        let root = Root(container: container)
+        root.feedSSRData(ssrStream)
+
+        // Verify the SSR content rendered correctly
+        let scroll = scrollView(in: container)
+        XCTAssertNotNil(scroll)
+
+        let texts = findLabelTexts(in: scroll!)
+        XCTAssertTrue(texts.contains("Content"), "SSR content should render with interleaved JS instructions")
+
+        root.unmount()
+    }
 }

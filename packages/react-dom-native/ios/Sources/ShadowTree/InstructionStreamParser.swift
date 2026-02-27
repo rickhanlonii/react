@@ -19,6 +19,7 @@ import Foundation
 //   ["P",id]                  Placeholder
 //   ["D","flight_row"]        Embedded Flight data
 //   ["E",id,"digest"]         Client-render boundary (error)
+//   ["JS","code"]             Evaluate JavaScript
 // ---------------------------------------------------------------------------
 
 /// Delegate protocol for handling parsed instructions.
@@ -35,6 +36,7 @@ public protocol InstructionStreamDelegate: AnyObject {
     func didReceivePlaceholder(id: Int)
     func didReceiveFlightData(row: String)
     func didReceiveClientRenderBoundary(id: Int, errorDigest: String?)
+    func didReceiveJavaScript(code: String)
     func didReceiveError(_ error: Error)
 }
 
@@ -194,6 +196,16 @@ public class InstructionStreamParser {
                 }
                 let digest = array.count >= 3 ? array[2] as? String : nil
                 delegate?.didReceiveClientRenderBoundary(id: id, errorDigest: digest)
+
+            case "JS":
+                // Evaluate JavaScript: ["JS", "code string"]
+                guard array.count >= 2, let code = array[1] as? String else {
+                    delegate?.didReceiveError(
+                        InstructionParseError.invalidFormat("JS instruction missing code string")
+                    )
+                    return
+                }
+                delegate?.didReceiveJavaScript(code: code)
 
             default:
                 delegate?.didReceiveError(

@@ -162,6 +162,7 @@ public class Root {
         ssrBoundaryManager = nil
         ssrCoordinator = nil
         ssrFlightDataBuffer.removeAll()
+        ssrJavaScriptBuffer.removeAll()
         ssrViewRegistry = nil
         ssrMutationApplier = nil
         ssrRevealHasOccurred = false
@@ -216,6 +217,7 @@ public class Root {
         ssrBoundaryManager = nil
         ssrCoordinator = nil
         ssrFlightDataBuffer.removeAll()
+        ssrJavaScriptBuffer.removeAll()
         ssrViewRegistry = nil
         ssrMutationApplier = nil
         ssrRevealHasOccurred = false
@@ -267,6 +269,9 @@ public class Root {
     private var ssrCoordinator: SSRCoordinator?
     private var ssrDataTask: URLSessionDataTask?
     private var ssrFlightDataBuffer: [String] = []
+    /// Buffer for JavaScript code received from JS instructions before the JS engine boots.
+    /// Replayed during hydration after the engine is ready.
+    private var ssrJavaScriptBuffer: [String] = []
     private var ssrViewRegistry: ViewRegistry?
     private var ssrMutationApplier: UIKitMutationApplier?
     private var ssrRevealHasOccurred: Bool = false
@@ -371,6 +376,16 @@ public class Root {
             } else {
                 // Hydration not started — buffer for replay in hydrateSurface
                 self.ssrFlightDataBuffer.append(row)
+            }
+        }
+        coordinator.onJavaScriptReceived = { [weak self] code in
+            guard let self = self else { return }
+            if self.hydrationStarted {
+                // JS engine is booted — evaluate immediately
+                ReactRuntime.shared.evaluateScript(code)
+            } else {
+                // Buffer for evaluation after boot
+                self.ssrJavaScriptBuffer.append(code)
             }
         }
         coordinator.onBoundaryRevealQueued = { [weak self] id, contentNodes in
@@ -681,6 +696,14 @@ public class Root {
                 self.ssrFlightDataBuffer.append(row)
             }
         }
+        coordinator.onJavaScriptReceived = { [weak self] code in
+            guard let self = self else { return }
+            if self.hydrationStarted {
+                ReactRuntime.shared.evaluateScript(code)
+            } else {
+                self.ssrJavaScriptBuffer.append(code)
+            }
+        }
 
         // Wire boundary reveal queueing (same as renderWithSSR)
         coordinator.onBoundaryRevealQueued = { [weak self] id, contentNodes in
@@ -926,6 +949,12 @@ public class Root {
                     rt.bindings?.addSSRCommitTimings(self.ssrCommitTimings)
                     self.ssrCommitTimings.removeAll()
                 }
+
+                // Replay buffered JS instructions from the SSR stream
+                for code in self.ssrJavaScriptBuffer {
+                    ReactRuntime.shared.evaluateScript(code)
+                }
+                self.ssrJavaScriptBuffer.removeAll()
 
                 do {
                     let responseId = try rt.hydrateSurface(
