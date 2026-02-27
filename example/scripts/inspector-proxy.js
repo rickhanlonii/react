@@ -123,7 +123,7 @@ function createDomainRouter(domains) {
 // Tracing domain
 // ---------------------------------------------------------------------------
 
-function createTracingDomain(targetId) {
+function createTracingDomain(targetId, screenshotCapture) {
   var pendingTraceResolve = null;
 
   function handle(method, params, ctx) {
@@ -133,11 +133,13 @@ function createTracingDomain(targetId) {
         if (ctx.sendToApp) {
           ctx.sendToApp(JSON.stringify({type: 'start-tracing'}));
         }
+        screenshotCapture.start();
         return {};
       }
 
       case 'end': {
         log('Tracing', 'end — sendToApp=' + (ctx.sendToApp ? 'yes' : 'NO'));
+        screenshotCapture.stop();
         if (ctx.sendToApp) {
           ctx.sendToApp(JSON.stringify({type: 'stop-tracing'}));
         }
@@ -156,15 +158,17 @@ function createTracingDomain(targetId) {
           }, 5000);
         });
 
-        tracePromise.then(function (events) {
-          log('Tracing', 'Got ' + events.length + ' events from app, emitting');
+        tracePromise.then(function (traceData) {
+          var events = traceData.events;
+          var tracingStartTs = traceData.tracingStartTs;
+          log('Tracing', 'Got ' + events.length + ' events from app (tracingStartTs=' + tracingStartTs + '), emitting');
           log('Tracing', '--- Trace events from app ---');
           for (var k = 0; k < events.length; k++) {
             var e = events[k];
             log('Tracing', '  [' + k + '] name=' + e.name + ' cat=' + e.cat + ' ph=' + e.ph + ' ts=' + e.ts + ' pid=' + e.pid + ' tid=' + e.tid + (e.id2 ? ' id2=' + JSON.stringify(e.id2) : ''));
           }
           log('Tracing', '--- End trace events ---');
-          emitTraceEvents(ws, id, events, 'Tracing', targetId, ctx);
+          emitTraceEvents(ws, id, events, 'Tracing', targetId, ctx, screenshotCapture, tracingStartTs);
         });
 
         return null; // Response sent asynchronously
@@ -185,7 +189,10 @@ function createTracingDomain(targetId) {
         if (pendingTraceResolve) {
           var resolve = pendingTraceResolve;
           pendingTraceResolve = null;
-          resolve(message.events || []);
+          resolve({
+            events: message.events || [],
+            tracingStartTs: message.tracingStartTs || 0,
+          });
         }
       }
     },
@@ -196,7 +203,7 @@ function createTracingDomain(targetId) {
 // NodeTracing domain (alias for Tracing, used by some DevTools versions)
 // ---------------------------------------------------------------------------
 
-function createNodeTracingDomain(targetId) {
+function createNodeTracingDomain(targetId, screenshotCapture) {
   var pendingTraceResolve = null;
 
   function handle(method, params, ctx) {
@@ -206,11 +213,13 @@ function createNodeTracingDomain(targetId) {
         if (ctx.sendToApp) {
           ctx.sendToApp(JSON.stringify({type: 'start-tracing'}));
         }
+        screenshotCapture.start();
         return {};
       }
 
       case 'stop': {
         log('NodeTracing', 'stop — sendToApp=' + (ctx.sendToApp ? 'yes' : 'NO'));
+        screenshotCapture.stop();
         if (ctx.sendToApp) {
           ctx.sendToApp(JSON.stringify({type: 'stop-tracing'}));
         }
@@ -229,15 +238,17 @@ function createNodeTracingDomain(targetId) {
           }, 5000);
         });
 
-        tracePromise.then(function (events) {
-          log('NodeTracing', 'Got ' + events.length + ' events from app, emitting');
+        tracePromise.then(function (traceData) {
+          var events = traceData.events;
+          var tracingStartTs = traceData.tracingStartTs;
+          log('NodeTracing', 'Got ' + events.length + ' events from app (tracingStartTs=' + tracingStartTs + '), emitting');
           log('NodeTracing', '--- Trace events from app ---');
           for (var k = 0; k < events.length; k++) {
             var e = events[k];
             log('NodeTracing', '  [' + k + '] name=' + e.name + ' cat=' + e.cat + ' ph=' + e.ph + ' ts=' + e.ts + ' pid=' + e.pid + ' tid=' + e.tid + (e.id2 ? ' id2=' + JSON.stringify(e.id2) : ''));
           }
           log('NodeTracing', '--- End trace events ---');
-          emitTraceEvents(ws, id, events, 'NodeTracing', targetId, ctx);
+          emitTraceEvents(ws, id, events, 'NodeTracing', targetId, ctx, screenshotCapture, tracingStartTs);
         });
 
         return null;
@@ -258,7 +269,10 @@ function createNodeTracingDomain(targetId) {
         if (pendingTraceResolve) {
           var resolve = pendingTraceResolve;
           pendingTraceResolve = null;
-          resolve(message.events || []);
+          resolve({
+            events: message.events || [],
+            tracingStartTs: message.tracingStartTs || 0,
+          });
         }
       }
     },
@@ -266,12 +280,13 @@ function createNodeTracingDomain(targetId) {
 }
 
 // Shared trace event emission logic
-function emitTraceEvents(ws, id, events, domainPrefix, targetId, ctx) {
+function emitTraceEvents(ws, id, events, domainPrefix, targetId, ctx, screenshotCapture, tracingStartTs) {
   // Chrome DevTools Performance panel needs metadata events to associate
-  // trace data with the correct process. React Native uses
-  // TracingStartedInPage (not TracingStartedInBrowser) since the trace
-  // comes from a single JS runtime, not a full browser.
-  var pid = 1; // Must match tracer's _pid
+  // trace data with the correct process. We use TracingStartedInBrowser
+  // (not TracingStartedInPage) so DevTools creates a browser+renderer
+  // process model — this is required for the screenshot filmstrip to work.
+  var browserPid = 0; // Browser process — owns screenshots
+  var pid = 1; // Must match tracer's _pid (renderer process)
   var tid = 1; // Must match tracer's _tid
 
   // Find the earliest and latest timestamps to set the timeline range
@@ -301,28 +316,44 @@ function emitTraceEvents(ws, id, events, domainPrefix, targetId, ctx) {
   log(domainPrefix, 'Timeline range: minTs=' + minTs + ' maxTs=' + maxTs + ' ssrEvents=' + ssrEventCount);
 
   var infraEvents = [
-    // SetLayerTreeId — establishes the rendering context (matches RN)
+    // Browser process metadata — needed for screenshot filmstrip
+    {name: 'process_name', cat: '__metadata', ph: 'M', pid: browserPid, tid: 0, ts: 0, args: {name: 'Browser'}},
+    {name: 'thread_name', cat: '__metadata', ph: 'M', pid: browserPid, tid: 0, ts: 0, args: {name: 'CrBrowserMain'}},
+    // TracingStartedInBrowser — tells DevTools about browser + renderer
+    // processes. Required for the screenshot filmstrip (screenshots are
+    // associated with the browser process, not the renderer).
     {
-      name: 'SetLayerTreeId',
+      name: 'TracingStartedInBrowser',
       cat: 'disabled-by-default-devtools.timeline',
       ph: 'I',
       ts: minTs - 3,
-      pid: pid,
-      tid: tid,
+      pid: browserPid,
+      tid: 0,
       s: 't',
-      args: {data: {frame: '', layerTreeId: 1}},
+      args: {
+        data: {
+          frames: [{
+            frame: targetId || 'main-frame',
+            isInPrimaryMainFrame: true,
+            isOutermostMainFrame: true,
+            name: '',
+            processId: pid,
+            url: '',
+          }],
+          persistentIds: true,
+        },
+      },
     },
-    // TracingStartedInPage — tells DevTools this is a page-level trace
-    // (matches React Native's TracingAgent, not TracingStartedInBrowser)
+    // SetLayerTreeId — establishes the rendering context (matches RN)
     {
-      name: 'TracingStartedInPage',
+      name: 'SetLayerTreeId',
       cat: 'disabled-by-default-devtools.timeline',
       ph: 'I',
       ts: minTs - 2,
       pid: pid,
       tid: tid,
       s: 't',
-      args: {data: {}},
+      args: {data: {frame: targetId || 'main-frame', layerTreeId: 1}},
     },
     // RunTask — a main thread event spanning the trace duration.
     // Chrome DevTools sets its timeline range from main thread events.
@@ -340,6 +371,20 @@ function emitTraceEvents(ws, id, events, domainPrefix, targetId, ctx) {
     },
   ];
   events = infraEvents.concat(events);
+
+  // Merge screenshot trace events if available
+  if (screenshotCapture) {
+    // Use tracingStartTs (app's performance.now() * 1000 at trace start) as
+    // the anchor for screenshot timestamps. This correctly handles backdated
+    // SSR events whose timestamps predate the trace start — using minTs
+    // would shift screenshots by the backdating amount.
+    var screenshotAnchor = tracingStartTs || minTs;
+    var screenshotEvents = screenshotCapture.getEvents(screenshotAnchor);
+    if (screenshotEvents.length > 0) {
+      log(domainPrefix, 'Adding ' + screenshotEvents.length + ' screenshot events to trace (anchor=' + screenshotAnchor + ', minTs=' + minTs + ')');
+      events = events.concat(screenshotEvents);
+    }
+  }
 
   // Always dump trace events to file for debugging
   try {
@@ -412,6 +457,17 @@ function createRuntimeDomain(sourceMapResolver) {
       case 'releaseObjectGroup':
       case 'globalLexicalScopeNames':
       case 'getHeapUsage': {
+        // DevTools injects scripts into isolated worlds (e.g. web-vitals for
+        // performance metrics) and evaluates in those contexts. Our JSC
+        // runtime only has one execution context (id: 1). If the request
+        // targets a different context, return a stub instead of forwarding
+        // to the app (which would never respond correctly).
+        if (params && (params.uniqueContextId || (params.contextId && params.contextId !== 1))) {
+          log('Runtime', method + ' targets non-main context (contextId=' +
+            (params.contextId || 'none') + ', uniqueContextId=' +
+            (params.uniqueContextId || 'none') + ') — returning stub');
+          return {result: {type: 'undefined'}};
+        }
         var requestId = 'cdp-' + ctx._currentId;
         log('Runtime', 'Forwarding ' + method + ' to app (reqId=' + requestId + ')');
         pendingCDPRequests.set(requestId, {ws: ctx.ws, id: ctx._currentId});
@@ -424,7 +480,9 @@ function createRuntimeDomain(sourceMapResolver) {
             params: params,
           }));
         } else {
-          log('Runtime', 'WARNING: sendToApp is null!');
+          log('Runtime', 'WARNING: sendToApp is null — returning error');
+          pendingCDPRequests.delete(requestId);
+          return {result: {type: 'undefined'}};
         }
         return null;
       }
@@ -463,10 +521,11 @@ function createRuntimeDomain(sourceMapResolver) {
 // Profiler domain — forwarded to in-app handler for correct timestamps
 // ---------------------------------------------------------------------------
 
-function createProfilerDomain() {
+function createProfilerDomain(screenshotCapture) {
   var pendingRequests = new Map();
   var nextReqId = 0;
   var pendingTraceEvents = null; // Store trace events until Profiler.stop response
+  var pendingTracingStartTs = 0; // App's trace start timestamp for screenshot alignment
   var profilerStopPending = null; // {ws, id, ctx} for delayed Profiler.stop response
 
   function handle(method, params, ctx) {
@@ -476,6 +535,7 @@ function createProfilerDomain() {
       if (ctx.sendToApp) {
         ctx.sendToApp(JSON.stringify({type: 'start-tracing'}));
       }
+      screenshotCapture.start();
       // Forward Profiler.start to app for timestamps
       var reqId = 'profiler-' + (nextReqId++);
       log('Profiler', 'Forwarding start to app (reqId=' + reqId + ')');
@@ -494,6 +554,7 @@ function createProfilerDomain() {
 
     if (method === 'stop') {
       log('Profiler', 'stop — also stopping tracing, waiting for both responses');
+      screenshotCapture.stop();
       // Stop tracing
       if (ctx.sendToApp) {
         ctx.sendToApp(JSON.stringify({type: 'stop-tracing'}));
@@ -569,7 +630,7 @@ function createProfilerDomain() {
       if (events.length > 20) log('Profiler', '  ... and ' + (events.length - 20) + ' more');
       log('Profiler', '--- End ---');
 
-      emitTraceEvents(ws, null, events, 'Tracing', ctx.targetId, ctx);
+      emitTraceEvents(ws, null, events, 'Tracing', ctx.targetId, ctx, screenshotCapture, pendingTracingStartTs);
     }
 
     // THEN send the Profiler.stop response
@@ -590,6 +651,7 @@ function createProfilerDomain() {
       if (message.type === 'trace-data') {
         log('Profiler', 'Received trace-data (' + (message.events || []).length + ' events)');
         pendingTraceEvents = message.events || [];
+        pendingTracingStartTs = message.tracingStartTs || 0;
         maybeFinishStop();
       }
       if (message.type === 'cdp-response') {
@@ -626,6 +688,7 @@ function createPageDomain(targetId, getSendToApp) {
   var captureInFlight = false;
   var sendCDPRef = null;
   var captureTimeout = null;
+  var nextScriptId = 1;
 
   // Device dimensions (populated from first screenshot-data response)
   var devicePixelWidth = 0;
@@ -904,6 +967,18 @@ function createPageDomain(targetId, getSendToApp) {
         log('Page', 'Screencast stopped');
         return {};
       }
+
+      case 'addScriptToEvaluateOnNewDocument': {
+        // DevTools injects scripts (e.g. web-vitals for performance metrics)
+        // into isolated worlds. We don't support isolated worlds in JSC, so
+        // return a valid identifier without evaluating the script.
+        var scriptId = 'injected-' + (nextScriptId++);
+        log('Page', 'addScriptToEvaluateOnNewDocument — stub identifier=' + scriptId);
+        return {identifier: scriptId};
+      }
+
+      case 'removeScriptToEvaluateOnNewDocument':
+        return {};
 
       default:
         return {};
@@ -1531,6 +1606,82 @@ function createTarget(targetId, sourceMapResolver) {
   var cdpClients = new Set();
   var sendToApp = null;
 
+  // -----------------------------------------------------------------------
+  // Screenshot capture during performance tracing
+  //
+  // While tracing is active, periodically captures screenshots from the app
+  // and buffers them. When trace data arrives, the screenshots are converted
+  // to Chrome Trace Format events and merged into the trace output.
+  // -----------------------------------------------------------------------
+  var screenshotBuffer = []; // [{data, wallTime}]
+  var tracingStartWall = 0;
+  var isCapturingScreenshots = false;
+  // Wall-clock time when the last capture request was sent.
+  // Used instead of Date.now() at receive time to eliminate round-trip delay.
+  var lastCaptureRequestTime = 0;
+
+  var screenshotCapture = {
+    start: function () {
+      isCapturingScreenshots = true;
+      screenshotBuffer = [];
+      tracingStartWall = Date.now();
+      captureOneScreenshot();
+      log('Screenshots', 'Started capture for tracing');
+    },
+    stop: function () {
+      isCapturingScreenshots = false;
+      log('Screenshots', 'Stopped capture (' + screenshotBuffer.length + ' frames buffered)');
+    },
+    // Convert buffered screenshots to trace events anchored to the trace
+    // timeline. minTs is the earliest timestamp (µs) from the app's trace
+    // events. Screenshots are placed using wall-clock offsets from tracing
+    // start, recorded at request-send time (not response-receive time) to
+    // minimize the delay between commit and screenshot placement.
+    getEvents: function (minTs) {
+      var events = [];
+      for (var i = 0; i < screenshotBuffer.length; i++) {
+        var s = screenshotBuffer[i];
+        events.push({
+          name: 'Screenshot',
+          cat: 'disabled-by-default-devtools.screenshot',
+          ph: 'O',
+          id: '0x1',
+          ts: minTs + (s.wallTime - tracingStartWall) * 1000,
+          pid: 0, // Browser process — DevTools shows filmstrip from browser pid
+          tid: 0,
+          args: {snapshot: s.data},
+        });
+      }
+      screenshotBuffer = [];
+      return events;
+    },
+    handleScreenshotData: function (message) {
+      if (isCapturingScreenshots && message.type === 'screenshot-data') {
+        screenshotBuffer.push({
+          data: message.data,
+          // Use the time the capture request was sent, not when the response
+          // arrived. This eliminates ~50-100ms of round-trip delay so
+          // screenshots align closely with the commits that triggered them.
+          wallTime: lastCaptureRequestTime || Date.now(),
+        });
+        log('Screenshots', 'Buffered frame #' + screenshotBuffer.length);
+        // Immediately request the next frame (ack-based throttling)
+        captureOneScreenshot();
+      }
+    },
+  };
+
+  function captureOneScreenshot() {
+    if (sendToApp) {
+      lastCaptureRequestTime = Date.now();
+      sendToApp(JSON.stringify({
+        type: 'capture-screenshot',
+        maxWidth: 300,
+        quality: 0.4,
+      }));
+    }
+  }
+
   function sendCDP(ws, msg) {
     if (ws.readyState === 1) {
       ws.send(JSON.stringify(msg));
@@ -1543,10 +1694,10 @@ function createTarget(targetId, sourceMapResolver) {
     }
   }
 
-  var tracingDomain = createTracingDomain(targetId);
-  var nodeTracingDomain = createNodeTracingDomain(targetId);
+  var tracingDomain = createTracingDomain(targetId, screenshotCapture);
+  var nodeTracingDomain = createNodeTracingDomain(targetId, screenshotCapture);
   var runtimeDomain = createRuntimeDomain(sourceMapResolver);
-  var profilerDomain = createProfilerDomain();
+  var profilerDomain = createProfilerDomain(screenshotCapture);
   var pageDomain = createPageDomain(targetId, function () { return sendToApp; });
   var domDomain = createDOMDomain(function(msg) { broadcastCDP(msg); });
   var logDomain = createLogDomain();
@@ -1598,14 +1749,31 @@ function createTarget(targetId, sourceMapResolver) {
     sendCDP: sendCDP,
     broadcastCDP: broadcastCDP,
 
-    setSendToApp: function (fn) { sendToApp = fn; },
+    setSendToApp: function (fn) {
+      sendToApp = fn;
+      // Restart screenshot capture loop if profiling is active and app reconnected
+      if (fn && isCapturingScreenshots) {
+        // Discard pre-reload screenshots — they show the old app state
+        screenshotBuffer = [];
+        captureOneScreenshot();
+      }
+    },
     getSendToApp: function () { return sendToApp; },
+    // Capture an extra trace screenshot on demand (e.g. on DOM updates)
+    captureTraceScreenshot: function () {
+      if (isCapturingScreenshots) {
+        captureOneScreenshot();
+      }
+    },
 
     handleAppMessage: function (data) {
       var message;
       try { message = JSON.parse(data); } catch (e) { return; }
 
       log('App', '← ' + (message.type || 'unknown'), message.type === 'console-message' ? (message.args || []).map(function(a) { return a.value || a.type; }).join(' ') : undefined);
+
+      // Buffer screenshot-data for tracing (before pageDomain consumes it for screencast)
+      screenshotCapture.handleScreenshotData(message);
 
       tracingDomain.handleAppMessage(message);
       nodeTracingDomain.handleAppMessage(message);
@@ -1750,6 +1918,7 @@ function createInspectorProxy(options) {
         client.write('data: refresh\n\n');
       }
       target.pageDomain.onTreeUpdated();
+      target.captureTraceScreenshot();
     });
 
     targets.set(targetId, {

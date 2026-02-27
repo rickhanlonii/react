@@ -28,6 +28,7 @@ var tracer = {
 
   startTracing: function () {
     this._tracing = true;
+    this._tracingStartTs = performance.now() * 1000; // µs — for screenshot alignment
     this._nextId = 0;
     this._events = [
       // Process/thread metadata — cat:'__metadata' and thread name

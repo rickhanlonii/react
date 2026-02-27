@@ -42,7 +42,11 @@ globalThis.$$onInspectorMessage = function (jsonString) {
       var events = __PERFORMANCE_TRACER__.stopTracing();
       if (typeof $$sendInspectorMessage === 'function') {
         $$sendInspectorMessage(
-          JSON.stringify({type: 'trace-data', events: events}),
+          JSON.stringify({
+            type: 'trace-data',
+            events: events,
+            tracingStartTs: __PERFORMANCE_TRACER__._tracingStartTs || 0,
+          }),
         );
       }
     }
