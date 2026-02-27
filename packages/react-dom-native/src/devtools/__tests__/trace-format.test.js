@@ -11,6 +11,125 @@
 delete globalThis.__PERFORMANCE_TRACER__;
 delete globalThis.performance;
 
+// Creates mock $$ bridge functions that simulate what the native Swift
+// PerformanceTracer does. Must be called before requiring PerformanceTracer.js.
+function createMockNativeTracer() {
+  var mock = {
+    _tracing: false,
+    _events: [],
+    _nextId: 0,
+    _nextInteractionId: 1,
+    _tracingStartTs: 0,
+    _pid: 1,
+    _tid: 1,
+  };
+
+  globalThis.$$startTracing = function() {
+    mock._tracing = true;
+    mock._tracingStartTs = (typeof performance !== 'undefined' && performance.now
+      ? performance.now() : Date.now()) * 1000;
+    mock._nextId = 0;
+    mock._events = [
+      {name: 'process_name', cat: '__metadata', ph: 'M', pid: mock._pid, tid: 0, ts: 0, args: {name: 'Falcon'}},
+      {name: 'thread_name', cat: '__metadata', ph: 'M', pid: mock._pid, tid: mock._tid, ts: 0, args: {name: 'CrRendererMain'}},
+    ];
+  };
+
+  globalThis.$$stopTracing = function() {
+    mock._tracing = false;
+    var events = mock._events;
+    var startTs = mock._tracingStartTs;
+    mock._events = [];
+    return {events: events, tracingStartTs: startTs};
+  };
+
+  globalThis.$$isTracing = function() {
+    return mock._tracing;
+  };
+
+  globalThis.$$reportTimeStamp = function(label, start, end, track, trackGroup, color, properties) {
+    if (!mock._tracing) return;
+    var id = '0x' + (mock._nextId++).toString(16);
+    var devtools = {track: track, color: color};
+    if (trackGroup !== undefined && trackGroup !== null) {
+      devtools.trackGroup = trackGroup;
+    }
+    if (properties !== undefined && properties !== null) {
+      devtools.properties = properties;
+    }
+    mock._events.push({
+      id2: {local: id}, name: label, cat: 'blink.user_timing',
+      ph: 'b', ts: start * 1000, pid: mock._pid, tid: mock._tid,
+      args: {detail: JSON.stringify({devtools: devtools})},
+    });
+    mock._events.push({
+      id2: {local: id}, name: label, cat: 'blink.user_timing',
+      ph: 'e', ts: end * 1000, pid: mock._pid, tid: mock._tid,
+      args: {},
+    });
+  };
+
+  globalThis.$$reportMeasure = function(name, start, duration, detail) {
+    if (!mock._tracing) return;
+    var id = '0x' + (mock._nextId++).toString(16);
+    mock._events.push({
+      id2: {local: id}, name: name, cat: 'blink.user_timing',
+      ph: 'b', ts: start * 1000, pid: mock._pid, tid: mock._tid,
+      args: {detail: JSON.stringify(detail || {})},
+    });
+    mock._events.push({
+      id2: {local: id}, name: name, cat: 'blink.user_timing',
+      ph: 'e', ts: (start + duration) * 1000, pid: mock._pid, tid: mock._tid,
+      args: {},
+    });
+  };
+
+  globalThis.$$reportMark = function(name, startTime) {
+    if (!mock._tracing) return;
+    mock._events.push({
+      name: name, cat: 'blink.user_timing',
+      ph: 'I', ts: startTime * 1000, pid: mock._pid, tid: mock._tid, args: {},
+    });
+  };
+
+  globalThis.$$reportInteraction = function(eventType, interactionId, inputTime, processingStart, processingEnd) {
+    if (!mock._tracing) return;
+    var id = 'interaction-' + interactionId;
+    var duration = Math.max(Math.round((processingEnd - inputTime) / 8) * 8, 1);
+    mock._events.push({
+      name: 'EventTiming', cat: 'devtools.timeline',
+      ph: 'b', id: id, ts: inputTime * 1000, pid: mock._pid, tid: mock._tid,
+      args: {data: {
+        type: eventType, interactionId: interactionId, duration: duration,
+        timeStamp: inputTime, processingStart: processingStart, processingEnd: processingEnd,
+        cancelable: true, nodeId: 0, interactionOffset: 0,
+      }},
+    });
+    mock._events.push({
+      name: 'EventTiming', cat: 'devtools.timeline',
+      ph: 'e', id: id, ts: processingEnd * 1000, pid: mock._pid, tid: mock._tid,
+      args: {},
+    });
+  };
+
+  globalThis.$$nextInteractionId = function() {
+    return mock._nextInteractionId++;
+  };
+
+  return mock;
+}
+
+function cleanupMockBridgeFunctions() {
+  delete globalThis.$$startTracing;
+  delete globalThis.$$stopTracing;
+  delete globalThis.$$isTracing;
+  delete globalThis.$$reportTimeStamp;
+  delete globalThis.$$reportMeasure;
+  delete globalThis.$$reportMark;
+  delete globalThis.$$reportInteraction;
+  delete globalThis.$$nextInteractionId;
+}
+
 describe('PerformanceTracer trace format', () => {
   let tracer;
 
@@ -18,7 +137,11 @@ describe('PerformanceTracer trace format', () => {
     // Fresh tracer for each test
     delete globalThis.__PERFORMANCE_TRACER__;
     delete globalThis.performance;
+    cleanupMockBridgeFunctions();
     jest.resetModules();
+
+    // Install mock bridge functions before loading the shim
+    createMockNativeTracer();
     require('../PerformanceTracer');
     tracer = globalThis.__PERFORMANCE_TRACER__;
 
@@ -70,7 +193,7 @@ describe('PerformanceTracer trace format', () => {
 
   it('emits metadata events on startTracing', () => {
     tracer.startTracing();
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const meta = events.filter(e => e.ph === 'M');
     expect(meta).toHaveLength(2);
     expect(meta[0]).toEqual(expect.objectContaining({
@@ -104,7 +227,7 @@ describe('PerformanceTracer trace format', () => {
       },
     });
 
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const userTiming = events.filter(e => e.cat === 'blink.user_timing');
 
     expect(userTiming).toHaveLength(2);
@@ -134,7 +257,7 @@ describe('PerformanceTracer trace format', () => {
     // Simulate what React's logRenderPhase does for scheduling
     console.timeStamp('Render', 100, 200, 'Blocking', 'Scheduler \u269b', 'primary-dark');
 
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const userTiming = events.filter(e => e.cat === 'blink.user_timing');
 
     expect(userTiming).toHaveLength(2);
@@ -159,7 +282,7 @@ describe('PerformanceTracer trace format', () => {
     // This is what React emits when supportsUserTiming is false
     console.timeStamp('Counter', 100, 105, 'Components \u269b', undefined, 'primary-light');
 
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const userTiming = events.filter(e => e.cat === 'blink.user_timing');
 
     expect(userTiming).toHaveLength(2);
@@ -176,7 +299,7 @@ describe('PerformanceTracer trace format', () => {
     tracer.reportTimeStamp('Commit', 100, 200, 'Shadow Tree', 'Native \u269b', 'primary',
       [['Nodes', '12'], ['Tree depth', '4']]);
 
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begin = events.find(e => e.cat === 'blink.user_timing' && e.ph === 'b');
     const detail = JSON.parse(begin.args.detail);
     expect(detail.devtools.properties).toEqual([
@@ -190,7 +313,7 @@ describe('PerformanceTracer trace format', () => {
 
     tracer.reportTimeStamp('Sync Frames', 100, 200, 'Shadow Tree', 'Native \u269b', 'primary');
 
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begin = events.find(e => e.cat === 'blink.user_timing' && e.ph === 'b');
     const detail = JSON.parse(begin.args.detail);
     expect(detail.devtools.properties).toBeUndefined();
@@ -201,7 +324,7 @@ describe('PerformanceTracer trace format', () => {
     console.timeStamp('Render', 100, 200, 'Blocking', 'Scheduler \u269b', 'primary');
 
     tracer.startTracing();
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     // Only metadata events, no user timing
     const userTiming = events.filter(e => e.cat === 'blink.user_timing');
     expect(userTiming).toHaveLength(0);
@@ -218,7 +341,7 @@ describe('PerformanceTracer trace format', () => {
     // Generate our trace events
     tracer.startTracing();
     console.timeStamp('Update', 100, 200, 'Blocking', 'Scheduler \u269b', 'primary-light');
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const ourBegin = events.find(e => e.cat === 'blink.user_timing' && e.ph === 'b');
     const webBegin = webEvents[0];
 
@@ -258,7 +381,7 @@ describe('PerformanceTracer trace format', () => {
     tracer.startTracing();
     performance.measure('\u200bApp', {start: 10, end: 20, detail: {devtools: {track: 'Components \u269b', color: 'primary', tooltipText: 'App'}}});
     console.timeStamp('Render', 5, 25, 'Blocking', 'Scheduler \u269b', 'primary-dark');
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
 
     // Wrap in Chrome Trace Format envelope
     const traceJson = JSON.stringify({traceEvents: events});
@@ -285,9 +408,12 @@ describe('InspectorMessageHandler roundtrip', () => {
     delete globalThis.performance;
     delete globalThis.$$onInspectorMessage;
     delete globalThis.$$sendInspectorMessage;
+    cleanupMockBridgeFunctions();
     sentMessages = [];
     jest.resetModules();
 
+    // Install mock bridge functions before loading the shim
+    createMockNativeTracer();
     require('../PerformanceTracer');
     tracer = globalThis.__PERFORMANCE_TRACER__;
 
@@ -430,7 +556,11 @@ describe('Native commit timing trace events', () => {
   beforeEach(() => {
     delete globalThis.__PERFORMANCE_TRACER__;
     delete globalThis.performance;
+    cleanupMockBridgeFunctions();
     jest.resetModules();
+
+    // Install mock bridge functions before loading the shim
+    createMockNativeTracer();
     require('../PerformanceTracer');
     tracer = globalThis.__PERFORMANCE_TRACER__;
 
@@ -597,7 +727,7 @@ describe('Native commit timing trace events', () => {
   it('emits Shadow Tree track events with correct track and trackGroup', () => {
     tracer.startTracing();
     emitNativeTimings(makeTimings());
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
     const shadowTreeEvents = begins.filter(e => e.detail.devtools.track === 'Shadow Tree');
@@ -617,7 +747,7 @@ describe('Native commit timing trace events', () => {
   it('emits Layout track events with correct track and trackGroup', () => {
     tracer.startTracing();
     emitNativeTimings(makeTimings());
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
     const layoutEvents = begins.filter(e => e.detail.devtools.track === 'Layout');
@@ -636,7 +766,7 @@ describe('Native commit timing trace events', () => {
   it('includes Text Remeasure span only when didRemeasure is truthy', () => {
     tracer.startTracing();
     emitNativeTimings(makeTimings({didRemeasure: 1}));
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
     const textRemeasure = begins.filter(e => e.name === 'Text Remeasure');
@@ -648,7 +778,7 @@ describe('Native commit timing trace events', () => {
   it('excludes Text Remeasure span when didRemeasure is 0', () => {
     tracer.startTracing();
     emitNativeTimings(makeTimings({didRemeasure: 0}));
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
     const textRemeasure = begins.filter(e => e.name === 'Text Remeasure');
@@ -658,7 +788,7 @@ describe('Native commit timing trace events', () => {
   it('excludes Scroll Content span when scrollEnd equals scrollStart', () => {
     tracer.startTracing();
     emitNativeTimings(makeTimings({scrollStart: 103, scrollEnd: 103}));
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
     const scrollEvents = begins.filter(e => e.name === 'Scroll Content');
@@ -668,7 +798,7 @@ describe('Native commit timing trace events', () => {
   it('uses duration-based coloring: primary-light for <0.5ms', () => {
     tracer.startTracing();
     emitNativeTimings(makeTimings({commitStart: 100, commitEnd: 100.3}));
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
     const commit = begins.find(e => e.name === 'Commit');
@@ -678,7 +808,7 @@ describe('Native commit timing trace events', () => {
   it('uses duration-based coloring: primary for <50ms', () => {
     tracer.startTracing();
     emitNativeTimings(makeTimings({commitStart: 100, commitEnd: 130}));
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
     const commit = begins.find(e => e.name === 'Commit');
@@ -688,7 +818,7 @@ describe('Native commit timing trace events', () => {
   it('uses duration-based coloring: primary-dark for >=50ms', () => {
     tracer.startTracing();
     emitNativeTimings(makeTimings({commitStart: 100, commitEnd: 200}));
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
     const commit = begins.find(e => e.name === 'Commit');
@@ -698,7 +828,7 @@ describe('Native commit timing trace events', () => {
   it('emits valid begin/end event pairs with end > start timestamps', () => {
     tracer.startTracing();
     emitNativeTimings(makeTimings());
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const userTiming = events.filter(e => e.cat === 'blink.user_timing');
     const begins = userTiming.filter(e => e.ph === 'b');
     const ends = userTiming.filter(e => e.ph === 'e');
@@ -715,7 +845,7 @@ describe('Native commit timing trace events', () => {
   it('includes properties in Commit event detail', () => {
     tracer.startTracing();
     emitNativeTimings(makeTimings({nodeCount: 15, treeDepth: 5, rootTypes: 'div, footer'}));
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
     const commit = begins.find(e => e.name === 'Commit');
@@ -729,7 +859,7 @@ describe('Native commit timing trace events', () => {
   it('includes properties in Diff event detail', () => {
     tracer.startTracing();
     emitNativeTimings(makeTimings({mutationCount: 8, creates: 3, updates: 4, deletes: 1}));
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
     const diff = begins.find(e => e.name === 'Diff');
@@ -744,7 +874,7 @@ describe('Native commit timing trace events', () => {
   it('includes properties in Apply Mutations event detail', () => {
     tracer.startTracing();
     emitNativeTimings(makeTimings({inserts: 2, removes: 1, affectedTypes: 'div, span'}));
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
     const applyMutations = begins.find(e => e.name.startsWith('Apply Mutations'));
@@ -758,7 +888,7 @@ describe('Native commit timing trace events', () => {
   it('includes properties in Calculate Layout event detail', () => {
     tracer.startTracing();
     emitNativeTimings(makeTimings({nodeCount: 20, didRemeasure: 1}));
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
     const layout = begins.find(e => e.name === 'Calculate Layout');
@@ -771,7 +901,7 @@ describe('Native commit timing trace events', () => {
   it('includes properties in Yoga event detail', () => {
     tracer.startTracing();
     emitNativeTimings(makeTimings({nodeCount: 10}));
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
     const yoga = begins.find(e => e.name === 'Yoga');
@@ -783,7 +913,7 @@ describe('Native commit timing trace events', () => {
   it('omits properties from events that do not include them', () => {
     tracer.startTracing();
     emitNativeTimings(makeTimings());
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
     const syncFrames = begins.find(e => e.name === 'Sync Frames');
@@ -797,7 +927,7 @@ describe('Native commit timing trace events', () => {
     tracer.startTracing();
     const timings = makeTimings();
     emitNativeTimings(timings);
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
     // Diff node events fall within the diff time window
@@ -819,7 +949,7 @@ describe('Native commit timing trace events', () => {
   it('emits mutation node events nested on Shadow Tree track with mutation type labels', () => {
     tracer.startTracing();
     emitNativeTimings(makeTimings());
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
     const mutNodeEvents = begins.filter(e =>
@@ -835,7 +965,7 @@ describe('Native commit timing trace events', () => {
   it('emits Layout Nodes events nested on Layout track', () => {
     tracer.startTracing();
     emitNativeTimings(makeTimings());
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
     const layoutNodeEvents = begins.filter(e =>
@@ -850,7 +980,7 @@ describe('Native commit timing trace events', () => {
     tracer.startTracing();
     const timings = makeTimings({diffNodes: [], mutationNodes: [], layoutNodes: []});
     emitNativeTimings(timings);
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
     // No diff/mutation per-node events within diff/mutations time windows
@@ -884,7 +1014,11 @@ describe('SSR commit timing trace events', () => {
     delete globalThis.__PERFORMANCE_TRACER__;
     delete globalThis.performance;
     delete globalThis.$$handleSSRCommitTimings;
+    cleanupMockBridgeFunctions();
     jest.resetModules();
+
+    // Install mock bridge functions before loading the shim
+    createMockNativeTracer();
     require('../PerformanceTracer');
     tracer = globalThis.__PERFORMANCE_TRACER__;
 
@@ -969,7 +1103,7 @@ describe('SSR commit timing trace events', () => {
   it('emits SSR First Paint on Shadow Tree and Layout tracks', () => {
     tracer.startTracing();
     globalThis.$$handleSSRCommitTimings([makeSSRFirstPaint()]);
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
     // Shadow Tree track should have the outer span with label
@@ -988,7 +1122,7 @@ describe('SSR commit timing trace events', () => {
   it('emits SSR Reveal on Shadow Tree track with Diff and Apply Mutations', () => {
     tracer.startTracing();
     globalThis.$$handleSSRCommitTimings([makeSSRReveal()]);
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
     const shadowTreeEvents = begins.filter(e => e.detail.devtools.track === 'Shadow Tree');
@@ -1004,7 +1138,7 @@ describe('SSR commit timing trace events', () => {
   it('handles multiple SSR commit timings in one array', () => {
     tracer.startTracing();
     globalThis.$$handleSSRCommitTimings([makeSSRFirstPaint(), makeSSRReveal()]);
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
     const commits = begins.filter(e =>
@@ -1018,7 +1152,7 @@ describe('SSR commit timing trace events', () => {
     globalThis.$$handleSSRCommitTimings([makeSSRFirstPaint()]);
 
     tracer.startTracing();
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
     const ssrEvents = begins.filter(e => e.name === 'SSR First Paint');
@@ -1028,7 +1162,7 @@ describe('SSR commit timing trace events', () => {
   it('emits valid begin/end event pairs', () => {
     tracer.startTracing();
     globalThis.$$handleSSRCommitTimings([makeSSRReveal()]);
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const userTiming = events.filter(e => e.cat === 'blink.user_timing');
     const begins = userTiming.filter(e => e.ph === 'b');
     const ends = userTiming.filter(e => e.ph === 'e');
@@ -1044,7 +1178,7 @@ describe('SSR commit timing trace events', () => {
   it('includes node count and tree depth properties on outer span', () => {
     tracer.startTracing();
     globalThis.$$handleSSRCommitTimings([makeSSRFirstPaint({nodeCount: 42, treeDepth: 7})]);
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
     const commit = begins.find(e => e.name === 'SSR First Paint');
@@ -1063,7 +1197,7 @@ describe('SSR commit timing trace events', () => {
       mutationNodes: ['CREATE', 'div', 90, 91, 'INSERT', 'p', 91, 92],
       layoutNodes: ['div', 95, 96, 'p', 96, 97],
     })]);
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
     const shadowTreeNames = begins
@@ -1089,7 +1223,7 @@ describe('SSR commit timing trace events', () => {
     globalThis.$$handleSSRCommitTimings([makeSSRFirstPaint({
       mutationNodes: ['CREATE', 'div', 60, 62, 'INSERT', 'div', 62, 64, 'CREATE', 'h1', 64, 66],
     })]);
-    const events = tracer.stopTracing();
+    const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
     const shadowTreeNames = begins
