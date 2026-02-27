@@ -165,5 +165,8 @@ Always write plans to ./docs/plans. When a plan is finished, move it to ./docs/p
 
 ## Session Hygiene
 
+- **Planning:** If asked to only create a plan to investigate, do not explore, just plan.  
 - **Commit completed work** before ending a session. Don't leave uncommitted changes spanning multiple features.
 - **One concern per set of uncommitted changes.** If starting a new feature, commit or stash the current work first.
+
+IMPORTANT: NEVER USE WORKTREES OR GIT BRANCHES. Always execute plans in their entirety without stopping for feedback.  
