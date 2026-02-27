@@ -290,7 +290,7 @@ public class Bindings {
     /// Serializes pending SSR commit timings to JSON and pushes them to JS
     /// via globalThis.$$handleSSRCommitTimings for reporting on Shadow Tree
     /// and Layout tracks.
-    private func pushPendingSSRCommitTimingsToJS() {
+    func pushPendingSSRCommitTimingsToJS() {
         guard !pendingSSRCommitTimings.isEmpty else { return }
         let timings = pendingSSRCommitTimings
         pendingSSRCommitTimings.removeAll()
@@ -2007,30 +2007,6 @@ public class Bindings {
         // $$performanceNow() -> milliseconds (high-resolution)
         engine.setGlobalFunction("$$performanceNow") { [weak engine] _ in
             return engine?.makeNumber(CACurrentMediaTime() * 1000.0)
-        }
-
-        // $$setNativeTracingEnabled(enabled) -> void
-        // Toggles native commit timing collection on/off from JS.
-        // When enabled, pushes any pending SSR commit timings to the JS tracer.
-        engine.setGlobalFunction("$$setNativeTracingEnabled") { [weak self] args in
-            guard let self = self else { return nil }
-            let enabled = self.engine.toBool(args[0]) ?? false
-            self.nativeTracingEnabled = enabled
-
-            // Push pending SSR commit timings to JS when tracing starts
-            if enabled {
-                self.pushPendingSSRCommitTimingsToJS()
-            }
-            return nil
-        }
-
-        // $$isTracing() -> bool
-        // Returns the native tracing state. Used by the performance polyfill
-        // (which runs before __PERFORMANCE_TRACER__ is available in JS) to
-        // gate event reporting.
-        engine.setGlobalFunction("$$isTracing") { [weak self, weak engine] _ in
-            guard let self = self, let engine = engine else { return nil }
-            return engine.makeBool(self.nativeTracingEnabled)
         }
 
         // $$sendInspectorMessage(data) -> void

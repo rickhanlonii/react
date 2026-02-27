@@ -5,6 +5,7 @@ import JSEngine
 public class JSRuntime {
     public let engine: JSEngine
     public let bindings: Bindings
+    let tracer: PerformanceTracer
 
     // Timer management
     private var timers: [Int: DispatchWorkItem] = [:]
@@ -20,6 +21,9 @@ public class JSRuntime {
     public init() {
         let eng = JavaScriptCoreEngine()
         engine = eng
+
+        let perfTracer = PerformanceTracer()
+        tracer = perfTracer
 
         // Set up exception handler — routes to LogBox + CDP
         engine.exceptionHandler = { message, stack in
@@ -85,32 +89,36 @@ public class JSRuntime {
         }
 
         // console.timeStamp — supports both standard single-arg form and
-        // React's extended 6-arg form: (name, start, end, track, trackGroup, color)
-        // Uses evaluate() to dispatch to __PERFORMANCE_TRACER__ so that `this`
-        // is correctly bound (callFunction doesn't bind thisObject).
-        // Uses $$isTracing() (native Swift) instead of __PERFORMANCE_TRACER__.isTracing()
-        // so it works before the JS tracer is loaded.
+        // React's extended form: (name, start, end, track, trackGroup, color, properties)
+        // Calls native PerformanceTracer directly — no eng.evaluate() needed.
         let timeStampFn = eng.makeFunction { [weak eng] args in
             guard let eng = eng else { return nil }
             if args.count <= 1 {
                 // Standard single-arg — no-op in JSC (no built-in timeline)
                 return nil
             }
-            // Stash args in a temp global, call tracer via evaluate for correct `this`
-            let argsArray = eng.makeArray(args)
-            eng.setGlobalProperty("__tsArgs__", argsArray)
-            eng.evaluate("""
-            (function() {
-                if (typeof $$isTracing === 'function' && $$isTracing()) {
-                    var t = globalThis.__PERFORMANCE_TRACER__;
-                    if (t) {
-                        var a = globalThis.__tsArgs__;
-                        t.reportTimeStamp(a[0], a[1], a[2], a[3], a[4], a[5], a[6]);
+            guard perfTracer.isTracing else { return nil }
+            let label = eng.toString(args[0]) ?? ""
+            let start = eng.toDouble(args[1]) ?? 0
+            let end = eng.toDouble(args[2]) ?? 0
+            let track = eng.toString(args[3]) ?? ""
+            let trackGroup = args.count > 4 && !eng.isUndefined(args[4])
+                ? eng.toString(args[4]) : nil
+            let color = args.count > 5 ? (eng.toString(args[5]) ?? "") : ""
+            var properties: [[String]]? = nil
+            if args.count > 6 && !eng.isUndefined(args[6]) && !eng.isNull(args[6]) {
+                if let propsArr = eng.toArray(args[6]) {
+                    properties = propsArr.compactMap { pairRef -> [String]? in
+                        guard let pair = eng.toArray(pairRef) else { return nil }
+                        return pair.compactMap { eng.toString($0) }
                     }
                 }
-                delete globalThis.__tsArgs__;
-            })();
-            """)
+            }
+            perfTracer.reportTimeStamp(
+                label: label, start: start, end: end,
+                track: track, trackGroup: trackGroup, color: color,
+                properties: properties
+            )
             return nil
         }
         eng.setProperty(consoleObj, "timeStamp", timeStampFn)
@@ -140,122 +148,323 @@ public class JSRuntime {
 
     private func setupPerformancePolyfill() {
         let eng = engine
-
-        // Time origin — all performance.now() values are relative to this
-        let timeOrigin = CACurrentMediaTime() * 1000.0 // ms
+        let tracer = self.tracer
 
         let perfObj = eng.makeObject()
 
         // performance.timeOrigin
-        eng.setProperty(perfObj, "timeOrigin", eng.makeNumber(timeOrigin))
+        eng.setProperty(perfObj, "timeOrigin", eng.makeNumber(tracer.timeOrigin))
 
         // performance.now() -> milliseconds relative to timeOrigin
-        let nowFn = eng.makeFunction { [weak eng] _ in
+        eng.setProperty(perfObj, "now", eng.makeFunction { [weak eng] _ in
             guard let eng = eng else { return nil }
-            let now = CACurrentMediaTime() * 1000.0 - timeOrigin
-            return eng.makeNumber(now)
-        }
-        eng.setProperty(perfObj, "now", nowFn)
+            return eng.makeNumber(tracer.now())
+        })
 
-        // Mark/measure/clear/getEntries methods are implemented as JS
-        // that references the native performance.now() we just installed, plus
-        // the __PERFORMANCE_TRACER__ global. This avoids excessive bridge crossings
-        // for the storage arrays and tracer callbacks.
-        eng.setGlobalProperty("performance", perfObj)
+        // performance.mark(name, options)
+        eng.setProperty(perfObj, "mark", eng.makeFunction { [weak eng] args in
+            guard let eng = eng else { return nil }
+            let name = eng.toString(args[0]) ?? ""
+            var startTime = tracer.now()
+            var detail: JSValueRef = eng.makeNull()
 
-        eng.evaluate("""
-        (function() {
-            var marks = [];
-            var measures = [];
-            var perf = globalThis.performance;
-            var perfNow = perf.now.bind(perf);
-
-            function findMarkTime(name) {
-                for (var i = marks.length - 1; i >= 0; i--) {
-                    if (marks[i].name === name) return marks[i].startTime;
+            if args.count > 1 && !eng.isUndefined(args[1]) && !eng.isNull(args[1]) {
+                let options = args[1]
+                // Access startTime — triggers getter (important for React DevTools
+                // supportsUserTimingV3 feature detection via Object.defineProperty)
+                if let stRef = eng.getProperty(options, "startTime"),
+                   let st = eng.toDouble(stRef) {
+                    startTime = st
                 }
-                return 0;
+                if let d = eng.getProperty(options, "detail") {
+                    detail = d
+                }
             }
 
-            perf.mark = function mark(name, options) {
-                var startTime = options && typeof options.startTime === 'number'
-                    ? options.startTime : perfNow();
-                var entry = {
-                    entryType: 'mark', name: name,
-                    startTime: startTime, duration: 0,
-                    detail: (options && options.detail) || null
-                };
-                marks.push(entry);
-                if (typeof $$isTracing === 'function' && $$isTracing() &&
-                    typeof __PERFORMANCE_TRACER__ !== 'undefined') {
-                    __PERFORMANCE_TRACER__.reportMark(name, startTime);
-                }
-                return entry;
-            };
+            let entry: [String: Any] = [
+                "entryType": "mark", "name": name,
+                "startTime": startTime, "duration": 0.0,
+            ]
+            tracer.addMark(entry)
+            tracer.reportMark(name: name, startTime: startTime)
 
-            perf.measure = function measure(name, startOrOptions, endMark) {
-                var startTime, endTime, detail = null;
-                if (startOrOptions !== null && startOrOptions !== undefined &&
-                    typeof startOrOptions === 'object') {
-                    startTime = typeof startOrOptions.start === 'number'
-                        ? startOrOptions.start
-                        : typeof startOrOptions.start === 'string'
-                            ? findMarkTime(startOrOptions.start) : perfNow();
-                    if (typeof startOrOptions.end === 'number') {
-                        endTime = startOrOptions.end;
-                    } else if (typeof startOrOptions.end === 'string') {
-                        endTime = findMarkTime(startOrOptions.end);
-                    } else if (typeof startOrOptions.duration === 'number') {
-                        endTime = startTime + startOrOptions.duration;
+            let jsEntry = eng.makeObject()
+            eng.setProperty(jsEntry, "entryType", eng.makeString("mark"))
+            eng.setProperty(jsEntry, "name", eng.makeString(name))
+            eng.setProperty(jsEntry, "startTime", eng.makeNumber(startTime))
+            eng.setProperty(jsEntry, "duration", eng.makeNumber(0))
+            eng.setProperty(jsEntry, "detail", detail)
+            return jsEntry
+        })
+
+        // performance.measure(name, startOrOptions, endMark)
+        eng.setProperty(perfObj, "measure", eng.makeFunction { [weak eng] args in
+            guard let eng = eng else { return nil }
+            let name = eng.toString(args[0]) ?? ""
+            var startTime: Double = 0
+            var endTime: Double = tracer.now()
+            var detail: JSValueRef = eng.makeNull()
+
+            if args.count > 1 && !eng.isUndefined(args[1]) && !eng.isNull(args[1]) {
+                let arg1 = args[1]
+                // Detect options object by checking for known properties
+                let startProp = eng.getProperty(arg1, "start")
+                let endProp = eng.getProperty(arg1, "end")
+                let durationProp = eng.getProperty(arg1, "duration")
+                let detailProp = eng.getProperty(arg1, "detail")
+
+                if startProp != nil || endProp != nil || durationProp != nil || detailProp != nil {
+                    // Options object form: {start, end, duration, detail}
+                    if let sp = startProp {
+                        if let n = eng.toDouble(sp), !n.isNaN {
+                            startTime = n
+                        } else if let s = eng.toString(sp) {
+                            startTime = tracer.findMarkTime(s)
+                        } else {
+                            startTime = tracer.now()
+                        }
                     } else {
-                        endTime = perfNow();
+                        startTime = tracer.now()
                     }
-                    detail = startOrOptions.detail || null;
-                } else if (typeof startOrOptions === 'string') {
-                    startTime = findMarkTime(startOrOptions);
-                    endTime = typeof endMark === 'string' ? findMarkTime(endMark) : perfNow();
-                } else if (typeof startOrOptions === 'number') {
-                    startTime = startOrOptions;
-                    endTime = typeof endMark === 'number' ? endMark : perfNow();
-                } else {
-                    startTime = 0;
-                    endTime = perfNow();
+                    if let ep = endProp {
+                        if let n = eng.toDouble(ep), !n.isNaN {
+                            endTime = n
+                        } else if let s = eng.toString(ep) {
+                            endTime = tracer.findMarkTime(s)
+                        } else {
+                            endTime = tracer.now()
+                        }
+                    } else if let dp = durationProp, let d = eng.toDouble(dp), !d.isNaN {
+                        endTime = startTime + d
+                    } else {
+                        endTime = tracer.now()
+                    }
+                    if let d = detailProp {
+                        detail = d
+                    }
+                } else if let n = eng.toDouble(arg1), !n.isNaN {
+                    // Number form: measure(name, startTime, endTime)
+                    startTime = n
+                    if args.count > 2 && !eng.isUndefined(args[2]) {
+                        if let en = eng.toDouble(args[2]), !en.isNaN {
+                            endTime = en
+                        }
+                    }
+                } else if let s = eng.toString(arg1) {
+                    // String form: measure(name, startMark, endMark)
+                    startTime = tracer.findMarkTime(s)
+                    if args.count > 2 && !eng.isUndefined(args[2]) {
+                        if let es = eng.toString(args[2]) {
+                            endTime = tracer.findMarkTime(es)
+                        }
+                    }
                 }
-                var duration = endTime - startTime;
-                var entry = {
-                    entryType: 'measure', name: name,
-                    startTime: startTime, duration: duration, detail: detail
-                };
-                measures.push(entry);
-                if (typeof $$isTracing === 'function' && $$isTracing() &&
-                    typeof __PERFORMANCE_TRACER__ !== 'undefined') {
-                    __PERFORMANCE_TRACER__.reportMeasure(name, startTime, duration, detail);
+            }
+
+            let duration = endTime - startTime
+            // Convert detail to Swift dict for tracer event serialization
+            let swiftDetail: Any? = eng.toDictionary(detail)
+            tracer.addMeasure([
+                "entryType": "measure", "name": name,
+                "startTime": startTime, "duration": duration,
+            ])
+            tracer.reportMeasure(name: name, start: startTime, duration: duration, detail: swiftDetail)
+
+            // Return JS entry with original detail reference
+            let jsEntry = eng.makeObject()
+            eng.setProperty(jsEntry, "entryType", eng.makeString("measure"))
+            eng.setProperty(jsEntry, "name", eng.makeString(name))
+            eng.setProperty(jsEntry, "startTime", eng.makeNumber(startTime))
+            eng.setProperty(jsEntry, "duration", eng.makeNumber(duration))
+            eng.setProperty(jsEntry, "detail", detail)
+            return jsEntry
+        })
+
+        // performance.clearMarks(name)
+        eng.setProperty(perfObj, "clearMarks", eng.makeFunction { [weak eng] args in
+            guard let eng = eng else { return nil }
+            let name = args.count > 0 && !eng.isUndefined(args[0]) ? eng.toString(args[0]) : nil
+            tracer.clearMarks(name)
+            return nil
+        })
+
+        // performance.clearMeasures(name)
+        eng.setProperty(perfObj, "clearMeasures", eng.makeFunction { [weak eng] args in
+            guard let eng = eng else { return nil }
+            let name = args.count > 0 && !eng.isUndefined(args[0]) ? eng.toString(args[0]) : nil
+            tracer.clearMeasures(name)
+            return nil
+        })
+
+        // performance.getEntriesByType(type)
+        eng.setProperty(perfObj, "getEntriesByType", eng.makeFunction { [weak eng] args in
+            guard let eng = eng else { return nil }
+            let type = eng.toString(args[0]) ?? ""
+            let entries = tracer.getEntriesByType(type)
+            return JSRuntime.convertEntriesToJS(entries, engine: eng)
+        })
+
+        // performance.getEntriesByName(name, type)
+        eng.setProperty(perfObj, "getEntriesByName", eng.makeFunction { [weak eng] args in
+            guard let eng = eng else { return nil }
+            let name = eng.toString(args[0]) ?? ""
+            let type = args.count > 1 && !eng.isUndefined(args[1]) ? eng.toString(args[1]) : nil
+            let entries = tracer.getEntriesByName(name, type: type)
+            return JSRuntime.convertEntriesToJS(entries, engine: eng)
+        })
+
+        eng.setGlobalProperty("performance", perfObj)
+
+        // --- Bridge functions for JS PerformanceTracer shim ---
+
+        // $$startTracing()
+        eng.setGlobalFunction("$$startTracing") { [weak self] _ in
+            guard let self = self else { return nil }
+            self.tracer.startTracing()
+            self.bindings.nativeTracingEnabled = true
+            self.bindings.pushPendingSSRCommitTimingsToJS()
+            return nil
+        }
+
+        // $$stopTracing() -> {events, tracingStartTs}
+        eng.setGlobalFunction("$$stopTracing") { [weak self, weak eng] _ in
+            guard let self = self, let eng = eng else { return nil }
+            let result = self.tracer.stopTracing()
+            self.bindings.nativeTracingEnabled = false
+            let obj = eng.makeObject()
+            eng.setProperty(obj, "events", JSRuntime.convertEventsToJS(result.events, engine: eng))
+            eng.setProperty(obj, "tracingStartTs", eng.makeNumber(result.tracingStartTs))
+            return obj
+        }
+
+        // $$isTracing() -> bool
+        eng.setGlobalFunction("$$isTracing") { [weak eng] _ in
+            return eng?.makeBool(tracer.isTracing)
+        }
+
+        // $$reportTimeStamp(label, start, end, track, trackGroup, color, properties)
+        eng.setGlobalFunction("$$reportTimeStamp") { [weak eng] args in
+            guard let eng = eng else { return nil }
+            let label = eng.toString(args[0]) ?? ""
+            let start = eng.toDouble(args[1]) ?? 0
+            let end = eng.toDouble(args[2]) ?? 0
+            let track = eng.toString(args[3]) ?? ""
+            let trackGroup = args.count > 4 && !eng.isUndefined(args[4])
+                ? eng.toString(args[4]) : nil
+            let color = args.count > 5 ? (eng.toString(args[5]) ?? "") : ""
+            var properties: [[String]]? = nil
+            if args.count > 6 && !eng.isUndefined(args[6]) && !eng.isNull(args[6]) {
+                if let propsArr = eng.toArray(args[6]) {
+                    properties = propsArr.compactMap { pairRef -> [String]? in
+                        guard let pair = eng.toArray(pairRef) else { return nil }
+                        return pair.compactMap { eng.toString($0) }
+                    }
                 }
-                return entry;
-            };
+            }
+            tracer.reportTimeStamp(
+                label: label, start: start, end: end,
+                track: track, trackGroup: trackGroup, color: color,
+                properties: properties
+            )
+            return nil
+        }
 
-            perf.clearMarks = function clearMarks(name) {
-                if (name === undefined) { marks = []; }
-                else { marks = marks.filter(function(e) { return e.name !== name; }); }
-            };
+        // $$reportMeasure(name, start, duration, detail)
+        eng.setGlobalFunction("$$reportMeasure") { [weak eng] args in
+            guard let eng = eng else { return nil }
+            let name = eng.toString(args[0]) ?? ""
+            let start = eng.toDouble(args[1]) ?? 0
+            let duration = eng.toDouble(args[2]) ?? 0
+            let detail: Any?
+            if args.count > 3 && !eng.isUndefined(args[3]) && !eng.isNull(args[3]) {
+                detail = eng.toDictionary(args[3])
+            } else {
+                detail = nil
+            }
+            tracer.reportMeasure(name: name, start: start, duration: duration, detail: detail)
+            return nil
+        }
 
-            perf.clearMeasures = function clearMeasures(name) {
-                if (name === undefined) { measures = []; }
-                else { measures = measures.filter(function(e) { return e.name !== name; }); }
-            };
+        // $$reportMark(name, startTime)
+        eng.setGlobalFunction("$$reportMark") { [weak eng] args in
+            guard let eng = eng else { return nil }
+            let name = eng.toString(args[0]) ?? ""
+            let startTime = eng.toDouble(args[1]) ?? 0
+            tracer.reportMark(name: name, startTime: startTime)
+            return nil
+        }
 
-            perf.getEntriesByType = function getEntriesByType(type) {
-                if (type === 'mark') return marks.slice();
-                if (type === 'measure') return measures.slice();
-                return [];
-            };
+        // $$reportInteraction(eventType, interactionId, inputTime, processingStart, processingEnd)
+        eng.setGlobalFunction("$$reportInteraction") { [weak eng] args in
+            guard let eng = eng else { return nil }
+            let eventType = eng.toString(args[0]) ?? ""
+            let interactionId = eng.toInt(args[1]) ?? 0
+            let inputTime = eng.toDouble(args[2]) ?? 0
+            let processingStart = eng.toDouble(args[3]) ?? 0
+            let processingEnd = eng.toDouble(args[4]) ?? 0
+            tracer.reportInteraction(
+                eventType: eventType, interactionId: interactionId,
+                inputTime: inputTime, processingStart: processingStart,
+                processingEnd: processingEnd
+            )
+            return nil
+        }
 
-            perf.getEntriesByName = function getEntriesByName(name, type) {
-                var all = type ? perf.getEntriesByType(type) : marks.concat(measures);
-                return all.filter(function(e) { return e.name === name; });
-            };
-        })();
-        """)
+        // $$nextInteractionId() -> number
+        eng.setGlobalFunction("$$nextInteractionId") { [weak eng] _ in
+            return eng?.makeNumber(Double(tracer.getNextInteractionId()))
+        }
+    }
+
+    // MARK: - JS value conversion helpers
+
+    /// Converts a Swift `[[String: Any]]` entries array to a JS array of objects.
+    private static func convertEntriesToJS(_ entries: [[String: Any]], engine eng: JSEngine) -> JSValueRef {
+        let jsEntries = entries.map { entry -> JSValueRef in
+            let obj = eng.makeObject()
+            for (key, value) in entry {
+                eng.setProperty(obj, key, convertAnyToJS(value, engine: eng))
+            }
+            return obj
+        }
+        return eng.makeArray(jsEntries)
+    }
+
+    /// Converts a Swift `[[String: Any]]` events array to a JS array of objects.
+    private static func convertEventsToJS(_ events: [[String: Any]], engine eng: JSEngine) -> JSValueRef {
+        let jsEvents = events.map { event -> JSValueRef in
+            let obj = eng.makeObject()
+            for (key, value) in event {
+                eng.setProperty(obj, key, convertAnyToJS(value, engine: eng))
+            }
+            return obj
+        }
+        return eng.makeArray(jsEvents)
+    }
+
+    /// Converts a Swift Any value to a JS value.
+    private static func convertAnyToJS(_ value: Any, engine eng: JSEngine) -> JSValueRef {
+        switch value {
+        case let str as String:
+            return eng.makeString(str)
+        case let bool as Bool:
+            return eng.makeBool(bool)
+        case let num as Int:
+            return eng.makeNumber(Double(num))
+        case let num as Double:
+            return eng.makeNumber(num)
+        case let dict as [String: Any]:
+            let obj = eng.makeObject()
+            for (k, v) in dict {
+                eng.setProperty(obj, k, convertAnyToJS(v, engine: eng))
+            }
+            return obj
+        case let arr as [Any]:
+            let elements = arr.map { convertAnyToJS($0, engine: eng) }
+            return eng.makeArray(elements)
+        default:
+            return eng.makeNull()
+        }
     }
 
     private func setupTimerPolyfills() {
