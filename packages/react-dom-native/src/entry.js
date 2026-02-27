@@ -20,7 +20,6 @@ if (__DEV__) {
   require('./devtools/PerformancePolyfill');
   require('./devtools/ConsoleTimeStamp');
   require('./devtools/RuntimeAgent');             // CDP Runtime.evaluate/getProperties in JSC
-  require('./devtools/NetworkAgent');             // CDP Network via fetch interception
   require('./devtools/ReactDevToolsAgent');       // $$getComponentTree() for Fiber inspection
   require('./devtools/DOMAgent');                 // CDP DOM/CSS domain handlers
   require('./devtools/InspectorMessageHandler'); // Must be last — dispatches to all above
