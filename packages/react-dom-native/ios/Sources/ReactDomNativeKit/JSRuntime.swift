@@ -346,30 +346,31 @@ public class JSRuntime {
                     return new Uint8Array(bytes);
                 };
             }
-            if (typeof TextDecoder === 'undefined') {
-                globalThis.TextDecoder = function() {};
-                TextDecoder.prototype.decode = function(bytes) {
-                    if (!bytes) return '';
-                    var arr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-                    var str = '', i = 0;
-                    while (i < arr.length) {
-                        var c = arr[i++];
-                        if (c < 0x80) {
-                            str += String.fromCharCode(c);
-                        } else if (c < 0xe0) {
-                            str += String.fromCharCode(((c & 0x1f) << 6) | (arr[i++] & 0x3f));
-                        } else if (c < 0xf0) {
-                            str += String.fromCharCode(((c & 0x0f) << 12) | ((arr[i++] & 0x3f) << 6) | (arr[i++] & 0x3f));
-                        } else {
-                            var cp = ((c & 0x07) << 18) | ((arr[i++] & 0x3f) << 12) | ((arr[i++] & 0x3f) << 6) | (arr[i++] & 0x3f);
-                            cp -= 0x10000;
-                            str += String.fromCharCode(0xd800 + (cp >> 10), 0xdc00 + (cp & 0x3ff));
-                        }
-                    }
-                    return str;
-                };
-            }
         """)
+
+        // TextDecoder polyfill — native Swift UTF-8 decoding.
+        // Uint8Array.toString() gives comma-separated byte values (single bridge
+        // crossing), then Swift's String(bytes:encoding:.utf8) handles decoding.
+        let textDecoderCtor = engine.makeFunction { [weak engine] _ in
+            guard let engine = engine else { return nil }
+            let decoder = engine.makeObject()
+            engine.setProperty(decoder, "decode", engine.makeFunction { [weak engine] args in
+                guard let engine = engine else { return nil }
+                guard args.count > 0 else { return engine.makeString("") }
+                let bytesArg = args[0]
+                if engine.isUndefined(bytesArg) || engine.isNull(bytesArg) {
+                    return engine.makeString("")
+                }
+                guard let csv = engine.toString(bytesArg), !csv.isEmpty else {
+                    return engine.makeString("")
+                }
+                let bytes: [UInt8] = csv.split(separator: ",").compactMap { UInt8($0) }
+                let result = String(bytes: bytes, encoding: .utf8) ?? ""
+                return engine.makeString(result)
+            })
+            return decoder
+        }
+        engine.setGlobalProperty("TextDecoder", textDecoderCtor)
     }
 
     /// Native ReadableStream polyfill — minimal subset for react-server-dom-webpack/client.
