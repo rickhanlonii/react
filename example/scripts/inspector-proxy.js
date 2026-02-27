@@ -480,13 +480,15 @@ function createProfilerDomain() {
       var reqId = 'profiler-' + (nextReqId++);
       log('Profiler', 'Forwarding start to app (reqId=' + reqId + ')');
       pendingRequests.set(reqId, {ws: ctx.ws, id: ctx.messageId});
-      ctx.sendToApp(JSON.stringify({
-        type: 'cdp-request',
-        requestId: reqId,
-        domain: 'Profiler',
-        method: 'start',
-        params: params || {},
-      }));
+      if (ctx.sendToApp) {
+        ctx.sendToApp(JSON.stringify({
+          type: 'cdp-request',
+          requestId: reqId,
+          domain: 'Profiler',
+          method: 'start',
+          params: params || {},
+        }));
+      }
       return null;
     }
 
@@ -499,13 +501,15 @@ function createProfilerDomain() {
       // Forward Profiler.stop to app
       var reqId = 'profiler-' + (nextReqId++);
       pendingRequests.set(reqId, {ws: ctx.ws, id: ctx.messageId});
-      ctx.sendToApp(JSON.stringify({
-        type: 'cdp-request',
-        requestId: reqId,
-        domain: 'Profiler',
-        method: 'stop',
-        params: params || {},
-      }));
+      if (ctx.sendToApp) {
+        ctx.sendToApp(JSON.stringify({
+          type: 'cdp-request',
+          requestId: reqId,
+          domain: 'Profiler',
+          method: 'stop',
+          params: params || {},
+        }));
+      }
 
       // Store context for sending trace events + profiler response together
       pendingTraceEvents = null;
@@ -1707,9 +1711,34 @@ function createInspectorProxy(options) {
   function addTarget(connectInfo, sendToAppFn) {
     var targetId = deriveTargetId(connectInfo);
 
-    // If target already exists (reconnect), clean up old one
+    // If target already exists (reconnect after reload), reuse it so
+    // Chrome DevTools CDP connections stay alive
     if (targets.has(targetId)) {
-      targets.get(targetId).target.close();
+      var existing = targets.get(targetId);
+      existing.target.setSendToApp(sendToAppFn);
+      existing.info = connectInfo;
+
+      // Notify CDP clients that the JS context was restarted
+      existing.target.broadcastCDP({
+        method: 'Runtime.executionContextsCleared',
+        params: {},
+      });
+      existing.target.broadcastCDP({
+        method: 'Runtime.executionContextCreated',
+        params: {
+          context: {
+            id: 1,
+            origin: '',
+            name: 'Falcon JSC',
+          },
+        },
+      });
+
+      logAlways('Proxy', 'Target reconnected: ' + targetId + ' (' +
+        connectInfo.appName + ' — ' + connectInfo.deviceName +
+        ', ' + existing.target.cdpClients.size + ' CDP client(s) preserved)');
+
+      return targetId;
     }
 
     var target = createTarget(targetId, sourceMapResolver);
@@ -1732,6 +1761,16 @@ function createInspectorProxy(options) {
       connectInfo.appName + ' — ' + connectInfo.deviceName + ')');
 
     return targetId;
+  }
+
+  function disconnectTarget(targetId) {
+    var entry = targets.get(targetId);
+    if (entry) {
+      // Null out sendToApp but keep target and CDP clients alive
+      entry.target.setSendToApp(null);
+      logAlways('Proxy', 'Target disconnected (kept alive): ' + targetId +
+        ' (' + entry.target.cdpClients.size + ' CDP client(s))');
+    }
   }
 
   function removeTarget(targetId) {
@@ -1953,6 +1992,7 @@ function createInspectorProxy(options) {
   return {
     port: cdpPort,
     addTarget: addTarget,
+    disconnectTarget: disconnectTarget,
     removeTarget: removeTarget,
     handleAppMessage: function (targetId, data) {
       var entry = targets.get(targetId);

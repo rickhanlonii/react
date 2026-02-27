@@ -107,14 +107,16 @@ wss.on('connection', function onConnection(ws) {
     var info = clientInfo.get(ws);
     if (info && info.targetId) {
       console.log('[Inspector] App disconnected: ' + info.targetId);
-      proxy.removeTarget(info.targetId);
+      // Keep the target alive so Chrome DevTools stays connected across reloads
+      proxy.disconnectTarget(info.targetId);
     }
     clientInfo.delete(ws);
   });
   ws.on('error', function onError() {
     var info = clientInfo.get(ws);
     if (info && info.targetId) {
-      proxy.removeTarget(info.targetId);
+      // Keep the target alive so Chrome DevTools stays connected across reloads
+      proxy.disconnectTarget(info.targetId);
     }
     clientInfo.delete(ws);
   });
