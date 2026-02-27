@@ -151,7 +151,63 @@ final class EndToEndCSRTests: XCTestCase {
         XCTAssertTrue(texts.count > 0, "Should have visible text after CSR, got: \(texts)")
     }
 
-    // MARK: - Test 4: Client Render Errors via CSR
+    // MARK: - Test 4: Flight Parallel Async via CSR
+
+    func testFlightParallelAsyncRendersViaCSR() {
+        // Fixture 24: Parallel async server components with multiple Suspense boundaries
+        // containing siblings with staggered delays (500ms/1500ms, 300ms/600ms/900ms)
+        let renderDone = expectation(description: "render called")
+        root.render(serverURL: "\(Self.flightBaseURL)/fixtures/24-flight-parallel-async") { error in
+            XCTAssertNil(error, "CSR render should start without error")
+            renderDone.fulfill()
+        }
+        wait(for: [renderDone], timeout: 15.0)
+
+        // Wait for all parallel sections to appear (both Suspense boundaries resolved)
+        waitForCondition(timeout: 20.0, description: "parallel async sections appear") {
+            guard let scroll = self.scrollView(in: self.container) else { return false }
+            let texts = self.findLabelTexts(in: scroll)
+            return texts.contains(where: { $0.contains("Left") })
+                && texts.contains(where: { $0.contains("Right") })
+                && texts.contains(where: { $0.contains("A") })
+                && texts.contains(where: { $0.contains("B") })
+                && texts.contains(where: { $0.contains("C") })
+        }
+
+        let scroll = scrollView(in: container)!
+        let texts = findLabelTexts(in: scroll)
+
+        // Title
+        XCTAssertTrue(texts.contains(where: { $0.contains("Parallel Async") }),
+                       "Should find title, got: \(texts)")
+
+        // First Suspense boundary: Left (500ms) + Right (1500ms)
+        // Note: delay text is split across separate UILabels ("500" + "ms")
+        XCTAssertTrue(texts.contains(where: { $0.contains("Left") }),
+                       "Left section should be visible, got: \(texts)")
+        XCTAssertTrue(texts.contains(where: { $0.contains("Right") }),
+                       "Right section should be visible, got: \(texts)")
+        XCTAssertTrue(texts.contains("500"),
+                       "Left delay value should be visible, got: \(texts)")
+        XCTAssertTrue(texts.contains("1500"),
+                       "Right delay value should be visible, got: \(texts)")
+
+        // Second Suspense boundary: A (300ms) + B (600ms) + C (900ms)
+        XCTAssertTrue(texts.contains(where: { $0.contains("A") }),
+                       "Section A should be visible, got: \(texts)")
+        XCTAssertTrue(texts.contains(where: { $0.contains("B") }),
+                       "Section B should be visible, got: \(texts)")
+        XCTAssertTrue(texts.contains(where: { $0.contains("C") }),
+                       "Section C should be visible, got: \(texts)")
+        XCTAssertTrue(texts.contains("300"),
+                       "A delay value should be visible, got: \(texts)")
+        XCTAssertTrue(texts.contains("600"),
+                       "B delay value should be visible, got: \(texts)")
+        XCTAssertTrue(texts.contains("900"),
+                       "C delay value should be visible, got: \(texts)")
+    }
+
+    // MARK: - Test 5: Client Render Errors via CSR
 
     func testClientRenderErrorsViaCSR() {
         // Fixture 28: ThrowOnServer throws on server, renders on client
