@@ -83,6 +83,38 @@ public class JSRuntime {
             }
             eng.setProperty(consoleObj, level, fn)
         }
+
+        // console.timeStamp — supports both standard single-arg form and
+        // React's extended 6-arg form: (name, start, end, track, trackGroup, color)
+        // Uses evaluate() to dispatch to __PERFORMANCE_TRACER__ so that `this`
+        // is correctly bound (callFunction doesn't bind thisObject).
+        // Uses $$isTracing() (native Swift) instead of __PERFORMANCE_TRACER__.isTracing()
+        // so it works before the JS tracer is loaded.
+        let timeStampFn = eng.makeFunction { [weak eng] args in
+            guard let eng = eng else { return nil }
+            if args.count <= 1 {
+                // Standard single-arg — no-op in JSC (no built-in timeline)
+                return nil
+            }
+            // Stash args in a temp global, call tracer via evaluate for correct `this`
+            let argsArray = eng.makeArray(args)
+            eng.setGlobalProperty("__tsArgs__", argsArray)
+            eng.evaluate("""
+            (function() {
+                if (typeof $$isTracing === 'function' && $$isTracing()) {
+                    var t = globalThis.__PERFORMANCE_TRACER__;
+                    if (t) {
+                        var a = globalThis.__tsArgs__;
+                        t.reportTimeStamp(a[0], a[1], a[2], a[3], a[4], a[5], a[6]);
+                    }
+                }
+                delete globalThis.__tsArgs__;
+            })();
+            """)
+            return nil
+        }
+        eng.setProperty(consoleObj, "timeStamp", timeStampFn)
+
         engine.setGlobalProperty("console", consoleObj)
 
         // Legacy $$log for backwards compatibility
@@ -91,6 +123,9 @@ public class JSRuntime {
         // Set up the bindings (registers all $$ functions)
         bindings = Bindings(engine: engine)
 
+        // Register performance API polyfill (must be before bundle evaluation)
+        setupPerformancePolyfill()
+
         // Register timer functions (must be after all stored properties are initialized)
         setupTimerPolyfills()
 
@@ -98,6 +133,126 @@ public class JSRuntime {
         #if DEBUG
         setupWebSocketBridge()
         #endif
+    }
+
+    private func setupPerformancePolyfill() {
+        let eng = engine
+
+        // Time origin — all performance.now() values are relative to this
+        let timeOrigin = CACurrentMediaTime() * 1000.0 // ms
+
+        let perfObj = eng.makeObject()
+
+        // performance.timeOrigin
+        eng.setProperty(perfObj, "timeOrigin", eng.makeNumber(timeOrigin))
+
+        // performance.now() -> milliseconds relative to timeOrigin
+        let nowFn = eng.makeFunction { [weak eng] _ in
+            guard let eng = eng else { return nil }
+            let now = CACurrentMediaTime() * 1000.0 - timeOrigin
+            return eng.makeNumber(now)
+        }
+        eng.setProperty(perfObj, "now", nowFn)
+
+        // Mark/measure/clear/getEntries methods are implemented as JS
+        // that references the native performance.now() we just installed, plus
+        // the __PERFORMANCE_TRACER__ global. This avoids excessive bridge crossings
+        // for the storage arrays and tracer callbacks.
+        eng.setGlobalProperty("performance", perfObj)
+
+        eng.evaluate("""
+        (function() {
+            var marks = [];
+            var measures = [];
+            var perf = globalThis.performance;
+            var perfNow = perf.now.bind(perf);
+
+            function findMarkTime(name) {
+                for (var i = marks.length - 1; i >= 0; i--) {
+                    if (marks[i].name === name) return marks[i].startTime;
+                }
+                return 0;
+            }
+
+            perf.mark = function mark(name, options) {
+                var startTime = options && typeof options.startTime === 'number'
+                    ? options.startTime : perfNow();
+                var entry = {
+                    entryType: 'mark', name: name,
+                    startTime: startTime, duration: 0,
+                    detail: (options && options.detail) || null
+                };
+                marks.push(entry);
+                if (typeof $$isTracing === 'function' && $$isTracing() &&
+                    typeof __PERFORMANCE_TRACER__ !== 'undefined') {
+                    __PERFORMANCE_TRACER__.reportMark(name, startTime);
+                }
+                return entry;
+            };
+
+            perf.measure = function measure(name, startOrOptions, endMark) {
+                var startTime, endTime, detail = null;
+                if (startOrOptions !== null && startOrOptions !== undefined &&
+                    typeof startOrOptions === 'object') {
+                    startTime = typeof startOrOptions.start === 'number'
+                        ? startOrOptions.start
+                        : typeof startOrOptions.start === 'string'
+                            ? findMarkTime(startOrOptions.start) : perfNow();
+                    if (typeof startOrOptions.end === 'number') {
+                        endTime = startOrOptions.end;
+                    } else if (typeof startOrOptions.end === 'string') {
+                        endTime = findMarkTime(startOrOptions.end);
+                    } else if (typeof startOrOptions.duration === 'number') {
+                        endTime = startTime + startOrOptions.duration;
+                    } else {
+                        endTime = perfNow();
+                    }
+                    detail = startOrOptions.detail || null;
+                } else if (typeof startOrOptions === 'string') {
+                    startTime = findMarkTime(startOrOptions);
+                    endTime = typeof endMark === 'string' ? findMarkTime(endMark) : perfNow();
+                } else if (typeof startOrOptions === 'number') {
+                    startTime = startOrOptions;
+                    endTime = typeof endMark === 'number' ? endMark : perfNow();
+                } else {
+                    startTime = 0;
+                    endTime = perfNow();
+                }
+                var duration = endTime - startTime;
+                var entry = {
+                    entryType: 'measure', name: name,
+                    startTime: startTime, duration: duration, detail: detail
+                };
+                measures.push(entry);
+                if (typeof $$isTracing === 'function' && $$isTracing() &&
+                    typeof __PERFORMANCE_TRACER__ !== 'undefined') {
+                    __PERFORMANCE_TRACER__.reportMeasure(name, startTime, duration, detail);
+                }
+                return entry;
+            };
+
+            perf.clearMarks = function clearMarks(name) {
+                if (name === undefined) { marks = []; }
+                else { marks = marks.filter(function(e) { return e.name !== name; }); }
+            };
+
+            perf.clearMeasures = function clearMeasures(name) {
+                if (name === undefined) { measures = []; }
+                else { measures = measures.filter(function(e) { return e.name !== name; }); }
+            };
+
+            perf.getEntriesByType = function getEntriesByType(type) {
+                if (type === 'mark') return marks.slice();
+                if (type === 'measure') return measures.slice();
+                return [];
+            };
+
+            perf.getEntriesByName = function getEntriesByName(name, type) {
+                var all = type ? perf.getEntriesByType(type) : marks.concat(measures);
+                return all.filter(function(e) { return e.name === name; });
+            };
+        })();
+        """)
     }
 
     private func setupTimerPolyfills() {
@@ -210,6 +365,70 @@ public class JSRuntime {
                     }
                     return str;
                 };
+            }
+        """)
+
+        // ReadableStream polyfill — minimal subset for react-server-dom-webpack/client.
+        // Supports: constructor with start(controller), controller.enqueue/close/error,
+        // stream.getReader(), reader.read() -> Promise<{value, done}>.
+        engine.evaluate("""
+            if (typeof ReadableStream === 'undefined') {
+                (function() {
+                    function Controller(stream) { this._s = stream; }
+                    Controller.prototype.enqueue = function(chunk) {
+                        var s = this._s;
+                        if (s._e) throw s._err;
+                        if (s._c) throw new TypeError('Cannot enqueue to a closed ReadableStream');
+                        if (s._pr !== null) {
+                            var resolve = s._pr;
+                            s._pr = null; s._pj = null;
+                            resolve({value: chunk, done: false});
+                        } else {
+                            s._b.push(chunk);
+                        }
+                    };
+                    Controller.prototype.close = function() {
+                        var s = this._s;
+                        s._c = true;
+                        if (s._pr !== null) {
+                            var resolve = s._pr;
+                            s._pr = null; s._pj = null;
+                            resolve({value: undefined, done: true});
+                        }
+                    };
+                    Controller.prototype.error = function(err) {
+                        var s = this._s;
+                        s._e = true; s._err = err;
+                        if (s._pr !== null) {
+                            var reject = s._pj;
+                            s._pr = null; s._pj = null;
+                            reject(err);
+                        }
+                    };
+
+                    function Reader(stream) { this._s = stream; }
+                    Reader.prototype.read = function() {
+                        var s = this._s;
+                        if (s._e) return Promise.reject(s._err);
+                        if (s._b.length > 0) return Promise.resolve({value: s._b.shift(), done: false});
+                        if (s._c) return Promise.resolve({value: undefined, done: true});
+                        return new Promise(function(resolve, reject) {
+                            s._pr = resolve; s._pj = reject;
+                        });
+                    };
+
+                    globalThis.ReadableStream = function ReadableStream(source) {
+                        this._b = []; this._c = false; this._e = false; this._err = null;
+                        this._pr = null; this._pj = null; this._l = false;
+                        var ctrl = new Controller(this);
+                        if (source && typeof source.start === 'function') source.start(ctrl);
+                    };
+                    ReadableStream.prototype.getReader = function() {
+                        if (this._l) throw new TypeError('ReadableStream is already locked to a reader');
+                        this._l = true;
+                        return new Reader(this);
+                    };
+                })();
             }
         """)
     }

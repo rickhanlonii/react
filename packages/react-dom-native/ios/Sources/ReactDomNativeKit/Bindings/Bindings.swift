@@ -2024,6 +2024,15 @@ public class Bindings {
             return nil
         }
 
+        // $$isTracing() -> bool
+        // Returns the native tracing state. Used by the performance polyfill
+        // (which runs before __PERFORMANCE_TRACER__ is available in JS) to
+        // gate event reporting.
+        engine.setGlobalFunction("$$isTracing") { [weak self, weak engine] _ in
+            guard let self = self, let engine = engine else { return nil }
+            return engine.makeBool(self.nativeTracingEnabled)
+        }
+
         // $$sendInspectorMessage(data) -> void
         // Sends a string message from JS to the dev server via the hot reload WebSocket.
         engine.setGlobalFunction("$$sendInspectorMessage") { [weak self, weak engine] args in

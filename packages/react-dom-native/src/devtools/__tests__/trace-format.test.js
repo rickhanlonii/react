@@ -20,9 +20,52 @@ describe('PerformanceTracer trace format', () => {
     delete globalThis.performance;
     jest.resetModules();
     require('../PerformanceTracer');
-    require('../PerformancePolyfill');
-    require('../ConsoleTimeStamp');
     tracer = globalThis.__PERFORMANCE_TRACER__;
+
+    // Stub performance.measure to route to tracer (mirrors native polyfill)
+    globalThis.performance = {
+      now: function() { return Date.now(); },
+      measure: function(name, startOrOptions, endMark) {
+        var startTime, endTime, detail = null;
+        if (startOrOptions !== null && startOrOptions !== undefined &&
+            typeof startOrOptions === 'object') {
+          startTime = typeof startOrOptions.start === 'number'
+            ? startOrOptions.start : performance.now();
+          if (typeof startOrOptions.end === 'number') {
+            endTime = startOrOptions.end;
+          } else if (typeof startOrOptions.duration === 'number') {
+            endTime = startTime + startOrOptions.duration;
+          } else {
+            endTime = performance.now();
+          }
+          detail = startOrOptions.detail || null;
+        } else {
+          startTime = 0;
+          endTime = performance.now();
+        }
+        var duration = endTime - startTime;
+        if (tracer.isTracing()) {
+          tracer.reportMeasure(name, startTime, duration, detail);
+        }
+        return {entryType: 'measure', name: name, startTime: startTime, duration: duration, detail: detail};
+      },
+      mark: function(name, options) {
+        var startTime = options && typeof options.startTime === 'number'
+          ? options.startTime : performance.now();
+        if (tracer.isTracing()) {
+          tracer.reportMark(name, startTime);
+        }
+        return {entryType: 'mark', name: name, startTime: startTime, duration: 0};
+      },
+    };
+
+    // Stub console.timeStamp to route extended form to tracer (mirrors native)
+    console.timeStamp = function(label, start, end, track, trackGroup, color) {
+      if (arguments.length <= 1) return;
+      if (tracer.isTracing()) {
+        tracer.reportTimeStamp(label, start, end, track, trackGroup, color);
+      }
+    };
   });
 
   it('emits metadata events on startTracing', () => {
@@ -246,8 +289,52 @@ describe('InspectorMessageHandler roundtrip', () => {
     jest.resetModules();
 
     require('../PerformanceTracer');
-    require('../PerformancePolyfill');
-    require('../ConsoleTimeStamp');
+    tracer = globalThis.__PERFORMANCE_TRACER__;
+
+    // Stub performance.measure to route to tracer (mirrors native polyfill)
+    globalThis.performance = {
+      now: function() { return Date.now(); },
+      measure: function(name, startOrOptions, endMark) {
+        var startTime, endTime, detail = null;
+        if (startOrOptions !== null && startOrOptions !== undefined &&
+            typeof startOrOptions === 'object') {
+          startTime = typeof startOrOptions.start === 'number'
+            ? startOrOptions.start : performance.now();
+          if (typeof startOrOptions.end === 'number') {
+            endTime = startOrOptions.end;
+          } else if (typeof startOrOptions.duration === 'number') {
+            endTime = startTime + startOrOptions.duration;
+          } else {
+            endTime = performance.now();
+          }
+          detail = startOrOptions.detail || null;
+        } else {
+          startTime = 0;
+          endTime = performance.now();
+        }
+        var duration = endTime - startTime;
+        if (tracer.isTracing()) {
+          tracer.reportMeasure(name, startTime, duration, detail);
+        }
+        return {entryType: 'measure', name: name, startTime: startTime, duration: duration, detail: detail};
+      },
+      mark: function(name, options) {
+        var startTime = options && typeof options.startTime === 'number'
+          ? options.startTime : performance.now();
+        if (tracer.isTracing()) {
+          tracer.reportMark(name, startTime);
+        }
+        return {entryType: 'mark', name: name, startTime: startTime, duration: 0};
+      },
+    };
+
+    // Stub console.timeStamp to route extended form to tracer (mirrors native)
+    console.timeStamp = function(label, start, end, track, trackGroup, color) {
+      if (arguments.length <= 1) return;
+      if (tracer.isTracing()) {
+        tracer.reportTimeStamp(label, start, end, track, trackGroup, color);
+      }
+    };
 
     // Mock the native bridge send function
     globalThis.$$sendInspectorMessage = function (data) {
@@ -255,7 +342,6 @@ describe('InspectorMessageHandler roundtrip', () => {
     };
 
     require('../InspectorMessageHandler');
-    tracer = globalThis.__PERFORMANCE_TRACER__;
   });
 
   it('start-tracing message starts the tracer', () => {
@@ -346,9 +432,20 @@ describe('Native commit timing trace events', () => {
     delete globalThis.performance;
     jest.resetModules();
     require('../PerformanceTracer');
-    require('../PerformancePolyfill');
-    require('../ConsoleTimeStamp');
     tracer = globalThis.__PERFORMANCE_TRACER__;
+
+    // Stub performance.now for PerformanceTracer.startTracing()
+    globalThis.performance = {
+      now: function() { return Date.now(); },
+    };
+
+    // Stub console.timeStamp to route extended form to tracer (mirrors native)
+    console.timeStamp = function(label, start, end, track, trackGroup, color) {
+      if (arguments.length <= 1) return;
+      if (tracer.isTracing()) {
+        tracer.reportTimeStamp(label, start, end, track, trackGroup, color);
+      }
+    };
   });
 
   function makeTimings(overrides) {
@@ -789,8 +886,22 @@ describe('SSR commit timing trace events', () => {
     delete globalThis.$$handleSSRCommitTimings;
     jest.resetModules();
     require('../PerformanceTracer');
-    require('../PerformancePolyfill');
-    require('../ConsoleTimeStamp');
+    tracer = globalThis.__PERFORMANCE_TRACER__;
+
+    // Stub performance.now for PerformanceTracer.startTracing()
+    globalThis.performance = {
+      now: function() { return Date.now(); },
+      timeOrigin: 0,
+    };
+
+    // Stub console.timeStamp to route extended form to tracer (mirrors native)
+    console.timeStamp = function(label, start, end, track, trackGroup, color) {
+      if (arguments.length <= 1) return;
+      if (tracer.isTracing()) {
+        tracer.reportTimeStamp(label, start, end, track, trackGroup, color);
+      }
+    };
+
     // Load HostConfig to register $$handleSSRCommitTimings
     require('../../renderer/HostConfig');
     tracer = globalThis.__PERFORMANCE_TRACER__;
