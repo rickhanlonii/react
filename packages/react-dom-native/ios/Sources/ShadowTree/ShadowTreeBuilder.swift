@@ -171,14 +171,14 @@ public class ShadowTreeBuilder {
 
     /// Root shell is complete — calculate layout and notify.
     public func rootComplete() {
-        layoutStartTime = CACurrentMediaTime() * 1000.0
+        layoutStartTime = performanceNow()
         ShadowTreeLayout.performLayout(
             rootYogaNode: rootYogaNode,
             children: rootChildren,
             width: viewportWidth,
             height: .nan
         )
-        layoutEndTime = CACurrentMediaTime() * 1000.0
+        layoutEndTime = performanceNow()
         onRootComplete?(rootChildren)
     }
 

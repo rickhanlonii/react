@@ -31,10 +31,8 @@ $$registerEventHandler(function (instanceHandle, eventType, payload) {
     var processingStart;
     if (typeof $$isTracing === 'function' && $$isTracing()) {
       // Use native timestamp if available (more accurate — captures before bridge crossing).
-      // Convert absolute CACurrentMediaTime*1000 to performance.now()-relative by
-      // subtracting performance.timeOrigin (must read at call time, not module load,
-      // because the performance polyfill loads after this module).
-      inputTime = (payload && payload._nativeTimestamp) ? payload._nativeTimestamp - performance.timeOrigin : performance.now();
+      // Native timestamps are already performance.now()-relative (ms since JSRuntime init).
+      inputTime = (payload && payload._nativeTimestamp) ? payload._nativeTimestamp : performance.now();
       processingStart = performance.now();
     }
 

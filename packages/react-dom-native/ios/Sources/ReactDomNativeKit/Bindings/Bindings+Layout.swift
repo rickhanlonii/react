@@ -59,7 +59,7 @@ extension Bindings {
         nodeTimings: inout [(type: String, start: Double, end: Double)]
     ) {
         for node in nodes {
-            let nodeStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            let nodeStart = tracing ? performanceNow() : 0
 
             if let view = viewRegistry.view(for: node.family) {
                 if view.frame != node.layoutFrame {
@@ -72,7 +72,7 @@ extension Bindings {
             syncAllFrames(node.children, tracing: tracing, nodeTimings: &nodeTimings)
 
             if tracing {
-                let nodeEnd = CACurrentMediaTime() * 1000.0
+                let nodeEnd = performanceNow()
                 nodeTimings.append((node.family.elementType, nodeStart, nodeEnd))
             }
         }
@@ -123,11 +123,11 @@ extension Bindings {
         }
 
         // 3. Calculate layout (first pass)
-        let yogaStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+        let yogaStart = tracing ? performanceNow() : 0
         YGNodeCalculateLayout(rootNode, Float(bounds.width), .nan, .LTR)
 
         // 3b. Post-layout text re-measurement
-        let textRemeasureStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+        let textRemeasureStart = tracing ? performanceNow() : 0
         var needsSecondPass = false
         for child in children {
             if ShadowTreeLayout.markTextNodesNeedingRemeasure(child) {
@@ -139,14 +139,14 @@ extension Bindings {
             didRemeasure = true
             YGNodeCalculateLayout(rootNode, Float(bounds.width), .nan, .LTR)
         }
-        let textRemeasureEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
-        let yogaEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+        let textRemeasureEnd = tracing ? performanceNow() : 0
+        let yogaEnd = tracing ? performanceNow() : 0
 
         // Read content size from root (which has unbounded height)
         let yogaHeight = CGFloat(YGNodeLayoutGetHeight(rootNode))
 
         // 4. Walk tree reading layout results into layoutFrame
-        let readFramesStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+        let readFramesStart = tracing ? performanceNow() : 0
         if tracing {
             self.lastLayoutNodeTimings = []
             for child in children {
@@ -164,18 +164,18 @@ extension Bindings {
         ShadowTreeLayout.adjustMarginCollapseThrough(children: children)
 
         let actualHeight = ShadowTreeLayout.computeActualContentHeight(for: children)
-        let readFramesEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+        let readFramesEnd = tracing ? performanceNow() : 0
         let contentSize = CGSize(
             width: CGFloat(YGNodeLayoutGetWidth(rootNode)),
             height: max(yogaHeight, actualHeight)
         )
 
         // 4b. Compute scroll content sizes for overflow:scroll/auto nodes
-        let scrollStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+        let scrollStart = tracing ? performanceNow() : 0
         for child in children {
             ShadowTreeLayout.computeScrollContentSizes(for: child)
         }
-        let scrollEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+        let scrollEnd = tracing ? performanceNow() : 0
 
         // Children stay attached to the persistent root — their layout
         // caches are preserved for the next commit's incremental layout.

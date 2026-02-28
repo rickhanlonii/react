@@ -77,7 +77,7 @@ public enum ShadowTreeLayout {
         guard YGNodeGetHasNewLayout(node.yogaNode) else { return }
         YGNodeSetHasNewLayout(node.yogaNode, false)
 
-        let nodeStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+        let nodeStart = tracing ? performanceNow() : 0
 
         var x = CGFloat(YGNodeLayoutGetLeft(node.yogaNode))
         var y = CGFloat(YGNodeLayoutGetTop(node.yogaNode))
@@ -125,7 +125,7 @@ public enum ShadowTreeLayout {
         }
 
         if tracing {
-            let nodeEnd = CACurrentMediaTime() * 1000.0
+            let nodeEnd = performanceNow()
             nodeTimings.append((node.family.elementType, nodeStart, nodeEnd))
         }
     }

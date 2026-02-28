@@ -93,10 +93,10 @@ extension Root {
             // Find the scroll view that holds the SSR views
             guard let scrollView = self.container.subviews.first(where: { $0 is UIScrollView }) as? UIScrollView else { return }
 
-            let commitStart = CACurrentMediaTime() * 1000.0
+            let commitStart = performanceNow()
 
             // 1. Calculate layout on the new tree
-            let layoutStart = CACurrentMediaTime() * 1000.0
+            let layoutStart = performanceNow()
             let width = Float(self.container.bounds.width > 0 ? self.container.bounds.width : 390)
             let rootYogaNode = YGNodeNewWithConfig(YogaConfig.shared)!
             YGNodeStyleSetFlexDirection(rootYogaNode, .column)
@@ -119,11 +119,11 @@ extension Root {
 
             YGNodeRemoveAllChildren(rootYogaNode)
             YGNodeFree(rootYogaNode)
-            let layoutEnd = CACurrentMediaTime() * 1000.0
+            let layoutEnd = performanceNow()
 
             // 2. Diff old vs new tree (with per-node timing)
             var diffNodeTimings: [(type: String, start: Double, end: Double)] = []
-            let diffStart = CACurrentMediaTime() * 1000.0
+            let diffStart = performanceNow()
             let differentiator = Differentiator()
             let mutations = differentiator.diff(
                 oldChildren: oldRootChildren,
@@ -132,20 +132,20 @@ extension Root {
                 tracing: true,
                 nodeTimings: &diffNodeTimings
             )
-            let diffEnd = CACurrentMediaTime() * 1000.0
+            let diffEnd = performanceNow()
 
             // 3. Apply mutations (with per-mutation timing)
             var mutationTimings: [(mutationType: String, elementType: String, start: Double, end: Double)] = []
-            let mutationsStart = CACurrentMediaTime() * 1000.0
+            let mutationsStart = performanceNow()
             applier.applyMutations(mutations, rootView: scrollView, tracing: true, mutationTimings: &mutationTimings)
 
             // 4. Sync all frames (with per-node timing)
             var syncNodeTimings: [(type: String, start: Double, end: Double)] = []
-            let syncStart = CACurrentMediaTime() * 1000.0
+            let syncStart = performanceNow()
             self.syncSSRFrames(newRootChildren, tracing: true, nodeTimings: &syncNodeTimings)
-            let syncEnd = CACurrentMediaTime() * 1000.0
+            let syncEnd = performanceNow()
 
-            let mutationsEnd = CACurrentMediaTime() * 1000.0
+            let mutationsEnd = performanceNow()
 
             // 5. Attach new root-level views to scroll view
             for child in newRootChildren {
@@ -163,7 +163,7 @@ extension Root {
                 height: contentHeight
             )
 
-            let commitEnd = CACurrentMediaTime() * 1000.0
+            let commitEnd = performanceNow()
 
             // Collect commit-style timing for Shadow Tree and Layout tracks
             let stats = Self.computeSSRTreeStats(newRootChildren)
@@ -254,9 +254,9 @@ extension Root {
 
             // Generate CREATE + INSERT mutations and apply them (with per-mutation timing).
             var mutationTimings: [(mutationType: String, elementType: String, start: Double, end: Double)] = []
-            let mutationsStart = CACurrentMediaTime() * 1000.0
+            let mutationsStart = performanceNow()
             self.createViewsFromTree(rootChildren, applier: applier, rootView: self.container, mutationTimings: &mutationTimings)
-            let mutationsEnd = CACurrentMediaTime() * 1000.0
+            let mutationsEnd = performanceNow()
 
             // Build per-mutation timing array
             var mutElements: [Any] = []
@@ -283,7 +283,7 @@ extension Root {
             ])
 
             print("[ReactDomNativeKit] SSR first paint complete (\(rootChildren.count) root children)")
-            self.shellPaintTime = CACurrentMediaTime() * 1000.0
+            self.shellPaintTime = performanceNow()
             self.ssrShellComplete = true
             completion?(nil)
 
@@ -731,7 +731,7 @@ extension Root {
     ) {
         guard let registry = ssrViewRegistry else { return }
         for node in nodes {
-            let nodeStart = CACurrentMediaTime() * 1000.0
+            let nodeStart = performanceNow()
 
             if let view = registry.view(for: node.family) {
                 if view.frame != node.layoutFrame {
@@ -742,7 +742,7 @@ extension Root {
                 }
             }
 
-            let nodeEnd = CACurrentMediaTime() * 1000.0
+            let nodeEnd = performanceNow()
             nodeTimings.append((type: node.family.elementType, start: nodeStart, end: nodeEnd))
 
             syncSSRFrames(node.children, tracing: tracing, nodeTimings: &nodeTimings)

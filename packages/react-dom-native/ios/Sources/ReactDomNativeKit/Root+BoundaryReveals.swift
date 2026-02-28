@@ -35,7 +35,7 @@ extension Root {
 
         guard revealTimer == nil else { return }
 
-        let now = CACurrentMediaTime() * 1000.0
+        let now = performanceNow()
         let elapsed = now - (shellPaintTime ?? now)
 
         // Within the LCP window: use throttle delay to batch reveals.

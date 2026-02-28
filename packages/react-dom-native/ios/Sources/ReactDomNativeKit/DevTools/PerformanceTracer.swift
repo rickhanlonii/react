@@ -1,5 +1,6 @@
 import Foundation
 import QuartzCore
+import ShadowTree
 
 /// Native performance tracer — owns tracing state and Chrome Trace Format event buffer.
 /// Replaces the JS-side __PERFORMANCE_TRACER__ object.
@@ -22,16 +23,16 @@ class PerformanceTracer {
 
     // MARK: - Time origin
 
-    /// Milliseconds (CACurrentMediaTime * 1000) at init — all performance.now() values are relative to this.
+    /// Unix epoch milliseconds at init — matches browser `performance.timeOrigin`.
     let timeOrigin: Double
 
     init() {
-        timeOrigin = CACurrentMediaTime() * 1000.0
+        timeOrigin = Date().timeIntervalSince1970 * 1000.0
     }
 
-    /// Returns milliseconds elapsed since timeOrigin.
+    /// Returns milliseconds elapsed since the monotonic origin (matches browser `performance.now()`).
     func now() -> Double {
-        CACurrentMediaTime() * 1000.0 - timeOrigin
+        performanceNow()
     }
 
     // MARK: - Tracing lifecycle

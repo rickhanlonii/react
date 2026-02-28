@@ -60,7 +60,7 @@ public class UIKitMutationApplier: NSObject {
         print("[\(logPrefix)] Applying \(mutations.count) mutations")
 
         for (index, mutation) in mutations.enumerated() {
-            let mutStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            let mutStart = tracing ? performanceNow() : 0
             var mutType = ""
             var elemType = ""
 
@@ -174,7 +174,7 @@ public class UIKitMutationApplier: NSObject {
             }
 
             if tracing {
-                let mutEnd = CACurrentMediaTime() * 1000.0
+                let mutEnd = performanceNow()
                 mutationTimings.append((mutType, elemType, mutStart, mutEnd))
             }
         }
@@ -749,7 +749,7 @@ public class UIKitMutationApplier: NSObject {
             if !(view is UIButton) && !(view is UITextField),
                let family = viewRegistry.family(for: view),
                family.hasClickHandler {
-                dispatchEvent?(view, "click", ["_nativeTimestamp": CACurrentMediaTime() * 1000])
+                dispatchEvent?(view, "click", ["_nativeTimestamp": performanceNow()])
             }
             current = view.superview
         }
@@ -777,18 +777,18 @@ public class UIKitMutationApplier: NSObject {
         while let view = current, view !== rootView {
             if let family = viewRegistry.family(for: view),
                family.hasClickHandler {
-                dispatchEvent?(view, "click", ["_nativeTimestamp": CACurrentMediaTime() * 1000])
+                dispatchEvent?(view, "click", ["_nativeTimestamp": performanceNow()])
             }
             current = view.superview
         }
     }
 
     @objc private func handleButtonTap(_ sender: UIButton) {
-        dispatchEvent?(sender, "click", ["_nativeTimestamp": CACurrentMediaTime() * 1000])
+        dispatchEvent?(sender, "click", ["_nativeTimestamp": performanceNow()])
     }
 
     @objc private func handleTextFieldChanged(_ sender: UITextField) {
-        dispatchEvent?(sender, "change", ["value": sender.text ?? "", "_nativeTimestamp": CACurrentMediaTime() * 1000])
+        dispatchEvent?(sender, "change", ["value": sender.text ?? "", "_nativeTimestamp": performanceNow()])
     }
 
     // MARK: - Text Helpers

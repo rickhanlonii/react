@@ -75,7 +75,7 @@ public class Differentiator {
         // Walk new children to detect creates, inserts, and updates.
         for (index, newChild) in newChildren.enumerated() {
             let familyKey = ObjectIdentifier(newChild.family)
-            let nodeStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            let nodeStart = tracing ? performanceNow() : 0
 
             if let oldChild = oldByFamily[familyKey] {
                 // Existing node — check for updates.
@@ -120,7 +120,7 @@ public class Differentiator {
             }
 
             if tracing {
-                let nodeEnd = CACurrentMediaTime() * 1000.0
+                let nodeEnd = performanceNow()
                 nodeTimings.append((newChild.family.elementType, nodeStart, nodeEnd))
             }
         }
@@ -129,7 +129,7 @@ public class Differentiator {
         for oldChild in oldChildren {
             let familyKey = ObjectIdentifier(oldChild.family)
             if !matchedFamilies.contains(familyKey) {
-                let nodeStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+                let nodeStart = tracing ? performanceNow() : 0
                 if let parentNode = parent {
                     mutations.append(.remove(
                         parent: parentNode,
@@ -143,7 +143,7 @@ public class Differentiator {
                 mutations.append(contentsOf: deleteMutations)
 
                 if tracing {
-                    let nodeEnd = CACurrentMediaTime() * 1000.0
+                    let nodeEnd = performanceNow()
                     nodeTimings.append((oldChild.family.elementType, nodeStart, nodeEnd))
                 }
             }

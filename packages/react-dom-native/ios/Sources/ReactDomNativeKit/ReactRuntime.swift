@@ -610,6 +610,15 @@ public class ReactRuntime {
 
     private func executeBundle(source: String, sourceURL: URL) {
         runtime?.engine.evaluate(source, sourceURL: sourceURL)
+
+        // Set document.baseURI to the bundle origin so that relative script
+        // URLs (e.g., "/client5.js" from webpack chunk loading) are resolved
+        // correctly by the document polyfill.
+        if let scheme = sourceURL.scheme, let host = sourceURL.host {
+            let port = sourceURL.port.map { ":\($0)" } ?? ""
+            let origin = "\(scheme)://\(host)\(port)"
+            runtime?.engine.evaluate("document.baseURI = '\(origin)';")
+        }
     }
 
     // MARK: - DevTools (Private)

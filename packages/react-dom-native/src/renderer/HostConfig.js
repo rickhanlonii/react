@@ -308,9 +308,9 @@ function durationColor(startMs, endMs) {
 function reportNativeCommitTimings(t) {
   if (typeof $$isTracing !== 'function' || !$$isTracing()) return;
 
-  // Native timestamps are absolute (CACurrentMediaTime * 1000, ms since boot).
-  // Convert to performance.now()-relative by subtracting performance.timeOrigin.
-  var origin = performance.timeOrigin;
+  // Native timestamps are already performance.now()-relative (ms since JSRuntime init).
+  // No conversion needed.
+  var origin = 0;
   var commitStart = t.commitStart - origin;
   var commitEnd = t.commitEnd - origin;
   var layoutStart = t.layoutStart - origin;

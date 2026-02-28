@@ -150,7 +150,7 @@ public class JSRuntime {
 
         let perfObj = eng.makeObject()
 
-        // performance.timeOrigin
+        // performance.timeOrigin — Unix epoch ms (matches browser standard)
         eng.setProperty(perfObj, "timeOrigin", eng.makeNumber(tracer.timeOrigin))
 
         // performance.now() -> milliseconds relative to timeOrigin

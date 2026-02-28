@@ -474,12 +474,12 @@ extension Bindings {
             guard let self = self, let engine = engine else { return nil }
 
             let tracing = self.nativeTracingEnabled
-            let commitStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            let commitStart = tracing ? performanceNow() : 0
 
             let surfaceId = engine.toInt(args[0]) ?? 0
 
             // 0. Resolve node IDs and prepare trees
-            let prepareStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            let prepareStart = tracing ? performanceNow() : 0
 
             // args[1] is an array of native node IDs from the JS host config
             let childRefs = engine.toArray(args[1]) ?? []
@@ -515,19 +515,19 @@ extension Bindings {
             self.assertNoRevealedSuspenseWrappers(oldChildren)
             #endif
 
-            let prepareEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            let prepareEnd = tracing ? performanceNow() : 0
 
             // 2. Calculate layout using Yoga
-            let layoutStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            let layoutStart = tracing ? performanceNow() : 0
             var contentSize: CGSize = .zero
             if let rootView = self.rootViews[surfaceId] {
                 let bounds = rootView.bounds
                 contentSize = self.calculateYogaLayout(for: newChildren, in: bounds, surfaceId: surfaceId, tracing: tracing)
             }
-            let layoutEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            let layoutEnd = tracing ? performanceNow() : 0
 
             // 3. Diff old tree vs new tree
-            let diffStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            let diffStart = tracing ? performanceNow() : 0
             var diffNodeTimings: [(type: String, start: Double, end: Double)] = []
             let mutations = self.differentiator.diff(
                 oldChildren: oldChildren,
@@ -536,7 +536,7 @@ extension Bindings {
                 tracing: tracing,
                 nodeTimings: &diffNodeTimings
             )
-            let diffEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            let diffEnd = tracing ? performanceNow() : 0
 
             // 3b. Categorize mutations for tracing (zero-cost when not tracing)
             var creates = 0, deletes = 0, inserts = 0, removes = 0, updates = 0
@@ -564,7 +564,7 @@ extension Bindings {
             }
 
             // 4. Apply mutations to UIViews atomically
-            let mutationsStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            let mutationsStart = tracing ? performanceNow() : 0
             var mutationTimings: [(mutationType: String, elementType: String, start: Double, end: Double)] = []
             var syncNodeTimings: [(type: String, start: Double, end: Double)] = []
             if let rootView = self.rootViews[surfaceId] {
@@ -576,13 +576,13 @@ extension Bindings {
                 // positions for the entire tree — reused sibling nodes may
                 // have new Y positions when a preceding sibling changed size.
                 // This pass ensures every UIView's frame matches Yoga layout.
-                let syncStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+                let syncStart = tracing ? performanceNow() : 0
                 if tracing {
                     self.syncAllFrames(newChildren, tracing: true, nodeTimings: &syncNodeTimings)
                 } else {
                     self.syncAllFrames(newChildren)
                 }
-                let syncEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+                let syncEnd = tracing ? performanceNow() : 0
                 if tracing {
                     self.lastSyncTimings = (start: syncStart, end: syncEnd)
                 }
@@ -598,13 +598,13 @@ extension Bindings {
             } else {
                 print("[react-dom-native] Warning: No rootView for surfaceId \(surfaceId)")
             }
-            let mutationsEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            let mutationsEnd = tracing ? performanceNow() : 0
 
             // 5-8. Post-mutation cleanup
-            let cleanupStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            let cleanupStart = tracing ? performanceNow() : 0
 
             // 5-6. Promote new tree
-            let treePromoteStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            let treePromoteStart = tracing ? performanceNow() : 0
 
             // 5. Set scroll view content size for document-level scrolling
             if let scrollView = self.rootViews[surfaceId] as? UIScrollView {
@@ -629,10 +629,10 @@ extension Bindings {
                 // SSR trees no longer needed — #suspense nodes live in currentTrees
                 self.ssrTrees.removeValue(forKey: surfaceId)
             }
-            let treePromoteEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            let treePromoteEnd = tracing ? performanceNow() : 0
 
             // 7. Clean up stale nodes from registry
-            let nodeGCStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            let nodeGCStart = tracing ? performanceNow() : 0
             // Collect all node IDs still reachable from any current tree
             var liveNodes = Set<Int>()
             for (_, tree) in self.currentTrees {
@@ -643,18 +643,18 @@ extension Bindings {
             for id in staleIds {
                 self.nodeRegistry.removeValue(forKey: id)
             }
-            let nodeGCEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            let nodeGCEnd = tracing ? performanceNow() : 0
 
             // 8. Notify DevTools that the DOM tree changed
-            let devtoolsNotifyStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            let devtoolsNotifyStart = tracing ? performanceNow() : 0
             if self.sendInspectorMessage != nil {
                 self.sendInspectorMessage?("{\"type\":\"dom-updated\",\"surfaceId\":\(surfaceId)}")
             }
-            let devtoolsNotifyEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            let devtoolsNotifyEnd = tracing ? performanceNow() : 0
 
-            let cleanupEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            let cleanupEnd = tracing ? performanceNow() : 0
 
-            let commitEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            let commitEnd = tracing ? performanceNow() : 0
 
             // Return timing dictionary when tracing is enabled
             guard tracing else { return nil }

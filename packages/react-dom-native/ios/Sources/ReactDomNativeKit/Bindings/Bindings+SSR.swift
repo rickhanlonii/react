@@ -153,18 +153,18 @@ extension Bindings {
         newTree: [ShadowNodeWrapper]
     ) {
         let tracing = nativeTracingEnabled
-        let commitStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+        let commitStart = tracing ? performanceNow() : 0
 
         // 1. Calculate layout on new tree
-        let layoutStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+        let layoutStart = tracing ? performanceNow() : 0
         var contentSize: CGSize = .zero
         if let rootView = rootViews[surfaceId] {
             contentSize = calculateYogaLayout(for: newTree, in: rootView.bounds, surfaceId: surfaceId, tracing: tracing)
         }
-        let layoutEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+        let layoutEnd = tracing ? performanceNow() : 0
 
         // 2. Diff old vs new
-        let diffStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+        let diffStart = tracing ? performanceNow() : 0
         var diffNodeTimings: [(type: String, start: Double, end: Double)] = []
         let mutations: [Mutation]
         if tracing {
@@ -182,10 +182,10 @@ extension Bindings {
                 parent: nil
             )
         }
-        let diffEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+        let diffEnd = tracing ? performanceNow() : 0
 
         // 3. Apply mutations
-        let mutationsStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+        let mutationsStart = tracing ? performanceNow() : 0
         var mutationTimings: [(mutationType: String, elementType: String, start: Double, end: Double)] = []
         var syncNodeTimings: [(type: String, start: Double, end: Double)] = []
         if let rootView = rootViews[surfaceId] {
@@ -195,13 +195,13 @@ extension Bindings {
                 mutationApplier.applyMutations(mutations, rootView: rootView)
             }
 
-            let syncStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            let syncStart = tracing ? performanceNow() : 0
             if tracing {
                 syncAllFrames(newTree, tracing: true, nodeTimings: &syncNodeTimings)
             } else {
                 syncAllFrames(newTree)
             }
-            let syncEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+            let syncEnd = tracing ? performanceNow() : 0
             if tracing {
                 lastSyncTimings = (start: syncStart, end: syncEnd)
             }
@@ -215,7 +215,7 @@ extension Bindings {
                 }
             }
         }
-        let mutationsEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+        let mutationsEnd = tracing ? performanceNow() : 0
 
         // 4. Update scroll content size
         if let scrollView = rootViews[surfaceId] as? UIScrollView {
@@ -233,7 +233,7 @@ extension Bindings {
             registerNewNodesInSubtree(child)
         }
 
-        let commitEnd = tracing ? CACurrentMediaTime() * 1000.0 : 0
+        let commitEnd = tracing ? performanceNow() : 0
 
         // Push timing to JS for Shadow Tree and Layout tracks
         if tracing {

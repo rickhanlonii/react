@@ -108,7 +108,7 @@ class EventDispatcher {
         while let view = current {
             if let family = viewRegistry.family(for: view),
                family.hasClickHandler {
-                dispatchEvent(from: view, eventType: "click", payload: ["_nativeTimestamp": CACurrentMediaTime() * 1000])
+                dispatchEvent(from: view, eventType: "click", payload: ["_nativeTimestamp": performanceNow()])
             }
             current = view.superview
         }
