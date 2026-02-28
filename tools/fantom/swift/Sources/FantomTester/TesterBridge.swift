@@ -101,6 +101,7 @@ class TesterBridge {
         registerEventHandling()
         registerHydrationTraversal()
         registerSSRProcessing()
+        setupDocumentPolyfill()
     }
 
     // MARK: - Test-specific Functions
@@ -185,6 +186,96 @@ class TesterBridge {
         return nil
     }
 
+    // MARK: - Document Polyfill (simplified for test harness — no script loading)
+
+    private func setupDocumentPolyfill() {
+        let eng = engine
+        var appendedScripts: [JSValueRef] = []
+
+        func makeFakeElement(_ tag: String) -> JSValueRef {
+            let element = eng.makeObject()
+            let attrs = eng.makeObject()
+            eng.setProperty(element, "_tag", eng.makeString(tag))
+            eng.setProperty(element, "_attrs", attrs)
+            eng.setProperty(element, "parentNode", eng.makeNull())
+
+            let setAttributeFn = eng.makeFunction { [weak eng] args in
+                guard let eng = eng, args.count >= 2 else { return nil }
+                let name = eng.toString(args[0]) ?? ""
+                eng.setProperty(attrs, name, args[1])
+                return nil
+            }
+            eng.setProperty(element, "setAttribute", setAttributeFn)
+
+            let getAttributeFn = eng.makeFunction { [weak eng] args in
+                guard let eng = eng, args.count >= 1 else { return nil }
+                let name = eng.toString(args[0]) ?? ""
+                if name == "src" {
+                    return eng.getProperty(element, "src")
+                }
+                return eng.getProperty(attrs, name)
+            }
+            eng.setProperty(element, "getAttribute", getAttributeFn)
+
+            let removeChildFn = eng.makeFunction { _ in nil }
+            eng.setProperty(element, "removeChild", removeChildFn)
+
+            return element
+        }
+
+        let doc = eng.makeObject()
+        eng.setProperty(doc, "documentElement", eng.makeNull())
+        eng.setProperty(doc, "head", eng.makeNull())
+        eng.setProperty(doc, "baseURI", eng.makeString(""))
+        eng.setProperty(doc, "currentScript", eng.makeNull())
+
+        let createElementFn = eng.makeFunction { [weak eng] args in
+            guard let eng = eng, args.count >= 1 else { return nil }
+            let tag = eng.toString(args[0]) ?? ""
+            return makeFakeElement(tag)
+        }
+        eng.setProperty(doc, "createElement", createElementFn)
+
+        let getElementsByTagNameFn = eng.makeFunction { [weak eng] args in
+            guard let eng = eng, args.count >= 1 else { return nil }
+            let tag = eng.toString(args[0]) ?? ""
+            if tag == "script" {
+                return eng.makeArray(appendedScripts)
+            }
+            return eng.makeArray([])
+        }
+        eng.setProperty(doc, "getElementsByTagName", getElementsByTagNameFn)
+
+        // Head wrapper — simplified without URLSession script loading
+        let headWrapper = eng.makeObject()
+        let appendChildFn = eng.makeFunction { [weak eng] args in
+            guard let eng = eng, args.count >= 1 else { return nil }
+            let child = args[0]
+            guard let tagRef = eng.getProperty(child, "_tag"),
+                  eng.toString(tagRef) == "script" else { return nil }
+            appendedScripts.append(child)
+            eng.setProperty(child, "parentNode", headWrapper)
+            return nil
+        }
+        eng.setProperty(headWrapper, "appendChild", appendChildFn)
+        let headRemoveChildFn = eng.makeFunction { _ in nil }
+        eng.setProperty(headWrapper, "removeChild", headRemoveChildFn)
+
+        engine.setGlobalProperty("document", doc)
+
+        engine.setGlobalFunction("$$wireDocumentStructure") { [weak eng] args in
+            guard let eng = eng, args.count >= 1 else { return nil }
+            let type = eng.toString(args[0]) ?? ""
+            if type == "html" {
+                let htmlObj = eng.makeObject()
+                eng.setProperty(doc, "documentElement", htmlObj)
+            } else if type == "head" {
+                eng.setProperty(doc, "head", headWrapper)
+            }
+            return nil
+        }
+    }
+
     // MARK: - Node Creation
 
     private func registerNodeCreation() {
@@ -219,6 +310,14 @@ class TesterBridge {
             }
 
             let nodeId = self.registerNode(node)
+
+            // Wire document polyfill when structural elements are created
+            if type == "html" || type == "head" {
+                if let wireDoc = engine.getGlobalProperty("$$wireDocumentStructure") {
+                    _ = engine.callFunction(wireDoc, args: [engine.makeString(type)])
+                }
+            }
+
             return engine.makeNumber(Double(nodeId))
         }
 
