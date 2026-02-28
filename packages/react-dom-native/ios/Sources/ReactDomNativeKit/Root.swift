@@ -917,7 +917,7 @@ public class Root {
                 // tap handlers on SSR-created buttons reach the JS runtime.
                 if let bindings = rt.bindings {
                     self.ssrMutationApplier?.dispatchEvent = { view, eventType, payload in
-                        bindings.dispatchEvent(from: view, eventType: eventType, payload: payload)
+                        bindings.eventDispatcher.dispatchEvent(from: view, eventType: eventType, payload: payload)
                     }
                 }
                 rt.bindings?.registerSSRTree(

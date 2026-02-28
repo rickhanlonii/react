@@ -8,12 +8,12 @@ import ShadowTree
 // the production equivalent of StubMutationApplier in the test harness.
 // ---------------------------------------------------------------------------
 
-public typealias EventDispatcher = (UIView, String, [String: Any]) -> Void
+public typealias EventDispatchHandler = (UIView, String, [String: Any]) -> Void
 
 public class UIKitMutationApplier: NSObject {
 
     private let viewRegistry: ViewRegistry
-    public var dispatchEvent: EventDispatcher?
+    public var dispatchEvent: EventDispatchHandler?
 
     /// Tracks inherited textAlign per view for CSS textAlign inheritance.
     /// textAlign is an inherited CSS property — parent containers pass it

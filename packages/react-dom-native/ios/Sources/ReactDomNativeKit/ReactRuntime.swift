@@ -766,7 +766,7 @@ public class ReactRuntime {
                     let x = (obj["x"] as? NSNumber)?.doubleValue ?? 0
                     let y = (obj["y"] as? NSNumber)?.doubleValue ?? 0
                     DispatchQueue.main.async {
-                        bindings?.dispatchTouchAtWindowPoint(x: x, y: y)
+                        bindings?.eventDispatcher.dispatchTouchAtWindowPoint(x: x, y: y)
                     }
                     return
                 }

@@ -33,9 +33,8 @@ public class Bindings {
     public let differentiator: Differentiator
     public let mutationApplier: UIKitMutationApplier
 
-    /// The registered JS event handler, called for Native -> JS event dispatch.
-    /// Set via $$registerEventHandler. Protected via engine.protect().
-    var eventHandler: JSValueRef?
+    /// Handles event dispatch between native UIKit views and the JS runtime.
+    let eventDispatcher: EventDispatcher
 
     /// Whether native commit timing collection is enabled (toggled by JS via $$setNativeTracingEnabled).
     var nativeTracingEnabled = false
@@ -102,13 +101,14 @@ public class Bindings {
         self.viewRegistry = ViewRegistry()
         self.differentiator = Differentiator()
         self.mutationApplier = UIKitMutationApplier(viewRegistry: viewRegistry)
+        self.eventDispatcher = EventDispatcher(engine: engine, viewRegistry: viewRegistry)
 
         registerBindingFunctions()
         registerEventPriorityConstants()
 
         // Wire event dispatcher after init to avoid capturing self before initialization
         self.mutationApplier.dispatchEvent = { [weak self] view, eventType, payload in
-            self?.dispatchEvent(from: view, eventType: eventType, payload: payload)
+            self?.eventDispatcher.dispatchEvent(from: view, eventType: eventType, payload: payload)
         }
     }
 
@@ -203,94 +203,6 @@ public class Bindings {
         // render size) so the proxy can map click coordinates correctly.
         let message = "{\"type\":\"screenshot-data\",\"data\":\"\(base64)\",\"width\":\(pixelWidth),\"height\":\(pixelHeight),\"scale\":\(Int(scale))}"
         sendInspectorMessage?(message)
-    }
-
-    // MARK: - DevTools Touch Dispatch
-
-    /// Dispatches a synthetic tap at a point in window coordinates.
-    /// Called from the DevTools screencast when the user clicks on the preview.
-    public func dispatchTouchAtWindowPoint(x: Double, y: Double) {
-        let windowPoint = CGPoint(x: x, y: y)
-
-        guard let window = UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene })
-            .first?.windows.first else {
-            return
-        }
-
-        // Hit test from the window — UIKit finds the right view regardless
-        // of whether it's in a nav bar, tab bar, scroll view, etc.
-        guard let hitView = window.hitTest(windowPoint, with: nil) else {
-            return
-        }
-
-        // Find the nearest UIControl (UIButton, _UIButtonBarButton, etc.)
-        // and fire its primary action. This handles nav bar buttons, tab bar
-        // items, and any other UIControl subclass.
-        var controlSearch: UIView? = hitView
-        while let view = controlSearch {
-            if let control = view as? UIControl {
-                control.sendActions(for: .touchUpInside)
-                return
-            }
-            controlSearch = view.superview
-        }
-
-        // UITextField: focus it
-        if hitView is UITextField {
-            hitView.becomeFirstResponder()
-            return
-        }
-
-        // React-managed views: walk up dispatching click events (event bubbling)
-        var current: UIView? = hitView
-        while let view = current {
-            if let family = viewRegistry.family(for: view),
-               family.hasClickHandler {
-                dispatchEvent(from: view, eventType: "click", payload: ["_nativeTimestamp": CACurrentMediaTime() * 1000])
-            }
-            current = view.superview
-        }
-    }
-
-    // MARK: - Event Dispatch (Native -> JS)
-
-    /// Dispatches a native event to the JS event handler. Called from UIKit
-    /// event handlers (tap gesture recognizers, scroll delegates, etc.).
-    ///
-    /// - Parameters:
-    ///   - view: The UIView that received the event.
-    ///   - eventType: The event type string (e.g. "click", "scroll", "change").
-    ///   - payload: The event payload dictionary.
-    public func dispatchEvent(
-        from view: UIView,
-        eventType: String,
-        payload: [String: Any]
-    ) {
-        // 1. Look up the ShadowNodeFamily for this view
-        guard let family = viewRegistry.family(for: view) else {
-            // View not in registry - possibly already unmounted. Silently drop.
-            return
-        }
-
-        // 2. Get the InstanceHandle from the family
-        guard let instanceHandle = family.instanceHandle else {
-            // InstanceHandle was GC'd - node is unmounted. Silently drop.
-            return
-        }
-
-        // 3. Get the registered event handler
-        guard let handler = eventHandler else {
-            print("[react-dom-native] Warning: No event handler registered")
-            return
-        }
-
-        // 4. Call handler(instanceHandle, eventType, payload)
-        _ = engine.callFunction(handler, args: [
-            instanceHandle,
-            engine.makeString(eventType),
-            engine.wrapNativeObject(payload as NSDictionary)
-        ])
     }
 
     // MARK: - DevTools

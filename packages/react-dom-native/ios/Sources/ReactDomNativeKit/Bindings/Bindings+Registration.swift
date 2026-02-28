@@ -973,12 +973,7 @@ extension Bindings {
         engine.setGlobalFunction("$$registerEventHandler") { [weak self, weak engine] args in
             guard let self = self, let engine = engine else { return nil }
             let handler = args[0]
-            engine.protect(handler)
-            // Unprotect the old handler if there was one
-            if let oldHandler = self.eventHandler {
-                engine.unprotect(oldHandler)
-            }
-            self.eventHandler = handler
+            self.eventDispatcher.registerEventHandler(handler)
             return nil
         }
     }
