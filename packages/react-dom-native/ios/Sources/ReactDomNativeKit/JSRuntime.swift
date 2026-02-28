@@ -14,13 +14,6 @@ public class JSRuntime {
     // CDP Profiler state
     private var profilerStartTime: Double = 0
 
-    // WebSocket management (DEBUG only — used by DevTools WebSocket polyfill)
-    #if DEBUG
-    private var webSockets: [Int: URLSessionWebSocketTask] = [:]
-    private var webSocketSessions: [Int: URLSession] = [:]
-    private var webSocketDelegates: [Int: WebSocketBridgeDelegate] = [:]
-    #endif
-
     public init() {
         let eng = JavaScriptCoreEngine()
         engine = eng
@@ -142,11 +135,6 @@ public class JSRuntime {
 
         // Register ReadableStream polyfill (must be before bundle evaluation)
         setupReadableStreamPolyfill()
-
-        // Register WebSocket bridge functions for JS polyfill (DevTools, etc.)
-        #if DEBUG
-        setupWebSocketBridge()
-        #endif
     }
 
     private func setupPerformancePolyfill() {
@@ -1026,119 +1014,6 @@ public class JSRuntime {
         return result
     }
 
-    // MARK: - WebSocket Bridge (DEBUG only)
-
-    #if DEBUG
-    private func setupWebSocketBridge() {
-        // $$nativeWSOpen(id, url) — creates a URLSessionWebSocketTask and connects
-        engine.setGlobalFunction("$$nativeWSOpen") { [weak self] args in
-            guard let self = self else { return nil }
-            guard args.count >= 2 else { return nil }
-            let id = self.engine.toInt(args[0]) ?? 0
-            let url = self.engine.toString(args[1]) ?? ""
-            guard let wsURL = URL(string: url) else { return nil }
-
-            let delegate = WebSocketBridgeDelegate(id: id, engine: self.engine, runtime: self)
-            let session = URLSession(
-                configuration: .default,
-                delegate: delegate,
-                delegateQueue: .main
-            )
-            let task = session.webSocketTask(with: wsURL)
-
-            self.webSockets[id] = task
-            self.webSocketSessions[id] = session
-            self.webSocketDelegates[id] = delegate
-
-            task.resume()
-            return nil
-        }
-
-        // $$nativeWSSend(id, data) — sends a string message
-        engine.setGlobalFunction("$$nativeWSSend") { [weak self] args in
-            guard let self = self else { return nil }
-            guard args.count >= 2 else { return nil }
-            let id = self.engine.toInt(args[0]) ?? 0
-            let data = self.engine.toString(args[1]) ?? ""
-            self.webSockets[id]?.send(.string(data)) { error in
-                if let error = error {
-                    print("[WebSocket] Send error (id=\(id)): \(error)")
-                }
-            }
-            return nil
-        }
-
-        // $$nativeWSClose(id) — closes the WebSocket connection
-        engine.setGlobalFunction("$$nativeWSClose") { [weak self] args in
-            guard let self = self else { return nil }
-            guard args.count >= 1 else { return nil }
-            let id = self.engine.toInt(args[0]) ?? 0
-            self.closeWebSocket(id: id)
-            return nil
-        }
-    }
-
-    /// Starts the receive loop for a WebSocket.
-    fileprivate func receiveWSMessage(id: Int) {
-        guard let task = webSockets[id] else { return }
-        task.receive { [weak self] result in
-            guard let self = self else { return }
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let message):
-                    let data: String
-                    switch message {
-                    case .string(let text): data = text
-                    case .data(let bytes): data = String(data: bytes, encoding: .utf8) ?? ""
-                    @unknown default: return
-                    }
-                    if let callback = self.engine.getGlobalProperty("$$nativeWSOnMessage") {
-                        _ = self.engine.callFunction(callback, args: [
-                            self.engine.makeNumber(Double(id)),
-                            self.engine.makeString(data),
-                        ])
-                    }
-                    // Continue receiving
-                    self.receiveWSMessage(id: id)
-
-                case .failure(let error):
-                    print("[WebSocket] Receive error (id=\(id)): \(error.localizedDescription)")
-                    if let callback = self.engine.getGlobalProperty("$$nativeWSOnError") {
-                        _ = self.engine.callFunction(callback, args: [
-                            self.engine.makeNumber(Double(id)),
-                            self.engine.makeString(error.localizedDescription),
-                        ])
-                    }
-                    if let callback = self.engine.getGlobalProperty("$$nativeWSOnClose") {
-                        _ = self.engine.callFunction(callback, args: [
-                            self.engine.makeNumber(Double(id)),
-                        ])
-                    }
-                    self.webSockets.removeValue(forKey: id)
-                    self.webSocketSessions.removeValue(forKey: id)
-                    self.webSocketDelegates.removeValue(forKey: id)
-                }
-            }
-        }
-    }
-
-    /// Closes and cleans up a WebSocket connection.
-    private func closeWebSocket(id: Int) {
-        webSockets[id]?.cancel(with: .goingAway, reason: nil)
-        webSockets.removeValue(forKey: id)
-        webSocketSessions[id]?.invalidateAndCancel()
-        webSocketSessions.removeValue(forKey: id)
-        webSocketDelegates.removeValue(forKey: id)
-    }
-
-    /// Closes all WebSocket connections (called during runtime cleanup).
-    func closeAllWebSockets() {
-        for id in webSockets.keys {
-            closeWebSocket(id: id)
-        }
-    }
-    #endif
-
     public func start(rootView: UIView) {
         // Register a surface for the root view
         bindings.registerSurface(surfaceId: 1, rootView: rootView)
@@ -1181,53 +1056,3 @@ public class JSRuntime {
         }
     }
 }
-
-// MARK: - WebSocket Bridge Delegate (DEBUG only)
-
-#if DEBUG
-/// URLSession delegate that fires JS callbacks for WebSocket lifecycle events.
-class WebSocketBridgeDelegate: NSObject, URLSessionWebSocketDelegate {
-    private let id: Int
-    private weak var engine: JSEngine?
-    private weak var runtime: JSRuntime?
-
-    init(id: Int, engine: JSEngine, runtime: JSRuntime) {
-        self.id = id
-        self.engine = engine
-        self.runtime = runtime
-    }
-
-    func urlSession(
-        _ session: URLSession,
-        webSocketTask: URLSessionWebSocketTask,
-        didOpenWithProtocol protocol: String?
-    ) {
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self, let engine = self.engine else { return }
-            if let callback = engine.getGlobalProperty("$$nativeWSOnOpen") {
-                _ = engine.callFunction(callback, args: [
-                    engine.makeNumber(Double(self.id)),
-                ])
-            }
-            // Start the receive loop now that the connection is open
-            self.runtime?.receiveWSMessage(id: self.id)
-        }
-    }
-
-    func urlSession(
-        _ session: URLSession,
-        webSocketTask: URLSessionWebSocketTask,
-        didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
-        reason: Data?
-    ) {
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self, let engine = self.engine else { return }
-            if let callback = engine.getGlobalProperty("$$nativeWSOnClose") {
-                _ = engine.callFunction(callback, args: [
-                    engine.makeNumber(Double(self.id)),
-                ])
-            }
-        }
-    }
-}
-#endif

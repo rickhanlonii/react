@@ -15,7 +15,6 @@
 // and `console.timeStamp` during its module initialization.
 if (__DEV__) {
   require('./devtools/ReactDevToolsSetup');         // Must be first — installs full DevTools hook + connects backend
-  require('./devtools/DevToolsHookShim');            // Fallback — sets __REACT_DEVTOOLS_GLOBAL_HOOK__ if not already set
   require('./devtools/RemoteObject');              // CDP Runtime $$ helpers ($$evaluateForCDP, etc.)
   require('./devtools/ReactDevToolsAgent');       // $$getComponentTree() for Fiber inspection
 }
