@@ -86,7 +86,8 @@ public class JSRuntime {
 
         // console.timeStamp — supports both standard single-arg form and
         // React's extended form: (name, start, end, track, trackGroup, color, properties)
-        // Calls native PerformanceTracer directly — no eng.evaluate() needed.
+        // React passes absolute timestamps (performance.timeOrigin + performance.now()),
+        // so we subtract timeOrigin to get relative timestamps for the tracer.
         let timeStampFn = eng.makeFunction { [weak eng] args in
             guard let eng = eng else { return nil }
             if args.count <= 1 {
@@ -95,8 +96,11 @@ public class JSRuntime {
             }
             guard perfTracer.isTracing else { return nil }
             let label = eng.toString(args[0]) ?? ""
-            let start = eng.toDouble(args[1]) ?? 0
-            let end = eng.toDouble(args[2]) ?? 0
+            let rawStart = eng.toDouble(args[1]) ?? 0
+            let rawEnd = eng.toDouble(args[2]) ?? 0
+            // Convert from absolute (timeOrigin + now()) to relative (now())
+            let start = rawStart - perfTracer.timeOrigin
+            let end = rawEnd - perfTracer.timeOrigin
             let track = eng.toString(args[3]) ?? ""
             let trackGroup = args.count > 4 && !eng.isUndefined(args[4])
                 ? eng.toString(args[4]) : nil
