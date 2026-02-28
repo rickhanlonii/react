@@ -79,13 +79,6 @@ extension Bindings {
 
             let nodeId = self.registerNode(node)
 
-            // Wire document polyfill when structural elements are created
-            if type == "html" || type == "head" {
-                if let wireDoc = engine.getGlobalProperty("$$wireDocumentStructure") {
-                    _ = engine.callFunction(wireDoc, args: [engine.makeString(type)])
-                }
-            }
-
             return engine.makeNumber(Double(nodeId))
         }
 

@@ -37,47 +37,16 @@ describe('Document polyfill', function () {
     expect(script.getAttribute('src')).toBe('http://localhost:6000/chunk.js');
   });
 
-  it('document.head is wired after rendering <head>', function () {
-    expect(document.head).toBeNull();
-
-    var root = Fantom.createRoot();
-    Fantom.runTask(function () {
-      root.render(
-        <html>
-          <head />
-          <body />
-        </html>,
-      );
-    });
-
+  it('document.head is available immediately', function () {
     expect(document.head).not.toBeNull();
     expect(typeof document.head.appendChild).toBe('function');
   });
 
-  it('document.documentElement is wired after rendering <html>', function () {
-    var root = Fantom.createRoot();
-    Fantom.runTask(function () {
-      root.render(
-        <html>
-          <body />
-        </html>,
-      );
-    });
-
+  it('document.documentElement is available immediately', function () {
     expect(document.documentElement).not.toBeNull();
   });
 
   it('document.head.appendChild tracks scripts for getElementsByTagName dedup', function () {
-    var root = Fantom.createRoot();
-    Fantom.runTask(function () {
-      root.render(
-        <html>
-          <head />
-          <body />
-        </html>,
-      );
-    });
-
     // Create and append a script to head
     var script = document.createElement('script');
     script.src = 'http://localhost:99999/nonexistent-chunk.js';

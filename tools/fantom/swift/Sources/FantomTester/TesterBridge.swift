@@ -224,8 +224,6 @@ class TesterBridge {
         }
 
         let doc = eng.makeObject()
-        eng.setProperty(doc, "documentElement", eng.makeNull())
-        eng.setProperty(doc, "head", eng.makeNull())
         eng.setProperty(doc, "baseURI", eng.makeString(""))
         eng.setProperty(doc, "currentScript", eng.makeNull())
 
@@ -263,17 +261,11 @@ class TesterBridge {
 
         engine.setGlobalProperty("document", doc)
 
-        engine.setGlobalFunction("$$wireDocumentStructure") { [weak eng] args in
-            guard let eng = eng, args.count >= 1 else { return nil }
-            let type = eng.toString(args[0]) ?? ""
-            if type == "html" {
-                let htmlObj = eng.makeObject()
-                eng.setProperty(doc, "documentElement", htmlObj)
-            } else if type == "head" {
-                eng.setProperty(doc, "head", headWrapper)
-            }
-            return nil
-        }
+        // Eagerly wire document.documentElement and document.head — in a browser
+        // these are always available, they don't need React to create them.
+        let htmlObj = eng.makeObject()
+        eng.setProperty(doc, "documentElement", htmlObj)
+        eng.setProperty(doc, "head", headWrapper)
     }
 
     // MARK: - Node Creation
@@ -310,13 +302,6 @@ class TesterBridge {
             }
 
             let nodeId = self.registerNode(node)
-
-            // Wire document polyfill when structural elements are created
-            if type == "html" || type == "head" {
-                if let wireDoc = engine.getGlobalProperty("$$wireDocumentStructure") {
-                    _ = engine.callFunction(wireDoc, args: [engine.makeString(type)])
-                }
-            }
 
             return engine.makeNumber(Double(nodeId))
         }

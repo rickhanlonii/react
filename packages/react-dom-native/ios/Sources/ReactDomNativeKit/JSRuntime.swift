@@ -1021,9 +1021,6 @@ public class JSRuntime {
         // --- document object ---
         let doc = eng.makeObject()
 
-        // Initially null — wired to real shadow nodes when tree is created
-        eng.setProperty(doc, "documentElement", eng.makeNull())
-        eng.setProperty(doc, "head", eng.makeNull())
         eng.setProperty(doc, "baseURI", eng.makeString(""))
         eng.setProperty(doc, "currentScript", eng.makeNull())
 
@@ -1104,18 +1101,11 @@ public class JSRuntime {
 
         engine.setGlobalProperty("document", doc)
 
-        // --- Wiring function called by Bindings when <html>/<head> are created ---
-        engine.setGlobalFunction("$$wireDocumentStructure") { [weak eng] args in
-            guard let eng = eng, args.count >= 1 else { return nil }
-            let type = eng.toString(args[0]) ?? ""
-            if type == "html" {
-                let htmlObj = eng.makeObject()
-                eng.setProperty(doc, "documentElement", htmlObj)
-            } else if type == "head" {
-                eng.setProperty(doc, "head", headWrapper)
-            }
-            return nil
-        }
+        // Eagerly wire document.documentElement and document.head — in a browser
+        // these are always available, they don't need React to create them.
+        let htmlObj = eng.makeObject()
+        eng.setProperty(doc, "documentElement", htmlObj)
+        eng.setProperty(doc, "head", headWrapper)
     }
 
     /// Schedules recurring interval execution. Extracted as a method to avoid
