@@ -14,9 +14,8 @@
 // DevTools polyfills must load BEFORE React so React detects `performance`
 // and `console.timeStamp` during its module initialization.
 if (__DEV__) {
-  require('./devtools/ReactDevToolsSetup');         // Must be first — installs full DevTools hook + connects backend
+  require('./devtools/ReactDevToolsSetup');         // Must be first — installs full DevTools hook
   require('./devtools/RemoteObject');              // CDP Runtime $$ helpers ($$evaluateForCDP, etc.)
-  require('./devtools/ReactDevToolsAgent');       // $$getComponentTree() for Fiber inspection
 }
 
 // ---------------------------------------------------------------------------
