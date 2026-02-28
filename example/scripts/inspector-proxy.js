@@ -153,7 +153,7 @@ function createTracingDomain(targetId, screenshotCapture) {
             if (pendingTraceResolve === resolve) {
               log('Tracing', 'TIMEOUT — no trace data from app after 5s');
               pendingTraceResolve = null;
-              resolve([]);
+              resolve({ events: [], tracingStartTs: 0 });
             }
           }, 5000);
         });
@@ -233,7 +233,7 @@ function createNodeTracingDomain(targetId, screenshotCapture) {
             if (pendingTraceResolve === resolve) {
               log('NodeTracing', 'TIMEOUT — no trace data from app after 5s');
               pendingTraceResolve = null;
-              resolve([]);
+              resolve({ events: [], tracingStartTs: 0 });
             }
           }, 5000);
         });
@@ -784,15 +784,17 @@ function createPageDomain(targetId, getSendToApp) {
         var loaderId = targetId + '-' + Date.now();
 
         if (navUrl === 'about:blank') {
-          // Chrome sends navigate(about:blank) as its "Reload and Profile"
-          // trigger. We need to:
-          //   1. Immediately acknowledge about:blank (so Chrome doesn't fail)
-          //   2. Trigger the actual app reload
-          //   3. After reload completes, emit file:// lifecycle events
-          log('Page', 'navigate(about:blank) — acknowledging + triggering reload');
-          var reloadLoaderId = targetId + '-reload-' + Date.now();
+          // Chrome sends navigate(about:blank) as the first step of
+          // "Start profiling and reload page". It follows this with
+          // Page.reload which triggers the actual app reload.
+          // We clear the screen here (like navigating to a blank page)
+          // but don't trigger a full reload — Page.reload handles that.
+          log('Page', 'navigate(about:blank) — clearing screen');
+          if (ctx.sendToApp) {
+            ctx.sendToApp(JSON.stringify({type: 'clear'}));
+          }
 
-          // 1. Quickly acknowledge about:blank navigation
+          // Acknowledge about:blank navigation immediately
           setTimeout(function () {
             var ts = Date.now() / 1000;
             ctx.sendCDP(ctx.ws, {
@@ -821,43 +823,6 @@ function createPageDomain(targetId, getSendToApp) {
               params: {frameId: targetId},
             });
           }, 50);
-
-          // 2. Trigger actual app reload (slightly after about:blank ack)
-          setTimeout(function () {
-            if (ctx.sendToApp) {
-              ctx.sendToApp(JSON.stringify({type: 'reload'}));
-            }
-          }, 100);
-
-          // 3. After reload completes, emit real page lifecycle events
-          setTimeout(function () {
-            var ts = Date.now() / 1000;
-            ctx.sendCDP(ctx.ws, {
-              method: 'Page.frameNavigated',
-              params: {
-                frame: {
-                  id: targetId,
-                  loaderId: reloadLoaderId,
-                  url: 'file://',
-                  domainAndRegistry: '',
-                  securityOrigin: 'file://',
-                  mimeType: 'text/html',
-                },
-              },
-            });
-            ctx.sendCDP(ctx.ws, {
-              method: 'Page.domContentEventFired',
-              params: {timestamp: ts},
-            });
-            ctx.sendCDP(ctx.ws, {
-              method: 'Page.loadEventFired',
-              params: {timestamp: ts},
-            });
-            ctx.sendCDP(ctx.ws, {
-              method: 'Page.frameStoppedLoading',
-              params: {frameId: targetId},
-            });
-          }, 1500);
 
           return {frameId: targetId, loaderId: loaderId};
         }

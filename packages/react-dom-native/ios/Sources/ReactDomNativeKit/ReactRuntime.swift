@@ -385,6 +385,15 @@ public class ReactRuntime {
 
     // MARK: - Reload
 
+    /// Clears all active surfaces (removes views) without destroying the runtime.
+    /// Used by DevTools for Page.navigate(about:blank) to visually clear the screen
+    /// before a subsequent Page.reload triggers the actual full reset.
+    public func clearAllSurfaces() {
+        for (_, info) in activeSurfaces {
+            info.container.subviews.forEach { $0.removeFromSuperview() }
+        }
+    }
+
     /// Reloads the JS bundle. Called by HotReloadClient on "reload" message.
     ///
     /// - Parameter fullReset: If true, destroys and recreates the JSContext.
@@ -554,13 +563,12 @@ public class ReactRuntime {
                 // immediately so the initial render is captured. The WebSocket
                 // reconnect would re-send start-tracing, but that arrives too
                 // late (after rendering completes).
-                print("[ReactRuntime] tracingActive = \(self.tracingActive)")
                 if self.tracingActive {
-                    print("[ReactRuntime] Starting tracer before rerender")
-                    let result = self.runtime?.engine.evaluate(
-                        "typeof __PERFORMANCE_TRACER__ !== 'undefined' ? (__PERFORMANCE_TRACER__.startTracing(), 'started:' + __PERFORMANCE_TRACER__.isTracing()) : 'no-tracer'"
-                    )
-                    print("[ReactRuntime] startTracing result: \(String(describing: result))")
+                    if let jsRuntime = self.runtime {
+                        jsRuntime.tracer.startTracing()
+                        jsRuntime.bindings.nativeTracingEnabled = true
+                        jsRuntime.bindings.pushPendingSSRCommitTimingsToJS()
+                    }
                 }
 
                 // 8. Let each Root re-render using its original mode (CSR or SSR+hydration)
@@ -692,6 +700,11 @@ public class ReactRuntime {
         )
         hotReloadClient = client
 
+        // On clear message, clear all surface views (DevTools about:blank)
+        client.onClear = { [weak self] in
+            self?.clearAllSurfaces()
+        }
+
         // On reload message, do a full reset (since we can't do
         // in-place fast refresh without knowing individual surface URLs)
         client.onReload = { [weak self] in
@@ -717,8 +730,12 @@ public class ReactRuntime {
             if let data = json.data(using: .utf8),
                let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let type = obj["type"] as? String {
-                if type == "start-tracing" { self?.tracingActive = true }
-                if type == "stop-tracing" { self?.tracingActive = false }
+                if type == "start-tracing" {
+                    self?.tracingActive = true
+                }
+                if type == "stop-tracing" {
+                    self?.tracingActive = false
+                }
 
                 // Handle dispatch-touch from DevTools screencast
                 if type == "dispatch-touch" {

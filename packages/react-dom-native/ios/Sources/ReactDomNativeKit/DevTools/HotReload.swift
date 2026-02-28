@@ -18,6 +18,10 @@ public class HotReloadClient {
     /// from the dev server (e.g. start-tracing, stop-tracing).
     public var onInspectorMessage: ((String) -> Void)?
 
+    /// Callback invoked on the main thread when a clear message arrives
+    /// (e.g. DevTools Page.navigate(about:blank) to blank the screen).
+    public var onClear: (() -> Void)?
+
     /// Callback invoked on the main thread when a reload message arrives.
     public var onReload: (() -> Void)?
 
@@ -134,6 +138,9 @@ public class HotReloadClient {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             switch type {
+            case "clear":
+                self.onClear?()
+
             case "reload":
                 print("[HotReload] Reloading JS bundle...")
                 self.onReload?()

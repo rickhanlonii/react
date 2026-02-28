@@ -624,6 +624,7 @@ public class Root {
             // Close the Flight response if hydration has committed
             if self.hydrationCommitted, let responseId = self.flightResponseId {
                 ReactRuntime.shared.closeFlightResponse(responseId: responseId)
+                self.flightResponseId = nil
             }
 
             // If hydrateRoot() was called before the stream finished,
@@ -1239,6 +1240,7 @@ public class Root {
         // If the SSR stream already completed, close the Flight response
         if self.ssrStreamComplete, let responseId = self.flightResponseId {
             ReactRuntime.shared.closeFlightResponse(responseId: responseId)
+            self.flightResponseId = nil
         }
 
         // Flush any reveals deferred during hydration
@@ -1278,7 +1280,6 @@ public class Root {
         ssrTreeBuilder = nil
         ssrBoundaryManager = nil
         ssrCoordinator = nil
-        flightResponseId = nil
 
         print("[ReactDomNativeKit] SSR state fully cleaned up")
     }
