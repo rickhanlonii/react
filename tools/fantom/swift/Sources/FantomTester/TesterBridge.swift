@@ -660,7 +660,7 @@ class TesterBridge {
 
             // Create the SSR pipeline components
             let treeBuilder = ShadowTreeBuilder(surfaceId: surfaceId)
-            let boundaryManager = BoundaryManager(treeBuilder: treeBuilder)
+            let boundaryManager = BoundaryManager()
             let coordinator = TestSSRCoordinator(
                 treeBuilder: treeBuilder,
                 boundaryManager: boundaryManager
@@ -897,6 +897,10 @@ private class TestSSRCoordinator: InstructionStreamDelegate {
 
     func didReceiveClientRenderBoundary(id: Int, errorDigest: String?) {
         boundaryManager.clientRenderBoundary(id: id, errorDigest: errorDigest)
+    }
+
+    func didReceiveJavaScript(code: String) {
+        // No-op in tests
     }
 
     func didReceiveError(_ error: Error) {

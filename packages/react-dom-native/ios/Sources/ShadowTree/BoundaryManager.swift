@@ -27,12 +27,6 @@ public struct PendingBoundary {
     /// Nodes rendered as the real content (nil until segment arrives)
     public var contentNodes: [ShadowNodeWrapper]? = nil
 
-    /// Parent node in the tree where this boundary is inserted
-    public weak var parentNode: ShadowNodeWrapper?
-
-    /// Index among siblings where the boundary sits
-    public var insertionIndex: Int = 0
-
     /// Whether this boundary has been revealed
     public var isRevealed: Bool = false
 }
@@ -52,39 +46,20 @@ public class BoundaryManager {
     }
     private var contextStack: [BoundaryContext] = []
 
-    /// The tree builder to redirect output to
-    private weak var treeBuilder: ShadowTreeBuilder?
-
     /// Buffers: when inside a boundary, nodes go here instead of the main tree
     private var fallbackBuffers: [Int: [ShadowNodeWrapper]] = [:]
     private var segmentBuffers: [Int: [ShadowNodeWrapper]] = [:]
 
-    /// Callback for when a boundary is revealed and views need updating
-    public var onBoundaryRevealed: ((Int, [ShadowNodeWrapper], [ShadowNodeWrapper]) -> Void)?
-
     // MARK: - Initialization
 
-    public init(treeBuilder: ShadowTreeBuilder? = nil) {
-        self.treeBuilder = treeBuilder
-    }
+    public init() {}
 
     // MARK: - Public API
-
-    /// Whether we're currently inside a boundary context (fallback or segment).
-    public var isInsideBoundary: Bool {
-        return !contextStack.isEmpty
-    }
-
-    /// The current boundary context, if any.
-    public var currentBoundaryId: Int? {
-        return boundaryStack.last
-    }
 
     /// Begin a new Suspense boundary. Content after this until endBoundary
     /// is the fallback.
     public func beginBoundary(id: Int) {
-        var boundary = PendingBoundary(id: id)
-        boundary.insertionIndex = 0 // Will be set when inserted into tree
+        let boundary = PendingBoundary(id: id)
         boundaries[id] = boundary
         boundaryStack.append(id)
         contextStack.append(.fallback(id: id))
@@ -135,7 +110,7 @@ public class BoundaryManager {
             return
         }
 
-        guard let contentNodes = boundary.contentNodes else {
+        guard boundary.contentNodes != nil else {
             print("[BoundaryManager] Warning: revealBoundary called but no content for boundary \(id)")
             return
         }
@@ -143,8 +118,7 @@ public class BoundaryManager {
         boundary.isRevealed = true
         boundaries[id] = boundary
 
-        // Notify that views need updating
-        onBoundaryRevealed?(id, boundary.fallbackNodes, contentNodes)
+        // Notify that views need updating — SSRCoordinator handles this
     }
 
     /// Mark a boundary for client rendering (error case).
@@ -156,28 +130,6 @@ public class BoundaryManager {
     /// Get the current buffer to write nodes into (fallback, segment, or nil for main tree).
     public func currentBuffer() -> BoundaryContext? {
         return contextStack.last
-    }
-
-    /// Append a node to the current boundary context's buffer.
-    public func appendNode(_ node: ShadowNodeWrapper) {
-        guard let context = contextStack.last else { return }
-
-        switch context {
-        case .fallback(let id):
-            fallbackBuffers[id, default: []].append(node)
-        case .segment(let id):
-            segmentBuffers[id, default: []].append(node)
-        }
-    }
-
-    /// Check if a boundary has been registered.
-    public func hasBoundary(id: Int) -> Bool {
-        return boundaries[id] != nil
-    }
-
-    /// Get all pending (unrevealed) boundary IDs.
-    public var pendingBoundaryIds: [Int] {
-        return boundaries.filter { !$0.value.isRevealed }.map { $0.key }
     }
 
     /// Number of boundaries that have been revealed.

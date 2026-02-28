@@ -245,12 +245,6 @@ public class Bindings {
         #endif
     }
 
-    /// Removes the SSR tree for a surface. Called after the SSR stream completes
-    /// and all boundary retries have been processed.
-    public func cleanupSSRTree(surfaceId: Int) {
-        ssrTrees.removeValue(forKey: surfaceId)
-    }
-
     private func findSuspenseNodeByBoundaryId(_ boundaryId: Int, in nodes: [ShadowNodeWrapper]) -> ShadowNodeWrapper? {
         for node in nodes {
             if node.family.elementType == "#suspense",

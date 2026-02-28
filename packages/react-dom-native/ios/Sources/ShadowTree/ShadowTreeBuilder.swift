@@ -39,9 +39,6 @@ public class ShadowTreeBuilder {
     /// Surface ID for ShadowNodeFamily
     public let surfaceId: Int
 
-    /// Counter for generating unique node families
-    private var nextFamilyId: Int = 0
-
     /// Callback invoked when the root shell is complete and views are ready
     public var onRootComplete: (([ShadowNodeWrapper]) -> Void)?
 
@@ -436,65 +433,4 @@ public class ShadowTreeBuilder {
         }
     }
 
-}
-
-// MARK: - InstructionStreamDelegate Conformance
-
-extension ShadowTreeBuilder: InstructionStreamDelegate {
-
-    public func didReceiveOpenElement(type: String, props: [String: Any]) {
-        openElement(type: type, props: props)
-    }
-
-    public func didReceiveTextNode(text: String) {
-        textNode(text: text)
-    }
-
-    public func didReceiveCloseElement() {
-        closeElement()
-    }
-
-    public func didReceiveBeginBoundary(id: Int) {
-        // Handled by BoundaryManager
-    }
-
-    public func didReceiveEndBoundary() {
-        // Handled by BoundaryManager
-    }
-
-    public func didReceiveBeginSegment(id: Int) {
-        // Handled by BoundaryManager
-    }
-
-    public func didReceiveEndSegment() {
-        // Handled by BoundaryManager
-    }
-
-    public func didReceiveRevealBoundary(id: Int) {
-        // Handled by BoundaryManager
-    }
-
-    public func didReceiveRootComplete() {
-        rootComplete()
-    }
-
-    public func didReceivePlaceholder(id: Int) {
-        // Placeholder for pending segment — handled by BoundaryManager
-    }
-
-    public func didReceiveFlightData(row: String) {
-        // Buffered for hydration — handled by the SSR coordinator
-    }
-
-    public func didReceiveClientRenderBoundary(id: Int, errorDigest: String?) {
-        // Handled by BoundaryManager
-    }
-
-    public func didReceiveJavaScript(code: String) {
-        // Handled by SSRCoordinator
-    }
-
-    public func didReceiveError(_ error: Error) {
-        print("[ShadowTreeBuilder] Parse error: \(error)")
-    }
 }

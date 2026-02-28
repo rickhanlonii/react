@@ -84,14 +84,11 @@ public class Differentiator {
                 // Check if props or layout changed (identity comparison is
                 // sufficient because nodes are immutable).
                 if oldChild !== newChild {
-                    print("[Diff] MATCHED family \(familyKey) <\(newChild.family.elementType)> — old !== new → UPDATE")
                     mutations.append(.update(
                         node: newChild,
                         oldProps: oldChild.props,
                         newProps: newChild.props
                     ))
-                } else {
-                    print("[Diff] MATCHED family \(familyKey) <\(newChild.family.elementType)> — same identity, skip")
                 }
 
                 // Recursively diff children of this node.
@@ -105,7 +102,6 @@ public class Differentiator {
                 mutations.append(contentsOf: childMutations)
             } else {
                 // New node — create and insert.
-                print("[Diff] NEW family \(familyKey) <\(newChild.family.elementType)> — no match in old tree → CREATE+INSERT")
                 mutations.append(.create(node: newChild))
                 if let parentNode = parent {
                     mutations.append(.insert(
@@ -133,7 +129,6 @@ public class Differentiator {
         for oldChild in oldChildren {
             let familyKey = ObjectIdentifier(oldChild.family)
             if !matchedFamilies.contains(familyKey) {
-                print("[Diff] UNMATCHED old family \(familyKey) <\(oldChild.family.elementType)> — not in new tree → REMOVE+DELETE")
                 let nodeStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
                 if let parentNode = parent {
                     mutations.append(.remove(

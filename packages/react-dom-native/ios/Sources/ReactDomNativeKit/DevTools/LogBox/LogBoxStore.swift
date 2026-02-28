@@ -81,11 +81,6 @@ public class LogBoxStore {
         }
     }
 
-    public func dismiss(_ id: UUID) {
-        entries.removeAll { $0.id == id }
-        onUpdate?()
-    }
-
     public func clearAll() {
         entries.removeAll()
         onUpdate?()

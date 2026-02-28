@@ -355,7 +355,7 @@ public class Root {
             viewportHeight: Float(container.bounds.height > 0 ? container.bounds.height : 844)
         )
 
-        let boundaryManager = BoundaryManager(treeBuilder: treeBuilder)
+        let boundaryManager = BoundaryManager()
         let parser = InstructionStreamParser()
 
         // Set up the SSR coordinator as the delegate
@@ -677,7 +677,7 @@ public class Root {
             viewportHeight: Float(container.bounds.height > 0 ? container.bounds.height : 844)
         )
 
-        let boundaryManager = BoundaryManager(treeBuilder: treeBuilder)
+        let boundaryManager = BoundaryManager()
         let parser = InstructionStreamParser()
 
         let coordinator = SSRCoordinator(
