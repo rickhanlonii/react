@@ -1,10 +1,10 @@
 'use strict';
 
 // ---------------------------------------------------------------------------
-// CDP RemoteObject serialization
+// CDP Runtime helpers — registered as $$ globals for Swift to call
 //
-// Converts JS values to CDP Runtime.RemoteObject format.
-// Shared by RuntimeAgent (evaluate/getProperties) and ConsoleForwarding.
+// Swift dispatches CDP requests directly and calls these helpers for
+// Runtime domain methods that require live JS value introspection.
 // ---------------------------------------------------------------------------
 
 var objectStore = {};
@@ -14,22 +14,6 @@ function storeObject(value) {
   var id = 'obj-' + nextObjectId++;
   objectStore[id] = value;
   return id;
-}
-
-function getStoredObject(id) {
-  return objectStore[id];
-}
-
-function hasStoredObject(id) {
-  return id in objectStore;
-}
-
-function releaseObject(id) {
-  delete objectStore[id];
-}
-
-function releaseAll() {
-  objectStore = {};
 }
 
 function toRemoteObject(value) {
@@ -136,34 +120,147 @@ function toRemoteObject(value) {
   return result;
 }
 
-// Parse a JSC Error().stack string into CDP StackTrace
-function parseStackTrace(stack) {
-  if (!stack) return {callFrames: []};
-  var lines = stack.split('\n');
-  var frames = [];
-  for (var i = 0; i < lines.length; i++) {
-    var line = lines[i].trim();
-    // JSC stack format: "functionName@file:line:col" or "@file:line:col"
-    var match = line.match(/^(.*)@(.*):(\d+):(\d+)$/);
-    if (match) {
-      frames.push({
-        functionName: match[1] || '',
-        scriptId: '0',
-        url: match[2] || '',
-        lineNumber: parseInt(match[3], 10) - 1, // CDP is 0-based
-        columnNumber: parseInt(match[4], 10) - 1,
-      });
-    }
-  }
-  return {callFrames: frames};
-}
+// ---------------------------------------------------------------------------
+// $$ globals — called by Swift CDP dispatch
+// ---------------------------------------------------------------------------
 
-module.exports = {
-  toRemoteObject: toRemoteObject,
-  storeObject: storeObject,
-  getStoredObject: getStoredObject,
-  hasStoredObject: hasStoredObject,
-  releaseObject: releaseObject,
-  releaseAll: releaseAll,
-  parseStackTrace: parseStackTrace,
+// Evaluate expression and return CDP result (1 JS crossing)
+globalThis.$$evaluateForCDP = function $$evaluateForCDP(expression, returnByValue) {
+  try {
+    var value = (0, eval)(expression);
+    var result = {result: toRemoteObject(value)};
+    if (returnByValue && typeof value === 'object' && value !== null) {
+      try {
+        result.result = {type: typeof value, value: JSON.parse(JSON.stringify(value))};
+      } catch (e) {
+        // Fall through to objectId-based result
+      }
+    }
+    return result;
+  } catch (e) {
+    return {
+      result: toRemoteObject(undefined),
+      exceptionDetails: {
+        exceptionId: Date.now(),
+        text: String(e),
+        lineNumber: 0,
+        columnNumber: 0,
+        exception: toRemoteObject(e),
+      },
+    };
+  }
+};
+
+// Return CDP-formatted property list for a stored object (1 JS crossing)
+globalThis.$$getOwnProperties = function $$getOwnProperties(objectId, ownOnly) {
+  if (!(objectId in objectStore)) {
+    return {result: []};
+  }
+  var obj = objectStore[objectId];
+  var properties = [];
+
+  try {
+    var names = Object.getOwnPropertyNames(obj);
+    for (var i = 0; i < names.length; i++) {
+      var name = names[i];
+      try {
+        var descriptor = Object.getOwnPropertyDescriptor(obj, name);
+        var prop = {
+          name: name,
+          configurable: !!descriptor.configurable,
+          enumerable: !!descriptor.enumerable,
+          isOwn: true,
+        };
+        if ('value' in descriptor) {
+          prop.value = toRemoteObject(descriptor.value);
+          prop.writable = !!descriptor.writable;
+        }
+        if (descriptor.get) {
+          prop.get = toRemoteObject(descriptor.get);
+        }
+        if (descriptor.set) {
+          prop.set = toRemoteObject(descriptor.set);
+        }
+        properties.push(prop);
+      } catch (e) {
+        properties.push({
+          name: name,
+          value: toRemoteObject(undefined),
+          configurable: false,
+          enumerable: false,
+          isOwn: true,
+        });
+      }
+    }
+  } catch (e) {
+    // Non-inspectable object
+  }
+
+  if (!ownOnly) {
+    try {
+      var proto = Object.getPrototypeOf(obj);
+      if (proto !== null) {
+        properties.push({
+          name: '__proto__',
+          value: toRemoteObject(proto),
+          configurable: true,
+          enumerable: false,
+          isOwn: true,
+        });
+      }
+    } catch (e) {}
+  }
+
+  return {result: properties};
+};
+
+// Call function on a stored object (1 JS crossing)
+globalThis.$$callFunctionOn = function $$callFunctionOn(objectId, functionDeclaration, argsJson) {
+  if (!(objectId in objectStore)) {
+    return {result: toRemoteObject(undefined)};
+  }
+  var obj = objectStore[objectId];
+
+  try {
+    var fn = (0, eval)('(' + functionDeclaration + ')');
+    var args = [];
+    if (argsJson) {
+      var parsedArgs = typeof argsJson === 'string' ? JSON.parse(argsJson) : argsJson;
+      for (var i = 0; i < parsedArgs.length; i++) {
+        var arg = parsedArgs[i];
+        if ('objectId' in arg) {
+          args.push(objectStore[arg.objectId]);
+        } else if ('value' in arg) {
+          args.push(arg.value);
+        } else if ('unserializableValue' in arg) {
+          args.push((0, eval)(arg.unserializableValue));
+        } else {
+          args.push(undefined);
+        }
+      }
+    }
+    var result = fn.apply(obj, args);
+    return {result: toRemoteObject(result)};
+  } catch (e) {
+    return {
+      result: toRemoteObject(undefined),
+      exceptionDetails: {
+        exceptionId: Date.now(),
+        text: String(e),
+        lineNumber: 0,
+        columnNumber: 0,
+        exception: toRemoteObject(e),
+      },
+    };
+  }
+};
+
+// Release a stored object
+globalThis.$$releaseObject = function $$releaseObject(objectId) {
+  delete objectStore[objectId];
+};
+
+// Release all stored objects
+globalThis.$$releaseAllObjects = function $$releaseAllObjects() {
+  objectStore = {};
 };

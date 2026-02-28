@@ -11,6 +11,9 @@ public class JSRuntime {
     private var timers: [Int: DispatchWorkItem] = [:]
     private var nextTimerId = 1
 
+    // CDP Profiler state
+    private var profilerStartTime: Double = 0
+
     // WebSocket management (DEBUG only — used by DevTools WebSocket polyfill)
     #if DEBUG
     private var webSockets: [Int: URLSessionWebSocketTask] = [:]
@@ -352,9 +355,204 @@ public class JSRuntime {
                 }
 
             case "cdp-request":
-                // Forward CDP requests to the JS handler (RuntimeAgent, etc.)
-                if let cdpHandler = eng.getGlobalProperty("$$handleCDPRequest") {
-                    _ = eng.callFunction(cdpHandler, args: [eng.makeString(jsonString)])
+                // Dispatch CDP requests directly in Swift (no JS crossing for DOM/CSS/Profiler)
+                let domain = message["domain"] as? String ?? ""
+                let method = message["method"] as? String ?? ""
+                let params = message["params"] as? [String: Any] ?? [:]
+                let requestId = message["requestId"] as? String ?? ""
+
+                var cdpResult: [String: Any] = [:]
+
+                switch (domain, method) {
+                // --- DOM domain (direct Swift, 0 JS crossings) ---
+                case ("DOM", "enable"), ("DOM", "disable"):
+                    cdpResult = [:]
+                case ("DOM", "getDocument"):
+                    cdpResult = self.bindings.cdpGetDocumentTree(surfaceId: 0)
+                case ("DOM", "requestChildNodes"):
+                    cdpResult = [:]
+                case ("DOM", "getOuterHTML"):
+                    if let nodeId = params["nodeId"] as? Int {
+                        cdpResult = self.bindings.cdpGetOuterHTML(nodeId: nodeId)
+                    } else {
+                        cdpResult = ["outerHTML": ""]
+                    }
+                case ("DOM", "getPreviewHTML"):
+                    cdpResult = self.bindings.cdpGetPreviewHTML()
+                case ("DOM", "getBoxModel"):
+                    if let nodeId = params["nodeId"] as? Int {
+                        cdpResult = self.bindings.cdpGetBoxModel(nodeId: nodeId)
+                    } else {
+                        cdpResult = ["model": ["content": [0,0,0,0,0,0,0,0], "padding": [0,0,0,0,0,0,0,0], "border": [0,0,0,0,0,0,0,0], "margin": [0,0,0,0,0,0,0,0], "width": 0, "height": 0] as [String: Any]]
+                    }
+                case ("DOM", "highlightNode"):
+                    let nodeId = params["nodeId"] as? Int
+                        ?? params["backendNodeId"] as? Int
+                        ?? (params["highlightConfig"] as? [String: Any])?["nodeId"] as? Int
+                    if let nodeId = nodeId {
+                        self.bindings.cdpHighlightNode(nodeId: nodeId)
+                    }
+                    cdpResult = [:]
+                case ("DOM", "highlightRect"):
+                    cdpResult = [:]
+                case ("DOM", "hideHighlight"):
+                    self.bindings.cdpHideHighlight()
+                    cdpResult = [:]
+                case ("DOM", "querySelector"):
+                    cdpResult = ["nodeId": 0]
+                case ("DOM", "querySelectorAll"):
+                    cdpResult = ["nodeIds": [] as [Any]]
+                case ("DOM", "resolveNode"):
+                    let nodeId = params["nodeId"] as? Int ?? 0
+                    cdpResult = ["object": ["type": "object", "objectId": String(nodeId)]]
+                case ("DOM", "setInspectedNode"):
+                    if let nodeId = params["nodeId"] as? Int {
+                        self.bindings.cdpHighlightNode(nodeId: nodeId)
+                    }
+                    cdpResult = [:]
+                case ("DOM", "pushNodesByBackendIdsToFrontend"), ("DOM", "markUndoableState"):
+                    cdpResult = [:]
+
+                // --- CSS domain (direct Swift, 0 JS crossings) ---
+                case ("CSS", "enable"), ("CSS", "disable"):
+                    cdpResult = [:]
+                case ("CSS", "getComputedStyleForNode"):
+                    if let nodeId = params["nodeId"] as? Int {
+                        cdpResult = self.bindings.cdpGetComputedStyle(nodeId: nodeId)
+                    } else {
+                        cdpResult = ["computedStyle": [] as [Any]]
+                    }
+                case ("CSS", "getInlineStylesForNode"):
+                    if let nodeId = params["nodeId"] as? Int {
+                        let inlineStyle = self.bindings.cdpGetInlineStyle(nodeId: nodeId)
+                        cdpResult = ["inlineStyle": inlineStyle]
+                    } else {
+                        cdpResult = ["inlineStyle": ["cssProperties": [] as [Any], "shorthandEntries": [] as [Any]]]
+                    }
+                case ("CSS", "getMatchedStylesForNode"):
+                    var style: [String: Any] = ["cssProperties": [] as [Any], "shorthandEntries": [] as [Any]]
+                    if let nodeId = params["nodeId"] as? Int {
+                        style = self.bindings.cdpGetInlineStyle(nodeId: nodeId)
+                    }
+                    cdpResult = [
+                        "inlineStyle": style,
+                        "matchedCSSRules": [] as [Any],
+                        "pseudoElements": [] as [Any],
+                        "inherited": [] as [Any],
+                        "cssKeyframesRules": [] as [Any],
+                    ]
+                case ("CSS", "getMediaQueries"):
+                    cdpResult = ["medias": [] as [Any]]
+                case ("CSS", "getStyleSheetText"):
+                    cdpResult = ["text": ""]
+                case ("CSS", "getPlatformFontsForNode"):
+                    cdpResult = ["fonts": [] as [Any]]
+
+                // --- Profiler domain (direct Swift, 0 JS crossings) ---
+                case ("Profiler", "start"):
+                    self.profilerStartTime = CACurrentMediaTime() * 1_000_000
+                    cdpResult = [:]
+                case ("Profiler", "stop"):
+                    let endTime = CACurrentMediaTime() * 1_000_000
+                    cdpResult = ["profile": [
+                        "nodes": [[
+                            "id": 1,
+                            "callFrame": [
+                                "functionName": "(root)",
+                                "scriptId": "0",
+                                "url": "",
+                                "lineNumber": -1,
+                                "columnNumber": -1,
+                            ] as [String: Any],
+                            "children": [] as [Any],
+                        ] as [String: Any]],
+                        "startTime": self.profilerStartTime,
+                        "endTime": endTime,
+                        "samples": [] as [Any],
+                        "timeDeltas": [] as [Any],
+                    ] as [String: Any]]
+                case ("Profiler", "setSamplingInterval"):
+                    cdpResult = [:]
+
+                // --- Runtime domain (1 JS crossing for value introspection) ---
+                case ("Runtime", "evaluate"):
+                    let expression = params["expression"] as? String ?? ""
+                    let returnByValue = params["returnByValue"] as? Bool ?? false
+                    if let fn = eng.getGlobalProperty("$$evaluateForCDP") {
+                        let jsResult = eng.callFunction(fn, args: [eng.makeString(expression), eng.makeBool(returnByValue)])
+                        if let jsResult = jsResult, let dict = eng.toDictionary(jsResult) {
+                            cdpResult = dict
+                        } else {
+                            cdpResult = ["result": ["type": "undefined"]]
+                        }
+                    } else {
+                        cdpResult = ["result": ["type": "undefined"]]
+                    }
+                case ("Runtime", "getProperties"):
+                    let objectId = params["objectId"] as? String ?? ""
+                    let ownOnly = params["ownProperties"] as? Bool ?? false
+                    if let fn = eng.getGlobalProperty("$$getOwnProperties") {
+                        let jsResult = eng.callFunction(fn, args: [eng.makeString(objectId), eng.makeBool(ownOnly)])
+                        if let jsResult = jsResult, let dict = eng.toDictionary(jsResult) {
+                            cdpResult = dict
+                        } else {
+                            cdpResult = ["result": [] as [Any]]
+                        }
+                    } else {
+                        cdpResult = ["result": [] as [Any]]
+                    }
+                case ("Runtime", "callFunctionOn"):
+                    let objectId = params["objectId"] as? String ?? ""
+                    let fnDecl = params["functionDeclaration"] as? String ?? ""
+                    // Pass arguments as JSON string for the JS helper to parse
+                    var argsJson = "[]"
+                    if let arguments = params["arguments"] {
+                        if let data = try? JSONSerialization.data(withJSONObject: arguments),
+                           let str = String(data: data, encoding: .utf8) {
+                            argsJson = str
+                        }
+                    }
+                    if let fn = eng.getGlobalProperty("$$callFunctionOn") {
+                        let jsResult = eng.callFunction(fn, args: [eng.makeString(objectId), eng.makeString(fnDecl), eng.makeString(argsJson)])
+                        if let jsResult = jsResult, let dict = eng.toDictionary(jsResult) {
+                            cdpResult = dict
+                        } else {
+                            cdpResult = ["result": ["type": "undefined"]]
+                        }
+                    } else {
+                        cdpResult = ["result": ["type": "undefined"]]
+                    }
+                case ("Runtime", "releaseObject"):
+                    let objectId = params["objectId"] as? String ?? ""
+                    if let fn = eng.getGlobalProperty("$$releaseObject") {
+                        _ = eng.callFunction(fn, args: [eng.makeString(objectId)])
+                    }
+                    cdpResult = [:]
+                case ("Runtime", "releaseObjectGroup"):
+                    if let fn = eng.getGlobalProperty("$$releaseAllObjects") {
+                        _ = eng.callFunction(fn, args: [])
+                    }
+                    cdpResult = [:]
+                case ("Runtime", "getHeapUsage"):
+                    cdpResult = self.bindings.cdpGetMemoryUsage()
+                case ("Runtime", "globalLexicalScopeNames"):
+                    cdpResult = ["names": [] as [Any]]
+                case ("Runtime", "compileScript"):
+                    cdpResult = [:]
+
+                default:
+                    cdpResult = [:]
+                }
+
+                // Send CDP response directly from Swift
+                let cdpResponse: [String: Any] = [
+                    "type": "cdp-response",
+                    "requestId": requestId,
+                    "result": cdpResult,
+                ]
+                if let responseData = try? JSONSerialization.data(withJSONObject: cdpResponse),
+                   let responseString = String(data: responseData, encoding: .utf8) {
+                    self.bindings.sendInspectorMessage?(responseString)
                 }
 
             default:

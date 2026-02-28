@@ -533,7 +533,6 @@ public class Bindings {
         registerNetworking()
         registerHydrationTraversal()
         registerDevTools()
-        registerElementsInspector()
     }
 
     // MARK: - Node Creation
@@ -2048,381 +2047,6 @@ public class Bindings {
         _ = engine.callFunction(handler, args: [engine.makeString(json)])
     }
 
-    // MARK: - Elements Inspector (CDP DOM/CSS)
-
-    private func registerElementsInspector() {
-        // $$getDocumentTree(surfaceId) -> DOM.Node tree
-        // Walks currentTrees[surfaceId] and serializes each ShadowNodeWrapper
-        // into CDP DOM.Node format for the Chrome DevTools Elements tab.
-        engine.setGlobalFunction("$$getDocumentTree") { [weak self, weak engine] args in
-            guard let self = self, let engine = engine else { return nil }
-            let requestedId = engine.toInt(args[0]) ?? 0
-
-            // Find the tree: use requested surfaceId, or fall back to first available
-            let children: [ShadowNodeWrapper]?
-            if requestedId > 0, let tree = self.currentTrees[requestedId] {
-                children = tree
-            } else {
-                children = self.currentTrees.values.first(where: { !$0.isEmpty })
-                    ?? self.currentTrees.values.first
-            }
-
-            guard let children = children else {
-                return self.makeEmptyDocument(engine: engine)
-            }
-
-            // Build body children
-            var bodyChildren: [JSValueRef] = []
-            for child in children {
-                bodyChildren.append(contentsOf: self.serializeNodes(child, engine: engine))
-            }
-
-            // <body> node wrapping all root children
-            let bodyId = self.nextInspectorNodeId()
-            let bodyNode = engine.makeObject()
-            engine.setProperty(bodyNode, "nodeId", engine.makeNumber(Double(bodyId)))
-            engine.setProperty(bodyNode, "backendNodeId", engine.makeNumber(Double(bodyId)))
-            engine.setProperty(bodyNode, "nodeType", engine.makeNumber(1))
-            engine.setProperty(bodyNode, "nodeName", engine.makeString("BODY"))
-            engine.setProperty(bodyNode, "localName", engine.makeString("body"))
-            engine.setProperty(bodyNode, "nodeValue", engine.makeString(""))
-            engine.setProperty(bodyNode, "childNodeCount", engine.makeNumber(Double(bodyChildren.count)))
-            engine.setProperty(bodyNode, "children", engine.makeArray(bodyChildren))
-            engine.setProperty(bodyNode, "attributes", engine.makeArray([]))
-
-            // <head> node (empty, required by Chrome DevTools)
-            let headId = self.nextInspectorNodeId()
-            let headNode = engine.makeObject()
-            engine.setProperty(headNode, "nodeId", engine.makeNumber(Double(headId)))
-            engine.setProperty(headNode, "backendNodeId", engine.makeNumber(Double(headId)))
-            engine.setProperty(headNode, "nodeType", engine.makeNumber(1))
-            engine.setProperty(headNode, "nodeName", engine.makeString("HEAD"))
-            engine.setProperty(headNode, "localName", engine.makeString("head"))
-            engine.setProperty(headNode, "nodeValue", engine.makeString(""))
-            engine.setProperty(headNode, "childNodeCount", engine.makeNumber(0))
-            engine.setProperty(headNode, "children", engine.makeArray([]))
-            engine.setProperty(headNode, "attributes", engine.makeArray([]))
-
-            // <html> node wrapping head + body
-            let htmlId = self.nextInspectorNodeId()
-            let htmlNode = engine.makeObject()
-            engine.setProperty(htmlNode, "nodeId", engine.makeNumber(Double(htmlId)))
-            engine.setProperty(htmlNode, "backendNodeId", engine.makeNumber(Double(htmlId)))
-            engine.setProperty(htmlNode, "nodeType", engine.makeNumber(1))
-            engine.setProperty(htmlNode, "nodeName", engine.makeString("HTML"))
-            engine.setProperty(htmlNode, "localName", engine.makeString("html"))
-            engine.setProperty(htmlNode, "nodeValue", engine.makeString(""))
-            engine.setProperty(htmlNode, "childNodeCount", engine.makeNumber(2))
-            engine.setProperty(htmlNode, "children", engine.makeArray([headNode, bodyNode]))
-            engine.setProperty(htmlNode, "attributes", engine.makeArray([]))
-
-            // #document root
-            let docId = self.nextInspectorNodeId()
-            let doc = engine.makeObject()
-            engine.setProperty(doc, "nodeId", engine.makeNumber(Double(docId)))
-            engine.setProperty(doc, "backendNodeId", engine.makeNumber(Double(docId)))
-            engine.setProperty(doc, "nodeType", engine.makeNumber(9))
-            engine.setProperty(doc, "nodeName", engine.makeString("#document"))
-            engine.setProperty(doc, "localName", engine.makeString(""))
-            engine.setProperty(doc, "nodeValue", engine.makeString(""))
-            engine.setProperty(doc, "childNodeCount", engine.makeNumber(1))
-            engine.setProperty(doc, "children", engine.makeArray([htmlNode]))
-            engine.setProperty(doc, "documentURL", engine.makeString("falcon://app"))
-            engine.setProperty(doc, "baseURL", engine.makeString("falcon://app"))
-            engine.setProperty(doc, "xmlVersion", engine.makeString(""))
-
-            let result = engine.makeObject()
-            engine.setProperty(result, "root", doc)
-            return result
-        }
-
-        // $$getComputedStyle(nodeId) -> {computedStyle: [{name, value}, ...]}
-        // Reads Yoga computed layout values and visual style props.
-        engine.setGlobalFunction("$$getComputedStyle") { [weak self, weak engine] args in
-            guard let self = self, let engine = engine else { return nil }
-            guard let nodeId = engine.toInt(args[0]),
-                  let node = self.nodeRegistry[nodeId] else {
-                return engine.makeObject()
-            }
-
-            var properties: [(String, String)] = []
-            let yoga = node.yogaNode
-
-            // Layout computed values
-            let frame = node.layoutFrame
-            properties.append(("width", "\(frame.width)px"))
-            properties.append(("height", "\(frame.height)px"))
-            properties.append(("top", "\(frame.origin.y)px"))
-            properties.append(("left", "\(frame.origin.x)px"))
-
-            // Box model — margins
-            let marginTop = YGNodeLayoutGetMargin(yoga, .top)
-            let marginRight = YGNodeLayoutGetMargin(yoga, .right)
-            let marginBottom = YGNodeLayoutGetMargin(yoga, .bottom)
-            let marginLeft = YGNodeLayoutGetMargin(yoga, .left)
-            properties.append(("margin-top", self.formatPx(marginTop)))
-            properties.append(("margin-right", self.formatPx(marginRight)))
-            properties.append(("margin-bottom", self.formatPx(marginBottom)))
-            properties.append(("margin-left", self.formatPx(marginLeft)))
-
-            // Box model — padding
-            let paddingTop = YGNodeLayoutGetPadding(yoga, .top)
-            let paddingRight = YGNodeLayoutGetPadding(yoga, .right)
-            let paddingBottom = YGNodeLayoutGetPadding(yoga, .bottom)
-            let paddingLeft = YGNodeLayoutGetPadding(yoga, .left)
-            properties.append(("padding-top", self.formatPx(paddingTop)))
-            properties.append(("padding-right", self.formatPx(paddingRight)))
-            properties.append(("padding-bottom", self.formatPx(paddingBottom)))
-            properties.append(("padding-left", self.formatPx(paddingLeft)))
-
-            // Box model — border
-            let borderTop = YGNodeLayoutGetBorder(yoga, .top)
-            let borderRight = YGNodeLayoutGetBorder(yoga, .right)
-            let borderBottom = YGNodeLayoutGetBorder(yoga, .bottom)
-            let borderLeft = YGNodeLayoutGetBorder(yoga, .left)
-            properties.append(("border-top-width", self.formatPx(borderTop)))
-            properties.append(("border-right-width", self.formatPx(borderRight)))
-            properties.append(("border-bottom-width", self.formatPx(borderBottom)))
-            properties.append(("border-left-width", self.formatPx(borderLeft)))
-
-            // Yoga style enum values
-            properties.append(("display", self.displayToString(YGNodeStyleGetDisplay(yoga))))
-            properties.append(("position", self.positionToString(YGNodeStyleGetPositionType(yoga))))
-            properties.append(("flex-direction", self.flexDirectionToString(YGNodeStyleGetFlexDirection(yoga))))
-            properties.append(("justify-content", self.justifyToString(YGNodeStyleGetJustifyContent(yoga))))
-            properties.append(("align-items", self.alignToString(YGNodeStyleGetAlignItems(yoga))))
-            properties.append(("align-self", self.alignToString(YGNodeStyleGetAlignSelf(yoga))))
-            properties.append(("align-content", self.alignToString(YGNodeStyleGetAlignContent(yoga))))
-            properties.append(("flex-wrap", self.flexWrapToString(YGNodeStyleGetFlexWrap(yoga))))
-            properties.append(("overflow", self.overflowToString(YGNodeStyleGetOverflow(yoga))))
-
-            // Yoga numeric style values
-            let flexGrow = YGNodeStyleGetFlexGrow(yoga)
-            properties.append(("flex-grow", "\(flexGrow)"))
-            let flexShrink = YGNodeStyleGetFlexShrink(yoga)
-            properties.append(("flex-shrink", "\(flexShrink)"))
-            let flexBasis = YGNodeStyleGetFlexBasis(yoga)
-            properties.append(("flex-basis", self.formatYGValue(flexBasis)))
-
-            let gap = YGNodeStyleGetGap(yoga, .all)
-            if gap.unit != .undefined { properties.append(("gap", self.formatYGValue(gap))) }
-            let rowGap = YGNodeStyleGetGap(yoga, .row)
-            if rowGap.unit != .undefined { properties.append(("row-gap", self.formatYGValue(rowGap))) }
-            let columnGap = YGNodeStyleGetGap(yoga, .column)
-            if columnGap.unit != .undefined { properties.append(("column-gap", self.formatYGValue(columnGap))) }
-
-            // Visual properties from style dict
-            let style = node.props["style"] as? [String: Any] ?? [:]
-            let visualKeys = [
-                "color", "backgroundColor", "opacity",
-                "fontSize", "fontWeight", "fontFamily", "fontStyle",
-                "borderRadius", "borderColor", "borderStyle",
-                "textAlign", "textDecoration", "lineHeight"
-            ]
-            for key in visualKeys {
-                if let val = style[key] {
-                    let cssKey = self.camelToKebab(key)
-                    if let num = val as? NSNumber {
-                        let unitless: Set<String> = ["opacity", "font-weight", "line-height"]
-                        if unitless.contains(cssKey) {
-                            properties.append((cssKey, "\(num)"))
-                        } else {
-                            properties.append((cssKey, "\(num)px"))
-                        }
-                    } else {
-                        properties.append((cssKey, "\(val)"))
-                    }
-                }
-            }
-
-            // Serialize as CDP computedStyle array
-            var jsProps: [JSValueRef] = []
-            for (name, value) in properties {
-                let prop = engine.makeObject()
-                engine.setProperty(prop, "name", engine.makeString(name))
-                engine.setProperty(prop, "value", engine.makeString(value))
-                jsProps.append(prop)
-            }
-
-            let result = engine.makeObject()
-            engine.setProperty(result, "computedStyle", engine.makeArray(jsProps))
-            return result
-        }
-
-        // $$getInlineStyle(nodeId) -> {cssProperties: [{name, value}, ...], shorthandEntries: []}
-        // Returns the node's props.style as a CDP CSSStyle object.
-        engine.setGlobalFunction("$$getInlineStyle") { [weak self, weak engine] args in
-            guard let self = self, let engine = engine else { return nil }
-            guard let nodeId = engine.toInt(args[0]),
-                  let node = self.nodeRegistry[nodeId] else {
-                return engine.makeObject()
-            }
-
-            let style = node.props["style"] as? [String: Any] ?? [:]
-            var cssProps: [JSValueRef] = []
-            for (key, value) in style.sorted(by: { $0.key < $1.key }) {
-                let prop = engine.makeObject()
-                let cssKey = self.camelToKebab(key)
-                engine.setProperty(prop, "name", engine.makeString(cssKey))
-                if let num = value as? NSNumber {
-                    let unitless: Set<String> = [
-                        "opacity", "flex-grow", "flex-shrink", "z-index",
-                        "font-weight", "line-height", "order"
-                    ]
-                    if unitless.contains(cssKey) {
-                        engine.setProperty(prop, "value", engine.makeString("\(num)"))
-                    } else {
-                        engine.setProperty(prop, "value", engine.makeString("\(num)px"))
-                    }
-                } else {
-                    engine.setProperty(prop, "value", engine.makeString("\(value)"))
-                }
-                cssProps.append(prop)
-            }
-
-            let result = engine.makeObject()
-            engine.setProperty(result, "cssProperties", engine.makeArray(cssProps))
-            engine.setProperty(result, "shorthandEntries", engine.makeArray([]))
-            return result
-        }
-
-        // $$getOuterHTML(nodeId) -> {outerHTML: "<div ...>...</div>"}
-        // Reconstructs HTML from the shadow node for DevTools preview.
-        engine.setGlobalFunction("$$getOuterHTML") { [weak self, weak engine] args in
-            guard let self = self, let engine = engine else { return nil }
-            guard let nodeId = engine.toInt(args[0]),
-                  let node = self.nodeRegistry[nodeId] else {
-                let result = engine.makeObject()
-                engine.setProperty(result, "outerHTML", engine.makeString(""))
-                return result
-            }
-
-            let html = self.nodeToHTML(node)
-            let result = engine.makeObject()
-            engine.setProperty(result, "outerHTML", engine.makeString(html))
-            return result
-        }
-
-        // $$getBoxModel(nodeId) -> {model: {content, padding, border, margin, width, height}}
-        // Returns CDP BoxModel with quad coordinates for the element.
-        engine.setGlobalFunction("$$getBoxModel") { [weak self, weak engine] args in
-            guard let self = self, let engine = engine else { return nil }
-            guard let nodeId = engine.toInt(args[0]),
-                  let node = self.nodeRegistry[nodeId] else { return nil }
-
-            let yoga = node.yogaNode
-            let frame = node.layoutFrame
-
-            // Read box model insets from Yoga
-            let mt = CGFloat(self.nanToZero(YGNodeLayoutGetMargin(yoga, .top)))
-            let mr = CGFloat(self.nanToZero(YGNodeLayoutGetMargin(yoga, .right)))
-            let mb = CGFloat(self.nanToZero(YGNodeLayoutGetMargin(yoga, .bottom)))
-            let ml = CGFloat(self.nanToZero(YGNodeLayoutGetMargin(yoga, .left)))
-
-            let bt = CGFloat(self.nanToZero(YGNodeLayoutGetBorder(yoga, .top)))
-            let br = CGFloat(self.nanToZero(YGNodeLayoutGetBorder(yoga, .right)))
-            let bb = CGFloat(self.nanToZero(YGNodeLayoutGetBorder(yoga, .bottom)))
-            let bl = CGFloat(self.nanToZero(YGNodeLayoutGetBorder(yoga, .left)))
-
-            let pt = CGFloat(self.nanToZero(YGNodeLayoutGetPadding(yoga, .top)))
-            let pr = CGFloat(self.nanToZero(YGNodeLayoutGetPadding(yoga, .right)))
-            let pb = CGFloat(self.nanToZero(YGNodeLayoutGetPadding(yoga, .bottom)))
-            let pl = CGFloat(self.nanToZero(YGNodeLayoutGetPadding(yoga, .left)))
-
-            // Compute absolute position in screen (window) coordinates.
-            // This must match the screenshot coordinate system — converting to
-            // nil (window) includes the status bar offset, which the scroll
-            // view's content coordinates (used by the highlight overlay) do not.
-            var absX = frame.origin.x
-            var absY = frame.origin.y
-            if let view = self.viewRegistry.view(for: node.family) {
-                let absFrame = view.convert(view.bounds, to: nil)
-                absX = absFrame.origin.x
-                absY = absFrame.origin.y
-            }
-
-            let w = frame.width
-            let h = frame.height
-
-            // Margin quad (outermost)
-            let mx0 = absX - ml, my0 = absY - mt
-            let mx1 = absX + w + mr, my1 = absY + h + mb
-            let marginQuad = self.makeQuad([mx0, my0, mx1, my0, mx1, my1, mx0, my1], engine: engine)
-
-            // Border quad
-            let bx0 = absX, by0 = absY
-            let bx1 = absX + w, by1 = absY + h
-            let borderQuad = self.makeQuad([bx0, by0, bx1, by0, bx1, by1, bx0, by1], engine: engine)
-
-            // Padding quad
-            let px0 = absX + bl, py0 = absY + bt
-            let px1 = absX + w - br, py1 = absY + h - bb
-            let paddingQuad = self.makeQuad([px0, py0, px1, py0, px1, py1, px0, py1], engine: engine)
-
-            // Content quad (innermost)
-            let cx0 = px0 + pl, cy0 = py0 + pt
-            let cx1 = px1 - pr, cy1 = py1 - pb
-            let contentQuad = self.makeQuad([cx0, cy0, cx1, cy0, cx1, cy1, cx0, cy1], engine: engine)
-
-            let model = engine.makeObject()
-            engine.setProperty(model, "content", contentQuad)
-            engine.setProperty(model, "padding", paddingQuad)
-            engine.setProperty(model, "border", borderQuad)
-            engine.setProperty(model, "margin", marginQuad)
-            engine.setProperty(model, "width", engine.makeNumber(Double(w)))
-            engine.setProperty(model, "height", engine.makeNumber(Double(h)))
-
-            let result = engine.makeObject()
-            engine.setProperty(result, "model", model)
-            return result
-        }
-
-        // $$highlightNode(nodeId) -> void
-        // Draws a box model overlay on the UIView for the given node.
-        engine.setGlobalFunction("$$highlightNode") { [weak self, weak engine] args in
-            guard let self = self, let engine = engine else {
-                print("[Elements] $$highlightNode: self or engine nil")
-                return nil
-            }
-            guard let nodeId = engine.toInt(args[0]) else {
-                print("[Elements] $$highlightNode: no nodeId in args")
-                return nil
-            }
-            guard let node = self.nodeRegistry[nodeId] else {
-                print("[Elements] $$highlightNode: nodeId \(nodeId) not in registry (registry has \(self.nodeRegistry.count) nodes)")
-                return nil
-            }
-
-            let view = self.viewRegistry.view(for: node.family)
-            guard let targetView = view else {
-                print("[Elements] $$highlightNode: no view for node \(nodeId) (\(node.family.elementType))")
-                return nil
-            }
-
-            // Find the root view for this node's surface
-            let surfaceId = node.family.surfaceId
-            guard let rootView = self.rootViews[surfaceId] else {
-                print("[Elements] $$highlightNode: no rootView for surfaceId \(surfaceId)")
-                return nil
-            }
-
-            print("[Elements] $$highlightNode: highlighting node \(nodeId) (\(node.family.elementType)) in surface \(surfaceId)")
-
-            if self.highlightOverlay == nil {
-                self.highlightOverlay = ElementHighlightOverlay(rootView: rootView)
-            }
-            self.highlightOverlay?.highlight(node: node, view: targetView)
-
-            return nil
-        }
-
-        // $$hideHighlight() -> void
-        engine.setGlobalFunction("$$hideHighlight") { [weak self] _ in
-            self?.highlightOverlay?.hide()
-            return nil
-        }
-    }
-
     /// Counter for inspector-specific node IDs (document, body wrapper nodes).
     /// Shadow tree nodes use their nodeRegistry IDs directly.
     private var inspectorNodeIdCounter = 900000
@@ -2430,143 +2054,6 @@ public class Bindings {
     private func nextInspectorNodeId() -> Int {
         inspectorNodeIdCounter += 1
         return inspectorNodeIdCounter
-    }
-
-    private func makeEmptyDocument(engine: JSEngine) -> JSValueRef {
-        let bodyId = nextInspectorNodeId()
-        let bodyNode = engine.makeObject()
-        engine.setProperty(bodyNode, "nodeId", engine.makeNumber(Double(bodyId)))
-        engine.setProperty(bodyNode, "backendNodeId", engine.makeNumber(Double(bodyId)))
-        engine.setProperty(bodyNode, "nodeType", engine.makeNumber(1))
-        engine.setProperty(bodyNode, "nodeName", engine.makeString("BODY"))
-        engine.setProperty(bodyNode, "localName", engine.makeString("body"))
-        engine.setProperty(bodyNode, "nodeValue", engine.makeString(""))
-        engine.setProperty(bodyNode, "childNodeCount", engine.makeNumber(0))
-        engine.setProperty(bodyNode, "children", engine.makeArray([]))
-        engine.setProperty(bodyNode, "attributes", engine.makeArray([]))
-
-        let headId = nextInspectorNodeId()
-        let headNode = engine.makeObject()
-        engine.setProperty(headNode, "nodeId", engine.makeNumber(Double(headId)))
-        engine.setProperty(headNode, "backendNodeId", engine.makeNumber(Double(headId)))
-        engine.setProperty(headNode, "nodeType", engine.makeNumber(1))
-        engine.setProperty(headNode, "nodeName", engine.makeString("HEAD"))
-        engine.setProperty(headNode, "localName", engine.makeString("head"))
-        engine.setProperty(headNode, "nodeValue", engine.makeString(""))
-        engine.setProperty(headNode, "childNodeCount", engine.makeNumber(0))
-        engine.setProperty(headNode, "children", engine.makeArray([]))
-        engine.setProperty(headNode, "attributes", engine.makeArray([]))
-
-        let htmlId = nextInspectorNodeId()
-        let htmlNode = engine.makeObject()
-        engine.setProperty(htmlNode, "nodeId", engine.makeNumber(Double(htmlId)))
-        engine.setProperty(htmlNode, "backendNodeId", engine.makeNumber(Double(htmlId)))
-        engine.setProperty(htmlNode, "nodeType", engine.makeNumber(1))
-        engine.setProperty(htmlNode, "nodeName", engine.makeString("HTML"))
-        engine.setProperty(htmlNode, "localName", engine.makeString("html"))
-        engine.setProperty(htmlNode, "nodeValue", engine.makeString(""))
-        engine.setProperty(htmlNode, "childNodeCount", engine.makeNumber(2))
-        engine.setProperty(htmlNode, "children", engine.makeArray([headNode, bodyNode]))
-        engine.setProperty(htmlNode, "attributes", engine.makeArray([]))
-
-        let docId = nextInspectorNodeId()
-        let doc = engine.makeObject()
-        engine.setProperty(doc, "nodeId", engine.makeNumber(Double(docId)))
-        engine.setProperty(doc, "backendNodeId", engine.makeNumber(Double(docId)))
-        engine.setProperty(doc, "nodeType", engine.makeNumber(9))
-        engine.setProperty(doc, "nodeName", engine.makeString("#document"))
-        engine.setProperty(doc, "localName", engine.makeString(""))
-        engine.setProperty(doc, "nodeValue", engine.makeString(""))
-        engine.setProperty(doc, "childNodeCount", engine.makeNumber(1))
-        engine.setProperty(doc, "children", engine.makeArray([htmlNode]))
-        engine.setProperty(doc, "documentURL", engine.makeString("falcon://app"))
-        engine.setProperty(doc, "baseURL", engine.makeString("falcon://app"))
-        engine.setProperty(doc, "xmlVersion", engine.makeString(""))
-        let result = engine.makeObject()
-        engine.setProperty(result, "root", doc)
-        return result
-    }
-
-    /// Recursively serializes a ShadowNodeWrapper into CDP DOM.Node format.
-    /// Returns an array — normally one element, but #suspense nodes are
-    /// flattened so their children are inlined into the parent.
-    private func serializeNodes(_ node: ShadowNodeWrapper, engine: JSEngine) -> [JSValueRef] {
-        let elementType = node.family.elementType
-
-        // Skip #suspense wrapper nodes — inline their children instead
-        if elementType == "#suspense" {
-            var results: [JSValueRef] = []
-            for child in node.children {
-                results.append(contentsOf: serializeNodes(child, engine: engine))
-            }
-            return results
-        }
-
-        // Find this node's registry ID (reverse lookup)
-        var nodeId = 0
-        for (id, registeredNode) in nodeRegistry where registeredNode === node {
-            nodeId = id
-            break
-        }
-        if nodeId == 0 {
-            nodeId = registerNode(node)
-        }
-
-        let jsNode = engine.makeObject()
-        engine.setProperty(jsNode, "nodeId", engine.makeNumber(Double(nodeId)))
-        engine.setProperty(jsNode, "backendNodeId", engine.makeNumber(Double(nodeId)))
-
-        if elementType == "#text" {
-            // Text node
-            engine.setProperty(jsNode, "nodeType", engine.makeNumber(3))
-            engine.setProperty(jsNode, "nodeName", engine.makeString("#text"))
-            engine.setProperty(jsNode, "localName", engine.makeString(""))
-            engine.setProperty(jsNode, "nodeValue", engine.makeString(node.text ?? ""))
-            engine.setProperty(jsNode, "childNodeCount", engine.makeNumber(0))
-            engine.setProperty(jsNode, "children", engine.makeArray([]))
-        } else {
-            // Element node
-            engine.setProperty(jsNode, "nodeType", engine.makeNumber(1))
-            engine.setProperty(jsNode, "nodeName", engine.makeString(elementType.uppercased()))
-            engine.setProperty(jsNode, "localName", engine.makeString(elementType))
-            engine.setProperty(jsNode, "nodeValue", engine.makeString(""))
-
-            // Serialize attributes as flat [key, value, key, value, ...] array
-            var attrs: [JSValueRef] = []
-            for (key, value) in node.props {
-                if key == "style" {
-                    if let styleDict = value as? [String: Any] {
-                        let cssString = self.styleDictToCSS(styleDict)
-                        if !cssString.isEmpty {
-                            attrs.append(engine.makeString("style"))
-                            attrs.append(engine.makeString(cssString))
-                        }
-                    }
-                } else if key == "children" || key == "instanceHandle" {
-                    continue
-                } else if value is NSNull {
-                    continue
-                } else if let fn = value as? AnyObject, "\(type(of: fn))".contains("Function") {
-                    // Event handler — show as boolean marker
-                    attrs.append(engine.makeString(key))
-                    attrs.append(engine.makeString("true"))
-                } else {
-                    attrs.append(engine.makeString(key))
-                    attrs.append(engine.makeString("\(value)"))
-                }
-            }
-            engine.setProperty(jsNode, "attributes", engine.makeArray(attrs))
-
-            // Serialize children recursively (flattening #suspense)
-            var childNodes: [JSValueRef] = []
-            for child in node.children {
-                childNodes.append(contentsOf: self.serializeNodes(child, engine: engine))
-            }
-            engine.setProperty(jsNode, "childNodeCount", engine.makeNumber(Double(childNodes.count)))
-            engine.setProperty(jsNode, "children", engine.makeArray(childNodes))
-        }
-
-        return [jsNode]
     }
 
     /// Converts a style dictionary to a CSS-like string.
@@ -2659,10 +2146,6 @@ public class Bindings {
         return value.isNaN ? 0 : value
     }
 
-    private func makeQuad(_ values: [CGFloat], engine: JSEngine) -> JSValueRef {
-        return engine.makeArray(values.map { engine.makeNumber(Double($0)) })
-    }
-
     private func formatPx(_ value: Float) -> String {
         if value.isNaN { return "0px" }
         if value == Float(Int(value)) { return "\(Int(value))px" }
@@ -2749,5 +2232,395 @@ public class Bindings {
         case .scroll: return "scroll"
         default: return "visible"
         }
+    }
+
+    // MARK: - CDP Inspector Methods (Direct Swift)
+    //
+    // These methods return [String: Any] dictionaries for direct use by
+    // Swift CDP dispatch, avoiding JS↔Swift boundary crossings.
+
+    /// Returns the full CDP DOM.Node document tree for a surface.
+    func cdpGetDocumentTree(surfaceId: Int) -> [String: Any] {
+        let children: [ShadowNodeWrapper]?
+        if surfaceId > 0, let tree = currentTrees[surfaceId] {
+            children = tree
+        } else {
+            children = currentTrees.values.first(where: { !$0.isEmpty })
+                ?? currentTrees.values.first
+        }
+
+        guard let children = children else {
+            return makeEmptyDocumentDict()
+        }
+
+        var bodyChildren: [[String: Any]] = []
+        for child in children {
+            bodyChildren.append(contentsOf: serializeNodeToDict(child))
+        }
+
+        let bodyId = nextInspectorNodeId()
+        let headId = nextInspectorNodeId()
+        let htmlId = nextInspectorNodeId()
+        let docId = nextInspectorNodeId()
+
+        let bodyNode: [String: Any] = [
+            "nodeId": bodyId, "backendNodeId": bodyId,
+            "nodeType": 1, "nodeName": "BODY", "localName": "body", "nodeValue": "",
+            "childNodeCount": bodyChildren.count, "children": bodyChildren, "attributes": [] as [Any],
+        ]
+        let headNode: [String: Any] = [
+            "nodeId": headId, "backendNodeId": headId,
+            "nodeType": 1, "nodeName": "HEAD", "localName": "head", "nodeValue": "",
+            "childNodeCount": 0, "children": [] as [Any], "attributes": [] as [Any],
+        ]
+        let htmlNode: [String: Any] = [
+            "nodeId": htmlId, "backendNodeId": htmlId,
+            "nodeType": 1, "nodeName": "HTML", "localName": "html", "nodeValue": "",
+            "childNodeCount": 2, "children": [headNode, bodyNode], "attributes": [] as [Any],
+        ]
+        let doc: [String: Any] = [
+            "nodeId": docId, "backendNodeId": docId,
+            "nodeType": 9, "nodeName": "#document", "localName": "", "nodeValue": "",
+            "childNodeCount": 1, "children": [htmlNode],
+            "documentURL": "falcon://app", "baseURL": "falcon://app", "xmlVersion": "",
+        ]
+        return ["root": doc]
+    }
+
+    /// Returns CDP computedStyle for a node.
+    func cdpGetComputedStyle(nodeId: Int) -> [String: Any] {
+        guard let node = nodeRegistry[nodeId] else {
+            return ["computedStyle": [] as [Any]]
+        }
+
+        var properties: [[String: String]] = []
+        let yoga = node.yogaNode
+        let frame = node.layoutFrame
+
+        properties.append(["name": "width", "value": "\(frame.width)px"])
+        properties.append(["name": "height", "value": "\(frame.height)px"])
+        properties.append(["name": "top", "value": "\(frame.origin.y)px"])
+        properties.append(["name": "left", "value": "\(frame.origin.x)px"])
+
+        properties.append(["name": "margin-top", "value": formatPx(YGNodeLayoutGetMargin(yoga, .top))])
+        properties.append(["name": "margin-right", "value": formatPx(YGNodeLayoutGetMargin(yoga, .right))])
+        properties.append(["name": "margin-bottom", "value": formatPx(YGNodeLayoutGetMargin(yoga, .bottom))])
+        properties.append(["name": "margin-left", "value": formatPx(YGNodeLayoutGetMargin(yoga, .left))])
+
+        properties.append(["name": "padding-top", "value": formatPx(YGNodeLayoutGetPadding(yoga, .top))])
+        properties.append(["name": "padding-right", "value": formatPx(YGNodeLayoutGetPadding(yoga, .right))])
+        properties.append(["name": "padding-bottom", "value": formatPx(YGNodeLayoutGetPadding(yoga, .bottom))])
+        properties.append(["name": "padding-left", "value": formatPx(YGNodeLayoutGetPadding(yoga, .left))])
+
+        properties.append(["name": "border-top-width", "value": formatPx(YGNodeLayoutGetBorder(yoga, .top))])
+        properties.append(["name": "border-right-width", "value": formatPx(YGNodeLayoutGetBorder(yoga, .right))])
+        properties.append(["name": "border-bottom-width", "value": formatPx(YGNodeLayoutGetBorder(yoga, .bottom))])
+        properties.append(["name": "border-left-width", "value": formatPx(YGNodeLayoutGetBorder(yoga, .left))])
+
+        properties.append(["name": "display", "value": displayToString(YGNodeStyleGetDisplay(yoga))])
+        properties.append(["name": "position", "value": positionToString(YGNodeStyleGetPositionType(yoga))])
+        properties.append(["name": "flex-direction", "value": flexDirectionToString(YGNodeStyleGetFlexDirection(yoga))])
+        properties.append(["name": "justify-content", "value": justifyToString(YGNodeStyleGetJustifyContent(yoga))])
+        properties.append(["name": "align-items", "value": alignToString(YGNodeStyleGetAlignItems(yoga))])
+        properties.append(["name": "align-self", "value": alignToString(YGNodeStyleGetAlignSelf(yoga))])
+        properties.append(["name": "align-content", "value": alignToString(YGNodeStyleGetAlignContent(yoga))])
+        properties.append(["name": "flex-wrap", "value": flexWrapToString(YGNodeStyleGetFlexWrap(yoga))])
+        properties.append(["name": "overflow", "value": overflowToString(YGNodeStyleGetOverflow(yoga))])
+
+        properties.append(["name": "flex-grow", "value": "\(YGNodeStyleGetFlexGrow(yoga))"])
+        properties.append(["name": "flex-shrink", "value": "\(YGNodeStyleGetFlexShrink(yoga))"])
+        properties.append(["name": "flex-basis", "value": formatYGValue(YGNodeStyleGetFlexBasis(yoga))])
+
+        let gap = YGNodeStyleGetGap(yoga, .all)
+        if gap.unit != .undefined { properties.append(["name": "gap", "value": formatYGValue(gap)]) }
+        let rowGap = YGNodeStyleGetGap(yoga, .row)
+        if rowGap.unit != .undefined { properties.append(["name": "row-gap", "value": formatYGValue(rowGap)]) }
+        let columnGap = YGNodeStyleGetGap(yoga, .column)
+        if columnGap.unit != .undefined { properties.append(["name": "column-gap", "value": formatYGValue(columnGap)]) }
+
+        let style = node.props["style"] as? [String: Any] ?? [:]
+        let visualKeys = [
+            "color", "backgroundColor", "opacity",
+            "fontSize", "fontWeight", "fontFamily", "fontStyle",
+            "borderRadius", "borderColor", "borderStyle",
+            "textAlign", "textDecoration", "lineHeight"
+        ]
+        for key in visualKeys {
+            if let val = style[key] {
+                let cssKey = camelToKebab(key)
+                if let num = val as? NSNumber {
+                    let unitless: Set<String> = ["opacity", "font-weight", "line-height"]
+                    if unitless.contains(cssKey) {
+                        properties.append(["name": cssKey, "value": "\(num)"])
+                    } else {
+                        properties.append(["name": cssKey, "value": "\(num)px"])
+                    }
+                } else {
+                    properties.append(["name": cssKey, "value": "\(val)"])
+                }
+            }
+        }
+
+        return ["computedStyle": properties]
+    }
+
+    /// Returns CDP inline style for a node.
+    func cdpGetInlineStyle(nodeId: Int) -> [String: Any] {
+        guard let node = nodeRegistry[nodeId] else {
+            return ["cssProperties": [] as [Any], "shorthandEntries": [] as [Any]]
+        }
+
+        let style = node.props["style"] as? [String: Any] ?? [:]
+        var cssProps: [[String: String]] = []
+        for (key, value) in style.sorted(by: { $0.key < $1.key }) {
+            let cssKey = camelToKebab(key)
+            if let num = value as? NSNumber {
+                let unitless: Set<String> = [
+                    "opacity", "flex-grow", "flex-shrink", "z-index",
+                    "font-weight", "line-height", "order"
+                ]
+                if unitless.contains(cssKey) {
+                    cssProps.append(["name": cssKey, "value": "\(num)"])
+                } else {
+                    cssProps.append(["name": cssKey, "value": "\(num)px"])
+                }
+            } else {
+                cssProps.append(["name": cssKey, "value": "\(value)"])
+            }
+        }
+
+        return ["cssProperties": cssProps, "shorthandEntries": [] as [Any]]
+    }
+
+    /// Returns CDP outerHTML for a node.
+    func cdpGetOuterHTML(nodeId: Int) -> [String: Any] {
+        guard let node = nodeRegistry[nodeId] else {
+            return ["outerHTML": ""]
+        }
+        return ["outerHTML": nodeToHTML(node)]
+    }
+
+    /// Returns CDP box model for a node.
+    func cdpGetBoxModel(nodeId: Int) -> [String: Any] {
+        guard let node = nodeRegistry[nodeId] else {
+            return ["model": [
+                "content": [0,0,0,0,0,0,0,0], "padding": [0,0,0,0,0,0,0,0],
+                "border": [0,0,0,0,0,0,0,0], "margin": [0,0,0,0,0,0,0,0],
+                "width": 0, "height": 0,
+            ] as [String: Any]]
+        }
+
+        let yoga = node.yogaNode
+        let frame = node.layoutFrame
+
+        let mt = CGFloat(nanToZero(YGNodeLayoutGetMargin(yoga, .top)))
+        let mr = CGFloat(nanToZero(YGNodeLayoutGetMargin(yoga, .right)))
+        let mb = CGFloat(nanToZero(YGNodeLayoutGetMargin(yoga, .bottom)))
+        let ml = CGFloat(nanToZero(YGNodeLayoutGetMargin(yoga, .left)))
+
+        let bt = CGFloat(nanToZero(YGNodeLayoutGetBorder(yoga, .top)))
+        let br_ = CGFloat(nanToZero(YGNodeLayoutGetBorder(yoga, .right)))
+        let bb = CGFloat(nanToZero(YGNodeLayoutGetBorder(yoga, .bottom)))
+        let bl = CGFloat(nanToZero(YGNodeLayoutGetBorder(yoga, .left)))
+
+        let pt = CGFloat(nanToZero(YGNodeLayoutGetPadding(yoga, .top)))
+        let pr = CGFloat(nanToZero(YGNodeLayoutGetPadding(yoga, .right)))
+        let pb = CGFloat(nanToZero(YGNodeLayoutGetPadding(yoga, .bottom)))
+        let pl = CGFloat(nanToZero(YGNodeLayoutGetPadding(yoga, .left)))
+
+        var absX = frame.origin.x
+        var absY = frame.origin.y
+        if let view = viewRegistry.view(for: node.family) {
+            let absFrame = view.convert(view.bounds, to: nil)
+            absX = absFrame.origin.x
+            absY = absFrame.origin.y
+        }
+
+        let w = frame.width
+        let h = frame.height
+
+        let mx0 = absX - ml, my0 = absY - mt
+        let mx1 = absX + w + mr, my1 = absY + h + mb
+        let marginQuad = [mx0, my0, mx1, my0, mx1, my1, mx0, my1].map { Double($0) }
+
+        let bx0 = absX, by0 = absY
+        let bx1 = absX + w, by1 = absY + h
+        let borderQuad = [bx0, by0, bx1, by0, bx1, by1, bx0, by1].map { Double($0) }
+
+        let px0 = absX + bl, py0 = absY + bt
+        let px1 = absX + w - br_, py1 = absY + h - bb
+        let paddingQuad = [px0, py0, px1, py0, px1, py1, px0, py1].map { Double($0) }
+
+        let cx0 = px0 + pl, cy0 = py0 + pt
+        let cx1 = px1 - pr, cy1 = py1 - pb
+        let contentQuad = [cx0, cy0, cx1, cy0, cx1, cy1, cx0, cy1].map { Double($0) }
+
+        return ["model": [
+            "content": contentQuad, "padding": paddingQuad,
+            "border": borderQuad, "margin": marginQuad,
+            "width": Double(w), "height": Double(h),
+        ] as [String: Any]]
+    }
+
+    /// Highlights a node with the box model overlay.
+    func cdpHighlightNode(nodeId: Int) {
+        guard let node = nodeRegistry[nodeId] else { return }
+        guard let targetView = viewRegistry.view(for: node.family) else { return }
+        let surfaceId = node.family.surfaceId
+        guard let rootView = rootViews[surfaceId] else { return }
+
+        if highlightOverlay == nil {
+            highlightOverlay = ElementHighlightOverlay(rootView: rootView)
+        }
+        highlightOverlay?.highlight(node: node, view: targetView)
+    }
+
+    /// Hides the highlight overlay.
+    func cdpHideHighlight() {
+        highlightOverlay?.hide()
+    }
+
+    /// Returns process memory stats.
+    func cdpGetMemoryUsage() -> [String: Any] {
+        var info = mach_task_basic_info()
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size / MemoryLayout<natural_t>.size)
+        let result = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
+            }
+        }
+        if result == KERN_SUCCESS {
+            return ["usedSize": info.resident_size, "totalSize": info.virtual_size]
+        }
+        return ["usedSize": 0, "totalSize": 0]
+    }
+
+    /// Returns full body HTML for web preview rendering.
+    func cdpGetPreviewHTML() -> [String: Any] {
+        let docResult = cdpGetDocumentTree(surfaceId: 0)
+        guard let root = docResult["root"] as? [String: Any],
+              let rootChildren = root["children"] as? [[String: Any]],
+              let htmlNode = rootChildren.first,
+              let htmlChildren = htmlNode["children"] as? [[String: Any]],
+              htmlChildren.count > 1,
+              let bodyNode = htmlChildren.last,
+              let bodyChildren = bodyNode["children"] as? [[String: Any]] else {
+            return ["html": ""]
+        }
+
+        var parts: [String] = []
+        for child in bodyChildren {
+            if let childNodeId = child["nodeId"] as? Int {
+                let outerResult = cdpGetOuterHTML(nodeId: childNodeId)
+                if let outerHTML = outerResult["outerHTML"] as? String, !outerHTML.isEmpty {
+                    parts.append(outerHTML)
+                }
+            }
+        }
+        return ["html": parts.joined(separator: "\n")]
+    }
+
+    // MARK: - CDP Node Serialization (Dictionary)
+
+    /// Recursively serializes a ShadowNodeWrapper into CDP DOM.Node dict format.
+    /// Returns an array — normally one element, but #suspense nodes are flattened.
+    private func serializeNodeToDict(_ node: ShadowNodeWrapper) -> [[String: Any]] {
+        let elementType = node.family.elementType
+
+        if elementType == "#suspense" {
+            var results: [[String: Any]] = []
+            for child in node.children {
+                results.append(contentsOf: serializeNodeToDict(child))
+            }
+            return results
+        }
+
+        var nodeId = 0
+        for (id, registeredNode) in nodeRegistry where registeredNode === node {
+            nodeId = id
+            break
+        }
+        if nodeId == 0 {
+            nodeId = registerNode(node)
+        }
+
+        var jsNode: [String: Any]
+
+        if elementType == "#text" {
+            jsNode = [
+                "nodeId": nodeId, "backendNodeId": nodeId,
+                "nodeType": 3, "nodeName": "#text", "localName": "",
+                "nodeValue": node.text ?? "",
+                "childNodeCount": 0, "children": [] as [Any],
+            ]
+        } else {
+            var attrs: [String] = []
+            for (key, value) in node.props {
+                if key == "style" {
+                    if let styleDict = value as? [String: Any] {
+                        let cssString = styleDictToCSS(styleDict)
+                        if !cssString.isEmpty {
+                            attrs.append("style")
+                            attrs.append(cssString)
+                        }
+                    }
+                } else if key == "children" || key == "instanceHandle" {
+                    continue
+                } else if value is NSNull {
+                    continue
+                } else if let fn = value as? AnyObject, "\(type(of: fn))".contains("Function") {
+                    attrs.append(key)
+                    attrs.append("true")
+                } else {
+                    attrs.append(key)
+                    attrs.append("\(value)")
+                }
+            }
+
+            var childNodes: [[String: Any]] = []
+            for child in node.children {
+                childNodes.append(contentsOf: serializeNodeToDict(child))
+            }
+
+            jsNode = [
+                "nodeId": nodeId, "backendNodeId": nodeId,
+                "nodeType": 1, "nodeName": elementType.uppercased(), "localName": elementType,
+                "nodeValue": "",
+                "childNodeCount": childNodes.count, "children": childNodes, "attributes": attrs,
+            ]
+        }
+
+        return [jsNode]
+    }
+
+    /// Returns an empty document tree as a dictionary.
+    private func makeEmptyDocumentDict() -> [String: Any] {
+        let bodyId = nextInspectorNodeId()
+        let headId = nextInspectorNodeId()
+        let htmlId = nextInspectorNodeId()
+        let docId = nextInspectorNodeId()
+
+        let bodyNode: [String: Any] = [
+            "nodeId": bodyId, "backendNodeId": bodyId,
+            "nodeType": 1, "nodeName": "BODY", "localName": "body", "nodeValue": "",
+            "childNodeCount": 0, "children": [] as [Any], "attributes": [] as [Any],
+        ]
+        let headNode: [String: Any] = [
+            "nodeId": headId, "backendNodeId": headId,
+            "nodeType": 1, "nodeName": "HEAD", "localName": "head", "nodeValue": "",
+            "childNodeCount": 0, "children": [] as [Any], "attributes": [] as [Any],
+        ]
+        let htmlNode: [String: Any] = [
+            "nodeId": htmlId, "backendNodeId": htmlId,
+            "nodeType": 1, "nodeName": "HTML", "localName": "html", "nodeValue": "",
+            "childNodeCount": 2, "children": [headNode, bodyNode], "attributes": [] as [Any],
+        ]
+        let doc: [String: Any] = [
+            "nodeId": docId, "backendNodeId": docId,
+            "nodeType": 9, "nodeName": "#document", "localName": "", "nodeValue": "",
+            "childNodeCount": 1, "children": [htmlNode],
+            "documentURL": "falcon://app", "baseURL": "falcon://app", "xmlVersion": "",
+        ]
+        return ["root": doc]
     }
 }
