@@ -118,6 +118,10 @@ npm run app:snapshot-ui -- --filter BackButton     # find a specific element
 npm run app:list -- --filter Booted                # only booted simulators
 ```
 
+## Coding Conventions
+
+- **Always set `id` on interactive elements.** Every `<button>`, `<input>`, and other interactive element must have an `id` prop. The `id` maps to `accessibilityIdentifier` on UIKit views, enabling UI automation to target elements by ID instead of coordinates. Use descriptive, kebab-case IDs (e.g. `id="counter-increment"`, `id="login-submit"`, `id="search-input"`).
+
 ## Planning
 
 Always write plans to ./docs/plans. When a plan is finished, move it to ./docs/plans/complete and include it in your commit.

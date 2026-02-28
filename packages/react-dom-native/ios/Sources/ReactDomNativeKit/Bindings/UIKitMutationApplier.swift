@@ -407,6 +407,11 @@ public class UIKitMutationApplier: NSObject {
                 view.transform = t
             }
         }
+
+        // id → accessibilityIdentifier
+        if let id = props["id"] as? String {
+            view.accessibilityIdentifier = id
+        }
     }
 
     /// Applies bounds-dependent styling (borders, border radius) to a view.

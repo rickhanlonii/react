@@ -10,11 +10,11 @@ function Counter({initialCount = 0}) {
   }, []);
   return (
     <div style={{display: 'flex', flexDirection: 'row', alignItems: 'center'}}>
-      <button onClick={() => setCount((c) => c - 1)}>
+      <button id="counter-decrement" onClick={() => setCount((c) => c - 1)}>
         <span>-</span>
       </button>
-      <span style={{width: 12, textAlign: 'center', marginLeft: 4, marginRight: 4}}>{String(count)}</span>
-      <button onClick={() => setCount((c) => c + 1)}>
+      <span id="counter-value" style={{width: 12, textAlign: 'center', marginLeft: 4, marginRight: 4}}>{String(count)}</span>
+      <button id="counter-increment" onClick={() => setCount((c) => c + 1)}>
         <span>+</span>
       </button>
       <p>test</p>
