@@ -9,6 +9,9 @@ class PerformanceTracer {
 
     private(set) var isTracing = false
     private var tracingStartTs: Double = 0  // µs — for screenshot alignment
+    /// Milliseconds (performance.now()-relative) when tracing started.
+    /// Subtracted from all incoming timestamps to rebase events to trace start.
+    private var tracingOriginMs: Double = 0
     private var events: [[String: Any]] = []
     private var nextId = 0
     private var nextInteractionId = 1
@@ -38,7 +41,9 @@ class PerformanceTracer {
 
     func startTracing() {
         isTracing = true
-        tracingStartTs = now() * 1000.0 // µs
+        let nowMs = now()
+        tracingOriginMs = nowMs
+        tracingStartTs = nowMs * 1000.0 // µs
         nextId = 0
         events = [
             // Process/thread metadata — required by Chrome DevTools MetaHandler
@@ -52,9 +57,9 @@ class PerformanceTracer {
     func stopTracing() -> (events: [[String: Any]], tracingStartTs: Double) {
         isTracing = false
         let result = events
-        let startTs = tracingStartTs
         events = []
-        return (result, startTs)
+        // tracingStartTs is 0 since all event timestamps are relative to trace start
+        return (result, 0)
     }
 
     // MARK: - Event reporting
@@ -75,8 +80,10 @@ class PerformanceTracer {
         if let properties = properties {
             devtools["properties"] = properties
         }
-        let startUs = start * 1000.0
-        let endUs = end * 1000.0
+        // Rebase to trace start: incoming ms are performance.now()-relative,
+        // subtract tracingOriginMs to make them relative to trace start.
+        let startUs = (start - tracingOriginMs) * 1000.0
+        let endUs = (end - tracingOriginMs) * 1000.0
         let detailJSON = serializeJSON(["devtools": devtools])
         events.append([
             "id2": ["local": id], "name": label, "cat": "blink.user_timing",
@@ -105,12 +112,12 @@ class PerformanceTracer {
         }
         events.append([
             "id2": ["local": id], "name": name, "cat": "blink.user_timing",
-            "ph": "b", "ts": start * 1000.0, "pid": pid, "tid": tid,
+            "ph": "b", "ts": (start - tracingOriginMs) * 1000.0, "pid": pid, "tid": tid,
             "args": ["detail": detailJSON],
         ])
         events.append([
             "id2": ["local": id], "name": name, "cat": "blink.user_timing",
-            "ph": "e", "ts": (start + duration) * 1000.0, "pid": pid, "tid": tid,
+            "ph": "e", "ts": (start + duration - tracingOriginMs) * 1000.0, "pid": pid, "tid": tid,
             "args": [:] as [String: Any],
         ])
     }
@@ -120,7 +127,7 @@ class PerformanceTracer {
         guard isTracing else { return }
         events.append([
             "name": name, "cat": "blink.user_timing",
-            "ph": "I", "ts": startTime * 1000.0,
+            "ph": "I", "ts": (startTime - tracingOriginMs) * 1000.0,
             "pid": pid, "tid": tid, "args": [:] as [String: Any],
         ])
     }
@@ -133,15 +140,16 @@ class PerformanceTracer {
         guard isTracing else { return }
         let id = "interaction-\(interactionId)"
         let duration = max(Int(round((processingEnd - inputTime) / 8.0)) * 8, 1)
-        let inputTimeUs = inputTime * 1000.0
-        let endTimeUs = processingEnd * 1000.0
+        let inputTimeUs = (inputTime - tracingOriginMs) * 1000.0
+        let endTimeUs = (processingEnd - tracingOriginMs) * 1000.0
         events.append([
             "name": "EventTiming", "cat": "devtools.timeline",
             "ph": "b", "id": id, "ts": inputTimeUs, "pid": pid, "tid": tid,
             "args": ["data": [
                 "type": eventType, "interactionId": interactionId,
-                "duration": duration, "timeStamp": inputTime,
-                "processingStart": processingStart, "processingEnd": processingEnd,
+                "duration": duration, "timeStamp": inputTime - tracingOriginMs,
+                "processingStart": processingStart - tracingOriginMs,
+                "processingEnd": processingEnd - tracingOriginMs,
                 "cancelable": true, "nodeId": 0, "interactionOffset": 0,
             ]],
         ])

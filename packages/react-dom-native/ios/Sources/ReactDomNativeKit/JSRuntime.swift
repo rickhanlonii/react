@@ -1054,11 +1054,26 @@ public class JSRuntime {
                   eng.toString(tagRef) == "script",
                   let srcRef = eng.getProperty(child, "src"),
                   !eng.isNull(srcRef), !eng.isUndefined(srcRef),
-                  let src = eng.toString(srcRef), !src.isEmpty,
-                  let url = URL(string: src) else {
+                  let src = eng.toString(srcRef), !src.isEmpty else {
                 // Non-script children are no-ops (head doesn't render)
                 return nil
             }
+
+            // Resolve the URL — if relative, prepend document.baseURI
+            let resolvedURL: URL
+            if let fullURL = URL(string: src), fullURL.scheme != nil {
+                resolvedURL = fullURL
+            } else if let baseRef = eng.getProperty(doc, "baseURI"),
+                      let base = eng.toString(baseRef), !base.isEmpty,
+                      let baseURL = URL(string: base),
+                      let resolved = URL(string: src, relativeTo: baseURL) {
+                resolvedURL = resolved
+            } else if let fallback = URL(string: src) {
+                resolvedURL = fallback
+            } else {
+                return nil
+            }
+            let url = resolvedURL
 
             // Track for getElementsByTagName('script') dedup
             appendedScripts.append(child)
