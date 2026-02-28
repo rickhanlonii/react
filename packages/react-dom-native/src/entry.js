@@ -47,6 +47,69 @@ var client = require('./flight-client/client');
 // but target:'webworker' resolves the bare /client to client.edge.js.
 require('react-server-dom-webpack/client.browser');
 
+// ---------------------------------------------------------------------------
+// Inline Flight Data Receiver
+//
+// Matches the Next.js pattern: server emits JS code that pushes Flight data
+// into self.__next_f, which feeds a ReadableStream consumed by
+// react-server-dom-webpack/client's createFromReadableStream.
+// ---------------------------------------------------------------------------
+
+var flightEncoder = new TextEncoder();
+var flightDataBuffer = null;   // Array of buffered chunks (before ReadableStream starts)
+var flightDataWriter = null;   // ReadableStream controller
+var flightDataClosed = false;
+
+function flightDataCallback(seg) {
+  if (seg[0] === 0) {
+    // Bootstrap — initialize buffer
+    flightDataBuffer = [];
+    return;
+  }
+  // seg[0] === 1: Flight data row
+  var data = seg[1];
+  if (typeof data === 'string') {
+    data = flightEncoder.encode(data);
+  }
+  if (flightDataWriter) {
+    flightDataWriter.enqueue(data);
+  } else if (flightDataBuffer) {
+    flightDataBuffer.push(data);
+  }
+}
+
+function createFlightDataStream() {
+  return new ReadableStream({
+    start: function(controller) {
+      // Flush any buffered chunks
+      if (flightDataBuffer) {
+        for (var i = 0; i < flightDataBuffer.length; i++) {
+          controller.enqueue(flightDataBuffer[i]);
+        }
+        flightDataBuffer = null;
+      }
+      if (flightDataClosed) {
+        controller.close();
+        return;
+      }
+      flightDataWriter = controller;
+    }
+  });
+}
+
+function closeFlightDataStream() {
+  flightDataClosed = true;
+  if (flightDataWriter) {
+    flightDataWriter.close();
+    flightDataWriter = null;
+  }
+}
+
+// Set up the global receiver
+var selfGlobal = typeof self !== 'undefined' ? self : globalThis;
+selfGlobal.__next_f = selfGlobal.__next_f || [];
+selfGlobal.__next_f.push = flightDataCallback;
+
 function Root(props) {
   return use(props.tree);
 }
@@ -221,6 +284,12 @@ globalThis.__REACT_DOM_NATIVE__ = {
 
   // Version info
   version: '0.0.1',
+
+  // Close the Flight data stream (called when SSR/CSR stream ends)
+  __closeFlightDataStream__: closeFlightDataStream,
+
+  // Create a ReadableStream from buffered Flight data
+  __createFlightDataStream__: createFlightDataStream,
 };
 
 if (typeof $$log !== 'undefined') {
