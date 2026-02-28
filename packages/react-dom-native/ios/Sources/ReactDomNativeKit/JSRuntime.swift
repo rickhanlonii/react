@@ -328,7 +328,12 @@ public class JSRuntime {
                 guard !self.tracer.isTracing else { return nil }
                 self.tracer.startTracing()
                 self.bindings.nativeTracingEnabled = true
-                self.bindings.pushPendingSSRCommitTimingsToJS()
+                // Don't push retroactive SSR commit timings — their timestamps
+                // are from boot time and would blow up the trace timeline.
+                // SSR timings are only useful during "Reload and Profile" where
+                // tracing is already active when SSR runs, so addSSRCommitTimings
+                // pushes them immediately via the nativeTracingEnabled check.
+                self.bindings.pendingSSRCommitTimings.removeAll()
 
             case "stop-tracing":
                 guard self.tracer.isTracing else { return nil }
