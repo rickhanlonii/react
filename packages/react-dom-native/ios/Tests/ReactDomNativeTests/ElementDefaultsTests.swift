@@ -3,6 +3,26 @@ import XCTest
 
 final class ElementDefaultsTests: XCTestCase {
 
+    // MARK: - defaults(for:) — Structural elements
+
+    func testHtmlDefaults() {
+        let defaults = ElementDefaults.defaults(for: "html")
+        XCTAssertEqual(defaults["display"] as? String, "block")
+        XCTAssertEqual(defaults["fontSize"] as? Int, 16)
+    }
+
+    func testHeadDefaults() {
+        let defaults = ElementDefaults.defaults(for: "head")
+        XCTAssertEqual(defaults["display"] as? String, "none")
+        XCTAssertNil(defaults["fontSize"])
+    }
+
+    func testBodyDefaults() {
+        let defaults = ElementDefaults.defaults(for: "body")
+        XCTAssertEqual(defaults["display"] as? String, "block")
+        XCTAssertEqual(defaults["fontSize"] as? Int, 16)
+    }
+
     // MARK: - defaults(for:) — Block containers
 
     func testBlockContainersReturnDisplayBlock() {

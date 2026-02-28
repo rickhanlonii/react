@@ -15,6 +15,12 @@ public enum ElementDefaults {
     /// Returns the default style dictionary for a given HTML element type.
     public static func defaults(for elementType: String) -> [String: Any] {
         switch elementType {
+        // Structural
+        case "html", "body":
+            return blockDefaults
+        case "head":
+            return headDefaults
+
         // Block containers
         case "div", "main", "section", "article", "nav", "header", "footer", "aside", "form":
             return blockDefaults
@@ -566,6 +572,10 @@ public enum ElementDefaults {
     }
 
     // MARK: - Default Dictionaries
+
+    private static let headDefaults: [String: Any] = [
+        "display": "none"
+    ]
 
     private static let blockDefaults: [String: Any] = [
         "display": "block",

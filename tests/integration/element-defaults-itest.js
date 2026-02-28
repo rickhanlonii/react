@@ -4,6 +4,44 @@ var React = require('react');
 var Fantom = require('@react-dom-native/fantom');
 
 describe('Element defaults', function () {
+  it('html gets display block by default', function () {
+    var root = Fantom.createRoot();
+    Fantom.runTask(function () {
+      root.render(<html><body /></html>);
+    });
+
+    var output = Fantom.getRenderedOutput();
+    var html = output.children[0];
+    expect(html.type).toBe('html');
+    expect(html.props.style.display).toBe('block');
+  });
+
+  it('head gets display none by default', function () {
+    var root = Fantom.createRoot();
+    Fantom.runTask(function () {
+      root.render(<html><head /><body /></html>);
+    });
+
+    var output = Fantom.getRenderedOutput();
+    var html = output.children[0];
+    var head = html.children[0];
+    expect(head.type).toBe('head');
+    expect(head.props.style.display).toBe('none');
+  });
+
+  it('body gets display block by default', function () {
+    var root = Fantom.createRoot();
+    Fantom.runTask(function () {
+      root.render(<html><body /></html>);
+    });
+
+    var output = Fantom.getRenderedOutput();
+    var html = output.children[0];
+    var body = html.children[0];
+    expect(body.type).toBe('body');
+    expect(body.props.style.display).toBe('block');
+  });
+
   it('div gets display block by default', function () {
     var root = Fantom.createRoot();
     Fantom.runTask(function () {
