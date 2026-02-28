@@ -49,8 +49,8 @@ public class Bindings {
     /// Per-node layout timings from the most recent calculateYogaLayout call (when tracing).
     private var lastLayoutNodeTimings: [(type: String, start: Double, end: Double)] = []
 
-    /// Callback invoked when JS calls $$sendInspectorMessage.
-    /// Wired by Root to send messages to the dev server via HotReloadClient.
+    /// Callback used by Swift to send inspector messages to the dev server.
+    /// Wired by Root to the HotReloadClient WebSocket.
     public var sendInspectorMessage: ((String) -> Void)?
 
     /// Current tree per surface. Keyed by surfaceId.
@@ -90,9 +90,6 @@ public class Bindings {
     /// Nodes cross the JS↔Swift boundary as integer IDs.
     private var nodeRegistry: [Int: ShadowNodeWrapper] = [:]
     private var nextNodeId = 1
-
-    /// Highlight overlay for DevTools element inspection.
-    private var highlightOverlay: ElementHighlightOverlay?
 
     /// Maps integer child set IDs to arrays of ShadowNodeWrappers.
     private var childSetRegistry: [Int: [ShadowNodeWrapper]] = [:]
@@ -2007,37 +2004,6 @@ public class Bindings {
         engine.setGlobalFunction("$$performanceNow") { [weak engine] _ in
             return engine?.makeNumber(CACurrentMediaTime() * 1000.0)
         }
-
-        // $$sendInspectorMessage(data) -> void
-        // Sends a string message from JS to the dev server via the hot reload WebSocket.
-        engine.setGlobalFunction("$$sendInspectorMessage") { [weak self, weak engine] args in
-            guard let self = self, let engine = engine else { return nil }
-            guard let data = engine.toString(args[0]) else { return nil }
-            self.sendInspectorMessage?(data)
-            return nil
-        }
-
-        // $$getMemoryUsage() -> {usedSize, totalSize}
-        // Returns process memory stats via mach_task_basic_info.
-        engine.setGlobalFunction("$$getMemoryUsage") { [weak engine] _ in
-            guard let engine = engine else { return nil }
-            var info = mach_task_basic_info()
-            var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size / MemoryLayout<natural_t>.size)
-            let result = withUnsafeMutablePointer(to: &info) {
-                $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
-                    task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
-                }
-            }
-            let obj = engine.makeObject()
-            if result == KERN_SUCCESS {
-                engine.setProperty(obj, "usedSize", engine.makeNumber(Double(info.resident_size)))
-                engine.setProperty(obj, "totalSize", engine.makeNumber(Double(info.virtual_size)))
-            } else {
-                engine.setProperty(obj, "usedSize", engine.makeNumber(0))
-                engine.setProperty(obj, "totalSize", engine.makeNumber(0))
-            }
-            return obj
-        }
     }
 
     /// Delivers an inspector message from the dev server to JS.
@@ -2460,24 +2426,6 @@ public class Bindings {
             "border": borderQuad, "margin": marginQuad,
             "width": Double(w), "height": Double(h),
         ] as [String: Any]]
-    }
-
-    /// Highlights a node with the box model overlay.
-    func cdpHighlightNode(nodeId: Int) {
-        guard let node = nodeRegistry[nodeId] else { return }
-        guard let targetView = viewRegistry.view(for: node.family) else { return }
-        let surfaceId = node.family.surfaceId
-        guard let rootView = rootViews[surfaceId] else { return }
-
-        if highlightOverlay == nil {
-            highlightOverlay = ElementHighlightOverlay(rootView: rootView)
-        }
-        highlightOverlay?.highlight(node: node, view: targetView)
-    }
-
-    /// Hides the highlight overlay.
-    func cdpHideHighlight() {
-        highlightOverlay?.hide()
     }
 
     /// Returns process memory stats.

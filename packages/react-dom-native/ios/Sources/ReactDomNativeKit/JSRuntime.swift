@@ -385,18 +385,7 @@ public class JSRuntime {
                     } else {
                         cdpResult = ["model": ["content": [0,0,0,0,0,0,0,0], "padding": [0,0,0,0,0,0,0,0], "border": [0,0,0,0,0,0,0,0], "margin": [0,0,0,0,0,0,0,0], "width": 0, "height": 0] as [String: Any]]
                     }
-                case ("DOM", "highlightNode"):
-                    let nodeId = params["nodeId"] as? Int
-                        ?? params["backendNodeId"] as? Int
-                        ?? (params["highlightConfig"] as? [String: Any])?["nodeId"] as? Int
-                    if let nodeId = nodeId {
-                        self.bindings.cdpHighlightNode(nodeId: nodeId)
-                    }
-                    cdpResult = [:]
-                case ("DOM", "highlightRect"):
-                    cdpResult = [:]
-                case ("DOM", "hideHighlight"):
-                    self.bindings.cdpHideHighlight()
+                case ("DOM", "highlightNode"), ("DOM", "highlightRect"), ("DOM", "hideHighlight"):
                     cdpResult = [:]
                 case ("DOM", "querySelector"):
                     cdpResult = ["nodeId": 0]
@@ -406,9 +395,6 @@ public class JSRuntime {
                     let nodeId = params["nodeId"] as? Int ?? 0
                     cdpResult = ["object": ["type": "object", "objectId": String(nodeId)]]
                 case ("DOM", "setInspectedNode"):
-                    if let nodeId = params["nodeId"] as? Int {
-                        self.bindings.cdpHighlightNode(nodeId: nodeId)
-                    }
                     cdpResult = [:]
                 case ("DOM", "pushNodesByBackendIdsToFrontend"), ("DOM", "markUndoableState"):
                     cdpResult = [:]

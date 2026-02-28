@@ -719,7 +719,7 @@ public class ReactRuntime {
             self?.performChunkRefresh(chunks: chunks)
         }
 
-        // JS -> dev server: $$sendInspectorMessage calls this
+        // JS -> dev server: Swift CDP dispatch and tracing use this callback
         bindings.sendInspectorMessage = { [weak client] data in
             client?.send(data)
         }
