@@ -44,27 +44,21 @@ Before spawning any teammates, verify you can build and launch both apps. Subage
    - If Flight/SSR servers are not responding: `Bash(command: "cd /Users/rickhanlonii/oss/falcon/example && npm run dev", run_in_background: true)`
    Wait 5 seconds after starting, then re-run `npm run e2e:check` to confirm they're up.
 2. Build and launch **LayoutCompare** on Falcon E2E:
-   The build server is configured for the Falcon demo app only. Build LayoutCompare via `xcodebuild` directly:
    ```bash
-   cd /Users/rickhanlonii/oss/falcon && xcodebuild -project tests/e2e/LayoutCompare/LayoutCompare/LayoutCompare.xcodeproj -scheme LayoutCompare -destination 'id=50E9E48E-D7F7-4338-9873-3EB801137EE7' build
+   npm run app:run -- e2e
    ```
-   Then install and launch:
-   ```bash
-   xcrun simctl install 50E9E48E-D7F7-4338-9873-3EB801137EE7 $(xcodebuild -project tests/e2e/LayoutCompare/LayoutCompare/LayoutCompare.xcodeproj -scheme LayoutCompare -showBuildSettings 2>/dev/null | grep ' BUILT_PRODUCTS_DIR' | awk '{print $3}')/LayoutCompare.app
-   xcrun simctl launch 50E9E48E-D7F7-4338-9873-3EB801137EE7 com.react.LayoutCompare
-   ```
-   If `xcodebuild` fails with `sandbox-exec: sandbox_apply: Operation not permitted`, ask the user to build manually.
+   If this fails with `sandbox-exec: sandbox_apply: Operation not permitted`, ask the user to build manually.
    Set MCP session defaults for UI inspection tools:
    ```
-   session_set_defaults: projectPath=tests/e2e/LayoutCompare/LayoutCompare/LayoutCompare.xcodeproj, scheme=LayoutCompare, simulatorId=50E9E48E-D7F7-4338-9873-3EB801137EE7, bundleId=com.react.LayoutCompare
+   session_set_defaults: projectPath=tests/e2e/LayoutCompare/LayoutCompare/LayoutCompare.xcodeproj, scheme=LayoutCompare, simulatorId=50E9E48E-D7F7-4338-9873-3EB801137EE7, simulatorName=Falcon E2E, bundleId=com.react.LayoutCompare
    ```
-3. Build and launch **Falcon** on iPhone 17 Pro via the build server:
+3. Build and launch **Falcon** on Falcon Demo:
    ```bash
-   curl -s -X POST http://localhost:6002/run -H 'Content-Type: application/json' -d '{"operation":"run"}'
+   npm run app:run
    ```
    Then set MCP session defaults for UI inspection:
    ```
-   session_set_defaults: simulatorId=195F992B-E1D2-4355-95EB-3A178E3357D8, projectPath=example/Falcon/Falcon.xcodeproj, scheme=Falcon, bundleId=com.react.Falcon
+   session_set_defaults: simulatorId=61F83D8B-36DF-474F-9AAD-61DC6D60FFED, simulatorName=Falcon Demo, projectPath=example/Falcon/Falcon.xcodeproj, scheme=Falcon, bundleId=com.react.Falcon
    ```
 4. Trigger LayoutCompare tests and verify results:
    ```bash
@@ -72,9 +66,9 @@ Before spawning any teammates, verify you can build and launch both apps. Subage
    ```
    This triggers all fixtures, polls until complete, and prints structured results. Verify the output shows a non-zero total — if it shows 0 fixtures, re-run.
 5. Verify Falcon app is running:
-   - Take a screenshot via the build server:
+   - Take a screenshot:
      ```bash
-     curl -s -X POST http://localhost:6002/run -H 'Content-Type: application/json' -d '{"operation":"sim-screenshot"}'
+     npm run app:screenshot
      ```
      Then view: `Read /tmp/falcon-screenshot.png`
 
@@ -169,20 +163,20 @@ After both apps are running, assess the current state of each pipeline BEFORE sp
 3. For each failing fixture, prepare a "Fix layout" task with the diff details
 
 ### Demo Pipeline Assessment
-1. Switch to Falcon simulator: `session_set_defaults: simulatorId=195F992B-E1D2-4355-95EB-3A178E3357D8, bundleId=com.react.Falcon`
-2. Take a screenshot via the build server:
+1. Switch to Falcon simulator: `session_set_defaults: simulatorId=61F83D8B-36DF-474F-9AAD-61DC6D60FFED, simulatorName=Falcon Demo, bundleId=com.react.Falcon`
+2. Take a screenshot:
    ```bash
-   curl -s -X POST http://localhost:6002/run -H 'Content-Type: application/json' -d '{"operation":"sim-screenshot"}'
+   npm run app:screenshot
    ```
    Then view: `Read /tmp/falcon-screenshot.png`
-3. Start log capture via the build server:
+3. Start log capture:
    ```bash
-   curl -s -X POST http://localhost:6002/run -H 'Content-Type: application/json' -d '{"operation":"log-start"}'
+   curl -s -X POST http://localhost:6002/log-start/demo
    ```
 4. Wait 3-5 seconds, interact with the app (tap buttons, scroll)
 5. Stop log capture and read logs:
    ```bash
-   curl -s -X POST http://localhost:6002/run -H 'Content-Type: application/json' -d '{"operation":"log-stop"}'
+   curl -s -X POST http://localhost:6002/log-stop/demo
    ```
 6. Search logs for errors: `HydrationMismatch`, `onRecoverableError`, `Error`, `crash`
 7. Note any rendering issues or errors for fix tasks
@@ -278,7 +272,7 @@ Do NOT assign new build tasks until the current item's QA passes. This prevents 
 ### Rebuild Responsibilities
 Subagents cannot build due to sandbox restrictions. When a layout fix requires a Swift rebuild:
 1. The fixer sends you a message saying "Swift rebuild needed"
-2. You rebuild via the build server (`curl -s -X POST http://localhost:6002/run -H 'Content-Type: application/json' -d '{"operation":"run"}'`) for the Falcon app, or via `xcodebuild` directly for LayoutCompare
+2. You rebuild: `npm run app:run` for Falcon, `npm run app:run -- e2e` for LayoutCompare
 3. You tell the QA agent to re-test
 
 ### Demo Diagnosis Reports

@@ -25,9 +25,9 @@ You are **read-only**. Do not edit any source files. You only interact with the 
 
 **Do NOT wrap commands** in custom bash — no `2>/dev/null`, piping through `python3 -c`, or similar. Just run the npm scripts directly and read the output.
 
-**For screenshots**, use the build server (if configured for this simulator) or `xcrun simctl io` directly:
+**For screenshots**, use the npm command:
 ```bash
-xcrun simctl io 50E9E48E-D7F7-4338-9873-3EB801137EE7 screenshot /tmp/e2e-screenshot.png
+npm run app:screenshot -- e2e
 ```
 Then view: `Read /tmp/e2e-screenshot.png`
 
@@ -38,6 +38,7 @@ session_set_defaults:
   scheme: LayoutCompare
   simulatorName: Falcon E2E
   simulatorId: 50E9E48E-D7F7-4338-9873-3EB801137EE7
+  bundleId: com.react.LayoutCompare
 ```
 
 ## Workflow: Run All Fixtures

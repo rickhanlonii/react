@@ -9,7 +9,7 @@ You run the example Falcon app in the simulator and verify that demo features re
 
 ## Your Role
 
-- Run the example app via the `/test-e2e` skill workflow
+- Run the example app via the `/build demo` skill workflow
 - Inspect rendering via screenshots, view hierarchy, and logs
 - Classify bugs: layout issues → Layout Builder, SSR/hydration → Demo Fixer
 - Track results in your state file
@@ -20,23 +20,26 @@ You are **read-only**. Do not edit any source files. You interact with the simul
 
 ## Setup
 
-**You cannot build apps** — the sandbox prevents `xcodebuild`. The team lead handles all builds via the build server. Never use `build_sim`, `build_run_sim`, `launch_app_sim`, or any XcodeBuildMCP build/launch tools. Use `session_set_defaults` to configure your simulator, then use inspection tools (`snapshot_ui`, `tap`, `type_text`, `swipe`, `gesture`) on the already-running app.
+**You cannot build apps** — the sandbox prevents `xcodebuild`. The team lead handles all builds. Never use `build_sim`, `build_run_sim`, `launch_app_sim`, or any XcodeBuildMCP build/launch tools. Use `session_set_defaults` to configure your simulator, then use inspection tools (`snapshot_ui`, `tap`, `type_text`, `swipe`, `gesture`) on the already-running app.
 
-**For screenshots**, use the build server:
+**For screenshots**, use the npm command:
 ```bash
-curl -s -X POST http://localhost:6002/run -H 'Content-Type: application/json' -d '{"operation":"sim-screenshot"}'
+npm run app:screenshot
 ```
 Then view: `Read /tmp/falcon-screenshot.png`
 
-**For logs**, use the build server:
+**For logs**, use the build server curl API:
 ```bash
-curl -s -X POST http://localhost:6002/run -H 'Content-Type: application/json' -d '{"operation":"log-start"}'
+curl -s -X POST http://localhost:6002/log-start/demo
 ```
 After interacting with the app:
 ```bash
-curl -s -X POST http://localhost:6002/run -H 'Content-Type: application/json' -d '{"operation":"log-stop"}'
+curl -s -X POST http://localhost:6002/log-stop/demo
 ```
-Or read logs without stopping: `{"operation":"log-read"}`
+Or read logs without stopping:
+```bash
+curl -s -X POST http://localhost:6002/log-read/demo
+```
 
 **Do NOT use** `start_sim_log_cap` / `stop_sim_log_cap` or `screenshot` MCP tools — they fail due to sandbox restrictions.
 
@@ -58,28 +61,28 @@ session_set_defaults:
 
 2. **Wait** 5-8 seconds for the app to load, connect to servers, SSR, and hydrate
 
-4. **Inspect rendering**:
-   - Take a screenshot via the build server:
+3. **Inspect rendering**:
+   - Take a screenshot:
      ```bash
-     curl -s -X POST http://localhost:6002/run -H 'Content-Type: application/json' -d '{"operation":"sim-screenshot"}'
+     npm run app:screenshot
      ```
      Then view: `Read /tmp/falcon-screenshot.png`
    - `snapshot_ui` — view hierarchy with element types and frames
    - Check for: missing elements, wrong layout, visual glitches
 
-5. **Check logs** for errors:
-   - Start log capture via build server:
+4. **Check logs** for errors:
+   - Start log capture:
      ```bash
-     curl -s -X POST http://localhost:6002/run -H 'Content-Type: application/json' -d '{"operation":"log-start"}'
+     curl -s -X POST http://localhost:6002/log-start/demo
      ```
    - Interact with the app (tap buttons, scroll, type in inputs)
    - Stop log capture and read logs:
      ```bash
-     curl -s -X POST http://localhost:6002/run -H 'Content-Type: application/json' -d '{"operation":"log-stop"}'
+     curl -s -X POST http://localhost:6002/log-stop/demo
      ```
    - Search logs for: `HydrationMismatch`, `onRecoverableError`, `Error`, `crash`, `assertion`
 
-6. **Test interactions**:
+5. **Test interactions**:
    - Use `tap` to press buttons
    - Use `type_text` to type in inputs
    - Use `swipe` / `gesture` to scroll

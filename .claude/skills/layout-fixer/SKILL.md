@@ -71,7 +71,7 @@ Do NOT edit fixtures, example app, flight-client, renderer.js, or SSR code.
    npm run test:swift
    ```
    **Do NOT run `xcodebuild` directly** — it fails due to sandbox restrictions on `sandbox-exec`. Always use the npm scripts for tests.
-   **To verify Swift fixes end-to-end**, ask the team lead to rebuild via the build server (`{"operation":"run"}`). Do NOT use `build_run_sim`, `build_sim`, or `launch_app_sim` MCP tools — they fail due to sandbox restrictions.
+   **To verify Swift fixes end-to-end**, ask the team lead to rebuild via `npm run app:run`. Do NOT use `build_run_sim`, `build_sim`, or `launch_app_sim` MCP tools — they fail due to sandbox restrictions.
    **Do NOT wrap commands** in custom bash — no `echo`, `2>&1`, `2>/dev/null`, `; echo "EXIT CODE: $?"`, `--silent`, piping through `python3 -c`, or similar. Just run the npm script directly and read the output.
 
    To verify your fix against the fixture you're working on (after a JS-only change or after the lead rebuilds for Swift changes):
