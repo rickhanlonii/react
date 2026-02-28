@@ -2,7 +2,7 @@
 
 var renderer = require('react-dom-native/src/renderer/renderer');
 var React = require('react');
-var flightClient = require('react-dom-native/src/flight-client/client');
+var ReactFlightClient = require('react-server-dom-webpack/client.browser');
 
 /**
  * Creates a root and renders into it within the test harness.
@@ -215,22 +215,27 @@ function encodeProps(props) {
 
 /**
  * Parses a complete Flight payload string and returns the root React element.
+ * Uses react-server-dom-webpack/client.browser's createFromReadableStream.
  *
  * @param {string} payload - Complete Flight wire format string
  * @returns {*} The resolved root value (typically a React element tree)
  */
 function createFromFlight(payload) {
-  var bundlerConfig = {modules: {}};
-  var response = flightClient.createResponse(bundlerConfig);
-  var streamState = flightClient.createStreamState();
-  flightClient.processStringChunk(response, streamState, payload);
-  flightClient.close(response);
-  var root = flightClient.getRoot(response);
-  if (root.status === 'fulfilled') {
-    return root.value;
+  var encoder = new TextEncoder();
+  var stream = new ReadableStream({
+    start: function(controller) {
+      controller.enqueue(encoder.encode(payload));
+      controller.close();
+    }
+  });
+  var result = ReactFlightClient.createFromReadableStream(stream);
+  // Flush microtask queue so the stream is consumed and the thenable resolves
+  $$flushWork();
+  if (result.status === 'fulfilled') {
+    return result.value;
   }
-  if (root.status === 'rejected') {
-    throw root.reason;
+  if (result.status === 'rejected') {
+    throw result.reason;
   }
   throw new Error(
     'createFromFlight: root chunk still pending after processing complete payload',

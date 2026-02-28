@@ -40,7 +40,7 @@ describe('JS build system', () => {
 
   it('bundle includes flight client', () => {
     const content = fs.readFileSync(BUNDLE_PATH, 'utf8');
-    expect(content).toContain('$$createFlightResponse');
+    expect(content).toContain('createFromReadableStream');
   });
 
   it('bundle includes bridge utilities', () => {

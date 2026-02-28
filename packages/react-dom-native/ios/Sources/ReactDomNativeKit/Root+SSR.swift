@@ -63,20 +63,6 @@ extension Root {
             boundaryManager: boundaryManager,
             rootView: container
         )
-        coordinator.onFlightDataReceived = { [weak self] row in
-            guard let self = self else { return }
-            if self.hydrationCommitted, let responseId = self.flightResponseId {
-                // Hydration committed — forward to JS Flight client immediately
-                ReactRuntime.shared.processFlightRow(responseId: responseId, row: row)
-            } else if self.hydrationStarted {
-                // Hydration in progress — buffer to avoid resolving lazy chunks
-                // mid-render, which would restart React's render and prevent commit.
-                self.postHydrationFlightBuffer.append(row)
-            } else {
-                // Hydration not started — buffer for replay in hydrateSurface
-                self.ssrFlightDataBuffer.append(row)
-            }
-        }
         coordinator.onJavaScriptReceived = { [weak self] code in
             guard let self = self else { return }
             if self.hydrationStarted {
@@ -320,14 +306,8 @@ extension Root {
             let revealCount = boundaryManager.revealedCount
             print("[ReactDomNativeKit] SSR stream complete, reveals processed: \(revealCount)")
 
-            // Close the Flight response if hydration has committed
-            if self.hydrationCommitted, let responseId = self.flightResponseId {
-                ReactRuntime.shared.closeFlightResponse(responseId: responseId)
-                self.flightResponseId = nil
-            }
-
             // If hydrateRoot() was called before the stream finished,
-            // execute the queued hydration now that D instructions are buffered.
+            // execute the queued hydration now that JS instructions are buffered.
             if let pending = self.pendingHydration {
                 self.pendingHydration = nil
                 pending()
@@ -385,17 +365,7 @@ extension Root {
             rootView: container
         )
 
-        // Wire Flight data callback (same as renderWithSSR)
-        coordinator.onFlightDataReceived = { [weak self] row in
-            guard let self = self else { return }
-            if self.hydrationCommitted, let responseId = self.flightResponseId {
-                ReactRuntime.shared.processFlightRow(responseId: responseId, row: row)
-            } else if self.hydrationStarted {
-                self.postHydrationFlightBuffer.append(row)
-            } else {
-                self.ssrFlightDataBuffer.append(row)
-            }
-        }
+        // Wire JS callback (same as renderWithSSR)
         coordinator.onJavaScriptReceived = { [weak self] code in
             guard let self = self else { return }
             if self.hydrationStarted {
@@ -652,33 +622,19 @@ extension Root {
                     self.ssrCommitTimings.removeAll()
                 }
 
-                // Replay buffered JS instructions from the SSR stream
+                // Replay buffered JS instructions from the SSR stream.
+                // These include the Flight bootstrap and Flight data rows
+                // that were emitted as ["JS", ...] instructions by the SSR server.
                 for code in self.ssrJavaScriptBuffer {
                     ReactRuntime.shared.evaluateScript(code)
                 }
                 self.ssrJavaScriptBuffer.removeAll()
 
-                do {
-                    let responseId = try rt.hydrateSurface(
-                        surfaceId: surfaceId,
-                        serverURL: serverURL,
-                        ssrData: self.ssrFlightDataBuffer,
-                        keepOpen: true
-                    )
-                    self.ssrFlightDataBuffer.removeAll()
-                    self.flightResponseId = responseId
+                // Start hydration — the Flight data is already in the
+                // ReadableStream buffer from the JS instructions above.
+                rt.hydrateSurface(surfaceId: surfaceId, serverURL: serverURL)
 
-                    // If the SSR stream already completed, close the Flight response
-                    if self.ssrStreamComplete {
-                        rt.closeFlightResponse(responseId: responseId)
-                    }
-
-                    completion?(nil)
-                } catch {
-                    print("[ReactDomNativeKit] Hydration failed: \(error)")
-                    self.options.onRecoverableError?(error)
-                    completion?(error)
-                }
+                completion?(nil)
             }
 
             if self.ssrShellComplete {
@@ -812,35 +768,15 @@ extension Root {
 
     // MARK: - Hydration Lifecycle
 
-    /// Called when React commits the initial hydration render. Schedules boundary
-    /// data forwarding and reveal flushing on the NEXT run loop tick, giving React
-    /// time to finish setting up dehydrated Suspense fibers (registerSuspenseInstanceRetry)
-    /// in a second commit before we forward D rows that would resolve lazy chunks.
+    /// Called when React commits the initial hydration render. Schedules
+    /// reveal flushing on the NEXT run loop tick, giving React time to finish
+    /// setting up dehydrated Suspense fibers (registerSuspenseInstanceRetry).
     func onHydrationCommitted() {
-        print("[ReactDomNativeKit] Hydration committed — scheduling boundary data forwarding")
+        print("[ReactDomNativeKit] Hydration committed")
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.hydrationCommitted = true
-            print("[ReactDomNativeKit] Enabling boundary data forwarding")
-
-        // Forward boundary Flight data that was buffered during the hydration
-        // render phase. Now that React has committed the initial render with
-        // dehydrated Suspense fibers, resolving lazy chunks is safe — React
-        // will re-render boundaries via $$notifyBoundaryRevealed retry callbacks.
-        if let responseId = self.flightResponseId, !self.postHydrationFlightBuffer.isEmpty {
-            print("[ReactDomNativeKit] Forwarding \(self.postHydrationFlightBuffer.count) buffered boundary Flight rows")
-            for row in self.postHydrationFlightBuffer {
-                ReactRuntime.shared.processFlightRow(responseId: responseId, row: row)
-            }
-            self.postHydrationFlightBuffer.removeAll()
-        }
-
-        // If the SSR stream already completed, close the Flight response
-        if self.ssrStreamComplete, let responseId = self.flightResponseId {
-            ReactRuntime.shared.closeFlightResponse(responseId: responseId)
-            self.flightResponseId = nil
-        }
 
         // Flush any reveals deferred during hydration
         if !self.pendingReveals.isEmpty {
@@ -852,10 +788,6 @@ extension Root {
     /// Cleans up SSR hydration state. Called when the SSR stream completes
     /// and hydration has committed.
     func cleanupSSRState() {
-        // NOTE: Don't clear ssrFlightDataBuffer here — hydrateRoot() may still
-        // be booting the JS runtime (async) and hasn't consumed the buffer yet.
-        // The buffer is cleared after doHydrate consumes it, or on unmount.
-        postHydrationFlightBuffer.removeAll()
         ssrViewRegistry = nil
         // Keep ssrMutationApplier alive — SSR-created buttons hold a weak
         // reference to it as their tap target. If deallocated, taps silently

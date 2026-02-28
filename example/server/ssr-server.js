@@ -90,18 +90,26 @@ function handleSSR(flightURL, req, res) {
       return;
     }
 
-    // Intercept the Flight stream to emit D instructions inline.
-    // Each Flight row is written to the response as a ["D", row] instruction
-    // as soon as it arrives, interleaved with Fizz output.
+    // Intercept the Flight stream to emit JS instructions inline.
+    // Each Flight row is emitted as a ["JS", "self.__next_f.push([1, ...])"]
+    // instruction, interleaved with Fizz output. The client's document polyfill
+    // evaluates these to populate the Flight data ReadableStream.
     var shellReady = false;
-    var pendingDRows = [];
+    var pendingRows = [];
     var partialRow = '';
 
-    function emitDRow(row) {
+    // Bootstrap: initialize the client's Flight data receiver
+    var bootstrap = JSON.stringify(['JS', 'self.__next_f.push([0])']) + '\n';
+    pendingRows.push(bootstrap);
+
+    function emitFlightRow(row) {
+      // Emit as JS instruction that pushes Flight data into the inline receiver
+      var jsCode = 'self.__next_f.push([1,' + JSON.stringify(row + '\n') + '])';
+      var instruction = JSON.stringify(['JS', jsCode]) + '\n';
       if (shellReady) {
-        res.write(JSON.stringify(['D', row]) + '\n');
+        res.write(instruction);
       } else {
-        pendingDRows.push(row);
+        pendingRows.push(instruction);
       }
     }
 
@@ -110,7 +118,7 @@ function handleSSR(flightURL, req, res) {
         // Pass data through to the Flight client unchanged
         this.push(chunk);
 
-        // Parse rows (newline-delimited) and emit as D instructions
+        // Parse rows (newline-delimited) and emit as JS instructions
         var text = chunk.toString();
         var lines = text.split('\n');
 
@@ -130,7 +138,7 @@ function handleSSR(flightURL, req, res) {
 
         for (var i = 0; i < lines.length; i++) {
           if (lines[i] !== '') {
-            emitDRow(lines[i]);
+            emitFlightRow(lines[i]);
           }
         }
 
@@ -139,8 +147,15 @@ function handleSSR(flightURL, req, res) {
       flush: function (callback) {
         // Flush any remaining partial row
         if (partialRow !== '') {
-          emitDRow(partialRow);
+          emitFlightRow(partialRow);
           partialRow = '';
+        }
+        // Close the Flight data stream on the client
+        var closeJS = JSON.stringify(['JS', 'globalThis.__REACT_DOM_NATIVE__.__closeFlightDataStream__()']) + '\n';
+        if (shellReady) {
+          res.write(closeJS);
+        } else {
+          pendingRows.push(closeJS);
         }
         callback();
       },
@@ -174,11 +189,11 @@ function handleSSR(flightURL, req, res) {
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Cache-Control', 'no-cache');
 
-        // Flush any D rows that arrived before the shell was ready.
-        for (var i = 0; i < pendingDRows.length; i++) {
-          res.write(JSON.stringify(['D', pendingDRows[i]]) + '\n');
+        // Flush any rows (bootstrap + Flight data) that arrived before the shell was ready.
+        for (var i = 0; i < pendingRows.length; i++) {
+          res.write(pendingRows[i]);
         }
-        pendingDRows = null;
+        pendingRows = null;
         shellReady = true;
 
         var fizzPassThrough = new PassThrough();
@@ -198,23 +213,23 @@ function handleSSR(flightURL, req, res) {
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Cache-Control', 'no-cache');
 
-        // Flush any D rows so the client can process the Flight stream
+        // Flush any rows so the client can process the Flight stream
         // (which contains the E row for the error). The client-side
         // ErrorBoundary will catch the error during hydration.
-        if (pendingDRows) {
-          for (var i = 0; i < pendingDRows.length; i++) {
-            res.write(JSON.stringify(['D', pendingDRows[i]]) + '\n');
+        if (pendingRows) {
+          for (var i = 0; i < pendingRows.length; i++) {
+            res.write(pendingRows[i]);
           }
         }
 
-        // Mark shell as ready so remaining async D rows (from Suspense-
+        // Mark shell as ready so remaining async JS instructions (from Suspense-
         // wrapped sections) stream directly to the response as they arrive.
-        pendingDRows = null;
+        pendingRows = null;
         shellReady = true;
 
         // Render a minimal fallback shell so the client gets a valid
         // instruction stream. Don't end the response yet — the Flight
-        // stream is still producing D rows for async Suspense content.
+        // stream is still producing rows for async Suspense content.
         var fallbackStream = renderToNativeStream(
           React.createElement('div'),
           {
@@ -230,7 +245,7 @@ function handleSSR(flightURL, req, res) {
         );
 
         // End the response when the Flight stream completes, so all async
-        // D rows (resolved Suspense content) are delivered to the client.
+        // Flight rows (resolved Suspense content) are delivered to the client.
         flightCapture.on('end', function () {
           res.end();
         });

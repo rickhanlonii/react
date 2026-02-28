@@ -45,9 +45,9 @@ public class ReactRuntime {
     /// Active surfaces: surfaceId -> SurfaceInfo.
     private var activeSurfaces: [Int: SurfaceInfo] = [:]
 
-    /// Active Flight stream clients: responseId -> (client, delegate, session).
-    /// Tracked so we can cancel active streams on unmount/reset.
-    private var activeFlightClients: [Int: (client: FlightStreamClient, delegate: FlightStreamDelegate, session: URLSession)] = [:]
+    /// Active Flight HTTP sessions for CSR rendering. Tracked so we can
+    /// cancel them on unmount/reset.
+    private var activeFlightSessions: [URLSession] = []
 
     /// Next surface ID to assign (auto-incrementing).
     private var nextSurfaceId: Int = 1
@@ -192,112 +192,61 @@ public class ReactRuntime {
 
     // MARK: - Rendering
 
-    /// Triggers CSR rendering for a surface using a Swift-managed Flight stream.
-    /// Creates a Flight response in JS, sets up the React render pipeline,
-    /// then starts a URLSession stream to parse Flight rows natively.
+    /// Triggers CSR rendering for a surface. Bootstraps the Flight data receiver,
+    /// starts the React render pipeline, then streams Flight data from the server
+    /// through self.__next_f into a ReadableStream consumed by the standard
+    /// react-server-dom-webpack/client.
     internal func renderSurface(surfaceId: Int, serverURL: String) {
         guard let engine = runtime?.engine else { return }
         activeSurfaces[surfaceId]?.serverURL = serverURL
 
-        // 1. Create a Flight response in JS
-        guard let createFn = engine.getGlobalProperty("$$createFlightResponse") else { return }
-        guard let responseIdRef = engine.callFunction(createFn, args: [
-            engine.makeString(serverURL)
-        ]) else { return }
-        let responseId = engine.toInt(responseIdRef) ?? 0
+        // 1. Bootstrap the Flight data receiver
+        engine.evaluate("self.__next_f.push([0])")
 
-        // 2. Set up the React render pipeline (subscribes to root chunk)
-        let js = "globalThis.__REACT_DOM_NATIVE__.renderFromStream(\(surfaceId), \(responseId))"
-        engine.evaluate(js)
+        // 2. Set up the React render pipeline
+        engine.evaluate("globalThis.__REACT_DOM_NATIVE__.renderFromStream(\(surfaceId))")
 
-        // 3. Start the Flight stream via URLSession
-        startFlightStream(responseId: responseId, serverURL: serverURL, engine: engine)
+        // 3. Start the Flight HTTP stream — push data into self.__next_f
+        startFlightHTTPStream(serverURL: serverURL, engine: engine)
     }
 
-    /// Triggers hydration for a surface with buffered SSR Flight data.
-    /// Creates a Flight response in JS, sets up hydration, then replays
-    /// the buffered Flight rows through the Swift parser.
-    ///
-    /// - Parameter keepOpen: When true, the Flight response stays open for
-    ///   real-time streaming of additional rows. When false (default), the
-    ///   response is closed after replaying buffered rows.
-    /// - Returns: The responseId for the Flight response (used for streaming).
-    @discardableResult
-    internal func hydrateSurface(surfaceId: Int, serverURL: String, ssrData: [String], keepOpen: Bool = false) throws -> Int {
-        guard let engine = runtime?.engine else {
-            throw RootError.runtimeNotInitialized
-        }
+    /// Triggers hydration for a surface. The Flight data has already been pushed
+    /// into self.__next_f via JS instructions from the SSR stream (replayed
+    /// from ssrJavaScriptBuffer during boot). This just creates the ReadableStream
+    /// and starts hydration.
+    internal func hydrateSurface(surfaceId: Int, serverURL: String) {
+        guard let engine = runtime?.engine else { return }
         activeSurfaces[surfaceId]?.serverURL = serverURL
 
-        guard !ssrData.isEmpty else {
-            throw RootError.hydrationDataMissing
-        }
-
-        // 1. Create a Flight response in JS
-        guard let createFn = engine.getGlobalProperty("$$createFlightResponse") else {
-            throw RootError.runtimeNotInitialized
-        }
-        guard let responseIdRef = engine.callFunction(createFn, args: [
-            engine.makeString(serverURL)
-        ]) else {
-            throw RootError.runtimeNotInitialized
-        }
-        let responseId = engine.toInt(responseIdRef) ?? 0
-
-        // 2. Set up the React hydration pipeline
-        let js = "globalThis.__REACT_DOM_NATIVE__.hydrateFromStream(\(surfaceId), \(responseId))"
-        engine.evaluate(js)
-
-        // 3. Replay buffered SSR rows through the Swift parser.
-        // Store the client so it stays alive until async module fetches complete.
-        let client = FlightStreamClient(responseId: responseId, engine: engine, serverURL: serverURL)
-        activeFlightClients[responseId] = (client: client, delegate: FlightStreamDelegate(client: client), session: URLSession.shared)
-        for row in ssrData {
-            client.processString(row + "\n")
-        }
-        if !keepOpen {
-            client.close()
-        }
-        return responseId
+        // The Flight data is already in the __next_f buffer (from replayed JS
+        // instructions). Just start hydration — it creates the ReadableStream
+        // and consumes the buffered data.
+        engine.evaluate("globalThis.__REACT_DOM_NATIVE__.hydrateFromStream(\(surfaceId))")
     }
 
-    /// Forwards a raw Flight row to an active FlightStreamClient for real-time processing.
-    internal func processFlightRow(responseId: Int, row: String) {
-        guard let entry = activeFlightClients[responseId] else { return }
-        entry.client.processString(row + "\n")
-    }
-
-    /// Closes an active Flight response (signals end of data to JS).
-    internal func closeFlightResponse(responseId: Int) {
-        guard let entry = activeFlightClients[responseId] else { return }
-        entry.client.close()
-    }
-
-    /// Starts a Flight HTTP stream for a given response.
-    private func startFlightStream(responseId: Int, serverURL: String, engine: JSEngine) {
+    /// Starts a Flight HTTP stream for CSR. Fetches the Flight stream from the
+    /// server and pushes each chunk into self.__next_f.
+    private func startFlightHTTPStream(serverURL: String, engine: JSEngine) {
         guard let url = URL(string: serverURL) else {
             print("[ReactRuntime] Invalid server URL: \(serverURL)")
             return
         }
 
-        let client = FlightStreamClient(responseId: responseId, engine: engine, serverURL: serverURL)
-        let delegate = FlightStreamDelegate(client: client)
+        let delegate = FlightHTTPStreamDelegate(engine: engine)
         let session = URLSession(configuration: .default, delegate: delegate, delegateQueue: .main)
-
-        // Track for cleanup
-        activeFlightClients[responseId] = (client: client, delegate: delegate, session: session)
+        activeFlightSessions.append(session)
 
         var request = URLRequest(url: url)
         request.setValue("text/x-component", forHTTPHeaderField: "Accept")
         session.dataTask(with: request).resume()
     }
 
-    /// Cancels all active Flight streams (used during reset/unmount).
-    private func cancelAllFlightStreams() {
-        for (_, entry) in activeFlightClients {
-            entry.session.invalidateAndCancel()
+    /// Cancels all active Flight HTTP sessions (used during reset/unmount).
+    private func cancelAllFlightSessions() {
+        for session in activeFlightSessions {
+            session.invalidateAndCancel()
         }
-        activeFlightClients.removeAll()
+        activeFlightSessions.removeAll()
     }
 
     // MARK: - Bindings Access
@@ -341,16 +290,8 @@ public class ReactRuntime {
 
     /// Test-only: Resets all state between tests.
     internal func resetForTesting() {
-        // Clear the static chunk cache BEFORE destroying the runtime.
-        // Without this, the next test's fresh JSContext would skip fetching
-        // webpack chunks (Counter.js, Tabs.js, etc.) because the static
-        // loadedChunks set still contains their URLs from a previous test.
-        // The new JSContext's webpack runtime doesn't have those modules,
-        // so $$webpackRequire fails and hydration breaks.
-        FlightStreamClient.clearModuleCache(engine: runtime?.engine)
-
-        // Cancel all active streams
-        cancelAllFlightStreams()
+        // Cancel all active Flight HTTP sessions
+        cancelAllFlightSessions()
 
         // Disconnect hot reload
         #if DEBUG
@@ -443,7 +384,8 @@ public class ReactRuntime {
         }
     }
 
-    /// Fast Refresh: re-fetch changed chunks, re-require modules, call performReactRefresh().
+    /// Fast Refresh: re-fetch changed chunks via JS, re-require modules, call performReactRefresh().
+    /// Uses $$refreshChunks (which loads chunks via the document polyfill) then $$performFastRefresh.
     /// Falls back to full reload if react-refresh can't handle the update.
     private func performChunkRefresh(chunks: [[String: Any]]) {
         // If the previous refresh failed (render error, etc.), the app may be
@@ -456,16 +398,10 @@ public class ReactRuntime {
             return
         }
 
-        guard let engine = runtime?.engine,
-              let devURL = devBundleURL,
-              let scheme = devURL.scheme,
-              let host = devURL.host,
-              let port = devURL.port else {
+        guard let engine = runtime?.engine else {
             reload(fullReset: true)
             return
         }
-
-        let serverOrigin = "\(scheme)://\(host):\(port)"
 
         // Collect chunk filenames and module IDs
         var filenames: [String] = []
@@ -490,44 +426,50 @@ public class ReactRuntime {
         ReloadBanner.shared.show(mode: .fastRefresh)
         #endif
 
-        // 1. Re-fetch and evaluate changed chunks
-        FlightStreamClient.refreshChunks(
-            filenames: filenames,
-            serverOrigin: serverOrigin,
-            engine: engine
-        ) { [weak self] result in
-            guard let self = self else { return }
+        // Build JS call: $$refreshChunks(filenames).then(() => $$performFastRefresh(moduleIds))
+        let filenamesJSON = filenames.map { "\"\($0)\"" }.joined(separator: ",")
+        let moduleIdsJSON = moduleIds.map { "\"\($0)\"" }.joined(separator: ",")
+        let js = """
+        (function() {
+            var refreshFn = globalThis.$$refreshChunks;
+            var perfFn = globalThis.$$performFastRefresh;
+            if (!refreshFn || !perfFn) return false;
+            refreshFn([\(filenamesJSON)]).then(function() {
+                var ok = perfFn([\(moduleIdsJSON)]);
+                if (!ok) globalThis.$$fastRefreshFailed = true;
+            }, function(err) {
+                console.error('[FastRefresh] Chunk load failed:', err);
+                globalThis.$$fastRefreshFailed = true;
+            });
+            return true;
+        })()
+        """
 
-            switch result {
-            case .failure(let error):
-                print("[ReactRuntime] Chunk fetch failed: \(error), falling back to full reload")
+        guard let resultRef = engine.evaluate(js),
+              engine.toBool(resultRef) == true else {
+            print("[ReactRuntime] $$refreshChunks not available, falling back to full reload")
+            self.reload(fullReset: true)
+            return
+        }
+
+        // The refresh is async (Promise-based). Schedule a check after a short delay
+        // to see if it succeeded or we need a full reload.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let self = self, let engine = self.runtime?.engine else { return }
+
+            // Check if the async refresh reported failure
+            if let failedRef = engine.getGlobalProperty("$$fastRefreshFailed"),
+               engine.toBool(failedRef) == true {
+                engine.evaluate("delete globalThis.$$fastRefreshFailed")
+                print("[ReactRuntime] Fast Refresh failed, falling back to full reload")
                 self.lastRefreshFailed = true
                 self.reload(fullReset: true)
-
-            case .success:
-                // 2. Call $$performFastRefresh(moduleIds) — returns true/false
-                guard let fn = engine.getGlobalProperty("$$performFastRefresh") else {
-                    print("[ReactRuntime] $$performFastRefresh not available, falling back to full reload")
-                    self.reload(fullReset: true)
-                    return
-                }
-
-                let jsModuleIds = moduleIds.map { engine.makeString($0) }
-                let jsArray = engine.makeArray(jsModuleIds)
-                let result = engine.callFunction(fn, args: [jsArray])
-
-                let success = result.flatMap { engine.toBool($0) } ?? false
-                if success {
-                    print("[ReactRuntime] Fast Refresh complete")
-                    self.lastRefreshFailed = false
-                    #if DEBUG
-                    ReloadBanner.shared.dismiss()
-                    #endif
-                } else {
-                    print("[ReactRuntime] Fast Refresh returned false, falling back to full reload")
-                    self.lastRefreshFailed = true
-                    self.reload(fullReset: true)
-                }
+            } else {
+                print("[ReactRuntime] Fast Refresh complete")
+                self.lastRefreshFailed = false
+                #if DEBUG
+                ReloadBanner.shared.dismiss()
+                #endif
             }
         }
     }
@@ -550,8 +492,7 @@ public class ReactRuntime {
         #endif
 
         // 3. Destroy old runtime
-        FlightStreamClient.clearModuleCache(engine: runtime?.engine)
-        cancelAllFlightStreams()
+        cancelAllFlightSessions()
         runtime = nil
         isBundleLoaded = false
         hasBooted = false
@@ -842,4 +783,38 @@ public class ReactRuntime {
         #endif
     }
 
+}
+
+// ---------------------------------------------------------------------------
+// FlightHTTPStreamDelegate
+//
+// URLSession data delegate that feeds streaming Flight HTTP response data
+// into the JS Flight data receiver (self.__next_f). Each data chunk is
+// pushed via self.__next_f.push([1, data]) and the stream is closed when
+// the HTTP response completes.
+// ---------------------------------------------------------------------------
+
+private class FlightHTTPStreamDelegate: NSObject, URLSessionDataDelegate {
+    private weak var engine: JSEngine?
+
+    init(engine: JSEngine) {
+        self.engine = engine
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        guard let engine = engine, let text = String(data: data, encoding: .utf8) else { return }
+        // JSON.stringify the text to handle all escaping (quotes, newlines, backslashes, etc.)
+        if let jsonData = try? JSONSerialization.data(withJSONObject: text),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            engine.evaluate("self.__next_f.push([1,\(jsonString)])")
+        }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        guard let engine = engine else { return }
+        if let error = error {
+            print("[Flight] Stream error: \(error)")
+        }
+        engine.evaluate("globalThis.__REACT_DOM_NATIVE__.__closeFlightDataStream__()")
+    }
 }

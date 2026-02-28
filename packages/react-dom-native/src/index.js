@@ -8,6 +8,3 @@ export * from './renderer';
 
 // Bridge (JS-Swift communication protocol)
 export * from './bridge';
-
-// Flight Client (RSC client for native)
-export * from './flight-client';

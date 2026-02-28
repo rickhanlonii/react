@@ -99,16 +99,11 @@ public class Root {
     var ssrStreamComplete: Bool = false
     /// Whether the SSR shell (initial content) has been painted.
     var ssrShellComplete: Bool = false
-    /// Whether hydration has started (Flight rows should be forwarded, not buffered).
+    /// Whether hydration has started (JS instructions should be evaluated, not buffered).
     var hydrationStarted: Bool = false
     /// Whether React has committed the initial hydration render ($$completeRoot fired).
     var hydrationCommitted: Bool = false
-    /// Flight rows that arrived after hydration started but before the initial commit.
-    /// Forwarded to the Flight client after $$completeRoot so they don't interfere
-    /// with React's render phase by resolving lazy chunks mid-render.
-    var postHydrationFlightBuffer: [String] = []
-    /// The Flight response ID for the active hydration session.
-    var flightResponseId: Int?
+    var ssrJavaScriptBuffer: [String] = []
     /// Queued hydration call waiting for SSR shell to complete.
     var pendingHydration: (() -> Void)?
 
@@ -226,8 +221,6 @@ public class Root {
         ssrShellComplete = false
         hydrationStarted = false
         hydrationCommitted = false
-        flightResponseId = nil
-        postHydrationFlightBuffer.removeAll()
         pendingHydration = nil
 
         // Cancel any pending throttled reveals

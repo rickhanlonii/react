@@ -975,10 +975,6 @@ private class TestSSRCoordinator: InstructionStreamDelegate {
         // No-op in tests
     }
 
-    func didReceiveFlightData(row: String) {
-        // No-op in tests
-    }
-
     func didReceiveClientRenderBoundary(id: Int, errorDigest: String?) {
         boundaryManager.clientRenderBoundary(id: id, errorDigest: errorDigest)
     }

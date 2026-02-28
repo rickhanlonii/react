@@ -17,7 +17,6 @@ import Foundation
 //   ["X",id]                  Execute boundary reveal
 //   ["R"]                     Root shell complete
 //   ["P",id]                  Placeholder
-//   ["D","flight_row"]        Embedded Flight data
 //   ["E",id,"digest"]         Client-render boundary (error)
 //   ["JS","code"]             Evaluate JavaScript
 // ---------------------------------------------------------------------------
@@ -34,7 +33,6 @@ public protocol InstructionStreamDelegate: AnyObject {
     func didReceiveRevealBoundary(id: Int)
     func didReceiveRootComplete()
     func didReceivePlaceholder(id: Int)
-    func didReceiveFlightData(row: String)
     func didReceiveClientRenderBoundary(id: Int, errorDigest: String?)
     func didReceiveJavaScript(code: String)
     func didReceiveError(_ error: Error)
@@ -175,16 +173,6 @@ public class InstructionStreamParser {
                     return
                 }
                 delegate?.didReceivePlaceholder(id: id)
-
-            case "D":
-                // Flight data: ["D", "flight_row"]
-                guard array.count >= 2, let row = array[1] as? String else {
-                    delegate?.didReceiveError(
-                        InstructionParseError.invalidFormat("D instruction missing row data")
-                    )
-                    return
-                }
-                delegate?.didReceiveFlightData(row: row)
 
             case "E":
                 // Client-render boundary: ["E", id, "digest"]

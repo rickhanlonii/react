@@ -48,10 +48,6 @@ class SSRCoordinator: InstructionStreamDelegate {
     /// Called when a boundary is ready to reveal. Root.swift controls timing (throttle).
     var onBoundaryRevealQueued: ((Int, [ShadowNodeWrapper]) -> Void)?
 
-    /// Called when a Flight data row (D instruction) is received from the SSR stream.
-    /// Used to buffer raw Flight rows for replay during hydration.
-    var onFlightDataReceived: ((String) -> Void)?
-
     /// Called when a JS instruction is received from the SSR stream.
     /// Used to evaluate JavaScript code in the JSC engine.
     var onJavaScriptReceived: ((String) -> Void)?
@@ -320,10 +316,6 @@ class SSRCoordinator: InstructionStreamDelegate {
         // Resolved before reveal in assembleContentNodes(for:).
         activeBuilder.openElement(type: "#placeholder", props: ["segmentId": id])
         activeBuilder.closeElement()
-    }
-
-    func didReceiveFlightData(row: String) {
-        onFlightDataReceived?(row)
     }
 
     func didReceiveJavaScript(code: String) {

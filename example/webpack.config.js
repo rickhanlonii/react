@@ -27,11 +27,10 @@ module.exports = function (env) {
       publicPath: '/',
       clean: true,
     },
-    // webworker target: no DOM APIs, uses importScripts for chunk loading
-    // We don't actually use importScripts — Swift evaluates chunks directly —
-    // but this gives us the right chunk format (array-push/JSONP) without
-    // requiring document or window.
-    target: 'webworker',
+    // web target: uses document.createElement('script') for chunk loading,
+    // which the document polyfill intercepts (fetches via URLSession +
+    // evaluates in JSC). This gives us standard JSONP chunk loading.
+    target: 'web',
     resolve: {
       extensions: ['.js', '.jsx', '.json'],
       mainFields: ['module', 'main'],
@@ -76,6 +75,28 @@ module.exports = function (env) {
                   new (class extends webpack.RuntimeModule {
                     constructor() { super('expose module cache'); }
                     generate() { return '__webpack_require__.c = __webpack_module_cache__;'; }
+                  })()
+                );
+              }
+            );
+          });
+        },
+      },
+      // Expose installedChunks as __webpack_require__.ic so that
+      // $$refreshChunks can clear installed status before re-loading chunks.
+      isDev && {
+        apply(compiler) {
+          compiler.hooks.compilation.tap('ExposeInstalledChunks', (compilation) => {
+            compilation.hooks.additionalTreeRuntimeRequirements.tap(
+              'ExposeInstalledChunks',
+              (chunk) => {
+                compilation.addRuntimeModule(
+                  chunk,
+                  new (class extends webpack.RuntimeModule {
+                    constructor() { super('expose installed chunks'); }
+                    generate() {
+                      return 'if (typeof installedChunks !== "undefined") { __webpack_require__.ic = installedChunks; }';
+                    }
                   })()
                 );
               }

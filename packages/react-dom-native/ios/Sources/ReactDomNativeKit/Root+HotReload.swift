@@ -35,8 +35,6 @@ extension Root {
         ssrShellComplete = false
         hydrationStarted = false
         hydrationCommitted = false
-        flightResponseId = nil
-        postHydrationFlightBuffer.removeAll()
         pendingHydration = nil
 
         // Cancel any pending throttled reveals

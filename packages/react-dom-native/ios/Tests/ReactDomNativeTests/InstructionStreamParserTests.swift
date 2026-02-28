@@ -128,11 +128,6 @@ final class InstructionStreamParserTests: XCTestCase {
         XCTAssertEqual(delegate.closeCount, 1)
     }
 
-    func testFlightDataParses() {
-        feed(["D", "0:\"row\""])
-        XCTAssertEqual(delegate.flightRows, ["0:\"row\""])
-    }
-
     func testUnknownOpcodeReportsError() {
         feed(["UNKNOWN"])
         XCTAssertEqual(delegate.errors.count, 1)
@@ -153,7 +148,6 @@ private class MockDelegate: InstructionStreamDelegate {
     var revealBoundaries: [Int] = []
     var rootCompleteCount = 0
     var placeholders: [Int] = []
-    var flightRows: [String] = []
     var clientRenderBoundaries: [(id: Int, digest: String?)] = []
     var javaScriptCalls: [String] = []
     var errors: [String] = []
@@ -196,10 +190,6 @@ private class MockDelegate: InstructionStreamDelegate {
 
     func didReceivePlaceholder(id: Int) {
         placeholders.append(id)
-    }
-
-    func didReceiveFlightData(row: String) {
-        flightRows.append(row)
     }
 
     func didReceiveClientRenderBoundary(id: Int, errorDigest: String?) {
