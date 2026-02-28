@@ -347,29 +347,30 @@ final class ProgressiveHydrationTests: XCTestCase {
         root.unmount()
     }
 
-    // MARK: - Test 8: Flight Data Gets Buffered
+    // MARK: - Test 8: JS Flight Instructions Get Buffered
 
     func testFlightDataGetsBuffered() {
-        // SSR stream with embedded Flight data (D instructions)
-        // D instructions should be buffered for later hydration replay,
-        // not interfere with SSR view rendering.
+        // SSR stream with embedded Flight data as JS instructions.
+        // JS instructions should be buffered for later evaluation during
+        // hydration, not interfere with SSR view rendering.
         let ssrStream = stream([
             ["O", "div"],
               ["T", "Hello"],
             ["C"],
-            ["D", "0:\"test-row\""],
+            ["JS", "self.__next_f.push([0])"],
+            ["JS", "self.__next_f.push([1, '0:\"test-row\"\\n'])"],
             ["R"],
         ])
 
         let root = Root(container: container)
         root.feedSSRData(ssrStream)
 
-        // Verify the SSR content rendered correctly despite D instructions
+        // Verify the SSR content rendered correctly despite JS instructions
         let scroll = scrollView(in: container)
         XCTAssertNotNil(scroll)
 
         let texts = findLabelTexts(in: scroll!)
-        XCTAssertTrue(texts.contains("Hello"), "SSR content should render despite Flight data")
+        XCTAssertTrue(texts.contains("Hello"), "SSR content should render despite Flight JS instructions")
 
         root.unmount()
     }

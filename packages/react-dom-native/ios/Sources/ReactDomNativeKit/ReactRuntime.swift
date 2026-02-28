@@ -426,31 +426,29 @@ public class ReactRuntime {
         ReloadBanner.shared.show(mode: .fastRefresh)
         #endif
 
+        // Check if $$refreshChunks is available
+        guard let refreshFn = engine.getGlobalProperty("$$refreshChunks"),
+              !engine.isNull(refreshFn), !engine.isUndefined(refreshFn) else {
+            print("[ReactRuntime] $$refreshChunks not available, falling back to full reload")
+            self.reload(fullReset: true)
+            return
+        }
+
         // Build JS call: $$refreshChunks(filenames).then(() => $$performFastRefresh(moduleIds))
         let filenamesJSON = filenames.map { "\"\($0)\"" }.joined(separator: ",")
         let moduleIdsJSON = moduleIds.map { "\"\($0)\"" }.joined(separator: ",")
         let js = """
         (function() {
-            var refreshFn = globalThis.$$refreshChunks;
-            var perfFn = globalThis.$$performFastRefresh;
-            if (!refreshFn || !perfFn) return false;
-            refreshFn([\(filenamesJSON)]).then(function() {
-                var ok = perfFn([\(moduleIdsJSON)]);
+            globalThis.$$refreshChunks([\(filenamesJSON)]).then(function() {
+                var ok = globalThis.$$performFastRefresh([\(moduleIdsJSON)]);
                 if (!ok) globalThis.$$fastRefreshFailed = true;
             }, function(err) {
                 console.error('[FastRefresh] Chunk load failed:', err);
                 globalThis.$$fastRefreshFailed = true;
             });
-            return true;
         })()
         """
-
-        guard let resultRef = engine.evaluate(js),
-              engine.toBool(resultRef) == true else {
-            print("[ReactRuntime] $$refreshChunks not available, falling back to full reload")
-            self.reload(fullReset: true)
-            return
-        }
+        engine.evaluate(js)
 
         // The refresh is async (Promise-based). Schedule a check after a short delay
         // to see if it succeeded or we need a full reload.

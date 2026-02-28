@@ -103,7 +103,6 @@ public class Root {
     var hydrationStarted: Bool = false
     /// Whether React has committed the initial hydration render ($$completeRoot fired).
     var hydrationCommitted: Bool = false
-    var ssrJavaScriptBuffer: [String] = []
     /// Queued hydration call waiting for SSR shell to complete.
     var pendingHydration: (() -> Void)?
 
