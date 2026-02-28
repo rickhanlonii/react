@@ -1,3 +1,4 @@
+#if DEBUG
 import UIKit
 
 // ---------------------------------------------------------------------------
@@ -71,3 +72,4 @@ class LogBoxBadge: UIView {
         gesture.setTranslation(.zero, in: superview)
     }
 }
+#endif

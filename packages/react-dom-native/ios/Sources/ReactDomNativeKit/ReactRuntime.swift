@@ -38,7 +38,9 @@ public class ReactRuntime {
     private var runtime: JSRuntime?
 
     /// Hot reload client (one WebSocket to dev server).
+    #if DEBUG
     private var hotReloadClient: HotReloadClient?
+    #endif
 
     /// Active surfaces: surfaceId -> SurfaceInfo.
     private var activeSurfaces: [Int: SurfaceInfo] = [:]
@@ -351,8 +353,10 @@ public class ReactRuntime {
         cancelAllFlightStreams()
 
         // Disconnect hot reload
+        #if DEBUG
         hotReloadClient?.disconnect()
         hotReloadClient = nil
+        #endif
 
         // Unregister all surfaces
         for (surfaceId, _) in activeSurfaces {
@@ -376,11 +380,13 @@ public class ReactRuntime {
     /// Sends an "open-devtools" message to the inspector proxy, which opens
     /// Chrome DevTools connected to this app's JSC runtime.
     public func openDevTools() {
+        #if DEBUG
         let message: [String: Any] = ["type": "open-devtools"]
         if let data = try? JSONSerialization.data(withJSONObject: message),
            let json = String(data: data, encoding: .utf8) {
             hotReloadClient?.send(json)
         }
+        #endif
     }
 
     // MARK: - Reload
@@ -415,17 +421,23 @@ public class ReactRuntime {
     /// React's fast refresh mechanism handles component updates.
     /// All active surfaces stay mounted.
     private func performFastRefresh() {
+        #if DEBUG
         ReloadBanner.shared.show()
+        #endif
         let bundleURL = resolveBundleURL()
         loadBundle(from: bundleURL) { [weak self] result in
             guard let self = self else { return }
             switch result {
             case .success(let source):
                 self.executeBundle(source: source, sourceURL: bundleURL)
+                #if DEBUG
                 ReloadBanner.shared.dismiss()
+                #endif
                 print("[ReactRuntime] Fast refresh complete")
             case .failure(let error):
+                #if DEBUG
                 ReloadBanner.shared.dismiss()
+                #endif
                 print("[ReactRuntime] Fast refresh failed: \(error)")
             }
         }
@@ -474,7 +486,9 @@ public class ReactRuntime {
 
         print("[ReactRuntime] Fast Refresh: \(filenames.count) chunk(s), \(moduleIds.count) module(s)")
 
+        #if DEBUG
         ReloadBanner.shared.show(mode: .fastRefresh)
+        #endif
 
         // 1. Re-fetch and evaluate changed chunks
         FlightStreamClient.refreshChunks(
@@ -506,7 +520,9 @@ public class ReactRuntime {
                 if success {
                     print("[ReactRuntime] Fast Refresh complete")
                     self.lastRefreshFailed = false
+                    #if DEBUG
                     ReloadBanner.shared.dismiss()
+                    #endif
                 } else {
                     print("[ReactRuntime] Fast Refresh returned false, falling back to full reload")
                     self.lastRefreshFailed = true
@@ -520,14 +536,18 @@ public class ReactRuntime {
     private func performFullReset() {
         // Check if any surface uses SSR before snapshotting
         let isServerRefresh = activeSurfaces.values.contains { $0.root?.isSSR == true }
+        #if DEBUG
         ReloadBanner.shared.show(serverRefresh: isServerRefresh)
+        #endif
 
         // 1. Snapshot active surfaces
         let snapshot = activeSurfaces
 
         // 2. Disconnect HotReloadClient
+        #if DEBUG
         hotReloadClient?.disconnect()
         hotReloadClient = nil
+        #endif
 
         // 3. Destroy old runtime
         FlightStreamClient.clearModuleCache(engine: runtime?.engine)
@@ -578,11 +598,15 @@ public class ReactRuntime {
                 }
 
                 print("[ReactRuntime] Full reset complete, re-rendered \(snapshot.count) surface(s)")
+                #if DEBUG
                 ReloadBanner.shared.dismiss()
+                #endif
 
             case .failure(let error):
                 print("[ReactRuntime] Full reset failed to load bundle: \(error)")
+                #if DEBUG
                 ReloadBanner.shared.dismiss()
+                #endif
             }
         }
     }

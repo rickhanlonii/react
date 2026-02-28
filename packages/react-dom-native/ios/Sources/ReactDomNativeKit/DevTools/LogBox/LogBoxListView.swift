@@ -1,3 +1,4 @@
+#if DEBUG
 import UIKit
 
 // ---------------------------------------------------------------------------
@@ -219,3 +220,4 @@ private class LogBoxListCell: UITableViewCell {
         ])
     }
 }
+#endif

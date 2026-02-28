@@ -1,3 +1,4 @@
+#if DEBUG
 import UIKit
 
 /// Installs global keyboard shortcuts for development.
@@ -68,3 +69,4 @@ extension UIWindow {
         DebugMenu.shared.show()
     }
 }
+#endif

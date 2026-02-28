@@ -1,3 +1,4 @@
+#if DEBUG
 import UIKit
 
 /// Bottom-sheet debug menu triggered by Cmd+Shift+D.
@@ -147,3 +148,4 @@ private class DebugMenuViewController: UIViewController,
         }
     }
 }
+#endif

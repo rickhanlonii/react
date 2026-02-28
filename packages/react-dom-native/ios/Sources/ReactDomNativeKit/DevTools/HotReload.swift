@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 
 public class HotReloadClient {
@@ -189,3 +190,4 @@ public class HotReloadClient {
         }
     }
 }
+#endif

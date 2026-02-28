@@ -1,3 +1,4 @@
+#if DEBUG
 import UIKit
 
 // ---------------------------------------------------------------------------
@@ -507,3 +508,4 @@ class LogBoxDetailView: UIView {
     }
     @objc private func handleDismissAll() { onDismissAll?() }
 }
+#endif

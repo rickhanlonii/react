@@ -53,6 +53,12 @@ public enum ShadowTreeLayout {
         }
     }
 
+    /// Convenience — no tracing. Calls the main implementation with tracing disabled.
+    public static func readLayoutFrames(node: ShadowNodeWrapper) {
+        var ignored: [(type: String, start: Double, end: Double)] = []
+        readLayoutFrames(node: node, tracing: false, nodeTimings: &ignored)
+    }
+
     /// Recursively apply Yoga layout results to layoutFrame on each node.
     /// Uses local (parent-relative) coordinates since UIKit subview frames
     /// are relative to their superview, not the root.
@@ -61,9 +67,17 @@ public enum ShadowTreeLayout {
     /// (and their subtrees) were not recalculated and retain their previous
     /// layoutFrame values. This works because cloneWithNewProps uses
     /// YGNodeClone which preserves the flag from the source node.
-    public static func readLayoutFrames(node: ShadowNodeWrapper) {
+    ///
+    /// When `tracing` is true, collects per-node timing for flame graph visualization.
+    public static func readLayoutFrames(
+        node: ShadowNodeWrapper,
+        tracing: Bool,
+        nodeTimings: inout [(type: String, start: Double, end: Double)]
+    ) {
         guard YGNodeGetHasNewLayout(node.yogaNode) else { return }
         YGNodeSetHasNewLayout(node.yogaNode, false)
+
+        let nodeStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
 
         var x = CGFloat(YGNodeLayoutGetLeft(node.yogaNode))
         var y = CGFloat(YGNodeLayoutGetTop(node.yogaNode))
@@ -94,59 +108,6 @@ public enum ShadowTreeLayout {
                     y -= CGFloat(bottom.doubleValue)
                 }
                 // Horizontal offsets: only missing in block layout
-                if isBlock {
-                    if let left = style?["left"] as? NSNumber {
-                        x += CGFloat(left.doubleValue)
-                    } else if let right = style?["right"] as? NSNumber {
-                        x -= CGFloat(right.doubleValue)
-                    }
-                }
-            }
-        }
-
-        node.layoutFrame = CGRect(x: x, y: y, width: width, height: height)
-
-        for child in node.children {
-            readLayoutFrames(node: child)
-        }
-    }
-
-    /// Recursively apply Yoga layout results to layoutFrame on each node,
-    /// with optional per-node timing collection for flame graph visualization.
-    ///
-    /// Skips nodes where Yoga's hasNewLayout flag is false.
-    public static func readLayoutFrames(
-        node: ShadowNodeWrapper,
-        tracing: Bool,
-        nodeTimings: inout [(type: String, start: Double, end: Double)]
-    ) {
-        guard YGNodeGetHasNewLayout(node.yogaNode) else { return }
-        YGNodeSetHasNewLayout(node.yogaNode, false)
-
-        let nodeStart = tracing ? CACurrentMediaTime() * 1000.0 : 0
-
-        var x = CGFloat(YGNodeLayoutGetLeft(node.yogaNode))
-        var y = CGFloat(YGNodeLayoutGetTop(node.yogaNode))
-        let width = CGFloat(YGNodeLayoutGetWidth(node.yogaNode))
-        let height = CGFloat(YGNodeLayoutGetHeight(node.yogaNode))
-
-        if YGNodeStyleGetPositionType(node.yogaNode) == .relative {
-            let isBlock = YGNodeStyleGetDisplay(node.yogaNode) == .block
-            let isInWrappingFlex: Bool
-            if let owner = YGNodeGetOwner(node.yogaNode) {
-                let parentWrap = YGNodeStyleGetFlexWrap(owner)
-                isInWrappingFlex = parentWrap == .wrap || parentWrap == .wrapReverse
-            } else {
-                isInWrappingFlex = false
-            }
-
-            if isBlock || isInWrappingFlex {
-                let style = node.props["style"] as? [String: Any]
-                if let top = style?["top"] as? NSNumber {
-                    y += CGFloat(top.doubleValue)
-                } else if let bottom = style?["bottom"] as? NSNumber {
-                    y -= CGFloat(bottom.doubleValue)
-                }
                 if isBlock {
                     if let left = style?["left"] as? NSNumber {
                         x += CGFloat(left.doubleValue)

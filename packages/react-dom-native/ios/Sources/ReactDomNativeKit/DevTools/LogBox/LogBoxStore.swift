@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 
 // ---------------------------------------------------------------------------
@@ -86,3 +87,4 @@ public class LogBoxStore {
         onUpdate?()
     }
 }
+#endif

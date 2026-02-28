@@ -1,3 +1,4 @@
+#if DEBUG
 import UIKit
 
 // ---------------------------------------------------------------------------
@@ -363,3 +364,4 @@ private class PassThroughWindow: UIWindow {
         return nil
     }
 }
+#endif

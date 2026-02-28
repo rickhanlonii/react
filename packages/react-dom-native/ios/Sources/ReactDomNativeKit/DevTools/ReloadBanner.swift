@@ -1,3 +1,4 @@
+#if DEBUG
 import UIKit
 
 public enum ReloadBannerMode {
@@ -170,3 +171,4 @@ private class ReloadBannerView: UIView {
         ])
     }
 }
+#endif
