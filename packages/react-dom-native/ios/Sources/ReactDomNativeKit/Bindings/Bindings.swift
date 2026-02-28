@@ -529,7 +529,6 @@ public class Bindings {
         registerEventHandling()
         registerNetworking()
         registerHydrationTraversal()
-        registerDevTools()
     }
 
     // MARK: - Node Creation
@@ -1998,13 +1997,6 @@ public class Bindings {
     }
 
     // MARK: - DevTools
-
-    private func registerDevTools() {
-        // $$performanceNow() -> milliseconds (high-resolution)
-        engine.setGlobalFunction("$$performanceNow") { [weak engine] _ in
-            return engine?.makeNumber(CACurrentMediaTime() * 1000.0)
-        }
-    }
 
     /// Delivers an inspector message from the dev server to JS.
     /// Calls the global $$onInspectorMessage function if it exists.
