@@ -135,6 +135,9 @@ public class JSRuntime {
 
         // Register ReadableStream polyfill (must be before bundle evaluation)
         setupReadableStreamPolyfill()
+
+        // Register document polyfill (must be before bundle evaluation)
+        setupDocumentPolyfill()
     }
 
     private func setupPerformancePolyfill() {
@@ -960,6 +963,159 @@ public class JSRuntime {
         }
 
         eng.setGlobalProperty("ReadableStream", readableStreamCtor)
+    }
+
+    // MARK: - Document Polyfill
+
+    /// Sets up a `document` global polyfill for webpack chunk loading.
+    ///
+    /// Provides:
+    /// - `document.documentElement` — initially null, wired when `<html>` is created
+    /// - `document.head` — initially null, wired when `<head>` is created
+    /// - `document.createElement(tag)` — returns lightweight fake elements for script/link tags
+    /// - `document.getElementsByTagName('script')` — tracks scripts for webpack dedup
+    /// - `document.baseURI` — server origin (set by $$wireDocumentStructure)
+    /// - `document.currentScript` — null
+    ///
+    /// The `<head>` wrapper's `appendChild` handles script elements: fetches src
+    /// via URLSession and evaluates with the engine, then fires onload/onerror.
+    private func setupDocumentPolyfill() {
+        let eng = engine
+
+        // Track script elements appended to head for getElementsByTagName dedup
+        var appendedScripts: [JSValueRef] = []
+
+        // --- Helper: create a fake element (for script/link tags only) ---
+        func makeFakeElement(_ tag: String) -> JSValueRef {
+            let element = eng.makeObject()
+            let attrs = eng.makeObject()
+
+            eng.setProperty(element, "_tag", eng.makeString(tag))
+            eng.setProperty(element, "_attrs", attrs)
+            eng.setProperty(element, "parentNode", eng.makeNull())
+
+            let setAttributeFn = eng.makeFunction { [weak eng] args in
+                guard let eng = eng, args.count >= 2 else { return nil }
+                let name = eng.toString(args[0]) ?? ""
+                eng.setProperty(attrs, name, args[1])
+                return nil
+            }
+            eng.setProperty(element, "setAttribute", setAttributeFn)
+
+            let getAttributeFn = eng.makeFunction { [weak eng] args in
+                guard let eng = eng, args.count >= 1 else { return nil }
+                let name = eng.toString(args[0]) ?? ""
+                if name == "src" {
+                    return eng.getProperty(element, "src")
+                }
+                return eng.getProperty(attrs, name)
+            }
+            eng.setProperty(element, "getAttribute", getAttributeFn)
+
+            let removeChildFn = eng.makeFunction { _ in nil }
+            eng.setProperty(element, "removeChild", removeChildFn)
+
+            return element
+        }
+
+        // --- document object ---
+        let doc = eng.makeObject()
+
+        // Initially null — wired to real shadow nodes when tree is created
+        eng.setProperty(doc, "documentElement", eng.makeNull())
+        eng.setProperty(doc, "head", eng.makeNull())
+        eng.setProperty(doc, "baseURI", eng.makeString(""))
+        eng.setProperty(doc, "currentScript", eng.makeNull())
+
+        // document.createElement(tag)
+        let createElementFn = eng.makeFunction { [weak eng] args in
+            guard let eng = eng, args.count >= 1 else { return nil }
+            let tag = eng.toString(args[0]) ?? ""
+            return makeFakeElement(tag)
+        }
+        eng.setProperty(doc, "createElement", createElementFn)
+
+        // document.getElementsByTagName(tag)
+        let getElementsByTagNameFn = eng.makeFunction { [weak eng] args in
+            guard let eng = eng, args.count >= 1 else { return nil }
+            let tag = eng.toString(args[0]) ?? ""
+            if tag == "script" {
+                return eng.makeArray(appendedScripts)
+            }
+            return eng.makeArray([])
+        }
+        eng.setProperty(doc, "getElementsByTagName", getElementsByTagNameFn)
+
+        // --- Head wrapper with appendChild for script loading ---
+        let headWrapper = eng.makeObject()
+        let appendChildFn = eng.makeFunction { [weak eng] args in
+            guard let eng = eng, args.count >= 1 else { return nil }
+            let child = args[0]
+
+            // Check if this is a script element with a src URL
+            guard let tagRef = eng.getProperty(child, "_tag"),
+                  eng.toString(tagRef) == "script",
+                  let srcRef = eng.getProperty(child, "src"),
+                  !eng.isNull(srcRef), !eng.isUndefined(srcRef),
+                  let src = eng.toString(srcRef), !src.isEmpty,
+                  let url = URL(string: src) else {
+                // Non-script children are no-ops (head doesn't render)
+                return nil
+            }
+
+            // Track for getElementsByTagName('script') dedup
+            appendedScripts.append(child)
+
+            // Set parentNode for cleanup (script.parentNode.removeChild)
+            eng.setProperty(child, "parentNode", headWrapper)
+
+            // Fetch the script and evaluate it
+            URLSession.shared.dataTask(with: url) { data, _, error in
+                DispatchQueue.main.async { [weak eng] in
+                    guard let eng = eng else { return }
+
+                    if error != nil {
+                        // Fire script.onerror
+                        if let onerror = eng.getProperty(child, "onerror"),
+                           !eng.isNull(onerror), !eng.isUndefined(onerror) {
+                            _ = eng.callFunction(onerror, args: [])
+                        }
+                        return
+                    }
+
+                    if let data = data, let code = String(data: data, encoding: .utf8) {
+                        eng.evaluate(code, sourceURL: url)
+                        // Fire script.onload
+                        if let onload = eng.getProperty(child, "onload"),
+                           !eng.isNull(onload), !eng.isUndefined(onload) {
+                            _ = eng.callFunction(onload, args: [])
+                        }
+                    }
+                }
+            }.resume()
+
+            return nil
+        }
+        eng.setProperty(headWrapper, "appendChild", appendChildFn)
+
+        // removeChild on head (no-op, for cleanup)
+        let headRemoveChildFn = eng.makeFunction { _ in nil }
+        eng.setProperty(headWrapper, "removeChild", headRemoveChildFn)
+
+        engine.setGlobalProperty("document", doc)
+
+        // --- Wiring function called by Bindings when <html>/<head> are created ---
+        engine.setGlobalFunction("$$wireDocumentStructure") { [weak eng] args in
+            guard let eng = eng, args.count >= 1 else { return nil }
+            let type = eng.toString(args[0]) ?? ""
+            if type == "html" {
+                let htmlObj = eng.makeObject()
+                eng.setProperty(doc, "documentElement", htmlObj)
+            } else if type == "head" {
+                eng.setProperty(doc, "head", headWrapper)
+            }
+            return nil
+        }
     }
 
     /// Schedules recurring interval execution. Extracted as a method to avoid
