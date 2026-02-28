@@ -4,7 +4,11 @@
 // hardcoded with validated parameters.
 //
 // Start in a separate terminal: node scripts/build-server.js
-// Claude can then POST operations to http://localhost:6002/run
+// Claude can then POST operations: POST http://localhost:6002/<operation>/<target>
+//
+// Supports two targets:
+//   "demo" (default) — Falcon demo app on "Falcon Demo" simulator
+//   "e2e"            — LayoutCompare app on "Falcon E2E" simulator
 
 const http = require('http');
 const { spawn } = require('child_process');
@@ -13,93 +17,120 @@ const fs = require('fs');
 
 const PORT = 6002;
 const PROJECT_ROOT = '/Users/rickhanlonii/oss/falcon';
-const PROJECT_PATH = 'example/Falcon/Falcon.xcodeproj';
-const SCHEME = 'Falcon';
-const SIMULATOR_ID = '61F83D8B-36DF-474F-9AAD-61DC6D60FFED';
-const BUNDLE_ID = 'com.react.Falcon';
-const SCREENSHOT_PATH = '/tmp/falcon-screenshot.png';
-const LOG_PATH = '/tmp/falcon-sim.log';
+const AXE_PATH = path.join(PROJECT_ROOT, 'node_modules', 'xcodebuildmcp', 'bundled', 'axe');
 
 // Validate simulator ID format (UUID)
 const UUID_RE = /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i;
-if (!UUID_RE.test(SIMULATOR_ID)) {
-  console.error('Invalid SIMULATOR_ID');
-  process.exit(1);
-}
 
-// Fixed commands used internally. No user input reaches the shell.
-const COMMANDS = {
-  build: {
-    command: 'xcodebuild',
-    args: ['-project', PROJECT_PATH, '-scheme', SCHEME,
-           '-destination', `id=${SIMULATOR_ID}`, 'build'],
-    timeout: 300000,
+// Target configurations — all values are hardcoded, no user input
+const TARGETS = {
+  demo: {
+    projectPath: 'example/Falcon/Falcon.xcodeproj',
+    scheme: 'Falcon',
+    simulatorId: '61F83D8B-36DF-474F-9AAD-61DC6D60FFED',
+    bundleId: 'com.react.Falcon',
+    screenshotPath: '/tmp/falcon-screenshot.png',
+    logPath: '/tmp/falcon-sim.log',
+    processName: 'Falcon',
   },
-  'build-settings': {
-    command: 'xcodebuild',
-    args: ['-project', PROJECT_PATH, '-scheme', SCHEME,
-           '-destination', `id=${SIMULATOR_ID}`, '-showBuildSettings'],
-    timeout: 30000,
-  },
-  install: {
-    command: 'xcrun',
-    args: ['simctl', 'install', SIMULATOR_ID],
-    // app path appended from DerivedData at runtime (validated)
-    needsAppPath: true,
-    timeout: 30000,
-  },
-  launch: {
-    command: 'xcrun',
-    args: ['simctl', 'launch', SIMULATOR_ID, BUNDLE_ID],
-    timeout: 30000,
+  e2e: {
+    projectPath: 'tests/e2e/LayoutCompare/LayoutCompare/LayoutCompare.xcodeproj',
+    scheme: 'LayoutCompare',
+    simulatorId: '50E9E48E-D7F7-4338-9873-3EB801137EE7',
+    bundleId: 'com.react.LayoutCompare',
+    screenshotPath: '/tmp/e2e-screenshot.png',
+    logPath: '/tmp/e2e-sim.log',
+    processName: 'LayoutCompare',
   },
 };
 
-// Each operation is a named action. No user input reaches the shell.
-const OPERATIONS = {
-  clean: {
-    command: 'xcodebuild',
-    args: ['-project', PROJECT_PATH, '-scheme', SCHEME,
-           '-destination', `id=${SIMULATOR_ID}`, 'clean'],
-    timeout: 60000,
-  },
-  test: {
-    command: 'xcodebuild',
-    args: ['-project', PROJECT_PATH, '-scheme', SCHEME,
-           '-destination', `id=${SIMULATOR_ID}`, 'test'],
-    timeout: 300000,
-  },
-  'resolve-packages': {
-    command: 'xcodebuild',
-    args: ['-resolvePackageDependencies', '-project', PROJECT_PATH,
-           '-scheme', SCHEME],
-    timeout: 120000,
-  },
-  'sim-terminate': {
-    command: 'xcrun',
-    args: ['simctl', 'terminate', SIMULATOR_ID, BUNDLE_ID],
-    timeout: 10000,
-  },
-  'sim-screenshot': {
-    command: 'xcrun',
-    args: ['simctl', 'io', SIMULATOR_ID, 'screenshot', SCREENSHOT_PATH],
-    timeout: 10000,
-  },
-  'sim-list': {
-    command: 'xcrun',
-    args: ['simctl', 'list', 'devices', '-j'],
-    timeout: 10000,
-  },
-  'sim-open': {
-    command: 'open',
-    args: ['-a', 'Simulator'],
-    timeout: 10000,
-  },
+// Validate all simulator IDs
+for (const [name, cfg] of Object.entries(TARGETS)) {
+  if (!UUID_RE.test(cfg.simulatorId)) {
+    console.error(`Invalid simulator ID for target "${name}"`);
+    process.exit(1);
+  }
+}
+
+// Build commands and operations for a given target config
+function commandsForTarget(t) {
+  return {
+    build: {
+      command: 'xcodebuild',
+      args: ['-project', t.projectPath, '-scheme', t.scheme,
+             '-destination', `id=${t.simulatorId}`, 'build'],
+      timeout: 300000,
+    },
+    'build-settings': {
+      command: 'xcodebuild',
+      args: ['-project', t.projectPath, '-scheme', t.scheme,
+             '-destination', `id=${t.simulatorId}`, '-showBuildSettings'],
+      timeout: 30000,
+    },
+    install: {
+      command: 'xcrun',
+      args: ['simctl', 'install', t.simulatorId],
+      needsAppPath: true,
+      timeout: 30000,
+    },
+    launch: {
+      command: 'xcrun',
+      args: ['simctl', 'launch', t.simulatorId, t.bundleId],
+      timeout: 30000,
+    },
+  };
+}
+
+function operationsForTarget(t) {
+  return {
+    clean: {
+      command: 'xcodebuild',
+      args: ['-project', t.projectPath, '-scheme', t.scheme,
+             '-destination', `id=${t.simulatorId}`, 'clean'],
+      timeout: 60000,
+    },
+    test: {
+      command: 'xcodebuild',
+      args: ['-project', t.projectPath, '-scheme', t.scheme,
+             '-destination', `id=${t.simulatorId}`, 'test'],
+      timeout: 300000,
+    },
+    'resolve-packages': {
+      command: 'xcodebuild',
+      args: ['-resolvePackageDependencies', '-project', t.projectPath,
+             '-scheme', t.scheme],
+      timeout: 120000,
+    },
+    terminate: {
+      command: 'xcrun',
+      args: ['simctl', 'terminate', t.simulatorId, t.bundleId],
+      timeout: 10000,
+    },
+    screenshot: {
+      command: 'xcrun',
+      args: ['simctl', 'io', t.simulatorId, 'screenshot', t.screenshotPath],
+      timeout: 10000,
+    },
+    list: {
+      command: 'xcrun',
+      args: ['simctl', 'list', 'devices', '-j'],
+      timeout: 10000,
+    },
+    open: {
+      command: 'open',
+      args: ['-a', 'Simulator'],
+      timeout: 10000,
+    },
+  };
+}
+
+// Shared operations (not target-specific)
+const SHARED_OPERATIONS = {
   'test-swift': {
     command: 'xcodebuild',
     args: ['test',
            '-scheme', 'ReactDomNativeKit-Package',
-           '-destination', `id=${SIMULATOR_ID}`,
+           '-destination', `id=${TARGETS.demo.simulatorId}`,
            '-skipPackagePluginValidation',
            '-skip-testing:ReactDomNativeTests/EndToEndSSRTests',
            '-skip-testing:ReactDomNativeTests/EndToEndCSRTests'],
@@ -110,7 +141,7 @@ const OPERATIONS = {
     command: 'xcodebuild',
     args: ['test',
            '-scheme', 'ReactDomNativeKit-Package',
-           '-destination', `id=${SIMULATOR_ID}`,
+           '-destination', `id=${TARGETS.demo.simulatorId}`,
            '-skipPackagePluginValidation',
            '-only-testing:ReactDomNativeTests/EndToEndSSRTests',
            '-only-testing:ReactDomNativeTests/EndToEndCSRTests'],
@@ -118,13 +149,6 @@ const OPERATIONS = {
     timeout: 300000,
   },
 };
-
-// Resolved DerivedData app path (cached after first build-settings call)
-let cachedAppPath = null;
-
-// Active log capture process
-let logProcess = null;
-let logStream = null;
 
 function resolveAppPath(stdout) {
   const lines = stdout.split('\n');
@@ -141,7 +165,6 @@ function resolveAppPath(stdout) {
   }
   if (builtProductsDir && productName) {
     const appPath = path.join(builtProductsDir, productName);
-    // Validate the path is under DerivedData
     if (appPath.includes('/DerivedData/') && appPath.endsWith('.app')) {
       return appPath;
     }
@@ -167,88 +190,456 @@ function exec(command, args, timeout, cwd) {
   });
 }
 
-function handleLogStart(res) {
-  // Kill existing log process if any
-  if (logProcess) {
-    logProcess.kill();
-    logProcess = null;
+// Per-target log capture state
+const logState = {};
+
+// Per-target debug (LLDB) session state
+const debugState = {};
+
+function handleLogStart(res, target) {
+  const t = TARGETS[target];
+  const state = logState[target] || {};
+
+  if (state.process) {
+    state.process.kill();
   }
-  if (logStream) {
-    logStream.close();
-    logStream = null;
+  if (state.stream) {
+    state.stream.close();
   }
 
-  // Clear previous log file
-  fs.writeFileSync(LOG_PATH, '');
-  logStream = fs.createWriteStream(LOG_PATH, { flags: 'a' });
+  fs.writeFileSync(t.logPath, '');
+  const stream = fs.createWriteStream(t.logPath, { flags: 'a' });
 
-  // Start log stream filtered to our app's bundle ID
-  logProcess = spawn('xcrun', [
-    'simctl', 'spawn', SIMULATOR_ID,
+  const proc = spawn('xcrun', [
+    'simctl', 'spawn', t.simulatorId,
     'log', 'stream',
     '--style', 'compact',
-    '--predicate', `subsystem == "${BUNDLE_ID}" OR processImagePath ENDSWITH "Falcon"`,
+    '--predicate', `subsystem == "${t.bundleId}" OR processImagePath ENDSWITH "${t.processName}"`,
   ], {
     cwd: PROJECT_ROOT,
     env: { ...process.env },
   });
 
-  logProcess.stdout.pipe(logStream);
-  logProcess.stderr.pipe(logStream);
+  proc.stdout.pipe(stream);
+  proc.stderr.pipe(stream);
 
-  logProcess.on('close', () => {
-    console.log('  log process exited');
-    logProcess = null;
-    if (logStream) {
-      logStream.close();
-      logStream = null;
-    }
+  proc.on('close', () => {
+    console.log(`  [${target}] log process exited`);
+    logState[target] = {};
+    stream.close();
   });
 
-  console.log(`\n> [log-start] capturing logs to ${LOG_PATH}`);
+  logState[target] = { process: proc, stream };
+
+  console.log(`\n> [${target}/log-start] capturing logs to ${t.logPath}`);
   res.writeHead(200, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ code: 0, stdout: `Log capture started, writing to ${LOG_PATH}`, stderr: '' }));
+  res.end(JSON.stringify({ code: 0, stdout: `Log capture started, writing to ${t.logPath}`, stderr: '' }));
 }
 
-function handleLogStop(res) {
-  if (logProcess) {
-    logProcess.kill();
-    logProcess = null;
+function handleLogStop(res, target) {
+  const t = TARGETS[target];
+  const state = logState[target] || {};
+
+  if (state.process) {
+    state.process.kill();
   }
-  if (logStream) {
-    logStream.close();
-    logStream = null;
+  if (state.stream) {
+    state.stream.close();
   }
+  logState[target] = {};
 
   let logs = '';
   try {
-    logs = fs.readFileSync(LOG_PATH, 'utf-8');
+    logs = fs.readFileSync(t.logPath, 'utf-8');
   } catch {
     // No log file
   }
 
-  console.log(`\n> [log-stop] returning ${logs.length} bytes of logs`);
+  console.log(`\n> [${target}/log-stop] returning ${logs.length} bytes of logs`);
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ code: 0, stdout: logs, stderr: '' }));
 }
 
-function handleLogRead(res) {
+function handleLogRead(res, target) {
+  const t = TARGETS[target];
+
   let logs = '';
   try {
-    logs = fs.readFileSync(LOG_PATH, 'utf-8');
+    logs = fs.readFileSync(t.logPath, 'utf-8');
   } catch {
     // No log file
   }
 
-  console.log(`\n> [log-read] returning ${logs.length} bytes of logs`);
+  console.log(`\n> [${target}/log-read] returning ${logs.length} bytes of logs`);
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ code: 0, stdout: logs, stderr: '' }));
 }
 
-async function handleRun(res) {
+async function parseBody(req) {
+  if (req.method !== 'POST') return {};
+  const chunks = [];
+  let size = 0;
+  const MAX_BODY = 64 * 1024; // 64KB
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > MAX_BODY) throw new Error('Request body too large');
+    chunks.push(chunk);
+  }
+  const raw = Buffer.concat(chunks).toString();
+  if (raw) return JSON.parse(raw);
+  return {};
+}
+
+// --- Input validation ---
+
+function assertNumber(val, name) {
+  const n = Number(val);
+  if (!Number.isFinite(n)) {
+    throw new Error(`${name} must be a finite number, got: ${JSON.stringify(val)}`);
+  }
+  return n;
+}
+
+function assertString(val, name) {
+  if (typeof val !== 'string' || val.length === 0) {
+    throw new Error(`${name} must be a non-empty string`);
+  }
+  return val;
+}
+
+const GESTURE_PRESETS = new Set([
+  'scroll-up', 'scroll-down', 'scroll-left', 'scroll-right',
+  'swipe-from-left-edge', 'swipe-from-right-edge',
+  'swipe-from-top-edge', 'swipe-from-bottom-edge',
+]);
+
+const BUTTON_TYPES = new Set([
+  'apple-pay', 'home', 'lock', 'side-button', 'siri',
+]);
+
+function assertEnum(val, name, allowed) {
+  if (!allowed.has(val)) {
+    throw new Error(`${name} must be one of: ${[...allowed].join(', ')}, got: ${JSON.stringify(val)}`);
+  }
+  return val;
+}
+
+// Block LLDB commands that escape to the OS shell
+const LLDB_BLOCKED_RE = /^\s*(platform\s+shell|shell\s|script\s|!\s*\S|command\s+script|process\s+launch|target\s+create)/i;
+
+function assertSafeLldbCommand(cmd) {
+  if (typeof cmd !== 'string') {
+    throw new Error('LLDB command must be a string');
+  }
+  // Check each line — newlines could inject multiple commands
+  const lines = cmd.split('\n');
+  if (lines.length > 1) {
+    throw new Error('LLDB command must not contain newlines');
+  }
+  if (LLDB_BLOCKED_RE.test(cmd)) {
+    throw new Error(`Blocked LLDB command (shell escape): ${cmd.slice(0, 60)}`);
+  }
+  return cmd;
+}
+
+// Validate lldb identifier (file path, function name) — no newlines or control chars
+function assertLldbIdentifier(val, name) {
+  assertString(val, name);
+  if (/[\n\r\x00]/.test(val)) {
+    throw new Error(`${name} must not contain newlines or control characters`);
+  }
+  return val;
+}
+
+// --- UI Automation via axe ---
+
+function buildAxeArgs(operation, body, simulatorId) {
+  const args = [];
+  switch (operation) {
+    case 'tap':
+      args.push('tap');
+      if (body.id) { args.push('--id', assertString(body.id, 'id')); }
+      else if (body.label) { args.push('--label', assertString(body.label, 'label')); }
+      else {
+        args.push('-x', String(assertNumber(body.x, 'x')),
+                   '-y', String(assertNumber(body.y, 'y')));
+      }
+      break;
+    case 'swipe':
+      args.push('swipe',
+        '--start-x', String(assertNumber(body.x1, 'x1')),
+        '--start-y', String(assertNumber(body.y1, 'y1')),
+        '--end-x', String(assertNumber(body.x2, 'x2')),
+        '--end-y', String(assertNumber(body.y2, 'y2')));
+      if (body.duration != null) args.push('--duration', String(assertNumber(body.duration, 'duration')));
+      break;
+    case 'gesture':
+      args.push('gesture', assertEnum(body.preset, 'preset', GESTURE_PRESETS));
+      break;
+    case 'type-text':
+      args.push('type', assertString(body.text, 'text'));
+      break;
+    case 'long-press':
+      args.push('touch',
+        '-x', String(assertNumber(body.x, 'x')),
+        '-y', String(assertNumber(body.y, 'y')),
+        '--down', '--up',
+        '--delay', String(assertNumber(body.duration || 1000, 'duration') / 1000));
+      break;
+    case 'touch':
+      args.push('touch',
+        '-x', String(assertNumber(body.x, 'x')),
+        '-y', String(assertNumber(body.y, 'y')));
+      if (body.down) args.push('--down');
+      if (body.up) args.push('--up');
+      if (body.delay != null) args.push('--delay', String(assertNumber(body.delay, 'delay')));
+      break;
+    case 'button':
+      args.push('button', assertEnum(body.type, 'type', BUTTON_TYPES));
+      break;
+    case 'key-press':
+      args.push('key', String(assertNumber(body.keyCode, 'keyCode')));
+      if (body.duration != null) args.push('--duration', String(assertNumber(body.duration, 'duration')));
+      break;
+    case 'key-sequence': {
+      if (!Array.isArray(body.keyCodes) || body.keyCodes.length === 0) {
+        throw new Error('keyCodes must be a non-empty array of numbers');
+      }
+      const validated = body.keyCodes.map((k, i) => assertNumber(k, `keyCodes[${i}]`));
+      args.push('key-sequence', '--keycodes', validated.join(','));
+      if (body.delay != null) args.push('--delay', String(assertNumber(body.delay, 'delay')));
+      break;
+    }
+    case 'snapshot-ui':
+      args.push('describe-ui');
+      break;
+    default:
+      return null;
+  }
+  args.push('--udid', simulatorId);
+  return args;
+}
+
+const AXE_OPERATIONS = new Set([
+  'tap', 'swipe', 'gesture', 'type-text', 'long-press',
+  'touch', 'button', 'key-press', 'key-sequence', 'snapshot-ui',
+]);
+
+async function handleAxeOp(res, target, operation, body) {
+  const t = TARGETS[target];
+  let args;
+  try {
+    args = buildAxeArgs(operation, body, t.simulatorId);
+  } catch (e) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: e.message }));
+    return;
+  }
+  if (!args) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: `Unknown axe operation: ${operation}` }));
+    return;
+  }
+  console.log(`\n> [${target}/${operation}] ${AXE_PATH} ${args.join(' ')}`);
+  const result = await exec(AXE_PATH, args, 10000);
+  console.log(`  exit: ${result.code}`);
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(result));
+}
+
+// --- LLDB Debug Proxy ---
+
+function handleDebugAttach(res, target) {
+  const t = TARGETS[target];
+  // Clean up stale sessions where the lldb process has exited
+  if (debugState[target] && debugState[target].process) {
+    if (debugState[target].process.exitCode !== null) {
+      debugState[target] = {};
+    } else {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ code: 0, stdout: 'Already attached', stderr: '' }));
+      return;
+    }
+  }
+
+  // Use -o to run the attach command on startup (works without a TTY)
+  const proc = spawn('lldb', ['-o', `process attach --name ${t.processName}`], {
+    cwd: PROJECT_ROOT,
+    env: { ...process.env },
+  });
+
+  let buffer = '';
+  debugState[target] = { process: proc };
+
+  proc.stdout.on('data', d => { buffer += d; });
+  proc.stderr.on('data', d => { buffer += d; });
+  proc.on('close', () => {
+    console.log(`  [${target}] lldb process exited`);
+    debugState[target] = {};
+  });
+
+  // Wait for output indicating attach result
+  const timeout = 15000;
+  const start = Date.now();
+  const poll = setInterval(() => {
+    const hasError = buffer.includes('error:');
+    const hasAttached = buffer.includes('Process') && buffer.includes('stopped');
+    if (hasError || hasAttached) {
+      clearInterval(poll);
+      console.log(`\n> [${target}/debug-attach] ${hasError ? 'FAILED' : 'attached to ' + t.processName}`);
+      if (hasError) {
+        proc.stdin.write('quit\n');
+        debugState[target] = {};
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ code: hasError ? 1 : 0, stdout: buffer, stderr: '' }));
+      if (!hasError) {
+        buffer = '';
+        // Continue so the app doesn't stay paused
+        proc.stdin.write('continue\n');
+      }
+    } else if (Date.now() - start > timeout) {
+      clearInterval(poll);
+      console.log(`\n> [${target}/debug-attach] timeout waiting for attach`);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ code: 1, stdout: buffer, stderr: 'Timeout waiting for LLDB attach' }));
+    }
+  }, 200);
+}
+
+function handleDebugDetach(res, target) {
+  const state = debugState[target];
+  if (!state || !state.process) {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ code: 0, stdout: 'No active debug session', stderr: '' }));
+    return;
+  }
+
+  state.process.stdin.write('detach\n');
+  state.process.stdin.write('quit\n');
+
+  setTimeout(() => {
+    if (state.process && !state.process.killed) {
+      state.process.kill();
+    }
+    debugState[target] = {};
+    console.log(`\n> [${target}/debug-detach] detached`);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ code: 0, stdout: 'Detached', stderr: '' }));
+  }, 500);
+}
+
+function handleDebugCommand(res, target, command) {
+  const state = debugState[target];
+  if (!state || !state.process) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'No active debug session. Call debug-attach first.' }));
+    return;
+  }
+
+  let output = '';
+  const onData = d => { output += d; };
+  state.process.stdout.on('data', onData);
+  state.process.stderr.on('data', onData);
+
+  state.process.stdin.write(command + '\n');
+
+  // Wait for output to stabilize (no new data for 500ms) or timeout
+  const timeout = 10000;
+  const start = Date.now();
+  let lastLen = 0;
+  let stableAt = 0;
+  const poll = setInterval(() => {
+    if (output.length > 0 && output.length === lastLen) {
+      // Output hasn't changed
+      if (!stableAt) stableAt = Date.now();
+      if (Date.now() - stableAt > 500) {
+        clearInterval(poll);
+        state.process.stdout.removeListener('data', onData);
+        state.process.stderr.removeListener('data', onData);
+        console.log(`\n> [${target}/debug-lldb] ${command}`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ code: 0, stdout: output, stderr: '' }));
+        return;
+      }
+    } else {
+      lastLen = output.length;
+      stableAt = 0;
+    }
+    if (Date.now() - start > timeout) {
+      clearInterval(poll);
+      state.process.stdout.removeListener('data', onData);
+      state.process.stderr.removeListener('data', onData);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ code: 1, stdout: output, stderr: 'Timeout waiting for LLDB response' }));
+    }
+  }, 100);
+}
+
+const DEBUG_OPERATIONS = new Set([
+  'debug-attach', 'debug-detach', 'debug-breakpoint-add',
+  'debug-breakpoint-remove', 'debug-continue', 'debug-lldb',
+  'debug-stack', 'debug-variables',
+]);
+
+async function handleDebugOp(res, target, operation, body) {
+  try {
+    switch (operation) {
+      case 'debug-attach':
+        return handleDebugAttach(res, target);
+      case 'debug-detach':
+        return handleDebugDetach(res, target);
+      case 'debug-breakpoint-add': {
+        let cmd;
+        if (body.file && body.line) {
+          assertLldbIdentifier(body.file, 'file');
+          assertNumber(body.line, 'line');
+          cmd = `breakpoint set -f ${body.file} -l ${body.line}`;
+        } else if (body.function) {
+          assertLldbIdentifier(body.function, 'function');
+          cmd = `breakpoint set -n ${body.function}`;
+        } else {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Provide file+line or function' }));
+          return;
+        }
+        if (body.condition) {
+          assertLldbIdentifier(body.condition, 'condition');
+          cmd += ` -c '${body.condition.replace(/'/g, "\\'")}'`;
+        }
+        assertSafeLldbCommand(cmd);
+        return handleDebugCommand(res, target, cmd);
+      }
+      case 'debug-breakpoint-remove':
+        assertNumber(body.breakpointId, 'breakpointId');
+        return handleDebugCommand(res, target, `breakpoint delete ${body.breakpointId}`);
+      case 'debug-continue':
+        return handleDebugCommand(res, target, 'continue');
+      case 'debug-lldb':
+        assertSafeLldbCommand(body.command);
+        return handleDebugCommand(res, target, body.command);
+      case 'debug-stack':
+        if (body.maxFrames != null) assertNumber(body.maxFrames, 'maxFrames');
+        return handleDebugCommand(res, target, `bt ${body.maxFrames || ''}`);
+      case 'debug-variables':
+        return handleDebugCommand(res, target, 'frame variable');
+      default:
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: `Unknown debug operation: ${operation}` }));
+    }
+  } catch (e) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: e.message }));
+  }
+}
+
+async function handleRun(res, target) {
+  const t = TARGETS[target];
+  const commands = commandsForTarget(t);
+
   // 1. Build
-  const buildCmd = COMMANDS.build;
-  console.log(`\n> [run] step 1/3: build`);
+  const buildCmd = commands.build;
+  console.log(`\n> [${target}/run] step 1/3: build`);
   const buildResult = await exec(buildCmd.command, buildCmd.args, buildCmd.timeout);
   console.log(`  build exit: ${buildResult.code}`);
   if (buildResult.code !== 0) {
@@ -258,7 +649,7 @@ async function handleRun(res) {
   }
 
   // 2. Resolve app path from build settings
-  const settingsCmd = COMMANDS['build-settings'];
+  const settingsCmd = commands['build-settings'];
   const settingsResult = await exec(settingsCmd.command, settingsCmd.args, settingsCmd.timeout);
   const appPath = resolveAppPath(settingsResult.stdout);
   if (!appPath) {
@@ -268,7 +659,7 @@ async function handleRun(res) {
   }
 
   // 3. Install
-  const installCmd = COMMANDS.install;
+  const installCmd = commands.install;
   const installArgs = [...installCmd.args, appPath];
   console.log(`  step 2/3: install ${appPath}`);
   const installResult = await exec(installCmd.command, installArgs, installCmd.timeout);
@@ -280,7 +671,7 @@ async function handleRun(res) {
   }
 
   // 4. Launch
-  const launchCmd = COMMANDS.launch;
+  const launchCmd = commands.launch;
   console.log(`  step 3/3: launch`);
   const launchResult = await exec(launchCmd.command, launchCmd.args, launchCmd.timeout);
   console.log(`  launch exit: ${launchResult.code}`);
@@ -294,72 +685,120 @@ async function handleRun(res) {
   }));
 }
 
-const server = http.createServer((req, res) => {
+// Parse path: /<operation>/<target>?=<filter> where target defaults to "demo"
+function parsePath(url) {
+  const [pathPart, queryPart] = url.split('?');
+  const parts = pathPart.split('/').filter(Boolean);
+  const filter = queryPart && queryPart.startsWith('=') ? queryPart.slice(1) : null;
+  if (parts.length === 0) return { operation: null, target: 'demo', filter };
+  if (parts.length === 1) return { operation: parts[0], target: 'demo', filter };
+  return { operation: parts[0], target: parts[1], filter };
+}
+
+// Filter stdout lines by query string (case-insensitive)
+function filterResponse(jsonStr, filter) {
+  if (!filter) return jsonStr;
+  const obj = JSON.parse(jsonStr);
+  if (obj.stdout) {
+    const query = decodeURIComponent(filter).toLowerCase();
+    obj.stdout = obj.stdout
+      .split('\n')
+      .filter(line => line.toLowerCase().includes(query))
+      .join('\n');
+  }
+  return JSON.stringify(obj);
+}
+
+const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && req.url === '/healthz') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: 'ok' }));
+    res.end(JSON.stringify({ status: 'ok', targets: Object.keys(TARGETS) }));
     return;
   }
 
-  if (req.method === 'POST' && req.url === '/run') {
-    let body = '';
-    req.on('data', chunk => { body += chunk; });
-    req.on('end', async () => {
-      let parsed;
-      try {
-        parsed = JSON.parse(body);
-      } catch {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Invalid JSON' }));
-        return;
-      }
-
-      const { operation } = parsed;
-
-      // Handle log operations separately (streaming process)
-      if (operation === 'log-start') return handleLogStart(res);
-      if (operation === 'log-stop') return handleLogStop(res);
-      if (operation === 'log-read') return handleLogRead(res);
-
-      // Handle 'run' — build, install, launch in sequence
-      if (operation === 'run') return handleRun(res);
-
-      if (!operation || !OPERATIONS[operation]) {
-        const allOps = [...Object.keys(OPERATIONS), 'run', 'log-start', 'log-stop', 'log-read'];
-        res.writeHead(403, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          error: `Unknown operation "${operation}". Available: ${allOps.join(', ')}`,
-        }));
-        return;
-      }
-
-      const op = OPERATIONS[operation];
-      const args = [...op.args];
-
-      console.log(`\n> [${operation}] ${op.command} ${args.join(' ')}`);
-      const opCwd = op.cwd ? path.join(PROJECT_ROOT, op.cwd) : undefined;
-      const result = await exec(op.command, args, op.timeout, opCwd);
-      console.log(`  exit: ${result.code}`);
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result));
-    });
+  if (req.method !== 'POST') {
+    res.writeHead(404);
+    res.end('Not found');
     return;
   }
 
-  res.writeHead(404);
-  res.end('Not found');
+  const { operation, target, filter } = parsePath(req.url);
+
+  if (!TARGETS[target]) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: `Unknown target "${target}". Available: ${Object.keys(TARGETS).join(', ')}` }));
+    return;
+  }
+
+  // Wrap res.end to apply stdout filtering when ?=<query> is present
+  if (filter) {
+    const origEnd = res.end.bind(res);
+    res.end = (data, ...args) => origEnd(filterResponse(data, filter), ...args);
+  }
+
+  // Parse request body for POST requests
+  let body = {};
+  try {
+    body = await parseBody(req);
+  } catch (e) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: `Invalid JSON body: ${e.message}` }));
+    return;
+  }
+
+  const t = TARGETS[target];
+  const operations = { ...operationsForTarget(t), ...SHARED_OPERATIONS };
+
+  // Handle log operations
+  if (operation === 'log-start') return handleLogStart(res, target);
+  if (operation === 'log-stop') return handleLogStop(res, target);
+  if (operation === 'log-read') return handleLogRead(res, target);
+
+  // Handle 'run' — build, install, launch in sequence
+  if (operation === 'run') return handleRun(res, target);
+
+  // Handle UI automation via axe
+  if (AXE_OPERATIONS.has(operation)) return handleAxeOp(res, target, operation, body);
+
+  // Handle debug operations via LLDB
+  if (DEBUG_OPERATIONS.has(operation)) return handleDebugOp(res, target, operation, body);
+
+  if (!operation || !operations[operation]) {
+    const allOps = [
+      ...Object.keys(operations), 'run', 'log-start', 'log-stop', 'log-read',
+      ...AXE_OPERATIONS, ...DEBUG_OPERATIONS,
+    ];
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      error: `Unknown operation "${operation}". Available: ${allOps.join(', ')}`,
+    }));
+    return;
+  }
+
+  const op = operations[operation];
+  const args = [...op.args];
+
+  console.log(`\n> [${target}/${operation}] ${op.command} ${args.join(' ')}`);
+  const opCwd = op.cwd ? path.join(PROJECT_ROOT, op.cwd) : undefined;
+  const result = await exec(op.command, args, op.timeout, opCwd);
+  console.log(`  exit: ${result.code}`);
+
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(result));
 });
 
 server.listen(PORT, () => {
   console.log(`Build server listening on http://localhost:${PORT}`);
-  console.log(`Project: ${PROJECT_PATH}`);
-  console.log(`Scheme:  ${SCHEME}`);
-  console.log(`Simulator: ${SIMULATOR_ID}`);
-  console.log(`\nAvailable operations:`);
-  for (const name of [...Object.keys(OPERATIONS), 'run', 'log-start', 'log-stop', 'log-read']) {
-    console.log(`  - ${name}`);
+  console.log(`\nTargets:`);
+  for (const [name, cfg] of Object.entries(TARGETS)) {
+    console.log(`  ${name}: ${cfg.scheme} → ${cfg.simulatorId}`);
   }
-  console.log(`\nUsage: POST http://localhost:${PORT}/run`);
-  console.log(`  Body: { "operation": "run" }`);
+  const sampleOps = [
+    ...Object.keys(operationsForTarget(TARGETS.demo)), ...Object.keys(SHARED_OPERATIONS),
+    'run', 'log-start', 'log-stop', 'log-read',
+    ...AXE_OPERATIONS, ...DEBUG_OPERATIONS,
+  ];
+  console.log(`\nOperations: ${sampleOps.join(', ')}`);
+  console.log(`\nUsage: POST http://localhost:${PORT}/<operation>/<target>`);
+  console.log(`  Example: curl -X POST http://localhost:${PORT}/run/demo`);
 });

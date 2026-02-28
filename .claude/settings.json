@@ -10,7 +10,6 @@
       "Bash(swift build:*)",
       "Bash(swift test:*)",
       "Bash(test:*)",
-      "mcp__XcodeBuildMCP__*",
       "WebSearch",
       "WebFetch",
       "mcp__plugin_chrome-devtools-mcp_chrome-devtools__list_pages",
@@ -21,6 +20,10 @@
       "mcp__plugin_chrome-devtools-mcp_chrome-devtools__take_screenshot"
     ],
     "deny": [
+      "Bash(bash scripts/build-op.sh:*)",
+      "Bash(bash ./scripts/build-op.sh:*)",
+      "Bash(curl*localhost:6002*)",
+      "Bash(curl*localhost*build*)",
       "Bash(xcrun:*)",
       "Bash(kill:*)",
       "Bash(pkill:*)",
@@ -28,7 +31,13 @@
       "Bash(xcodebuild:*)",
       "Bash(codesign:*)",
       "Bash(plutil:*)",
-      "Bash(/usr/libexec/PlistBuddy:*)"
+      "Bash(/usr/libexec/PlistBuddy:*)",
+      "Bash(git worktree:*)",
+      "Bash(git checkout -b:*)",
+      "Bash(git checkout -B:*)",
+      "Bash(git switch -c:*)",
+      "Bash(git switch -C:*)",
+      "Bash(git branch:*)"
     ]
   },
   "defaultMode": "dontAsk",
