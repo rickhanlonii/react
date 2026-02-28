@@ -125,4 +125,45 @@ describe('Document polyfill', function () {
     expect(body.props.style.display).toBe('block');
     expect(body.children[0].type).toBe('div');
   });
+
+  it('useEffect can insert script into document.head via appendChild', function () {
+    var effectRan = false;
+    var scriptAppended = false;
+
+    function App() {
+      React.useEffect(function () {
+        effectRan = true;
+        var script = document.createElement('script');
+        script.src = 'http://localhost:99999/test-chunk.js';
+        document.head.appendChild(script);
+        scriptAppended = true;
+      }, []);
+      return (
+        <html>
+          <head />
+          <body>
+            <div>App</div>
+          </body>
+        </html>
+      );
+    }
+
+    var root = Fantom.createRoot();
+    Fantom.runTask(function () {
+      root.render(<App />);
+    });
+
+    // useEffect fires synchronously during runTask ($$flushWork drains setTimeout queue)
+    expect(effectRan).toBe(true);
+    expect(scriptAppended).toBe(true);
+
+    // Script should be tracked for getElementsByTagName dedup
+    var scripts = document.getElementsByTagName('script');
+    expect(scripts.length).toBeGreaterThan(0);
+
+    // The appended script should have the correct src
+    var lastScript = scripts[scripts.length - 1];
+    expect(lastScript.src).toBe('http://localhost:99999/test-chunk.js');
+    expect(lastScript.parentNode).toBe(document.head);
+  });
 });

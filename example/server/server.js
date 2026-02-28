@@ -71,6 +71,12 @@ function getLatestVersion() {
 // Serve webpack output (bundle, chunks, manifests) as static files
 app.use(express.static(path.resolve(__dirname, '../build')));
 
+// Test script endpoint — sets a global variable to confirm script execution
+app.get('/test-script.js', function (req, res) {
+  res.type('application/javascript');
+  res.send('globalThis.__TEST_SCRIPT_EXECUTED__ = true;');
+});
+
 app.get('/bundle-version', function (req, res) {
   res.json({ version: getLatestVersion() });
 });
