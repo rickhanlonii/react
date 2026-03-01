@@ -5,112 +5,84 @@
 
 ## Summary
 
-**Answer: "We find a React version difference"** — Next.js bundles its own React Flight client
-(compiled from a different React snapshot) that simply **does not have
-`moveDebugInfoFromChunkToInnerValue`**. The function doesn't exist in any Next.js-bundled
-Flight client (stable or experimental). Since it never runs, `_debugInfo` stays on chunks
-naturally, and `flushComponentPerformance` works without any patch.
+**Answer: Our React 19.2.4 npm build is missing an upstream fix.** Next.js 16.2.0-canary.53
+bundles a React Flight client compiled from a newer React commit than npm 19.2.4. That newer
+build has BOTH `moveDebugInfoFromChunkToInnerValue` (which splices `_debugInfo` off chunks)
+AND a fallback in `flushComponentPerformance` that reads `_debugInfo` from the resolved value
+when the chunk's array is empty. Our npm 19.2.4 has the splice but NOT the fallback.
 
-Our React 19.2.4 introduced `moveDebugInfoFromChunkToInnerValue` (to move debug info from
-chunks to resolved React elements for DevTools). This breaks `flushComponentPerformance`
-because it empties `_debugInfo` from chunks before the performance flush runs. Our patch
-is the correct fix for 19.2.4.
+**Action: Replace our `moveDebugInfoFromChunkToInnerValue` patch with a
+`flushComponentPerformance` fallback patch** that adds the same value-reading logic the
+upstream React source already has.
 
 ## Detailed Findings
 
-### Step 1: React versions
+### The versions
 
-| | React | Flight client | Has `moveDebugInfoFromChunkToInnerValue` | Has `flushComponentPerformance` |
+| | React | Flight client | Has `moveDebugInfoFromChunkToInnerValue` | Has value fallback in `flushComponentPerformance` |
 |---|---|---|---|---|
-| **Falcon** | 19.2.4 | react-server-dom-webpack 19.2.4 | YES (patched with guard) | YES |
-| **Next.js stable** | 19.1.0 (bundled in `next/dist/compiled/react-server-dom-webpack/`) | Custom build | NO | NO |
-| **Next.js experimental** | Canary (bundled in `next/dist/compiled/react-server-dom-webpack-experimental/`) | Custom build | NO | YES |
-| **React source** (main) | HEAD | Source | YES (no guard) | YES |
+| **Falcon (npm)** | 19.2.4 | react-server-dom-webpack 19.2.4 | YES | **NO** (bug) |
+| **Next.js 16 (bundled)** | 19.2.4 (newer commit) | Bundled in `next/dist/compiled/` | YES | **YES** |
+| **React source** (main) | HEAD | Source | YES | **YES** |
 
-Key differences in `ReactPromise` constructor:
+Next.js bundles its own compiled React in `next/dist/compiled/react-server-dom-webpack/`.
+Even though the npm `react` package is 19.2.4, the bundled Flight client is from a newer
+React commit that includes the fallback fix.
+
+### The bug in our build
+
+In our npm React 19.2.4, `flushComponentPerformance` does:
 
 ```javascript
-// React 19.2.4 (Falcon)
-this._children = [];
-this._debugChunk = null;
-this._debugInfo = [];       // ← initialized as empty array
-
-// Next.js experimental
-this._children = [];
-this._debugInfo = this._debugChunk = null;  // ← initialized as null
+var children = root._children,
+  debugInfo = root._debugInfo;
+if (debugInfo) {  // ← empty [] is truthy, but length is 0
+  // for loops iterate 0 times — no timing data found
 ```
 
-### Step 2: Next.js's own tracing
+The `_debugInfo` array was emptied by `moveDebugInfoFromChunkToInnerValue` (splice(0)) and
+moved to the resolved value's `_debugInfo`. But `flushComponentPerformance` never looks there.
 
-Next.js does **NOT** have independent server component performance tracing. The "Server
-Components" track comes from React's `flushComponentPerformance`, which exists only in the
-**experimental** Flight client bundled inside Next.js. The stable Flight client has neither
-`flushComponentPerformance` nor `moveDebugInfoFromChunkToInnerValue`.
+### The upstream fix (in React source + Next.js 16 bundled build)
 
-### Step 3: Why `_debugInfo` survives in Next.js
+The React source (main) and Next.js 16's bundled Flight client have this fallback:
 
-In Next.js's experimental Flight client:
-
-1. **No `moveDebugInfoFromChunkToInnerValue`** — the function simply doesn't exist
-2. **No `processChunkDebugInfo`** — the wrapper function doesn't exist either
-3. **No `splice(0)` on `_debugInfo`** — no splice calls touch debug info arrays
-4. **`wakeChunk(listeners, value)`** — simpler signature, no `chunk` parameter, can't move debug info
-
-So when `flushInitialRenderPerformance` fires:
 ```javascript
-function flushInitialRenderPerformance(response) {
-  if (response._replayConsole) {
-    var rootChunk = getChunk(response, 0);
-    isArrayImpl(rootChunk._children) &&
-      (markAllTracksInOrder(),
-      flushComponentPerformance(response, rootChunk, 0, -Infinity, -Infinity));
+var debugInfo = root._debugInfo;
+if (0 === debugInfo.length && "fulfilled" === root.status) {
+  var resolvedValue = resolveLazy(root.value);
+  // Check if the value got the debug info from moveDebugInfoFromChunkToInnerValue
+  if (typeof resolvedValue === 'object' && resolvedValue !== null &&
+      (isArray(resolvedValue) || ...) &&
+      isArray(resolvedValue._debugInfo)) {
+    // "It's possible that the value has been given the debug info.
+    //  In that case we need to look for it on the resolved value."
+    debugInfo = resolvedValue._debugInfo;
   }
 }
 ```
 
-It reads `rootChunk._children` (for tree traversal) and `rootChunk._debugInfo` (for timing/naming),
-both of which still have data because nothing spliced them.
+This handles the case where `moveDebugInfoFromChunkToInnerValue` moved debug info from
+the chunk to the value — `flushComponentPerformance` just follows it there.
 
-### Step 4: Why it breaks in React 19.2.4
+### Why our current patch works (but is wrong)
 
-In our React 19.2.4:
-
-1. **`moveDebugInfoFromChunkToInnerValue` exists** — called from `wakeChunk` when a chunk resolves
-2. **`chunk._debugInfo.splice(0)`** — empties the array and moves entries to the resolved value's `_debugInfo`
-3. **`flushInitialRenderPerformance` fires later** (100ms timeout after last chunk resolves) — by this point,
-   `rootChunk._debugInfo` is `[]` (empty, but truthy), so the for loops iterate 0 times
-4. **No component names or timing** → no `console.timeStamp` calls → no server component tracks
-
-### Step 5: Why our patch is correct
-
-Our patch in `scripts/patches/react-flight-debug-channel.js` adds:
+Our patch in `scripts/patches/react-flight-debug-channel.js` prevents the splice:
 
 ```javascript
 function moveDebugInfoFromChunkToInnerValue(chunk, value) {
-  if (__hasDebugChannelReadable__) return;  // ← skip when debug channel active
-  // ... original splice logic
-}
+  if (__hasDebugChannelReadable__) return;  // ← skip splice entirely
 ```
 
-This matches the Next.js experimental behavior: debug info stays on chunks, and
-`flushComponentPerformance` can read it. The guard is scoped to when a debug channel
-with `hasReadable` is active, so it doesn't affect the normal DevTools flow (moving
-debug info to React elements for inspection).
+This works because debug info stays on chunks, so `flushComponentPerformance` finds it.
+But it's fighting the system — the upstream solution is to let the splice happen and have
+`flushComponentPerformance` follow the data to the value.
 
-## Conclusion
+### Correct fix
 
-The `moveDebugInfoFromChunkToInnerValue` function was added to React 19.2.x to support
-React DevTools (moving debug info from chunks onto resolved React elements). The Next.js
-experimental build was compiled from a React snapshot that predates this addition, so server
-component tracks work naturally there.
-
-**Our patch is correct.** It's the minimal fix: skip the splice when a debug channel is
-active (which is exactly when `flushComponentPerformance` needs the data on chunks). The
-upstream fix would be for React to either:
-1. Not splice debug info when `flushComponentPerformance` hasn't run yet
-2. Read debug info from a separate structure that isn't affected by the splice
-3. Remove `moveDebugInfoFromChunkToInnerValue` entirely (as the experimental build does)
-
-**No further action needed** — our postinstall patch is the right approach until React
-upstream resolves the conflict between `moveDebugInfoFromChunkToInnerValue` and
-`flushComponentPerformance`.
+Replace our `moveDebugInfoFromChunkToInnerValue` patch with a `flushComponentPerformance`
+patch that adds the value fallback. This:
+1. Matches the upstream React behavior exactly
+2. Doesn't interfere with `moveDebugInfoFromChunkToInnerValue` (DevTools needs it)
+3. Works without `debugChannel` — the fix is in the consumer, not the producer
+4. Will become a no-op when we upgrade to a React version that includes the fix
