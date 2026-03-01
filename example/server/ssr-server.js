@@ -102,6 +102,10 @@ function handleSSR(flightURL, req, res) {
     var bootstrap = JSON.stringify(['JS', 'self.__next_f.push([0])']) + '\n';
     pendingRows.push(bootstrap);
 
+    // Bootstrap: initialize the client's debug data receiver
+    var debugBootstrap = JSON.stringify(['JS', 'self.__next_debug.push([0])']) + '\n';
+    pendingRows.push(debugBootstrap);
+
     function emitFlightRow(row) {
       // Emit as JS instruction that pushes Flight data into the inline receiver
       var jsCode = 'self.__next_f.push([1,' + JSON.stringify(row + '\n') + '])';
@@ -113,12 +117,22 @@ function handleSSR(flightURL, req, res) {
       }
     }
 
+    function emitDebugRow(row) {
+      // Emit as JS instruction that pushes debug data into the inline receiver
+      var jsCode = 'self.__next_debug.push([1,' + JSON.stringify(row + '\n') + '])';
+      var instruction = JSON.stringify(['JS', jsCode]) + '\n';
+      if (shellReady) {
+        res.write(instruction);
+      } else {
+        pendingRows.push(instruction);
+      }
+    }
+
+    var debugPassThrough = new PassThrough();
+
     var flightCapture = new Transform({
       transform: function (chunk, encoding, callback) {
-        // Pass data through to the Flight client unchanged
-        this.push(chunk);
-
-        // Parse rows (newline-delimited) and emit as JS instructions
+        // Parse rows (newline-delimited) and classify as flight or debug
         var text = chunk.toString();
         var lines = text.split('\n');
 
@@ -136,10 +150,25 @@ function handleSSR(flightURL, req, res) {
           }
         }
 
+        // Separate flight rows and debug rows
+        var flightChunks = [];
         for (var i = 0; i < lines.length; i++) {
-          if (lines[i] !== '') {
+          if (lines[i] === '') continue;
+          if (lines[i][0] === '\t') {
+            // Debug row — strip tab prefix, emit as debug instruction
+            var debugRow = lines[i].substring(1);
+            emitDebugRow(debugRow);
+            debugPassThrough.write(debugRow + '\n');
+          } else {
+            // Flight row — pass through to Flight client and emit as instruction
+            flightChunks.push(lines[i] + '\n');
             emitFlightRow(lines[i]);
           }
+        }
+
+        // Push only flight data to the passthrough (for createFromNodeStream)
+        if (flightChunks.length > 0) {
+          this.push(flightChunks.join(''));
         }
 
         callback();
@@ -147,21 +176,33 @@ function handleSSR(flightURL, req, res) {
       flush: function (callback) {
         // Flush any remaining partial row
         if (partialRow !== '') {
-          emitFlightRow(partialRow);
+          if (partialRow[0] === '\t') {
+            var debugRow = partialRow.substring(1);
+            emitDebugRow(debugRow);
+            debugPassThrough.write(debugRow + '\n');
+          } else {
+            this.push(partialRow + '\n');
+            emitFlightRow(partialRow);
+          }
           partialRow = '';
         }
         // Close the Flight data stream on the client
         var closeJS = JSON.stringify(['JS', 'globalThis.__REACT_DOM_NATIVE__.__closeFlightDataStream__()']) + '\n';
+        // Close the debug data stream on the client
+        var closeDebugJS = JSON.stringify(['JS', 'globalThis.__REACT_DOM_NATIVE__.__closeDebugDataStream__()']) + '\n';
         if (shellReady) {
           res.write(closeJS);
+          res.write(closeDebugJS);
         } else {
           pendingRows.push(closeJS);
+          pendingRows.push(closeDebugJS);
         }
+        debugPassThrough.end();
         callback();
       },
     });
 
-    // Pipe: flightRes → flightCapture → passThrough (for Flight client)
+    // Pipe: flightRes → flightCapture (demuxes debug rows) → passThrough (flight only, for Flight client)
     var passThrough = new PassThrough();
     flightRes.pipe(flightCapture).pipe(passThrough);
 
@@ -176,7 +217,9 @@ function handleSSR(flightURL, req, res) {
     var cachedResult;
     var Root = function () {
       if (!cachedResult) {
-        cachedResult = createFromNodeStream(passThrough, ssrManifest);
+        cachedResult = createFromNodeStream(passThrough, ssrManifest, {
+          debugChannel: debugPassThrough,
+        });
       }
       return React.use(cachedResult);
     };

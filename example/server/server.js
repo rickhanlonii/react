@@ -15,6 +15,7 @@ var path = require('path');
 require('react-server-dom-webpack/node-register')();
 
 var fs = require('fs');
+var {PassThrough} = require('stream');
 var express = require('express');
 var React = require('react');
 
@@ -126,6 +127,60 @@ app.get('/fixtures', function (req, res) {
   res.json(grouped);
 });
 
+// Render a React element to a Flight stream with debug channel multiplexing.
+// Debug rows are prefixed with \t so the SSR server can demultiplex them.
+function renderFlightWithDebugChannel(element, res) {
+  res.setHeader('Content-Type', 'text/x-component');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
+  var renderToPipeableStream =
+    require('react-server-dom-webpack/server').renderToPipeableStream;
+
+  // Use a PassThrough to collect debug output, but pass a write-only wrapper
+  // to renderToPipeableStream. A PassThrough is duplex (has both .read() and
+  // .write()), and React's server code would use it as both a readable (for
+  // receiving commands) and a writable (for sending debug data), causing it
+  // to read its own output as commands and crash.
+  var debugPassThrough = new PassThrough();
+  var debugWritable = {
+    write: function(chunk) { return debugPassThrough.write(chunk); },
+    end: function() { debugPassThrough.end(); },
+    destroy: function(err) { debugPassThrough.destroy(err); },
+    on: function() { return debugWritable; },
+  };
+  var stream = renderToPipeableStream(element, getClientManifest(), {
+    debugChannel: debugWritable,
+  });
+
+  // Manual piping — interleave main + debug rows
+  var mainOut = new PassThrough();
+  stream.pipe(mainOut);
+
+  // Debug row line buffering state
+  var debugPartial = '';
+
+  mainOut.on('data', function(chunk) { res.write(chunk); });
+  debugPassThrough.on('data', function(chunk) {
+    // Prefix complete lines with \t, buffer partials
+    var text = debugPartial + chunk.toString();
+    var lines = text.split('\n');
+    debugPartial = lines.pop(); // last element is partial or empty
+    for (var i = 0; i < lines.length; i++) {
+      if (lines[i].length > 0) {
+        res.write('\t' + lines[i] + '\n');
+      }
+    }
+  });
+
+  var mainDone = false, debugDone = false;
+  mainOut.on('end', function() { mainDone = true; if (debugDone) res.end(); });
+  debugPassThrough.on('end', function() {
+    if (debugPartial) { res.write('\t' + debugPartial + '\n'); debugPartial = ''; }
+    debugDone = true;
+    if (mainDone) res.end();
+  });
+}
+
 app.get('/fixtures/:name', function (req, res) {
   clearServerSourceCache();
 
@@ -139,13 +194,7 @@ app.get('/fixtures/:name', function (req, res) {
   var FixtureComponent = mod.default || mod;
   var element = React.createElement(FixtureComponent);
 
-  res.setHeader('Content-Type', 'text/x-component');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-
-  var renderToPipeableStream =
-    require('react-server-dom-webpack/server').renderToPipeableStream;
-  var stream = renderToPipeableStream(element, getClientManifest());
-  stream.pipe(res);
+  renderFlightWithDebugChannel(element, res);
 });
 
 app.get('/', function (req, res) {
@@ -155,13 +204,7 @@ app.get('/', function (req, res) {
   var AppComponent = mod.default || mod;
   var element = React.createElement(AppComponent);
 
-  res.setHeader('Content-Type', 'text/x-component');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-
-  var renderToPipeableStream =
-    require('react-server-dom-webpack/server').renderToPipeableStream;
-  var stream = renderToPipeableStream(element, getClientManifest());
-  stream.pipe(res);
+  renderFlightWithDebugChannel(element, res);
 });
 
 var server = app.listen(PORT, function () {

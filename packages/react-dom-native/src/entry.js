@@ -105,6 +105,68 @@ var selfGlobal = typeof self !== 'undefined' ? self : globalThis;
 selfGlobal.__next_f = selfGlobal.__next_f || [];
 selfGlobal.__next_f.push = flightDataCallback;
 
+// ---------------------------------------------------------------------------
+// Inline Debug Data Receiver
+//
+// Same pattern as Flight data, but for debug info (component names, times,
+// stacks). The server sends debug rows via self.__next_debug, which feeds
+// a separate ReadableStream passed as debugChannel to createFromReadableStream.
+// ---------------------------------------------------------------------------
+
+var debugDataBuffer = null;
+var debugDataWriter = null;
+var debugDataClosed = false;
+
+function debugDataCallback(seg) {
+  if (seg[0] === 0) {
+    // Bootstrap — initialize/reset buffer for a new stream
+    debugDataBuffer = [];
+    debugDataWriter = null;
+    debugDataClosed = false;
+    return;
+  }
+  // seg[0] === 1: Debug data row
+  var data = seg[1];
+  if (typeof data === 'string') {
+    data = flightEncoder.encode(data);
+  }
+  if (debugDataWriter) {
+    debugDataWriter.enqueue(data);
+  } else if (debugDataBuffer) {
+    debugDataBuffer.push(data);
+  }
+}
+
+function createDebugDataStream() {
+  return new ReadableStream({
+    start: function(controller) {
+      // Flush any buffered chunks
+      if (debugDataBuffer) {
+        for (var i = 0; i < debugDataBuffer.length; i++) {
+          controller.enqueue(debugDataBuffer[i]);
+        }
+        debugDataBuffer = null;
+      }
+      if (debugDataClosed) {
+        controller.close();
+        return;
+      }
+      debugDataWriter = controller;
+    }
+  });
+}
+
+function closeDebugDataStream() {
+  debugDataClosed = true;
+  if (debugDataWriter) {
+    debugDataWriter.close();
+    debugDataWriter = null;
+  }
+}
+
+selfGlobal.__next_debug = selfGlobal.__next_debug || [];
+selfGlobal.__next_debug.push = debugDataCallback;
+
 function Root(props) {
   return use(props.tree);
 }
@@ -188,7 +250,9 @@ globalThis.__REACT_DOM_NATIVE__ = {
   // via self.__next_f.push([1, data]).
   renderFromStream: function renderFromStream(surfaceId) {
     var stream = createFlightDataStream();
-    var tree = ReactFlightClient.createFromReadableStream(stream);
+    var tree = ReactFlightClient.createFromReadableStream(stream, {
+      debugChannel: { readable: createDebugDataStream() },
+    });
     var root = createRoot({surfaceId: surfaceId});
 
     tree.then(function(element) {
@@ -205,7 +269,9 @@ globalThis.__REACT_DOM_NATIVE__ = {
   // JS instructions replayed during boot.
   hydrateFromStream: function hydrateFromStream(surfaceId) {
     var stream = createFlightDataStream();
-    var tree = ReactFlightClient.createFromReadableStream(stream);
+    var tree = ReactFlightClient.createFromReadableStream(stream, {
+      debugChannel: { readable: createDebugDataStream() },
+    });
 
     startTransition(function() {
       hydrateRoot(
@@ -227,6 +293,9 @@ globalThis.__REACT_DOM_NATIVE__ = {
 
   // Close the Flight data stream (called when SSR/CSR stream ends)
   __closeFlightDataStream__: closeFlightDataStream,
+
+  // Close the debug data stream (called when SSR/CSR stream ends)
+  __closeDebugDataStream__: closeDebugDataStream,
 
   // Create a ReadableStream from buffered Flight data
   __createFlightDataStream__: createFlightDataStream,
