@@ -289,10 +289,8 @@ function emitTraceEvents(ws, id, events, domainPrefix, targetId, ctx, screenshot
   var pid = 1; // Must match tracer's _pid (renderer process)
   var tid = 1; // Must match tracer's _tid
 
-  // Find the earliest and latest timestamps to set the timeline range
-  // via a RunTask event. Skip metadata events (ph:'M') and zero-ts events.
-  // Note: SSR events may have negative timestamps (SSR occurs before JS
-  // loads, so timestamps relative to performance.timeOrigin are negative).
+  // Find the earliest and latest timestamps to set the timeline range.
+  // Skip metadata events (ph:'M') and zero-ts events.
   var minTs = Infinity;
   var maxTs = -Infinity;
   var ssrEventCount = 0;
@@ -313,7 +311,17 @@ function emitTraceEvents(ws, id, events, domainPrefix, targetId, ctx, screenshot
   }
   if (minTs === Infinity) minTs = 0;
   if (maxTs === -Infinity) maxTs = 0;
-  log(domainPrefix, 'Timeline range: minTs=' + minTs + ' maxTs=' + maxTs + ' ssrEvents=' + ssrEventCount);
+  // Use tracingStartTs as the RunTask anchor when available, so Chrome
+  // DevTools zooms to the trace period. Without this, React's track-init
+  // events (hardcoded at 0.003ms) pull minTs to ~0, creating a huge
+  // timeline where real events at the end are invisible.
+  // Events before tracingStartTs are NOT filtered — they still exist in
+  // the trace (e.g. server component timing data) but fall outside the
+  // initial visible range.
+  if (tracingStartTs > 0 && tracingStartTs < maxTs) {
+    minTs = tracingStartTs;
+  }
+  log(domainPrefix, 'Timeline range: minTs=' + minTs + ' maxTs=' + maxTs + ' tracingStartTs=' + tracingStartTs + ' ssrEvents=' + ssrEventCount);
 
   var infraEvents = [
     // Browser process metadata — needed for screenshot filmstrip
@@ -1581,20 +1589,30 @@ function createTarget(targetId, sourceMapResolver) {
   var screenshotBuffer = []; // [{data, wallTime}]
   var tracingStartWall = 0;
   var isCapturingScreenshots = false;
-  // Wall-clock time when the last capture request was sent.
-  // Used instead of Date.now() at receive time to eliminate round-trip delay.
-  var lastCaptureRequestTime = 0;
 
   var screenshotCapture = {
     start: function () {
       isCapturingScreenshots = true;
       screenshotBuffer = [];
       tracingStartWall = Date.now();
+      // Capture a baseline frame at trace start
       captureOneScreenshot();
+      // Tell the app to capture a screenshot after every commit.
+      // This avoids the round-trip delay that causes missed intermediate frames.
+      if (sendToApp) {
+        sendToApp(JSON.stringify({
+          type: 'enable-commit-screenshots',
+          maxWidth: 300,
+          quality: 0.4,
+        }));
+      }
       log('Screenshots', 'Started capture for tracing');
     },
     stop: function () {
       isCapturingScreenshots = false;
+      if (sendToApp) {
+        sendToApp(JSON.stringify({ type: 'disable-commit-screenshots' }));
+      }
       log('Screenshots', 'Stopped capture (' + screenshotBuffer.length + ' frames buffered)');
     },
     // Convert buffered screenshots to trace events anchored to the trace
@@ -1622,23 +1640,24 @@ function createTarget(targetId, sourceMapResolver) {
     },
     handleScreenshotData: function (message) {
       if (isCapturingScreenshots && message.type === 'screenshot-data') {
-        screenshotBuffer.push({
-          data: message.data,
-          // Use the time the capture request was sent, not when the response
-          // arrived. This eliminates ~50-100ms of round-trip delay so
-          // screenshots align closely with the commits that triggered them.
-          wallTime: lastCaptureRequestTime || Date.now(),
-        });
-        log('Screenshots', 'Buffered frame #' + screenshotBuffer.length);
-        // Immediately request the next frame (ack-based throttling)
-        captureOneScreenshot();
+        var lastFrame = screenshotBuffer.length > 0
+          ? screenshotBuffer[screenshotBuffer.length - 1]
+          : null;
+        if (!lastFrame || lastFrame.data !== message.data) {
+          screenshotBuffer.push({
+            data: message.data,
+            wallTime: Date.now(),
+          });
+          log('Screenshots', 'Buffered frame #' + screenshotBuffer.length);
+        } else {
+          log('Screenshots', 'Skipped duplicate frame');
+        }
       }
     },
   };
 
   function captureOneScreenshot() {
     if (sendToApp) {
-      lastCaptureRequestTime = Date.now();
       sendToApp(JSON.stringify({
         type: 'capture-screenshot',
         maxWidth: 300,
@@ -1716,20 +1735,22 @@ function createTarget(targetId, sourceMapResolver) {
 
     setSendToApp: function (fn) {
       sendToApp = fn;
-      // Restart screenshot capture loop if profiling is active and app reconnected
+      // Re-enable commit screenshots if profiling is active and app reconnected
       if (fn && isCapturingScreenshots) {
         // Discard pre-reload screenshots — they show the old app state
         screenshotBuffer = [];
         captureOneScreenshot();
+        fn(JSON.stringify({
+          type: 'enable-commit-screenshots',
+          maxWidth: 300,
+          quality: 0.4,
+        }));
       }
     },
     getSendToApp: function () { return sendToApp; },
-    // Capture an extra trace screenshot on demand (e.g. on DOM updates)
-    captureTraceScreenshot: function () {
-      if (isCapturingScreenshots) {
-        captureOneScreenshot();
-      }
-    },
+    // No-op: screenshots are now captured on the Swift side during each commit.
+    // Kept for API compatibility with setOnDomUpdated callback.
+    captureTraceScreenshot: function () {},
 
     handleAppMessage: function (data) {
       var message;

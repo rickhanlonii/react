@@ -645,7 +645,12 @@ extension Bindings {
             }
             let nodeGCEnd = tracing ? performanceNow() : 0
 
-            // 8. Notify DevTools that the DOM tree changed
+            // 8. Capture trace screenshot if enabled (synchronous, before dom-updated)
+            // This captures the visual state of THIS commit before the next commit
+            // overwrites it, avoiding the round-trip delay through the inspector proxy.
+            self.captureCommitScreenshot()
+
+            // 9. Notify DevTools that the DOM tree changed
             let devtoolsNotifyStart = tracing ? performanceNow() : 0
             if self.sendInspectorMessage != nil {
                 self.sendInspectorMessage?("{\"type\":\"dom-updated\",\"surfaceId\":\(surfaceId)}")

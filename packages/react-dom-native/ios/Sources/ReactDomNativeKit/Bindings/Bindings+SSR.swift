@@ -228,6 +228,9 @@ extension Bindings {
         // 5. Update current tree
         currentTrees[surfaceId] = newTree
 
+        // 5b. Capture trace screenshot if enabled (synchronous, before next commit)
+        captureCommitScreenshot()
+
         // 6. Register new nodes in the tree (content nodes + cloned path nodes)
         for child in newTree {
             registerNewNodesInSubtree(child)

@@ -63,6 +63,43 @@ extension Bindings {
         sendInspectorMessage?(message)
     }
 
+    /// Captures a screenshot during a commit if commit-level tracing is enabled.
+    /// Called synchronously at the end of $$completeRoot, using afterScreenUpdates: true
+    /// to ensure the just-applied UIKit mutations are rendered in the capture.
+    public func captureCommitScreenshot() {
+        guard commitScreenshotsEnabled else { return }
+        guard let windowScene = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first,
+              let window = windowScene.windows.first else {
+            return
+        }
+
+        let scale = windowScene.screen.scale
+        let bounds = window.bounds
+        let pixelWidth = Int(bounds.width * scale)
+        let pixelHeight = Int(bounds.height * scale)
+
+        var renderSize = bounds.size
+        if commitScreenshotMaxWidth > 0 && pixelWidth > commitScreenshotMaxWidth {
+            let ratio = CGFloat(commitScreenshotMaxWidth) / CGFloat(pixelWidth)
+            renderSize = CGSize(
+                width: bounds.width * ratio,
+                height: bounds.height * ratio
+            )
+        }
+
+        let renderer = UIGraphicsImageRenderer(size: renderSize)
+        let jpegData = renderer.jpegData(withCompressionQuality: commitScreenshotQuality) { _ in
+            window.drawHierarchy(in: CGRect(origin: .zero, size: renderSize), afterScreenUpdates: true)
+        }
+
+        let base64 = jpegData.base64EncodedString()
+
+        let message = "{\"type\":\"screenshot-data\",\"data\":\"\(base64)\",\"width\":\(pixelWidth),\"height\":\(pixelHeight),\"scale\":\(Int(scale))}"
+        sendInspectorMessage?(message)
+    }
+
     // MARK: - DevTools Inspector Message Delivery
 
     /// Delivers an inspector message from the dev server to JS.

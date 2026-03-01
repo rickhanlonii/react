@@ -87,6 +87,12 @@ public class Bindings {
     /// Shadow tree nodes use their nodeRegistry IDs directly.
     var inspectorNodeIdCounter = 900000
 
+    /// When enabled, captures a screenshot at the end of each $$completeRoot commit
+    /// and sends it as screenshot-data. Toggled by the inspector proxy during tracing.
+    var commitScreenshotsEnabled = false
+    var commitScreenshotMaxWidth: Int = 300
+    var commitScreenshotQuality: CGFloat = 0.4
+
     // MARK: - Node Registry
 
     /// Maps integer node IDs to ShadowNodeWrapper instances.

@@ -10,6 +10,7 @@ class PerformanceTracer {
 
     private(set) var isTracing = false
     private var tracingStartTs: Double = 0  // µs — for screenshot alignment
+    private var tracingStartMs: Double = 0  // ms — for filtering retroactive events
     private var events: [[String: Any]] = []
     private var nextId = 0
     private var nextInteractionId = 1
@@ -39,7 +40,9 @@ class PerformanceTracer {
 
     func startTracing() {
         isTracing = true
-        tracingStartTs = now() * 1000.0 // µs
+        let nowMs = now()
+        tracingStartMs = nowMs
+        tracingStartTs = nowMs * 1000.0 // µs
         nextId = 0
         events = [
             // Process/thread metadata — required by Chrome DevTools MetaHandler
@@ -68,6 +71,11 @@ class PerformanceTracer {
         properties: [[String]]? = nil
     ) {
         guard isTracing else { return }
+        // Drop retroactive events from before the trace started (e.g. Flight
+        // client replaying server request IO info from the initial page load).
+        // Allow track-init events (start == end, tiny timestamps) through.
+        let isTrackInit = start == end && start < 1.0
+        guard isTrackInit || end >= tracingStartMs else { return }
         let id = nextEventId()
         var devtools: [String: Any] = ["track": track, "color": color]
         if let trackGroup = trackGroup {
@@ -82,7 +90,13 @@ class PerformanceTracer {
         events.append([
             "id2": ["local": id], "name": label, "cat": "blink.user_timing",
             "ph": "b", "ts": startUs, "pid": pid, "tid": tid,
-            "args": ["detail": detailJSON],
+            "args": [
+                "detail": detailJSON,
+                // Chrome adds these fields when it captures console.timeStamp natively.
+                // Include them so Chrome DevTools recognizes these as extension track events.
+                "startTime": start,
+                "callTime": (timeOrigin + start) * 1000.0,
+            ] as [String: Any],
         ])
         events.append([
             "id2": ["local": id], "name": label, "cat": "blink.user_timing",
@@ -95,6 +109,7 @@ class PerformanceTracer {
     /// The detail object is passed through as-is (contains devtools track metadata).
     func reportMeasure(name: String, start: Double, duration: Double, detail: Any?) {
         guard isTracing else { return }
+        guard start + duration >= tracingStartMs else { return }
         let id = nextEventId()
         let detailJSON: String
         if let dict = detail as? [String: Any] {
@@ -107,7 +122,11 @@ class PerformanceTracer {
         events.append([
             "id2": ["local": id], "name": name, "cat": "blink.user_timing",
             "ph": "b", "ts": start * 1000.0, "pid": pid, "tid": tid,
-            "args": ["detail": detailJSON],
+            "args": [
+                "detail": detailJSON,
+                "startTime": start,
+                "callTime": (timeOrigin + start) * 1000.0,
+            ] as [String: Any],
         ])
         events.append([
             "id2": ["local": id], "name": name, "cat": "blink.user_timing",

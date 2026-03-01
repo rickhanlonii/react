@@ -728,6 +728,27 @@ public class ReactRuntime {
                     }
                     return
                 }
+
+                // Handle enable/disable commit-level screenshots for tracing.
+                // When enabled, a screenshot is captured synchronously at the end
+                // of each $$completeRoot commit, ensuring intermediate visual states
+                // are captured before the next commit overwrites them.
+                if type == "enable-commit-screenshots" {
+                    let maxWidth = (obj["maxWidth"] as? NSNumber)?.intValue ?? 300
+                    let quality = (obj["quality"] as? NSNumber)?.doubleValue ?? 0.4
+                    DispatchQueue.main.async {
+                        bindings?.commitScreenshotsEnabled = true
+                        bindings?.commitScreenshotMaxWidth = maxWidth
+                        bindings?.commitScreenshotQuality = CGFloat(quality)
+                    }
+                    return
+                }
+                if type == "disable-commit-screenshots" {
+                    DispatchQueue.main.async {
+                        bindings?.commitScreenshotsEnabled = false
+                    }
+                    return
+                }
             }
             bindings?.deliverInspectorMessage(json)
         }

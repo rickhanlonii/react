@@ -10,7 +10,6 @@
     "tools/*"
   ],
   "scripts": {
-    "postinstall": "node scripts/patches/react-flight-debug-channel.js",
     "build": "cd example && npm run build",
     "build:prod": "cd example && npm run build:prod",
     "dev": "cd example && npm run dev",

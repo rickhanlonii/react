@@ -15,6 +15,10 @@ public class JSRuntime {
     private var profilerStartTime: Double = 0
 
     public init() {
+        // Reset the monotonic clock so performance.now() starts at 0,
+        // matching browser behavior on page navigation.
+        resetPerformanceOrigin()
+
         let eng = JavaScriptCoreEngine()
         engine = eng
 
@@ -86,21 +90,23 @@ public class JSRuntime {
 
         // console.timeStamp — supports both standard single-arg form and
         // React's extended form: (name, start, end, track, trackGroup, color, properties)
-        // React passes absolute timestamps (performance.timeOrigin + performance.now()),
-        // so we subtract timeOrigin to get relative timestamps for the tracer.
+        // React passes performance.now() values (relative ms since app start),
+        // same coordinate space as $$reportTimeStamp and all native timestamps.
         let timeStampFn = eng.makeFunction { [weak eng] args in
             guard let eng = eng else { return nil }
             if args.count <= 1 {
                 // Standard single-arg — no-op in JSC (no built-in timeline)
                 return nil
             }
-            guard perfTracer.isTracing else { return nil }
             let label = eng.toString(args[0]) ?? ""
-            let rawStart = eng.toDouble(args[1]) ?? 0
-            let rawEnd = eng.toDouble(args[2]) ?? 0
-            // Convert from absolute (timeOrigin + now()) to relative (now())
-            let start = rawStart - perfTracer.timeOrigin
-            let end = rawEnd - perfTracer.timeOrigin
+            let isRSC = args.count > 4 && eng.toString(args[4]) == "Server Components \u{269b}"
+            // Also catch zero-width space prefix (Flight client component names)
+            let isZWSP = label.hasPrefix("\u{200b}")
+            if isRSC || isZWSP {
+                guard perfTracer.isTracing else { return nil }
+            }
+            let start = eng.toDouble(args[1]) ?? 0
+            let end = eng.toDouble(args[2]) ?? 0
             let track = eng.toString(args[3]) ?? ""
             let trackGroup = args.count > 4 && !eng.isUndefined(args[4])
                 ? eng.toString(args[4]) : nil
