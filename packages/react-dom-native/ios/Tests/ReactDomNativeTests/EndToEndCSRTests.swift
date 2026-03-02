@@ -8,7 +8,7 @@ import UIKit
 // End-to-end integration tests that exercise the CSR (client-side rendering)
 // pipeline: real HTTP Flight server → real React reconciler → real UIKit views.
 //
-// Unlike SSR tests, CSR uses `root.render(serverURL:)` which calls completion
+// Unlike SSR tests, CSR uses `root.render(url:)` which calls completion
 // immediately — before any Flight data arrives or views are created. Tests
 // must poll/wait for views to appear.
 //
@@ -87,7 +87,7 @@ final class EndToEndCSRTests: XCTestCase {
     func testRSCOnlyRendersViaCSR() {
         // Start CSR render — completion fires immediately, before views exist
         let renderDone = expectation(description: "render called")
-        root.render(serverURL: "\(Self.flightBaseURL)/fixtures/01-rsc-only") { error in
+        root.render(url: "\(Self.flightBaseURL)/fixtures/01-rsc-only") { error in
             XCTAssertNil(error, "CSR render should start without error")
             renderDone.fulfill()
         }
@@ -110,7 +110,7 @@ final class EndToEndCSRTests: XCTestCase {
 
     func testTextFormattingRendersViaCSR() {
         let renderDone = expectation(description: "render called")
-        root.render(serverURL: "\(Self.flightBaseURL)/fixtures/02-text-formatting") { error in
+        root.render(url: "\(Self.flightBaseURL)/fixtures/02-text-formatting") { error in
             XCTAssertNil(error, "CSR render should start without error")
             renderDone.fulfill()
         }
@@ -133,7 +133,7 @@ final class EndToEndCSRTests: XCTestCase {
     func testKitchenSinkRendersViaCSR() {
         // Kitchen sink has Suspense boundaries + client components
         let renderDone = expectation(description: "render called")
-        root.render(serverURL: "\(Self.flightBaseURL)/fixtures/06-kitchen-sink") { error in
+        root.render(url: "\(Self.flightBaseURL)/fixtures/06-kitchen-sink") { error in
             XCTAssertNil(error, "CSR render should start without error")
             renderDone.fulfill()
         }
@@ -157,7 +157,7 @@ final class EndToEndCSRTests: XCTestCase {
         // Fixture 24: Parallel async server components with multiple Suspense boundaries
         // containing siblings with staggered delays (500ms/1500ms, 300ms/600ms/900ms)
         let renderDone = expectation(description: "render called")
-        root.render(serverURL: "\(Self.flightBaseURL)/fixtures/24-flight-parallel-async") { error in
+        root.render(url: "\(Self.flightBaseURL)/fixtures/24-flight-parallel-async") { error in
             XCTAssertNil(error, "CSR render should start without error")
             renderDone.fulfill()
         }
@@ -213,7 +213,7 @@ final class EndToEndCSRTests: XCTestCase {
         // Fixture 28: ThrowOnServer throws on server, renders on client
         // Via CSR, the component should render successfully (only throws server-side)
         let renderDone = expectation(description: "render called")
-        root.render(serverURL: "\(Self.flightBaseURL)/fixtures/28-client-render-errors") { error in
+        root.render(url: "\(Self.flightBaseURL)/fixtures/28-client-render-errors") { error in
             XCTAssertNil(error, "CSR render should start without error")
             renderDone.fulfill()
         }
@@ -236,7 +236,7 @@ final class EndToEndCSRTests: XCTestCase {
 
     func testDocumentScriptsViaCSR() {
         let renderDone = expectation(description: "render called")
-        root.render(serverURL: "\(Self.flightBaseURL)/fixtures/29-document-scripts") { error in
+        root.render(url: "\(Self.flightBaseURL)/fixtures/29-document-scripts") { error in
             XCTAssertNil(error, "CSR render should start without error")
             renderDone.fulfill()
         }

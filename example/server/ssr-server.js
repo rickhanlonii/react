@@ -227,6 +227,7 @@ function handleSSR(flightURL, req, res) {
     var nativeSSR = require('react-dom-native/server');
     var renderToNativeStream = nativeSSR.renderToPipeableStream;
     var nativeStream = renderToNativeStream(React.createElement(Root), {
+      bootstrapScripts: [FLIGHT_SERVER + '/bundle.js'],
       onShellReady: function () {
         res.setHeader('Content-Type', 'application/x-native-ssr');
         res.setHeader('Access-Control-Allow-Origin', '*');

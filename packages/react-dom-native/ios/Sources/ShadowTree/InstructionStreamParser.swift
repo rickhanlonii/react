@@ -35,6 +35,7 @@ public protocol InstructionStreamDelegate: AnyObject {
     func didReceivePlaceholder(id: Int)
     func didReceiveClientRenderBoundary(id: Int, errorDigest: String?)
     func didReceiveJavaScript(code: String)
+    func didReceiveBootstrapURL(_ url: String)
     func didReceiveError(_ error: Error)
 }
 
@@ -194,6 +195,16 @@ public class InstructionStreamParser {
                     return
                 }
                 delegate?.didReceiveJavaScript(code: code)
+
+            case "BOOT":
+                // Bootstrap script URL: ["BOOT", "url"]
+                guard array.count >= 2, let url = array[1] as? String else {
+                    delegate?.didReceiveError(
+                        InstructionParseError.invalidFormat("BOOT instruction missing URL")
+                    )
+                    return
+                }
+                delegate?.didReceiveBootstrapURL(url)
 
             default:
                 delegate?.didReceiveError(

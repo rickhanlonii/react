@@ -56,6 +56,9 @@ class SSRCoordinator: InstructionStreamDelegate {
     /// including D instructions that arrive after root complete).
     var onStreamComplete: (() -> Void)?
 
+    /// Called when a bootstrap script URL is received from the SSR stream.
+    var onBootstrapURLReceived: ((String) -> Void)?
+
     init(
         treeBuilder: ShadowTreeBuilder,
         boundaryManager: BoundaryManager,
@@ -324,6 +327,10 @@ class SSRCoordinator: InstructionStreamDelegate {
 
     func didReceiveClientRenderBoundary(id: Int, errorDigest: String?) {
         boundaryManager.clientRenderBoundary(id: id, errorDigest: errorDigest)
+    }
+
+    func didReceiveBootstrapURL(_ url: String) {
+        onBootstrapURLReceived?(url)
     }
 
     func didReceiveError(_ error: Error) {

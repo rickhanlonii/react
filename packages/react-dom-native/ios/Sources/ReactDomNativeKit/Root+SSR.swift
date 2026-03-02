@@ -15,39 +15,36 @@ import QuartzCore
 
 extension Root {
 
-    // MARK: - SSR Rendering
+    // MARK: - Combined SSR + Hydration
 
-    /// Renders using server-side rendering for instant display.
+    /// Starts the full SSR + hydration flow from a single URL.
     ///
-    /// Pipeline:
-    /// 1. Start URLSession data task for /ssr endpoint
-    /// 2. As data arrives, feed chunks to InstructionStreamParser
-    /// 3. Parser builds shadow tree and creates UIKit views (immediate display)
-    /// 4. In background: load JS bundle, boot React runtime
-    /// 5. React renders → $$completeRoot → atomic swap → interactive
+    /// This combines the functionality of `renderWithSSR` (SSR streaming) and
+    /// `hydrateRoot(serverURL:)` (hydration) into a single internal method.
+    /// The bootstrap URL comes from the SSR stream's `["BOOT", url]` instruction.
     ///
-    /// - Parameters:
-    ///   - serverURL: URL of the SSR server (e.g. "http://localhost:6001").
-    ///   - completion: Called when SSR content is first displayed or an error occurs.
-    public func renderWithSSR(serverURL: String, completion: ((Error?) -> Void)? = nil) {
+    /// Called by the free function `hydrateRoot(view, url:)`.
+    ///
+    /// - Parameter url: URL of the SSR endpoint.
+    internal func startHydration(url: String) {
         guard !isUnmounted else {
             print("[ReactDomNativeKit] Warning: Cannot render to an unmounted root.")
-            completion?(RootError.alreadyUnmounted)
             return
         }
 
-        ssrURL = serverURL
+        ssrURL = url
+
+        // Store render mode for hot reload recovery
+        renderMode = .ssr(url: url)
 
         // Assign a surfaceId eagerly (SSR needs it before boot completes).
-        // Use reserveSurface — don't register with bindings yet. The actual
-        // bindings registration happens in hydrateRoot via registerSurfaceForHydration.
         if surfaceId == nil {
             let rt = ReactRuntime.shared
             surfaceId = rt.reserveSurface(root: self, container: container)
             setupLayoutObserver()
         }
 
-        // Set up SSR infrastructure
+        // Set up SSR infrastructure (same as renderWithSSR)
         let treeBuilder = ShadowTreeBuilder(
             surfaceId: surfaceId!,
             viewportWidth: Float(container.bounds.width > 0 ? container.bounds.width : 390),
@@ -57,7 +54,6 @@ extension Root {
         let boundaryManager = BoundaryManager()
         let parser = InstructionStreamParser()
 
-        // Set up the SSR coordinator as the delegate
         let coordinator = SSRCoordinator(
             treeBuilder: treeBuilder,
             boundaryManager: boundaryManager,
@@ -66,21 +62,144 @@ extension Root {
         coordinator.onJavaScriptReceived = { [weak self] code in
             guard let self = self else { return }
             if self.hydrationStarted {
-                // JS engine is booted — evaluate immediately
                 ReactRuntime.shared.evaluateScript(code)
             } else {
-                // Buffer for evaluation after boot
                 self.ssrJavaScriptBuffer.append(code)
             }
         }
         coordinator.onBoundaryRevealQueued = { [weak self] id, contentNodes in
             self?.queueBoundaryReveal(id: id, contentNodes: contentNodes)
         }
+
+        // Wire bootstrap URL callback — when the stream provides the bundle URL,
+        // boot the runtime and start the hydration flow.
+        coordinator.onBootstrapURLReceived = { [weak self] bootstrapURL in
+            guard let self = self else { return }
+            print("[ReactDomNativeKit] Received bootstrap URL from SSR stream: \(bootstrapURL)")
+
+            let rt = ReactRuntime.shared
+
+            // Set the bundle URL from the stream (replaces manual devBundleURL)
+            if let bundleURL = URL(string: bootstrapURL) {
+                rt.devBundleURL = bundleURL
+            }
+
+            // Boot the runtime (downloads the bundle from the URL above)
+            rt.boot { [weak self] error in
+                guard let self = self else { return }
+
+                if let error = error {
+                    print("[ReactDomNativeKit] Failed to boot runtime for hydration: \(error)")
+                    self.options.onRecoverableError?(error)
+                    return
+                }
+
+                // Wire hydration completion callback
+                rt.bindings?.onHydrationComplete = { [weak self] surfaceId in
+                    self?.onHydrationCommitted()
+                }
+
+                // Wire boundary reveal callback
+                self.ssrCoordinator?.onBoundaryRevealed = { [weak self] boundaryId in
+                    guard let self = self, let surfaceId = self.surfaceId else { return }
+                    let contentNodes = self.ssrCoordinator?.segmentContentNodes(for: boundaryId) ?? []
+                    rt.bindings?.revealBoundaryInSSRTree(
+                        surfaceId: surfaceId, boundaryId: boundaryId, contentNodes: contentNodes
+                    )
+                    guard let engine = rt.engine else { return }
+                    engine.evaluate("globalThis.$$notifyBoundaryRevealed(\(boundaryId))")
+                }
+
+                let doHydrate = { [weak self] in
+                    guard let self = self, let surfaceId = self.surfaceId else { return }
+
+                    self.hydrationStarted = true
+                    print("[ReactDomNativeKit] Hydration starting")
+
+                    // Register surface for hydration and the SSR tree
+                    let currentSSRTree = self.ssrCoordinator?.currentRootChildren ?? treeBuilder.rootChildren
+                    print("[ReactDomNativeKit] Registering SSR tree for hydration: \(currentSSRTree.count) root children")
+                    rt.registerSurfaceForHydration(
+                        surfaceId: surfaceId,
+                        rootView: self.container,
+                        ssrTree: currentSSRTree,
+                        ssrViewRegistry: self.ssrViewRegistry ?? ViewRegistry()
+                    )
+
+                    if let bindings = rt.bindings {
+                        self.ssrMutationApplier?.dispatchEvent = { view, eventType, payload in
+                            bindings.eventDispatcher.dispatchEvent(from: view, eventType: eventType, payload: payload)
+                        }
+                    }
+                    rt.bindings?.registerSSRTree(
+                        surfaceId: surfaceId,
+                        rootChildren: currentSSRTree
+                    )
+
+                    // Rewire onViewsNeedUpdate to Bindings
+                    self.ssrCoordinator?.onViewsNeedUpdate = { [weak self] oldRootChildren, newRootChildren in
+                        guard let self = self, let bindings = rt.bindings, let surfaceId = self.surfaceId else { return }
+                        bindings.updateCurrentTree(
+                            surfaceId: surfaceId,
+                            oldTree: oldRootChildren,
+                            newTree: newRootChildren
+                        )
+                    }
+
+                    rt.bindings?.markHydrationStarted(surfaceId: surfaceId)
+
+                    // Push accumulated SSR commit timings
+                    if !self.ssrCommitTimings.isEmpty {
+                        rt.bindings?.addSSRCommitTimings(self.ssrCommitTimings)
+                        self.ssrCommitTimings.removeAll()
+                    }
+
+                    // Replay buffered JS instructions from the SSR stream
+                    for code in self.ssrJavaScriptBuffer {
+                        ReactRuntime.shared.evaluateScript(code)
+                    }
+                    self.ssrJavaScriptBuffer.removeAll()
+
+                    // Derive the Flight server URL from the bootstrap URL
+                    // Bootstrap: "http://localhost:6000/bundle.js" → Flight: "http://localhost:6000"
+                    let flightServerURL: String
+                    if let bootURL = URL(string: bootstrapURL),
+                       let scheme = bootURL.scheme,
+                       let host = bootURL.host {
+                        let port = bootURL.port.map { ":\($0)" } ?? ""
+                        flightServerURL = "\(scheme)://\(host)\(port)"
+                    } else {
+                        flightServerURL = bootstrapURL
+                    }
+
+                    // Derive the fixture path from the SSR URL
+                    // SSR URL: "http://localhost:6001/ssr/05-nested-suspense"
+                    // Flight URL: "http://localhost:6000/fixtures/05-nested-suspense"
+                    let fixturePath: String
+                    if let ssrURL = URL(string: url),
+                       ssrURL.pathComponents.count >= 3,
+                       ssrURL.pathComponents[1] == "ssr" {
+                        fixturePath = "/fixtures/" + ssrURL.pathComponents.dropFirst(2).joined(separator: "/")
+                    } else {
+                        // Fallback: use the SSR path as-is
+                        fixturePath = URL(string: url)?.path ?? "/"
+                    }
+
+                    let fullFlightURL = flightServerURL + fixturePath
+                    rt.hydrateSurface(surfaceId: surfaceId, serverURL: fullFlightURL)
+                }
+
+                if self.ssrShellComplete {
+                    doHydrate()
+                } else {
+                    self.pendingHydration = doHydrate
+                }
+            }
+        }
+
         parser.delegate = coordinator
 
-        // Wire boundary reveal callback — when streaming content arrives
-        // and replaces fallback, diff old vs new trees for minimal mutations
-        // instead of rebuilding all views from scratch.
+        // Wire boundary reveal view updates (same as renderWithSSR)
         coordinator.onViewsNeedUpdate = { [weak self] oldRootChildren, newRootChildren in
             guard let self = self else { return }
             self.ssrRevealHasOccurred = true
@@ -90,19 +209,16 @@ extension Root {
                 return
             }
 
-            // Find the scroll view that holds the SSR views
             guard let scrollView = self.container.subviews.first(where: { $0 is UIScrollView }) as? UIScrollView else { return }
 
             let commitStart = performanceNow()
 
-            // 1. Calculate layout on the new tree
             let layoutStart = performanceNow()
             let width = Float(self.container.bounds.width > 0 ? self.container.bounds.width : 390)
             let rootYogaNode = YGNodeNewWithConfig(YogaConfig.shared)!
             YGNodeStyleSetFlexDirection(rootYogaNode, .column)
             YGNodeStyleSetWidth(rootYogaNode, width)
 
-            // Insert new tree's root children into temp yoga root
             for (index, child) in newRootChildren.enumerated() {
                 if let owner = YGNodeGetOwner(child.yogaNode) {
                     YGNodeRemoveChild(owner, child.yogaNode)
@@ -121,7 +237,6 @@ extension Root {
             YGNodeFree(rootYogaNode)
             let layoutEnd = performanceNow()
 
-            // 2. Diff old vs new tree (with per-node timing)
             var diffNodeTimings: [(type: String, start: Double, end: Double)] = []
             let diffStart = performanceNow()
             let differentiator = Differentiator()
@@ -134,12 +249,10 @@ extension Root {
             )
             let diffEnd = performanceNow()
 
-            // 3. Apply mutations (with per-mutation timing)
             var mutationTimings: [(mutationType: String, elementType: String, start: Double, end: Double)] = []
             let mutationsStart = performanceNow()
             applier.applyMutations(mutations, rootView: scrollView, tracing: true, mutationTimings: &mutationTimings)
 
-            // 4. Sync all frames (with per-node timing)
             var syncNodeTimings: [(type: String, start: Double, end: Double)] = []
             let syncStart = performanceNow()
             self.syncSSRFrames(newRootChildren, tracing: true, nodeTimings: &syncNodeTimings)
@@ -147,7 +260,6 @@ extension Root {
 
             let mutationsEnd = performanceNow()
 
-            // 5. Attach new root-level views to scroll view
             for child in newRootChildren {
                 if let view = registry.view(for: child.family) {
                     if view.superview == nil {
@@ -156,7 +268,6 @@ extension Root {
                 }
             }
 
-            // 6. Update scroll content size
             let contentHeight = ShadowTreeLayout.computeActualContentHeight(for: newRootChildren)
             scrollView.contentSize = CGSize(
                 width: scrollView.bounds.width,
@@ -165,7 +276,6 @@ extension Root {
 
             let commitEnd = performanceNow()
 
-            // Collect commit-style timing for Shadow Tree and Layout tracks
             let stats = Self.computeSSRTreeStats(newRootChildren)
             var creates = 0, inserts = 0, deletes = 0, removes = 0, updates = 0
             var affectedTypes = Set<String>()
@@ -179,7 +289,6 @@ extension Root {
                 }
             }
 
-            // Build per-node timing arrays
             var diffElements: [Any] = []
             for entry in diffNodeTimings {
                 diffElements.append(entry.type)
@@ -221,44 +330,39 @@ extension Root {
             print("[ReactDomNativeKit] Boundary revealed — views updated via diff")
         }
 
-        // Store references (coordinator must be retained — parser.delegate is weak)
+        // Store references
         self.ssrParser = parser
         self.ssrTreeBuilder = treeBuilder
         self.ssrBoundaryManager = boundaryManager
         self.ssrCoordinator = coordinator
 
         // Handle root completion — first paint
-        // Runs synchronously on the main queue (URLSession delegate queue)
-        // to ensure views exist before any boundary reveal fires.
         treeBuilder.onRootComplete = { [weak self] rootChildren in
             guard let self = self else { return }
 
-            // If a boundary reveal already ran before this callback,
-            // the views are already correct — skip to avoid overwriting.
             guard !self.ssrRevealHasOccurred else {
                 print("[ReactDomNativeKit] SSR root complete skipped — reveal already occurred")
-                completion?(nil)
+                self.ssrShellComplete = true
+                if let pending = self.pendingHydration {
+                    self.pendingHydration = nil
+                    pending()
+                }
                 return
             }
 
-            // Create UIKit views from the shadow tree
             let viewRegistry = ViewRegistry()
             let applier = UIKitMutationApplier(viewRegistry: viewRegistry, logPrefix: "MutationApplier SSR")
             self.ssrViewRegistry = viewRegistry
             self.ssrMutationApplier = applier
 
-            // Layout timing comes from ShadowTreeBuilder.rootComplete()
-            // which ran ShadowTreeLayout.performLayout() before this callback.
             let layoutStart = treeBuilder.layoutStartTime
             let layoutEnd = treeBuilder.layoutEndTime
 
-            // Generate CREATE + INSERT mutations and apply them (with per-mutation timing).
             var mutationTimings: [(mutationType: String, elementType: String, start: Double, end: Double)] = []
             let mutationsStart = performanceNow()
             self.createViewsFromTree(rootChildren, applier: applier, rootView: self.container, mutationTimings: &mutationTimings)
             let mutationsEnd = performanceNow()
 
-            // Build per-mutation timing array
             var mutElements: [Any] = []
             for entry in mutationTimings {
                 mutElements.append(entry.mutationType)
@@ -267,14 +371,13 @@ extension Root {
                 mutElements.append(entry.end)
             }
 
-            // Collect commit-style timing for Shadow Tree and Layout tracks
             let stats = Self.computeSSRTreeStats(rootChildren)
             self.ssrCommitTimings.append([
                 "label": "SSR First Paint",
                 "commitStart": layoutStart, "commitEnd": mutationsEnd,
                 "layoutStart": layoutStart, "layoutEnd": layoutEnd,
                 "mutationsStart": mutationsStart, "mutationsEnd": mutationsEnd,
-                "mutationCount": stats.nodeCount * 2, // CREATE + INSERT per node
+                "mutationCount": stats.nodeCount * 2,
                 "creates": stats.nodeCount, "inserts": stats.nodeCount,
                 "deletes": 0, "removes": 0, "updates": 0,
                 "nodeCount": stats.nodeCount, "treeDepth": stats.depth,
@@ -285,9 +388,7 @@ extension Root {
             print("[ReactDomNativeKit] SSR first paint complete (\(rootChildren.count) root children)")
             self.shellPaintTime = performanceNow()
             self.ssrShellComplete = true
-            completion?(nil)
 
-            // If hydration was requested and JS is ready, start now
             if let pending = self.pendingHydration {
                 self.pendingHydration = nil
                 pending()
@@ -295,8 +396,8 @@ extension Root {
         }
 
         // Start streaming SSR data
-        guard let ssrURL = URL(string: serverURL) else {
-            completion?(RootError.downloadFailed(NSError(domain: "ReactDomNativeKit", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid SSR URL"])))
+        guard let ssrURLObj = URL(string: url) else {
+            print("[ReactDomNativeKit] Invalid SSR URL: \(url)")
             return
         }
 
@@ -306,14 +407,11 @@ extension Root {
             let revealCount = boundaryManager.revealedCount
             print("[ReactDomNativeKit] SSR stream complete, reveals processed: \(revealCount)")
 
-            // If hydrateRoot() was called before the stream finished,
-            // execute the queued hydration now that JS instructions are buffered.
             if let pending = self.pendingHydration {
                 self.pendingHydration = nil
                 pending()
             }
 
-            // Clean up SSR stream infrastructure
             self.cleanupSSRState()
         }
 
@@ -322,7 +420,7 @@ extension Root {
             delegate: streamDelegate,
             delegateQueue: .main
         )
-        let task = session.dataTask(with: ssrURL)
+        let task = session.dataTask(with: ssrURLObj)
         self.ssrDataTask = task
         task.resume()
     }
@@ -501,148 +599,6 @@ extension Root {
         revealTimer?.cancel()
         revealTimer = nil
         flushPendingReveals()
-    }
-
-    // MARK: - Hydration
-
-    /// Hydrates SSR content by attaching React's runtime to the pre-rendered tree.
-    ///
-    /// Call this after `renderWithSSR()` completes its first paint. The hydration
-    /// process:
-    /// 1. Boots the shared ReactRuntime (if needed)
-    /// 2. Registers the SSR tree for JS-side traversal
-    /// 3. Fetches the RSC stream and hydrates against the SSR tree
-    /// 4. Attaches event handlers — app becomes interactive
-    ///
-    /// - Parameters:
-    ///   - serverURL: URL of the RSC server (e.g. "http://localhost:6000").
-    ///   - completion: Called when hydration completes or fails.
-    public func hydrateRoot(serverURL: String, completion: ((Error?) -> Void)? = nil) {
-        guard !isUnmounted else {
-            print("[ReactDomNativeKit] Warning: Cannot hydrate an unmounted root.")
-            completion?(RootError.alreadyUnmounted)
-            return
-        }
-
-        // Store render mode for reload recovery
-        renderMode = .ssr(ssrURL: ssrURL ?? "", flightURL: serverURL)
-
-        guard let treeBuilder = ssrTreeBuilder else {
-            print("[ReactDomNativeKit] Warning: No SSR tree to hydrate. Call renderWithSSR() first.")
-            completion?(RootError.runtimeNotInitialized)
-            return
-        }
-
-        let rt = ReactRuntime.shared
-
-        // Boot the shared runtime (no-op if already booted)
-        rt.boot { [weak self] error in
-            guard let self = self else { return }
-
-            if let error = error {
-                print("[ReactDomNativeKit] Failed to boot runtime for hydration: \(error)")
-                self.options.onRecoverableError?(error)
-                completion?(error)
-                return
-            }
-
-            // Wire hydration completion callback — signals that React committed
-            // the initial hydration render. Now it's safe to forward boundary
-            // Flight data and flush deferred SSR reveals.
-            rt.bindings?.onHydrationComplete = { [weak self] surfaceId in
-                self?.onHydrationCommitted()
-            }
-
-            // Wire boundary reveal callback — when the SSR stream reveals a
-            // boundary after hydration has registered retry callbacks, notify
-            // the JS side so React can render the resolved content.
-            // Also mutate the SSR reference tree in place so React's
-            // _ssrNodeRef pointers remain valid for hydration traversal.
-            self.ssrCoordinator?.onBoundaryRevealed = { [weak self] boundaryId in
-                guard let self = self, let surfaceId = self.surfaceId else { return }
-                let contentNodes = self.ssrCoordinator?.segmentContentNodes(for: boundaryId) ?? []
-                rt.bindings?.revealBoundaryInSSRTree(
-                    surfaceId: surfaceId, boundaryId: boundaryId, contentNodes: contentNodes
-                )
-                guard let engine = rt.engine else { return }
-                engine.evaluate("globalThis.$$notifyBoundaryRevealed(\(boundaryId))")
-            }
-
-            let doHydrate = { [weak self] in
-                guard let self = self, let surfaceId = self.surfaceId else { return }
-
-                self.hydrationStarted = true
-                print("[ReactDomNativeKit] Hydration starting")
-
-                // Register surface for hydration and the SSR tree
-                let currentSSRTree = self.ssrCoordinator?.currentRootChildren ?? treeBuilder.rootChildren
-                print("[ReactDomNativeKit] Registering SSR tree for hydration: \(currentSSRTree.count) root children")
-                rt.registerSurfaceForHydration(
-                    surfaceId: surfaceId,
-                    rootView: self.container,
-                    ssrTree: currentSSRTree,
-                    ssrViewRegistry: self.ssrViewRegistry ?? ViewRegistry()
-                )
-
-                // Wire the SSR applier's event dispatch to Bindings so that
-                // tap handlers on SSR-created buttons reach the JS runtime.
-                if let bindings = rt.bindings {
-                    self.ssrMutationApplier?.dispatchEvent = { view, eventType, payload in
-                        bindings.eventDispatcher.dispatchEvent(from: view, eventType: eventType, payload: payload)
-                    }
-                }
-                rt.bindings?.registerSSRTree(
-                    surfaceId: surfaceId,
-                    rootChildren: currentSSRTree
-                )
-
-                // Now rewire onViewsNeedUpdate to Bindings — from this point,
-                // any boundary reveals go through Bindings for proper diffing.
-                // Note: We only call updateCurrentTree (visual diff + mutations),
-                // NOT updateSSRTree. The SSR reference tree is updated in-place
-                // by revealBoundaryInSSRTree, which preserves node identity so
-                // React's _ssrNodeRef pointers remain valid for hydration.
-                // Calling updateSSRTree would replace the tree with cloned nodes,
-                // breaking those pointers and forcing React to fall back to
-                // client-side render instead of hydration.
-                self.ssrCoordinator?.onViewsNeedUpdate = { [weak self] oldRootChildren, newRootChildren in
-                    guard let self = self, let bindings = rt.bindings, let surfaceId = self.surfaceId else { return }
-                    bindings.updateCurrentTree(
-                        surfaceId: surfaceId,
-                        oldTree: oldRootChildren,
-                        newTree: newRootChildren
-                    )
-                }
-
-                rt.bindings?.markHydrationStarted(surfaceId: surfaceId)
-
-                // Push accumulated SSR commit timings to Bindings for trace reporting
-                if !self.ssrCommitTimings.isEmpty {
-                    rt.bindings?.addSSRCommitTimings(self.ssrCommitTimings)
-                    self.ssrCommitTimings.removeAll()
-                }
-
-                // Replay buffered JS instructions from the SSR stream.
-                // These include the Flight bootstrap and Flight data rows
-                // that were emitted as ["JS", ...] instructions by the SSR server.
-                for code in self.ssrJavaScriptBuffer {
-                    ReactRuntime.shared.evaluateScript(code)
-                }
-                self.ssrJavaScriptBuffer.removeAll()
-
-                // Start hydration — the Flight data is already in the
-                // ReadableStream buffer from the JS instructions above.
-                rt.hydrateSurface(surfaceId: surfaceId, serverURL: serverURL)
-
-                completion?(nil)
-            }
-
-            if self.ssrShellComplete {
-                doHydrate()
-            } else {
-                self.pendingHydration = doHydrate
-            }
-        }
     }
 
     // MARK: - SSR View Creation

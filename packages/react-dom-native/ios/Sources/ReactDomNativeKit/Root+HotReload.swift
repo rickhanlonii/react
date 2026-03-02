@@ -14,7 +14,7 @@ extension Root {
     internal func rerender() {
         guard !isUnmounted else { return }
 
-        // Reset surface ID so render/renderWithSSR re-registers
+        // Reset surface ID so render/startHydration re-registers
         surfaceId = nil
         layoutObserver?.invalidate()
         layoutObserver = nil
@@ -48,20 +48,11 @@ extension Root {
         switch renderMode {
         case .csr(let serverURL):
             print("[Root] Re-rendering (CSR) — \(serverURL)")
-            render(serverURL: serverURL)
+            render(url: serverURL)
 
-        case .ssr(let ssrURL, let flightURL):
+        case .ssr(let ssrURL):
             print("[Root] Re-rendering (SSR + hydration) — \(ssrURL)")
-            renderWithSSR(serverURL: ssrURL) { error in
-                if let error = error {
-                    print("[Root] SSR re-render failed: \(error)")
-                }
-            }
-            hydrateRoot(serverURL: flightURL) { error in
-                if let error = error {
-                    print("[Root] Hydration after re-render failed: \(error)")
-                }
-            }
+            startHydration(url: ssrURL)
 
         case .none:
             print("[Root] No render mode recorded, skipping re-render")

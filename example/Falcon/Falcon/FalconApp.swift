@@ -240,37 +240,9 @@ class FixtureViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .clear
 
-        #if DEBUG
-        ReactRuntime.shared.devBundleURL = URL(string: "http://localhost:6000/bundle.js")
-        #endif
-
-        root = createRoot(view)
-        renderAndHydrate()
-    }
-
-
-    private func renderAndHydrate() {
         let ssrURL = "http://localhost:6001/ssr/\(fixtureName)"
-        let flightURL = "http://localhost:6000/fixtures/\(fixtureName)"
-
-        // Start SSR and hydration in parallel. The hydration path boots the
-        // JS runtime and fetches the Flight stream concurrently with SSR
-        // streaming. Root.hydrateRoot queues the actual hydration call until
-        // the SSR stream completes (pendingHydration mechanism).
-        root?.renderWithSSR(serverURL: ssrURL) { [weak self] error in
-            if let error = error {
-                print("[Falcon] Render failed for \(self?.fixtureName ?? ""): \(error)")
-            }
-        }
-        root?.hydrateRoot(serverURL: flightURL) { [weak self] error in
-            if let error = error {
-                print("[Falcon] Hydration failed: \(error)")
-            } else {
-                print("[Falcon] Hydration complete for \(self?.fixtureName ?? "")")
-            }
-        }
+        root = hydrateRoot(view, url: ssrURL)
     }
-
     deinit {
         root?.unmount()
     }

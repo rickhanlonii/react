@@ -150,6 +150,7 @@ private class MockDelegate: InstructionStreamDelegate {
     var placeholders: [Int] = []
     var clientRenderBoundaries: [(id: Int, digest: String?)] = []
     var javaScriptCalls: [String] = []
+    var bootstrapURLs: [String] = []
     var errors: [String] = []
 
     func didReceiveOpenElement(type: String, props: [String: Any]) {
@@ -198,6 +199,10 @@ private class MockDelegate: InstructionStreamDelegate {
 
     func didReceiveJavaScript(code: String) {
         javaScriptCalls.append(code)
+    }
+
+    func didReceiveBootstrapURL(_ url: String) {
+        bootstrapURLs.append(url)
     }
 
     func didReceiveError(_ error: Error) {

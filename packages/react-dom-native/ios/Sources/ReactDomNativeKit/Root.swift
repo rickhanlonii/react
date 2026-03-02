@@ -8,25 +8,37 @@ import QuartzCore
 // Root
 //
 // A "root" is the top-level container for a React tree. This API mirrors
-// react-dom/client's createRoot/root.render pattern:
+// react-dom/client's createRoot/hydrateRoot pattern:
 //
 //   // react-dom (JavaScript)
-//   import { createRoot } from 'react-dom/client';
+//   import { createRoot, hydrateRoot } from 'react-dom/client';
 //   const root = createRoot(container);
 //   root.render(<App />);
 //   root.unmount();
 //
-//   // ReactDomNativeKit (Swift)
+//   // ReactDomNativeKit (Swift) — SSR + Hydration (recommended)
 //   import ReactDomNativeKit
-//   let root = ReactDomNativeKit.createRoot(container)
-//   root.render(serverURL: "http://localhost:6000") { error in
-//       if let error = error { print("Failed: \(error)") }
-//   }
+//   let root = hydrateRoot(container, url: "http://localhost:6001/ssr/page")
+//   root.unmount()
+//
+//   // ReactDomNativeKit (Swift) — Client-side rendering
+//   import ReactDomNativeKit
+//   let root = createRoot(container)
+//   root.render(url: "http://localhost:6000/fixtures/page")
 //   root.unmount()
 //
 // Root is a lightweight surface handle. The single JSContext and shared
 // infrastructure (bundle, devtools, hot reload) are owned by ReactRuntime.
 // ---------------------------------------------------------------------------
+
+/// Result of a prerender operation.
+public struct PrerenderResult {
+    /// Serialized SSR instruction stream — replayable without JS.
+    public let prelude: Data
+
+    /// Opaque deferred state — send to server for resume.
+    public let postponed: Data
+}
 
 /// Options for configuring a Root.
 public struct RootOptions {
@@ -71,7 +83,7 @@ public class Root {
     /// Tracks the original render mode for reload recovery.
     enum RenderMode {
         case csr(serverURL: String)
-        case ssr(ssrURL: String, flightURL: String)
+        case ssr(url: String)
     }
     var renderMode: RenderMode?
 
@@ -148,9 +160,9 @@ public class Root {
     /// and render the RSC stream from the server.
     ///
     /// - Parameters:
-    ///   - serverURL: URL of the RSC server (e.g. "http://localhost:6000").
+    ///   - url: URL of the RSC server (e.g. "http://localhost:6000").
     ///   - completion: Called when rendering starts or fails.
-    public func render(serverURL: String, completion: ((Error?) -> Void)? = nil) {
+    public func render(url: String, completion: ((Error?) -> Void)? = nil) {
         guard !isUnmounted else {
             print("[ReactDomNativeKit] Warning: Cannot render to an unmounted root.")
             completion?(RootError.alreadyUnmounted)
@@ -177,8 +189,8 @@ public class Root {
             }
 
             // Trigger renderFromURL on JS side
-            rt.renderSurface(surfaceId: self.surfaceId!, serverURL: serverURL)
-            self.renderMode = .csr(serverURL: serverURL)
+            rt.renderSurface(surfaceId: self.surfaceId!, serverURL: url)
+            self.renderMode = .csr(serverURL: url)
             completion?(nil)
         }
     }
@@ -248,8 +260,9 @@ public enum RootError: Error, CustomStringConvertible {
     case jsException(String)
     case alreadyUnmounted
     case runtimeNotInitialized
-    case hydrationDataMissing
-    case hydrationDataSerializationFailed
+    case hydrationFailed(Error)
+    case prerenderFailed(Error)
+    case resumeFailed(Error)
 
     public var description: String {
         switch self {
@@ -264,11 +277,13 @@ public enum RootError: Error, CustomStringConvertible {
         case .alreadyUnmounted:
             return "Cannot render to an unmounted root"
         case .runtimeNotInitialized:
-            return "Runtime not initialized - call render() first"
-        case .hydrationDataMissing:
-            return "No SSR Flight data received — ssrFlightDataBuffer is empty"
-        case .hydrationDataSerializationFailed:
-            return "Failed to serialize SSR Flight data to JSON"
+            return "Runtime not initialized — call render() first"
+        case .hydrationFailed(let error):
+            return "Hydration failed: \(error.localizedDescription)"
+        case .prerenderFailed(let error):
+            return "Prerender failed: \(error.localizedDescription)"
+        case .resumeFailed(let error):
+            return "Resume failed: \(error.localizedDescription)"
         }
     }
 }

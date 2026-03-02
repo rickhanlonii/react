@@ -177,7 +177,9 @@ exports.createResumableState = function createResumableState(
   bootstrapScripts,
   bootstrapModules,
 ) {
-  return {};
+  return {
+    bootstrapScripts: bootstrapScripts || [],
+  };
 };
 
 exports.resetResumableState = function resetResumableState(
@@ -379,7 +381,16 @@ exports.writeHoistables = function writeHoistables(
   resumableState,
   renderState,
 ) {
-  // No-op — return value not checked by Fizz
+  // Emit bootstrap script URLs so the native side knows which JS bundle to load
+  if (resumableState.bootstrapScripts && resumableState.bootstrapScripts.length > 0) {
+    for (var i = 0; i < resumableState.bootstrapScripts.length; i++) {
+      var scriptUrl = resumableState.bootstrapScripts[i];
+      var line = JSON.stringify(['BOOT', scriptUrl]) + '\n';
+      destination.write(line);
+    }
+    // Only emit once
+    resumableState.bootstrapScripts = [];
+  }
 };
 
 exports.writeHoistablesForBoundary = function writeHoistablesForBoundary(

@@ -17,28 +17,21 @@ import UIKit
 
 /// Creates a Root for rendering React content into a container view.
 ///
-/// This is the primary entry point for ReactDomNativeKit, mirroring
-/// react-dom/client's `createRoot()` function.
+/// This is the primary entry point for client-side rendering (CSR).
+/// For SSR + hydration, use the `hydrateRoot(view, url:)` free function instead.
 ///
 /// Example usage:
 /// ```swift
 /// import ReactDomNativeKit
 ///
-/// class MyViewController: UIViewController {
-///     private var root: Root?
+/// // SSR + Hydration (recommended):
+/// let root = hydrateRoot(view, url: "http://localhost:6001/ssr/page")
 ///
-///     override func viewDidLoad() {
-///         super.viewDidLoad()
-///         root = createRoot(view)
-///         root?.render(serverURL: "http://localhost:6000") { error in
-///             if let error = error {
-///                 print("Failed: \(error)")
-///             }
-///         }
-///     }
-///
-///     deinit {
-///         root?.unmount()
+/// // Client-side rendering:
+/// let root = createRoot(view)
+/// root.render(url: "http://localhost:6000/fixtures/page") { error in
+///     if let error = error {
+///         print("Failed: \(error)")
 ///     }
 /// }
 /// ```
@@ -50,22 +43,6 @@ public func createRoot(_ container: UIView) -> Root {
 }
 
 /// Creates a Root with custom options.
-///
-/// Example usage:
-/// ```swift
-/// ReactRuntime.shared.devBundleURL = URL(string: "http://localhost:6000/bundle.js")
-/// let options = RootOptions(
-///     onRecoverableError: { error in
-///         print("React error: \(error)")
-///     }
-/// )
-/// let root = createRoot(view, options: options)
-/// root.render(serverURL: "http://localhost:6000") { error in
-///     if let error = error {
-///         print("Render failed: \(error)")
-///     }
-/// }
-/// ```
 ///
 /// - Parameters:
 ///   - container: The UIView to render React content into.

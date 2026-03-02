@@ -11,7 +11,7 @@ import JSEngine
 // Usage:
 //   ReactRuntime.shared.devBundleURL = URL(string: "http://localhost:6000/bundle.js")
 //   let root = createRoot(view)
-//   root.render(serverURL: "http://localhost:6000") { ... }
+//   root.render(url: "http://localhost:6000") { ... }
 // ---------------------------------------------------------------------------
 
 /// Shared React runtime singleton. Owns the single JSContext, bundle loading,
