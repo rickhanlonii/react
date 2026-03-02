@@ -6,6 +6,7 @@ import ReactDomNativeKit
 struct FixtureConfig: Codable {
     var hideNavBar: Bool?
     var backgroundColor: String?
+    var ssrEndpoint: String?
 }
 
 struct Fixture: Identifiable, Codable {
@@ -186,7 +187,7 @@ struct FixtureDetailView: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            FixtureRootView(fixtureName: fixtureName)
+            FixtureRootView(fixtureName: fixtureName, ssrEndpoint: fixtureConfig?.ssrEndpoint ?? "ssr")
             if fixtureConfig?.hideNavBar == true {
                 Button(action: { dismiss() }) {
                     Image(systemName: "chevron.left")
@@ -217,9 +218,10 @@ struct FixtureDetailView: View {
 
 struct FixtureRootView: UIViewControllerRepresentable {
     let fixtureName: String
+    let ssrEndpoint: String
 
     func makeUIViewController(context: Context) -> FixtureViewController {
-        return FixtureViewController(fixtureName: fixtureName)
+        return FixtureViewController(fixtureName: fixtureName, ssrEndpoint: ssrEndpoint)
     }
 
     func updateUIViewController(_ vc: FixtureViewController, context: Context) {}
@@ -227,10 +229,12 @@ struct FixtureRootView: UIViewControllerRepresentable {
 
 class FixtureViewController: UIViewController {
     private let fixtureName: String
+    private let ssrEndpoint: String
     private var root: Root?
 
-    init(fixtureName: String) {
+    init(fixtureName: String, ssrEndpoint: String) {
         self.fixtureName = fixtureName
+        self.ssrEndpoint = ssrEndpoint
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -240,7 +244,7 @@ class FixtureViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .clear
 
-        let ssrURL = "http://localhost:6001/ssr/\(fixtureName)"
+        let ssrURL = "http://localhost:6001/\(ssrEndpoint)/\(fixtureName)"
         root = hydrateRoot(view, url: ssrURL)
     }
     deinit {

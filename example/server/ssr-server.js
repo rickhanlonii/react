@@ -306,6 +306,323 @@ function handleSSR(flightURL, req, res) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Prerender + Resume endpoint
+//
+// First request: prerenders the fixture via Fizz's createPrerenderRequest,
+// aborting before async server components resolve. Caches the static shell
+// (prelude) and the Fizz postponed state.
+//
+// Subsequent requests: sends the cached prelude instantly, then fetches a
+// fresh Flight stream and resumes rendering to fill in the postponed
+// Suspense boundaries with per-request data.
+// ---------------------------------------------------------------------------
+
+var prerenderCache = {};
+var PRERENDER_ABORT_MS = 200;
+
+app.get('/prerender/:name', function (req, res) {
+  var name = req.params.name;
+
+  function serve(cached) {
+    if (!cached.postponed) {
+      // Fully static — serve prelude via normal SSR flow (still need Flight data for hydration)
+      handleSSR(FLIGHT_SERVER + '/fixtures/' + name, req, res);
+      return;
+    }
+    handlePrerenderResume(name, cached, req, res);
+  }
+
+  if (prerenderCache[name]) {
+    serve(prerenderCache[name]);
+    return;
+  }
+
+  // First request: prerender and cache
+  doPrerender(name, function (err, cached) {
+    if (err) {
+      console.error('[Prerender] Error:', err.message);
+      // Fall back to normal SSR
+      handleSSR(FLIGHT_SERVER + '/fixtures/' + name, req, res);
+      return;
+    }
+    prerenderCache[name] = cached;
+    serve(cached);
+  });
+});
+
+function doPrerender(name, callback) {
+  var controller = new AbortController();
+  var flightURL = FLIGHT_SERVER + '/fixtures/' + name;
+
+  var flightReq = http.get(flightURL, function (flightRes) {
+    if (flightRes.statusCode !== 200) {
+      callback(new Error('Flight server returned ' + flightRes.statusCode));
+      return;
+    }
+
+    // Strip debug rows (tab-prefixed) from Flight stream, pass only Flight data
+    var partial = '';
+    var debugStrip = new Transform({
+      transform: function (chunk, encoding, cb) {
+        var text = partial + chunk.toString();
+        var lines = text.split('\n');
+        partial = lines.pop();
+        var output = [];
+        for (var i = 0; i < lines.length; i++) {
+          if (lines[i].length > 0 && lines[i][0] !== '\t') {
+            output.push(lines[i]);
+          }
+        }
+        if (output.length > 0) {
+          this.push(output.join('\n') + '\n');
+        }
+        cb();
+      },
+      flush: function (cb) {
+        if (partial.length > 0 && partial[0] !== '\t') {
+          this.push(partial + '\n');
+        }
+        partial = '';
+        cb();
+      },
+    });
+
+    var passThrough = new PassThrough();
+    flightRes.pipe(debugStrip).pipe(passThrough);
+
+    var createFromNodeStream =
+      require('react-server-dom-webpack/client.node').createFromNodeStream;
+    var ssrManifest = getSSRManifest();
+
+    var cachedResult;
+    var Root = function () {
+      if (!cachedResult) {
+        cachedResult = createFromNodeStream(passThrough, ssrManifest);
+      }
+      return React.use(cachedResult);
+    };
+
+    var prerenderToNodeStream =
+      require('react-dom-native/static').prerenderToNodeStream;
+
+    prerenderToNodeStream(React.createElement(Root), {
+      signal: controller.signal,
+      bootstrapScripts: [FLIGHT_SERVER + '/bundle.js'],
+      onError: function () {}, // Suppress abort errors
+    })
+      .then(function (result) {
+        var chunks = [];
+        result.prelude.on('data', function (chunk) {
+          chunks.push(chunk.toString());
+        });
+        result.prelude.on('end', function () {
+          callback(null, {
+            prelude: chunks.join(''),
+            postponed: result.postponed,
+          });
+        });
+        result.prelude.on('error', function (err) {
+          callback(err);
+        });
+      })
+      .catch(callback);
+
+    // Abort before async server components resolve to capture pending state
+    setTimeout(function () {
+      controller.abort('prerender timeout');
+      flightReq.destroy();
+    }, PRERENDER_ABORT_MS);
+  });
+  flightReq.on('error', function (err) {
+    if (err.code !== 'ECONNRESET') {
+      callback(err);
+    }
+  });
+}
+
+function handlePrerenderResume(name, cached, req, res) {
+  var flightURL = FLIGHT_SERVER + '/fixtures/' + name;
+
+  http
+    .get(flightURL, function (flightRes) {
+      if (flightRes.statusCode !== 200) {
+        res
+          .status(502)
+          .send('Flight server returned status ' + flightRes.statusCode);
+        return;
+      }
+
+      // Flight capture/demux — same as handleSSR but writes cached prelude first
+      var shellReady = false;
+      var pendingRows = [];
+      var partialRow = '';
+
+      var bootstrap =
+        JSON.stringify(['JS', 'self.__next_f.push([0])']) + '\n';
+      pendingRows.push(bootstrap);
+      var debugBootstrap =
+        JSON.stringify(['JS', 'self.__next_debug.push([0])']) + '\n';
+      pendingRows.push(debugBootstrap);
+
+      function emitFlightRow(row) {
+        var jsCode =
+          'self.__next_f.push([1,' + JSON.stringify(row + '\n') + '])';
+        var instruction = JSON.stringify(['JS', jsCode]) + '\n';
+        if (shellReady) {
+          res.write(instruction);
+        } else {
+          pendingRows.push(instruction);
+        }
+      }
+
+      function emitDebugRow(row) {
+        var jsCode =
+          'self.__next_debug.push([1,' + JSON.stringify(row + '\n') + '])';
+        var instruction = JSON.stringify(['JS', jsCode]) + '\n';
+        if (shellReady) {
+          res.write(instruction);
+        } else {
+          pendingRows.push(instruction);
+        }
+      }
+
+      var debugPassThrough = new PassThrough();
+
+      var flightCapture = new Transform({
+        transform: function (chunk, encoding, callback) {
+          var text = chunk.toString();
+          var lines = text.split('\n');
+          lines[0] = partialRow + lines[0];
+          partialRow = '';
+          if (text[text.length - 1] !== '\n') {
+            partialRow = lines.pop();
+          } else {
+            if (lines[lines.length - 1] === '') {
+              lines.pop();
+            }
+          }
+          var flightChunks = [];
+          for (var i = 0; i < lines.length; i++) {
+            if (lines[i] === '') continue;
+            if (lines[i][0] === '\t') {
+              var debugRow = lines[i].substring(1);
+              emitDebugRow(debugRow);
+              debugPassThrough.write(debugRow + '\n');
+            } else {
+              flightChunks.push(lines[i] + '\n');
+              emitFlightRow(lines[i]);
+            }
+          }
+          if (flightChunks.length > 0) {
+            this.push(flightChunks.join(''));
+          }
+          callback();
+        },
+        flush: function (callback) {
+          if (partialRow !== '') {
+            if (partialRow[0] === '\t') {
+              var debugRow = partialRow.substring(1);
+              emitDebugRow(debugRow);
+              debugPassThrough.write(debugRow + '\n');
+            } else {
+              this.push(partialRow + '\n');
+              emitFlightRow(partialRow);
+            }
+            partialRow = '';
+          }
+          var closeJS =
+            JSON.stringify([
+              'JS',
+              'globalThis.__REACT_DOM_NATIVE__.__closeFlightDataStream__()',
+            ]) + '\n';
+          var closeDebugJS =
+            JSON.stringify([
+              'JS',
+              'globalThis.__REACT_DOM_NATIVE__.__closeDebugDataStream__()',
+            ]) + '\n';
+          if (shellReady) {
+            res.write(closeJS);
+            res.write(closeDebugJS);
+          } else {
+            pendingRows.push(closeJS);
+            pendingRows.push(closeDebugJS);
+          }
+          debugPassThrough.end();
+          callback();
+        },
+      });
+
+      var passThrough = new PassThrough();
+      flightRes.pipe(flightCapture).pipe(passThrough);
+
+      var createFromNodeStream =
+        require('react-server-dom-webpack/client.node').createFromNodeStream;
+      var ssrManifest = getSSRManifest();
+
+      var cachedResult;
+      var Root = function () {
+        if (!cachedResult) {
+          cachedResult = createFromNodeStream(passThrough, ssrManifest, {
+            debugChannel: debugPassThrough,
+          });
+        }
+        return React.use(cachedResult);
+      };
+
+      var resumeToPipeableStream =
+        require('react-dom-native/server').resumeToPipeableStream;
+      var nativeStream = resumeToPipeableStream(
+        React.createElement(Root),
+        cached.postponed,
+        {
+          onShellReady: function () {
+            res.setHeader('Content-Type', 'application/x-native-ssr');
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Cache-Control', 'no-cache');
+
+            // 1. Send cached prelude (static shell) immediately
+            res.write(cached.prelude);
+
+            // 2. Flush pending Flight JS rows
+            for (var i = 0; i < pendingRows.length; i++) {
+              res.write(pendingRows[i]);
+            }
+            pendingRows = null;
+            shellReady = true;
+
+            // 3. Pipe resume Fizz output (completed segments + boundary reveals)
+            var fizzPassThrough = new PassThrough();
+            nativeStream.pipe(fizzPassThrough);
+            fizzPassThrough.on('data', function (chunk) {
+              res.write(chunk);
+            });
+            fizzPassThrough.on('end', function () {
+              res.end();
+            });
+          },
+          onShellError: function (error) {
+            console.error('[Prerender Resume] Shell error:', error);
+            // Fall back to normal SSR
+            handleSSR(FLIGHT_SERVER + '/fixtures/' + name, req, res);
+          },
+          onError: function (error) {
+            console.error('[Prerender Resume] Error:', error);
+          },
+        },
+      );
+    })
+    .on('error', function (err) {
+      console.error(
+        '[Prerender Resume] Failed to fetch Flight stream:',
+        err.message,
+      );
+      res
+        .status(502)
+        .send('Failed to connect to Flight server: ' + err.message);
+    });
+}
+
 app.get('/ssr/:name', function (req, res) {
   handleSSR(FLIGHT_SERVER + '/fixtures/' + req.params.name, req, res);
 });
