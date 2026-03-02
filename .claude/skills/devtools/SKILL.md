@@ -11,9 +11,9 @@ For architecture details and implementation internals, see [docs.md](.claude/ski
 
 ## Prerequisites
 
-The **dev server** must be running (it starts the inspector proxy on port 8976):
+The **dev server** must be running (the SSR server hosts the inspector proxy on port 6001):
 ```bash
-curl -s http://localhost:8976/json
+curl -s http://localhost:6001/json
 ```
 
 If it's not running, start it:
@@ -26,13 +26,13 @@ Wait 5 seconds, then re-check the endpoint.
 
 1. **Get the target list** from the inspector proxy:
    ```bash
-   curl -s http://localhost:8976/json
+   curl -s http://localhost:6001/json
    ```
    This returns one entry per connected app/simulator. Extract the `id` field (e.g. `falcon-61F83D8B-36DF-474F-9AAD-61DC6D60FFED`). The target ID is stable across dev server restarts (derived from simulator UDID).
 
 2. **Navigate the MCP browser** to the DevTools inspector with the WebSocket connection:
    ```
-   navigate_page(type: "url", url: "devtools://devtools/bundled/inspector.html?remoteFrontend=true&ws=127.0.0.1:8976/<id>")
+   navigate_page(type: "url", url: "devtools://devtools/bundled/inspector.html?remoteFrontend=true&ws=127.0.0.1:6001/__cdp/<id>")
    ```
    Replace `<id>` with the actual id from step 1.
 
@@ -62,10 +62,10 @@ Logging is **off by default** for performance. To enable verbose logging while t
 
 ```bash
 # Toggle verbose logging on/off
-curl http://localhost:8976/debug/verbose
+curl http://localhost:6001/debug/verbose
 
 # Check current status
-curl http://localhost:8976/debug/status
+curl http://localhost:6001/debug/status
 ```
 
 This logs all CDP messages, WebSocket traffic, domain routing, and screencast events.

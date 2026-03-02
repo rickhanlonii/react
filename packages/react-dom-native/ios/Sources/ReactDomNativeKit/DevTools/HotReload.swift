@@ -33,23 +33,21 @@ public class HotReloadClient {
     /// Creates a hot reload client.
     ///
     /// - Parameters:
-    ///   - host: WebSocket server host (default: "localhost")
-    ///   - port: WebSocket server port (default: 8082)
+    ///   - url: Full WebSocket URL (e.g. ws://localhost:6001/__dev)
     ///   - appName: App display name (e.g. "Falcon")
     ///   - deviceName: Simulator/device name (e.g. "Falcon Demo")
     ///   - deviceModel: Device model (e.g. "iPhone 16 Pro")
     ///   - simulatorUDID: Simulator UDID if running in simulator
     ///   - platform: "iOS Simulator" or "iOS"
     public init(
-        host: String = "localhost",
-        port: Int = 8082,
+        url: URL,
         appName: String = "Falcon",
         deviceName: String = "iOS Device",
         deviceModel: String = "iPhone",
         simulatorUDID: String? = nil,
         platform: String = "iOS"
     ) {
-        self.webSocketURL = URL(string: "ws://\(host):\(port)")!
+        self.webSocketURL = url
         self.appName = appName
         self.deviceName = deviceName
         self.deviceModel = deviceModel

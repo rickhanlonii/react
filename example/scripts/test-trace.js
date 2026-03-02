@@ -10,7 +10,7 @@
 // Usage:  npm run test:trace
 //
 // Prereqs:
-//   1. Dev server running (npm run dev)  — starts inspector proxy on :8976
+//   1. Dev server running (npm run dev)  — starts inspector proxy on :6001
 //   2. Falcon app running in simulator   — collects trace events
 // ---------------------------------------------------------------------------
 
@@ -18,7 +18,7 @@ var http = require('http');
 var WebSocket = require('ws');
 var fs = require('fs');
 
-var CDP_PORT = 8976;
+var CDP_PORT = 6001;
 var TRACE_TIMEOUT = 30000;
 var DUMP_PATH = '/tmp/falcon-trace.json';
 

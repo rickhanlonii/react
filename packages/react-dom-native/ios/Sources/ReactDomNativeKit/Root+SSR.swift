@@ -84,6 +84,16 @@ extension Root {
                 rt.devBundleURL = bundleURL
             }
 
+            // Derive the dev server URL from the SSR URL
+            // ssrURL is e.g. "http://localhost:6001/ssr/page"
+            if let ssrURLObj = URL(string: url) {
+                var components = URLComponents()
+                components.scheme = ssrURLObj.scheme
+                components.host = ssrURLObj.host
+                components.port = ssrURLObj.port
+                rt.devServerURL = components.url
+            }
+
             // Boot the runtime (downloads the bundle from the URL above)
             rt.boot { [weak self] error in
                 guard let self = self else { return }

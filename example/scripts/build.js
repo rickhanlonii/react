@@ -16,7 +16,7 @@ async function build() {
     let wsConnected = false;
     function connectWebSocket() {
       const WebSocket = require('ws');
-      ws = new WebSocket('ws://localhost:8082');
+      ws = new WebSocket('ws://localhost:' + (process.env.SSR_PORT || 6001) + '/__dev');
       ws.on('open', () => { wsConnected = true; });
       ws.on('close', () => {
         wsConnected = false;

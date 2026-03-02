@@ -15,7 +15,7 @@ let ws;
 const pendingResolves = {};
 let traceEvents = [];
 
-http.get('http://127.0.0.1:8976/json', (res) => {
+http.get('http://127.0.0.1:6001/json', (res) => {
   let data = '';
   res.on('data', (chunk) => data += chunk);
   res.on('end', () => {

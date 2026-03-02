@@ -5,49 +5,6 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '../..');
 
-describe('dev-server', () => {
-  const {createDevServer} = require('../dev-server');
-  let server;
-
-  afterEach(() => {
-    if (server) {
-      server.close();
-      server = null;
-    }
-  });
-
-  it('creates a dev server with default port', () => {
-    server = createDevServer({port: 0});
-    expect(server).toBeDefined();
-    expect(server.notifyReload).toBeInstanceOf(Function);
-    expect(server.notifyError).toBeInstanceOf(Function);
-    expect(server.notifyClearErrors).toBeInstanceOf(Function);
-    expect(server.close).toBeInstanceOf(Function);
-  });
-
-  it('starts with zero clients', () => {
-    server = createDevServer({port: 0});
-    expect(server.clientCount).toBe(0);
-  });
-
-  it('broadcast does not throw with no clients', () => {
-    server = createDevServer({port: 0});
-    expect(() => server.broadcast({type: 'test'})).not.toThrow();
-  });
-
-  it('notifyReload does not throw with no clients', () => {
-    server = createDevServer({port: 0});
-    expect(() => server.notifyReload()).not.toThrow();
-  });
-
-  it('notifyError does not throw with no clients', () => {
-    server = createDevServer({port: 0});
-    expect(() =>
-      server.notifyError({message: 'test error', stack: 'stack'}),
-    ).not.toThrow();
-  });
-});
-
 describe('builder', () => {
   const {createBuilder} = require('../builder');
 

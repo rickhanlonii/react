@@ -7,7 +7,7 @@ const WebSocket = require('ws');
 
 async function main() {
   // Get the target info
-  const resp = await fetch('http://localhost:8976/json');
+  const resp = await fetch('http://localhost:6001/json');
   const targets = await resp.json();
   if (targets.length === 0) {
     console.error('No targets found — is the app running?');

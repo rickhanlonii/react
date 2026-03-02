@@ -7,9 +7,9 @@
 // panel in Chrome DevTools to record traces from the native app.
 //
 // Architecture:
-//   Chrome DevTools <--CDP WebSocket (9222)--> This proxy (Node.js)
-//                                               | messages via WS (8082)
-//                                          App (JSC on iOS Simulator)
+//   Chrome DevTools <--CDP WebSocket (6001/__cdp)--> This proxy (in SSR server)
+//                                                     | messages via WS (6001/__dev)
+//                                                App (JSC on iOS Simulator)
 //
 // HTTP endpoints (for chrome://inspect discovery):
 //   GET /json/version  -> browser version info
@@ -24,8 +24,6 @@
 // Reference: ReactCommon/jsinspector-modern/tracing/TracingAgent.cpp
 // ---------------------------------------------------------------------------
 
-const http = require('http');
-const {WebSocketServer} = require('ws');
 const {SourceMapResolver} = require('./source-map-resolver');
 const path = require('path');
 const fs = require('fs');
@@ -1952,167 +1950,180 @@ function createInspectorProxy(options) {
     return null;
   }
 
-  // -----------------------------------------------------------------------
-  // HTTP server for CDP discovery endpoints
-  // -----------------------------------------------------------------------
+  var proxy = {
+    port: cdpPort,
+    targets: targets,
+    previewClients: previewClients,
+    addTarget: addTarget,
+    disconnectTarget: disconnectTarget,
+    removeTarget: removeTarget,
+    getFirstTarget: getFirstTarget,
+    handleAppMessage: function (targetId, data) {
+      var entry = targets.get(targetId);
+      if (entry) {
+        entry.target.handleAppMessage(data);
+      }
+    },
+    set onTracingStateChange(fn) { onTracingStateChange = fn; },
+    close: function () {
+      for (var [, entry] of targets) { entry.target.close(); }
+      targets.clear();
+    },
+  };
 
+  return proxy;
+}
+
+// ---------------------------------------------------------------------------
+// mountInspectorRoutes — mounts CDP discovery HTTP routes on an Express app
+// ---------------------------------------------------------------------------
+
+function mountInspectorRoutes(app, proxy) {
   function sendJSON(res, data) {
-    var body = JSON.stringify(data);
-    res.writeHead(200, {
-      'Content-Type': 'application/json; charset=UTF-8',
-      'Cache-Control': 'no-cache',
-      'Content-Length': Buffer.byteLength(body),
-      'Connection': 'close',
-    });
-    res.end(body);
+    res.json(data);
   }
 
-  var httpServer = http.createServer(function (req, res) {
-    var url = req.url;
-    log('HTTP', req.method + ' ' + url);
-
-    if (url === '/json/version') {
-      sendJSON(res, {
-        Browser: 'React DOM Native',
-        'Protocol-Version': '1.1',
-      });
-      return;
-    }
-
-    if (url === '/json' || url === '/json/list') {
-      var pages = [];
-      for (var [id, entry] of targets) {
-        var info = entry.info;
-        var devtoolsUrl = 'chrome-devtools://devtools/bundled/devtools_app.html?experiments=true&ws=127.0.0.1:' +
-          cdpPort + '/' + id;
-        pages.push({
-          description: (info.deviceModel || 'iOS') + (info.platform === 'iOS Simulator' ? ' Simulator' : ''),
-          devtoolsFrontendUrl: devtoolsUrl,
-          devtoolsFrontendUrlCompat: devtoolsUrl,
-          faviconUrl: 'https://reactnative.dev/img/favicon.ico',
-          id: id,
-          title: (info.appName || 'Falcon') + ' — ' + (info.deviceName || 'Unknown') + ' (' + (info.deviceModel || 'iOS') + ')',
-          type: 'page',
-          url: (info.deviceModel || 'iOS') + (info.platform === 'iOS Simulator' ? ' (Simulator)' : ''),
-          webSocketDebuggerUrl: 'ws://127.0.0.1:' + cdpPort + '/' + id,
-        });
-      }
-      sendJSON(res, pages);
-      return;
-    }
-
-    // Toggle verbose logging on/off
-    if (url === '/debug/verbose') {
-      verboseLogging = !verboseLogging;
-      logAlways('Debug', 'Verbose logging ' + (verboseLogging ? 'ENABLED' : 'DISABLED'));
-      sendJSON(res, {verbose: verboseLogging});
-      return;
-    }
-
-    // Check current debug status
-    if (url === '/debug/status') {
-      sendJSON(res, {verbose: verboseLogging});
-      return;
-    }
-
-    // SSE endpoint — pushes "refresh" events when the native tree updates
-    if (url === '/preview/events') {
-      res.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      });
-      res.write('data: connected\n\n');
-      previewClients.add(res);
-      req.on('close', function () { previewClients.delete(res); });
-      setTimeout(function () {
-        if (previewClients.has(res)) {
-          res.write('data: refresh\n\n');
-        }
-      }, 300);
-      return;
-    }
-
-    // Returns just the body HTML (no wrapper) for incremental updates
-    if (url === '/preview/html') {
-      var first = getFirstTarget();
-      if (first) {
-        first.target.domDomain.requestPreviewHTML(first.target.getSendToApp(), function (result) {
-          var bodyHTML = (result && result.html) || '';
-          res.writeHead(200, {
-            'Content-Type': 'text/html; charset=UTF-8',
-            'Cache-Control': 'no-cache',
-          });
-          res.end(bodyHTML);
-        });
-      } else {
-        res.writeHead(200, {
-          'Content-Type': 'text/html; charset=UTF-8',
-          'Cache-Control': 'no-cache',
-        });
-        res.end('');
-      }
-      return;
-    }
-
-    // Web preview — renders the native shadow tree as a real HTML page
-    if (url === '/preview') {
-      var page = [
-        '<!DOCTYPE html>',
-        '<html>',
-        '<head>',
-        '  <meta charset="utf-8">',
-        '  <meta name="viewport" content="width=device-width, initial-scale=1">',
-        '  <title>Falcon Preview</title>',
-        '  <style>',
-        '    * { box-sizing: border-box; }',
-        '    body { margin: 0; font-family: -apple-system, system-ui, sans-serif; }',
-        '    #preview-root { min-height: 100vh; }',
-        '    #preview-waiting { color: #888; padding: 20px; }',
-        '  </style>',
-        '</head>',
-        '<body>',
-        '  <div id="preview-root">',
-        '    <p id="preview-waiting">Waiting for app\u2026</p>',
-        '  </div>',
-        '  <script>',
-        '    var root = document.getElementById("preview-root");',
-        '    function refresh() {',
-        '      fetch("/preview/html").then(function(r) { return r.text(); }).then(function(html) {',
-        '        if (html) root.innerHTML = html;',
-        '      });',
-        '    }',
-        '    var es = new EventSource("/preview/events");',
-        '    es.onmessage = function(e) {',
-        '      if (e.data === "refresh") refresh();',
-        '    };',
-        '  </script>',
-        '</body>',
-        '</html>',
-      ].join('\n');
-      res.writeHead(200, {
-        'Content-Type': 'text/html; charset=UTF-8',
-        'Cache-Control': 'no-cache',
-      });
-      res.end(page);
-      return;
-    }
-
-    res.writeHead(404);
-    res.end('Not found');
+  app.get('/json/version', function (req, res) {
+    log('HTTP', 'GET /json/version');
+    sendJSON(res, {
+      Browser: 'React DOM Native',
+      'Protocol-Version': '1.1',
+    });
   });
 
-  // -----------------------------------------------------------------------
-  // CDP WebSocket server — routes by target ID in URL path
-  // -----------------------------------------------------------------------
-  var wss = new WebSocketServer({server: httpServer});
+  app.get('/json/list', function (req, res) {
+    log('HTTP', 'GET /json/list');
+    sendJSON(res, buildTargetList(proxy));
+  });
 
-  wss.on('connection', function onConnection(ws, req) {
-    // Extract target ID from URL path (e.g. /falcon-61F83D8B-...)
+  app.get('/json', function (req, res) {
+    log('HTTP', 'GET /json');
+    sendJSON(res, buildTargetList(proxy));
+  });
+
+  app.get('/debug/verbose', function (req, res) {
+    verboseLogging = !verboseLogging;
+    logAlways('Debug', 'Verbose logging ' + (verboseLogging ? 'ENABLED' : 'DISABLED'));
+    sendJSON(res, {verbose: verboseLogging});
+  });
+
+  app.get('/debug/status', function (req, res) {
+    sendJSON(res, {verbose: verboseLogging});
+  });
+
+  app.get('/preview/events', function (req, res) {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    });
+    res.write('data: connected\n\n');
+    proxy.previewClients.add(res);
+    req.on('close', function () { proxy.previewClients.delete(res); });
+    setTimeout(function () {
+      if (proxy.previewClients.has(res)) {
+        res.write('data: refresh\n\n');
+      }
+    }, 300);
+  });
+
+  app.get('/preview/html', function (req, res) {
+    var first = proxy.getFirstTarget();
+    if (first) {
+      first.target.domDomain.requestPreviewHTML(first.target.getSendToApp(), function (result) {
+        var bodyHTML = (result && result.html) || '';
+        res.set('Content-Type', 'text/html; charset=UTF-8');
+        res.set('Cache-Control', 'no-cache');
+        res.send(bodyHTML);
+      });
+    } else {
+      res.set('Content-Type', 'text/html; charset=UTF-8');
+      res.set('Cache-Control', 'no-cache');
+      res.send('');
+    }
+  });
+
+  app.get('/preview', function (req, res) {
+    var page = [
+      '<!DOCTYPE html>',
+      '<html>',
+      '<head>',
+      '  <meta charset="utf-8">',
+      '  <meta name="viewport" content="width=device-width, initial-scale=1">',
+      '  <title>Falcon Preview</title>',
+      '  <style>',
+      '    * { box-sizing: border-box; }',
+      '    body { margin: 0; font-family: -apple-system, system-ui, sans-serif; }',
+      '    #preview-root { min-height: 100vh; }',
+      '    #preview-waiting { color: #888; padding: 20px; }',
+      '  </style>',
+      '</head>',
+      '<body>',
+      '  <div id="preview-root">',
+      '    <p id="preview-waiting">Waiting for app\u2026</p>',
+      '  </div>',
+      '  <script>',
+      '    var root = document.getElementById("preview-root");',
+      '    function refresh() {',
+      '      fetch("/preview/html").then(function(r) { return r.text(); }).then(function(html) {',
+      '        if (html) root.innerHTML = html;',
+      '      });',
+      '    }',
+      '    var es = new EventSource("/preview/events");',
+      '    es.onmessage = function(e) {',
+      '      if (e.data === "refresh") refresh();',
+      '    };',
+      '  </script>',
+      '</body>',
+      '</html>',
+    ].join('\n');
+    res.set('Content-Type', 'text/html; charset=UTF-8');
+    res.set('Cache-Control', 'no-cache');
+    res.send(page);
+  });
+}
+
+function buildTargetList(proxy) {
+  var pages = [];
+  for (var [id, entry] of proxy.targets) {
+    var info = entry.info;
+    var cdpPort = proxy.port;
+    var devtoolsUrl = 'chrome-devtools://devtools/bundled/devtools_app.html?experiments=true&ws=127.0.0.1:' +
+      cdpPort + '/__cdp/' + id;
+    pages.push({
+      description: (info.deviceModel || 'iOS') + (info.platform === 'iOS Simulator' ? ' Simulator' : ''),
+      devtoolsFrontendUrl: devtoolsUrl,
+      devtoolsFrontendUrlCompat: devtoolsUrl,
+      faviconUrl: 'https://reactnative.dev/img/favicon.ico',
+      id: id,
+      title: (info.appName || 'Falcon') + ' — ' + (info.deviceName || 'Unknown') + ' (' + (info.deviceModel || 'iOS') + ')',
+      type: 'page',
+      url: (info.deviceModel || 'iOS') + (info.platform === 'iOS Simulator' ? ' (Simulator)' : ''),
+      webSocketDebuggerUrl: 'ws://127.0.0.1:' + cdpPort + '/__cdp/' + id,
+    });
+  }
+  return pages;
+}
+
+// ---------------------------------------------------------------------------
+// createCDPUpgradeHandler — returns a function for handling WS upgrades
+// for CDP connections (path: /__cdp/<targetId>)
+// ---------------------------------------------------------------------------
+
+function createCDPUpgradeHandler(proxy) {
+  return function handleCDPUpgrade(ws, req) {
+    // Extract target ID from URL path (e.g. /__cdp/falcon-61F83D8B-...)
     var urlPath = req.url || '/';
-    var requestedTargetId = urlPath.slice(1); // remove leading /
+    var cdpPrefix = '/__cdp/';
+    var requestedTargetId;
+    if (urlPath.startsWith(cdpPrefix)) {
+      requestedTargetId = urlPath.slice(cdpPrefix.length);
+    } else {
+      // Fallback: strip leading /
+      requestedTargetId = urlPath.slice(1);
+    }
 
-    var entry = targets.get(requestedTargetId);
+    var entry = proxy.targets.get(requestedTargetId);
     if (!entry) {
       log('WS', 'No target found for: ' + requestedTargetId);
       ws.close(1008, 'Target not found');
@@ -2139,36 +2150,7 @@ function createInspectorProxy(options) {
       log('WS', 'WebSocket error: ' + err.message);
       target.cdpClients.delete(ws);
     });
-  });
-
-  // -----------------------------------------------------------------------
-  // Start
-  // -----------------------------------------------------------------------
-  httpServer.listen(cdpPort, function () {
-    logAlways('Init', 'CDP server listening on http://localhost:' + cdpPort);
-    logAlways('Init', 'Multi-target mode — targets registered via addTarget()');
-    logAlways('Init', 'Preview URL: http://localhost:' + cdpPort + '/preview');
-    logAlways('Init', 'Verbose logging: curl http://localhost:' + cdpPort + '/debug/verbose');
-  });
-
-  return {
-    port: cdpPort,
-    addTarget: addTarget,
-    disconnectTarget: disconnectTarget,
-    removeTarget: removeTarget,
-    handleAppMessage: function (targetId, data) {
-      var entry = targets.get(targetId);
-      if (entry) {
-        entry.target.handleAppMessage(data);
-      }
-    },
-    set onTracingStateChange(fn) { onTracingStateChange = fn; },
-    close: function () {
-      for (var [, entry] of targets) { entry.target.close(); }
-      targets.clear();
-      httpServer.close();
-    },
   };
 }
 
-module.exports = {createInspectorProxy, DEFAULT_CDP_PORT};
+module.exports = {createInspectorProxy, mountInspectorRoutes, createCDPUpgradeHandler, DEFAULT_CDP_PORT};

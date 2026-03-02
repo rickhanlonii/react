@@ -3,8 +3,9 @@
 // ---------------------------------------------------------------------------
 // test-proxy.js — Test the inspector proxy CDP roundtrip in isolation.
 //
-// Starts the inspector proxy, connects as both a "DevTools client" (CDP)
-// and a "mock app" (trace-data sender), and verifies the full roundtrip:
+// Starts the inspector proxy with its own HTTP server, connects as both a
+// "DevTools client" (CDP) and a "mock app" (trace-data sender), and verifies
+// the full roundtrip:
 //   DevTools sends Tracing.start → proxy relays to app
 //   App sends trace-data → proxy wraps in Tracing.dataCollected → DevTools
 //
@@ -14,12 +15,12 @@
 // ---------------------------------------------------------------------------
 
 var http = require('http');
+var express = require('express');
 var WebSocket = require('ws');
-var {createInspectorProxy} = require('./inspector-proxy');
+var {createInspectorProxy, mountInspectorRoutes, createCDPUpgradeHandler} = require('./inspector-proxy');
 var {WebSocketServer} = require('ws');
 
-var CDP_PORT = 19222; // Use non-standard port to avoid conflicts
-var APP_WS_PORT = 19082;
+var TEST_PORT = 19222; // Use non-standard port to avoid conflicts
 var passed = 0;
 var failed = 0;
 
@@ -66,44 +67,88 @@ async function run() {
   console.log('\n  Inspector Proxy Roundtrip Test');
   console.log('  ==============================\n');
 
-  // --- Setup: start proxy + mock app WebSocket server ---
+  // --- Setup: start proxy with its own HTTP server ---
 
-  var proxy = createInspectorProxy({port: CDP_PORT});
+  var proxy = createInspectorProxy({port: TEST_PORT});
+  var app = express();
+  mountInspectorRoutes(app, proxy);
+  var handleCDPUpgrade = createCDPUpgradeHandler(proxy);
 
-  // Mock app WebSocket server (simulates what dev-server.js does)
-  var appWss = new WebSocketServer({port: APP_WS_PORT});
-  var appClient = null;
+  // Create dev WS server for mock app connections
+  var devWSS = new WebSocketServer({noServer: true});
+  var cdpWSS = new WebSocketServer({noServer: true});
 
-  // Wire proxy → app: proxy sends start/stop-tracing to our mock app
-  // sendToApp sends to the server-side socket, which delivers to the client
-  proxy.setSendToApp(function (data) {
-    if (appClient && appClient.readyState === 1) {
-      appClient.send(data);
-    }
-  });
+  var httpServer = http.createServer(app);
 
-  // Wait for mock app to connect
-  var appReady = new Promise(function (resolve) {
-    appWss.on('connection', function (ws) {
-      appClient = ws;
+  // Track mock app sendToApp function
+  var mockAppSendToApp = null;
+  var mockTargetId = null;
 
-      // Forward messages FROM the app client TO the proxy
-      ws.on('message', function (raw) {
-        var msg;
-        try { msg = JSON.parse(raw.toString()); } catch (e) { return; }
-        if (msg.type === 'trace-data') {
-          proxy.handleAppMessage(raw.toString());
-        }
-      });
+  devWSS.on('connection', function (ws) {
+    ws.on('message', function (data) {
+      var text = data.toString();
+      var message;
+      try { message = JSON.parse(text); } catch (e) { return; }
 
-      resolve();
+      if (message.type === 'connect') {
+        mockTargetId = proxy.addTarget(message, function sendToApp(msg) {
+          if (ws.readyState === 1) {
+            ws.send(msg);
+          }
+        });
+        return;
+      }
+
+      if (mockTargetId) {
+        proxy.handleAppMessage(mockTargetId, text);
+      }
+    });
+
+    ws.on('close', function () {
+      if (mockTargetId) {
+        proxy.disconnectTarget(mockTargetId);
+      }
     });
   });
 
-  // Connect mock app client
-  var mockApp = new WebSocket('ws://127.0.0.1:' + APP_WS_PORT);
+  httpServer.on('upgrade', function (req, socket, head) {
+    var pathname = req.url || '/';
+    if (pathname === '/__dev') {
+      devWSS.handleUpgrade(req, socket, head, function (ws) {
+        devWSS.emit('connection', ws, req);
+      });
+    } else if (pathname.startsWith('/__cdp/')) {
+      cdpWSS.handleUpgrade(req, socket, head, function (ws) {
+        handleCDPUpgrade(ws, req);
+      });
+    } else {
+      socket.destroy();
+    }
+  });
 
-  // Handle messages on the CLIENT side (receives from sendToApp via server)
+  await new Promise(function (resolve) {
+    httpServer.listen(TEST_PORT, resolve);
+  });
+
+  // Connect mock app via dev WS
+  var mockApp = new WebSocket('ws://127.0.0.1:' + TEST_PORT + '/__dev');
+
+  await new Promise(function (resolve) {
+    mockApp.on('open', function () {
+      // Send connect identity
+      mockApp.send(JSON.stringify({
+        type: 'connect',
+        appName: 'Falcon',
+        deviceName: 'react-dom-native',
+        deviceModel: 'Test',
+        platform: 'iOS Simulator',
+      }));
+      // Give proxy a moment to register the target
+      setTimeout(resolve, 200);
+    });
+  });
+
+  // Handle messages on the mock app side (receives from sendToApp via proxy)
   mockApp.on('message', function (raw) {
     var msg;
     try { msg = JSON.parse(raw.toString()); } catch (e) { return; }
@@ -119,16 +164,11 @@ async function run() {
     }
   });
 
-  await appReady;
-
-  // Give the proxy HTTP server a moment to start
-  await new Promise(function (r) { setTimeout(r, 200); });
-
   // --- Test 1: CDP discovery endpoint ---
   console.log('  --- CDP Discovery ---');
 
   var targets = await new Promise(function (resolve, reject) {
-    http.get('http://127.0.0.1:' + CDP_PORT + '/json', function (res) {
+    http.get('http://127.0.0.1:' + TEST_PORT + '/json', function (res) {
       var data = '';
       res.on('data', function (c) { data += c; });
       res.on('end', function () {
@@ -140,7 +180,7 @@ async function run() {
 
   assert(Array.isArray(targets) && targets.length > 0, '/json returns target list');
   assert(targets[0].webSocketDebuggerUrl, 'Target has webSocketDebuggerUrl');
-  assert(targets[0].title === 'Falcon — react-dom-native', 'Target title is correct');
+  assert(targets[0].title === 'Falcon — react-dom-native (Test)', 'Target title is correct');
 
   // --- Test 2: CDP trace roundtrip ---
   console.log('\n  --- CDP Trace Roundtrip ---');
@@ -296,8 +336,10 @@ async function run() {
 
   // --- Cleanup ---
   mockApp.close();
-  appWss.close();
+  devWSS.close();
+  cdpWSS.close();
   proxy.close();
+  httpServer.close();
 
   // --- Summary ---
   console.log('  ==============================');

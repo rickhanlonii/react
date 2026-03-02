@@ -24,17 +24,12 @@ node --conditions react-server server.js &
 RSC_PID=$!
 cd "$EXAMPLE_ROOT"
 
-# Start SSR server (Fizz) — runs WITHOUT react-server condition
-echo "Starting SSR server (Fizz)..."
+# Start SSR server (Fizz + dev WS + CDP inspector)
+echo "Starting SSR server (Fizz + dev tools)..."
 cd "$EXAMPLE_ROOT/server"
 node ssr-server.js &
 SSR_PID=$!
 cd "$EXAMPLE_ROOT"
-
-# Start CDP inspector proxy for Chrome DevTools Performance profiling
-echo "Starting CDP inspector proxy..."
-node "$SCRIPT_DIR/start-inspector.js" &
-INSPECTOR_PID=$!
 
 # Cleanup on exit — only kill PIDs that are still alive and belong to us
 cleanup() {
@@ -42,7 +37,6 @@ cleanup() {
   kill $WEBPACK_PID 2>/dev/null || true
   kill $RSC_PID 2>/dev/null || true
   kill $SSR_PID 2>/dev/null || true
-  kill $INSPECTOR_PID 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
 
@@ -63,18 +57,16 @@ wait_for_server() {
 
 wait_for_server 6000 "Flight server" "/bundle-version" || exit 1
 wait_for_server 6001 "SSR server" "/healthz" || exit 1
-wait_for_server 8976 "CDP inspector proxy" "/json/version" || exit 1
 
 # DevTools URL is dynamic now (shown when an app connects and identifies itself)
 echo ""
 echo "Development servers running:"
-echo "  Flight server (RSC): PID $RSC_PID (http://localhost:6000)"
-echo "  SSR server (Fizz):   PID $SSR_PID (http://localhost:6001)"
-echo "  CDP inspector proxy: PID $INSPECTOR_PID (http://localhost:8976)"
+echo "  Flight server (RSC):              PID $RSC_PID (http://localhost:6000)"
+echo "  SSR server (Fizz + dev + CDP):    PID $SSR_PID (http://localhost:6001)"
 echo "  Bundle URL: http://localhost:6000/bundle.js (webpack, watching for changes)"
 echo ""
 echo "Chrome DevTools:"
-echo "  curl -s http://localhost:8976/json  (shows connected targets)"
+echo "  curl -s http://localhost:6001/json  (shows connected targets)"
 echo ""
 echo "Press Ctrl+C to stop."
 

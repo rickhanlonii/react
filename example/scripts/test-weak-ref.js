@@ -6,7 +6,7 @@
 const WebSocket = require('ws');
 
 async function main() {
-  const resp = await fetch('http://localhost:8976/json');
+  const resp = await fetch('http://localhost:6001/json');
   const targets = await resp.json();
   if (targets.length === 0) { console.error('No targets'); process.exit(1); }
   const ws = new WebSocket(targets[0].webSocketDebuggerUrl);

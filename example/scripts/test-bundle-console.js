@@ -10,14 +10,14 @@
 
 const WebSocket = require('ws');
 
-const TARGET_URL = 'ws://127.0.0.1:8976';
+const TARGET_URL = 'ws://127.0.0.1:6001';
 let msgId = 1;
 let ws;
 let consoleEvents = [];
 
 // First discover the WebSocket URL
 const http = require('http');
-http.get('http://127.0.0.1:8976/json', (res) => {
+http.get('http://127.0.0.1:6001/json', (res) => {
   let data = '';
   res.on('data', (chunk) => data += chunk);
   res.on('end', () => {

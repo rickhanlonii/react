@@ -29,6 +29,10 @@ public class ReactRuntime {
     /// the package resource. Set this before the first render in DEBUG builds.
     public var devBundleURL: URL?
 
+    /// Optional URL for the dev server (SSR server origin). Used to derive
+    /// the WebSocket URL for dev tools connections.
+    public var devServerURL: URL?
+
     /// Whether the bundle has been loaded and evaluated.
     public private(set) var isBundleLoaded: Bool = false
 
@@ -314,6 +318,7 @@ public class ReactRuntime {
         bootCompletionQueue.removeAll()
         tracingActive = false
         lastRefreshFailed = false
+        devServerURL = nil
     }
 
     // MARK: - DevTools Actions
@@ -656,6 +661,7 @@ public class ReactRuntime {
     private func setupDevToolsConnection() {
         #if DEBUG
         guard let bindings = runtime?.bindings else { return }
+        guard let devURL = devServerURL else { return }
 
         // Disconnect previous client if any
         hotReloadClient?.disconnect()
@@ -663,7 +669,15 @@ public class ReactRuntime {
         print("[ReactRuntime] Setting up devtools WebSocket connection")
         let env = ProcessInfo.processInfo.environment
         let simulatorUDID = env["SIMULATOR_UDID"]
+
+        // Derive WS URL from devServerURL
+        let wsScheme = devURL.scheme == "https" ? "wss" : "ws"
+        let host = devURL.host ?? "localhost"
+        let port = devURL.port.map { ":\($0)" } ?? ""
+        let wsURL = URL(string: "\(wsScheme)://\(host)\(port)/__dev")!
+
         let client = HotReloadClient(
+            url: wsURL,
             appName: Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "Falcon",
             deviceName: UIDevice.current.name,
             deviceModel: Self.deviceModelName(env: env),

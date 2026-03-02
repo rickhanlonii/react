@@ -5,9 +5,9 @@
 The CDP inspector proxy (`example/scripts/inspector-proxy.js`) bridges Chrome DevTools and the native iOS app's JavaScriptCore runtime. It implements CDP domains (Page, DOM, CSS, Input, Overlay, Tracing, etc.) and communicates with the app via WebSocket.
 
 ```
-Chrome DevTools <--CDP WebSocket (8976)--> Inspector Proxy (Node.js)
-                                            | messages via WS (8082)
-                                       App (JSC on iOS Simulator)
+Chrome DevTools <--CDP WebSocket (6001/__cdp)--> Inspector Proxy (in SSR server)
+                                                  | messages via WS (6001/__dev)
+                                             App (JSC on iOS Simulator)
 ```
 
 ## Screencast
@@ -65,7 +65,7 @@ The Elements tab shows the native shadow tree as a DOM tree. The proxy forwards 
 
 ## Web Preview Page
 
-A live HTML preview of the native shadow tree, served at `http://localhost:8976/preview`.
+A live HTML preview of the native shadow tree, served at `http://localhost:6001/preview`.
 
 **Endpoints:**
 - `/preview` — full HTML page with SSE auto-refresh
@@ -108,8 +108,8 @@ The `$$getBoxModel` binding uses window coordinates (`view.convert(view.bounds, 
 All `log()` calls are gated behind a `verboseLogging` flag (off by default). Toggle at runtime:
 
 ```bash
-curl http://localhost:8976/debug/verbose   # toggle on/off
-curl http://localhost:8976/debug/status    # check current state
+curl http://localhost:6001/debug/verbose   # toggle on/off
+curl http://localhost:6001/debug/status    # check current state
 ```
 
 Startup messages use `logAlways()` and always print regardless of the flag.

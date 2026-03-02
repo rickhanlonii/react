@@ -19,7 +19,7 @@
 const WebSocket = require('ws');
 const readline = require('readline');
 
-const CDP_URL = process.argv[2] || 'http://localhost:8976';
+const CDP_URL = process.argv[2] || 'http://localhost:6001';
 let nextId = 1;
 
 async function main() {

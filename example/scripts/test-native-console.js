@@ -22,15 +22,15 @@
 // by a tap.
 //
 // Usage: node example/scripts/test-native-console.js
-// Requires: CDP proxy on port 8976, app running in simulator
+// Requires: CDP proxy on port 6001, app running in simulator
 // ---------------------------------------------------------------------------
 
 const WebSocket = require('ws');
 
 async function main() {
   // --- Connect to CDP proxy ---
-  console.log('Fetching targets from http://localhost:8976/json ...');
-  const resp = await fetch('http://localhost:8976/json');
+  console.log('Fetching targets from http://localhost:6001/json ...');
+  const resp = await fetch('http://localhost:6001/json');
   const targets = await resp.json();
   if (targets.length === 0) {
     console.error('No targets found - is the app running?');

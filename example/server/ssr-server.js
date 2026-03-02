@@ -22,6 +22,8 @@ var path = require('path');
 var express = require('express');
 var React = require('react');
 var {PassThrough, Transform} = require('stream');
+var {WebSocketServer} = require('ws');
+var {createInspectorProxy, mountInspectorRoutes, createCDPUpgradeHandler} = require('../scripts/inspector-proxy');
 
 var app = express();
 var PORT = parseInt(process.env.PORT, 10) || 6001;
@@ -316,13 +318,154 @@ app.get('/healthz', function(req, res) {
   res.json({status: 'ok'});
 });
 
-var server = app.listen(PORT, function () {
+// ---------------------------------------------------------------------------
+// Inspector proxy — CDP discovery + preview routes
+// ---------------------------------------------------------------------------
+var proxy = createInspectorProxy({port: PORT});
+mountInspectorRoutes(app, proxy);
+var handleCDPUpgrade = createCDPUpgradeHandler(proxy);
+
+// ---------------------------------------------------------------------------
+// WebSocket servers (noServer mode — routed via HTTP upgrade)
+// ---------------------------------------------------------------------------
+var devWSS = new WebSocketServer({noServer: true});
+var cdpWSS = new WebSocketServer({noServer: true});
+
+// Track which dev WS client belongs to which target
+// Map<ws, { targetId: string, identified: boolean }>
+var devClientInfo = new Map();
+
+// Track tracing state per target so it survives reconnects
+var devTracingState = new Map(); // targetId -> boolean
+
+devWSS.on('connection', function onDevConnection(ws) {
+  devClientInfo.set(ws, {targetId: null, identified: false});
+  console.log('[Inspector] App connected via WebSocket (awaiting identity)');
+
+  ws.on('message', function onMessage(data) {
+    var text = data.toString();
+    var message;
+    try {
+      message = JSON.parse(text);
+    } catch (e) {
+      return;
+    }
+
+    var info = devClientInfo.get(ws);
+
+    // Handle identity handshake
+    if (message.type === 'connect') {
+      var targetId = proxy.addTarget(message, function sendToApp(msg) {
+        if (ws.readyState === 1) {
+          ws.send(msg);
+        }
+      });
+      info.targetId = targetId;
+      info.identified = true;
+      console.log('[Inspector] App identified: ' + targetId +
+        ' (' + message.appName + ' — ' + message.deviceName + ')');
+
+      // If tracing was active for this target, re-send start-tracing
+      if (devTracingState.get(targetId) && ws.readyState === 1) {
+        console.log('[Inspector] Re-sending start-tracing to ' + targetId);
+        ws.send(JSON.stringify({type: 'start-tracing'}));
+      }
+      return;
+    }
+
+    // Broadcast reload/refresh to all OTHER app clients (from esbuild watcher)
+    if (message.type === 'notify-reload') {
+      console.log('[Inspector] Broadcasting reload');
+      var reloadMsg = JSON.stringify({type: 'reload'});
+      for (var [client] of devClientInfo) {
+        if (client !== ws && client.readyState === 1) {
+          client.send(reloadMsg);
+        }
+      }
+      return;
+    }
+
+    if (message.type === 'notify-refresh') {
+      console.log('[Inspector] Broadcasting refresh (' + message.chunks.length + ' chunk(s))');
+      var refreshMsg = JSON.stringify({type: 'refresh', chunks: message.chunks});
+      for (var [client] of devClientInfo) {
+        if (client !== ws && client.readyState === 1) {
+          client.send(refreshMsg);
+        }
+      }
+      return;
+    }
+
+    // Handle open-devtools request from the app
+    if (message.type === 'open-devtools') {
+      if (info && info.targetId) {
+        var devtoolsUrl = 'devtools://devtools/bundled/inspector.html?remoteFrontend=true&ws=127.0.0.1:' + PORT + '/__cdp/' + info.targetId;
+        require('child_process').exec('open -a "Google Chrome" "' + devtoolsUrl + '"');
+        console.log('[Inspector] Opening DevTools for ' + info.targetId);
+      }
+      return;
+    }
+
+    // Forward app messages to the correct target
+    if (info.identified && info.targetId) {
+      proxy.handleAppMessage(info.targetId, text);
+    }
+  });
+
+  ws.on('close', function onClose() {
+    var info = devClientInfo.get(ws);
+    if (info && info.targetId) {
+      console.log('[Inspector] App disconnected: ' + info.targetId);
+      // Keep the target alive so Chrome DevTools stays connected across reloads
+      proxy.disconnectTarget(info.targetId);
+    }
+    devClientInfo.delete(ws);
+  });
+  ws.on('error', function onError() {
+    var info = devClientInfo.get(ws);
+    if (info && info.targetId) {
+      // Keep the target alive so Chrome DevTools stays connected across reloads
+      proxy.disconnectTarget(info.targetId);
+    }
+    devClientInfo.delete(ws);
+  });
+});
+
+// Track tracing state changes from proxy
+proxy.onTracingStateChange = function (targetId, active) {
+  devTracingState.set(targetId, active);
+};
+
+// ---------------------------------------------------------------------------
+// HTTP server + upgrade routing
+// ---------------------------------------------------------------------------
+var server = http.createServer(app);
+
+server.on('upgrade', function (req, socket, head) {
+  var pathname = req.url || '/';
+
+  if (pathname === '/__dev') {
+    devWSS.handleUpgrade(req, socket, head, function (ws) {
+      devWSS.emit('connection', ws, req);
+    });
+  } else if (pathname.startsWith('/__cdp/')) {
+    cdpWSS.handleUpgrade(req, socket, head, function (ws) {
+      handleCDPUpgrade(ws, req);
+    });
+  } else {
+    socket.destroy();
+  }
+});
+
+server.listen(PORT, function () {
   console.log('SSR server listening on http://localhost:' + PORT);
+  console.log('[Inspector] Dev WS on ws://localhost:' + PORT + '/__dev');
+  console.log('[Inspector] CDP discovery on http://localhost:' + PORT + '/json');
 });
 server.on('error', function(err) {
   if (err.code === 'EADDRINUSE') {
-    var http = require('http');
-    http.get('http://localhost:' + PORT + '/healthz', function(res) {
+    var httpCheck = require('http');
+    httpCheck.get('http://localhost:' + PORT + '/healthz', function(res) {
       console.log('Port ' + PORT + ' already has a healthy SSR server running, exiting.');
       process.exit(0);
     }).on('error', function() {
@@ -333,4 +476,13 @@ server.on('error', function(err) {
     return;
   }
   throw err;
+});
+
+// Cleanup
+process.on('SIGTERM', function () {
+  devWSS.close();
+  cdpWSS.close();
+  proxy.close();
+  server.close();
+  process.exit(0);
 });

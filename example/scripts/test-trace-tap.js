@@ -8,7 +8,7 @@
 const WebSocket = require('ws');
 
 async function main() {
-  const resp = await fetch('http://localhost:8976/json');
+  const resp = await fetch('http://localhost:6001/json');
   const targets = await resp.json();
   const wsUrl = targets[0].webSocketDebuggerUrl;
   const ws = new WebSocket(wsUrl);
