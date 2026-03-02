@@ -465,13 +465,34 @@ server.listen(PORT, function () {
 server.on('error', function(err) {
   if (err.code === 'EADDRINUSE') {
     var httpCheck = require('http');
-    httpCheck.get('http://localhost:' + PORT + '/healthz', function(res) {
-      console.log('Port ' + PORT + ' already has a healthy SSR server running, exiting.');
-      process.exit(0);
+    // Check if the existing server supports the unified dev endpoints
+    httpCheck.get('http://localhost:' + PORT + '/json/version', function(res) {
+      var data = '';
+      res.on('data', function(c) { data += c; });
+      res.on('end', function() {
+        try {
+          var info = JSON.parse(data);
+          if (info.Browser === 'React DOM Native') {
+            console.log('Port ' + PORT + ' already has a unified SSR+dev server running, exiting.');
+            process.exit(0);
+          }
+        } catch (e) {}
+        // /json/version responded but not from our proxy — old server
+        console.error('Port ' + PORT + ' has an old SSR server without dev tools support.');
+        console.error('Restart the dev server: kill $(lsof -ti :' + PORT + ') && npm run dev');
+        process.exit(1);
+      });
     }).on('error', function() {
-      console.error('Port ' + PORT + ' is in use by a non-SSR-server process.');
-      console.error('Run: kill $(lsof -ti :' + PORT + ')');
-      process.exit(1);
+      // No /json/version endpoint — check if it's at least a healthy SSR server
+      httpCheck.get('http://localhost:' + PORT + '/healthz', function(res) {
+        console.error('Port ' + PORT + ' has an old SSR server without dev tools support.');
+        console.error('Restart the dev server: kill $(lsof -ti :' + PORT + ') && npm run dev');
+        process.exit(1);
+      }).on('error', function() {
+        console.error('Port ' + PORT + ' is in use by a non-SSR-server process.');
+        console.error('Run: kill $(lsof -ti :' + PORT + ')');
+        process.exit(1);
+      });
     });
     return;
   }
