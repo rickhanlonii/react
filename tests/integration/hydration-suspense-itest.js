@@ -2,7 +2,7 @@
 
 var React = require('react');
 var Fantom = require('@react-dom-native/fantom');
-var renderer = require('react-dom-native/src/renderer/renderer');
+var renderer = require('react-dom-native/client');
 
 // ---------------------------------------------------------------------------
 // Hydration with Suspense boundaries

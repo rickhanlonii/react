@@ -1,7 +1,7 @@
 'use strict';
 
 var React = require('react');
-var renderer = require('../../../packages/react-dom-native/src/renderer/renderer');
+var renderer = require('../../../packages/react-dom-native/client');
 var fixtures = require('../fixtures');
 
 globalThis.__LAYOUT_COMPARE__ = {

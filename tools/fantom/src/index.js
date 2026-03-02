@@ -1,6 +1,6 @@
 'use strict';
 
-var renderer = require('react-dom-native/src/renderer/renderer');
+var renderer = require('react-dom-native/client');
 var React = require('react');
 var ReactFlightClient = require('react-server-dom-webpack/client.browser');
 

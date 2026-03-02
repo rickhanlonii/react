@@ -2,12 +2,26 @@
   "name": "react-dom-native",
   "version": "0.0.1",
   "description": "React framework mapping HTML elements to native iOS views",
-  "main": "src/index.js",
+  "main": "index.js",
   "exports": {
-    ".": "./src/index.js",
-    "./server": "./src/server/index.js",
-    "./src/renderer/renderer": "./src/renderer/renderer.js",
-    "./src/flight-client/client": "./src/flight-client/client.js"
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./server": {
+      "workerd": "./server.edge.js",
+      "bun": "./server.bun.js",
+      "worker": "./server.browser.js",
+      "node": "./server.node.js",
+      "edge-light": "./server.edge.js",
+      "browser": "./server.browser.js",
+      "default": "./server.node.js"
+    },
+    "./server.node": "./server.node.js",
+    "./server.browser": "./server.browser.js",
+    "./server.edge": "./server.edge.js",
+    "./server.bun": "./server.bun.js",
+    "./server.native": "./server.native.js",
+    "./static": "./static.js",
+    "./package.json": "./package.json"
   },
   "dependencies": {
     "react": "19.3.0-canary-2ba30655-20260219",
