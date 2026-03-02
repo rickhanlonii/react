@@ -172,6 +172,13 @@ exports.createRenderState = function createRenderState(
   };
 };
 
+exports.resumeRenderState = function resumeRenderState(
+  resumableState,
+  nonce,
+) {
+  return exports.createRenderState(resumableState);
+};
+
 exports.createResumableState = function createResumableState(
   identifierPrefix,
   externalRuntimeConfig,

@@ -21,5 +21,14 @@ module.exports = {
       ],
       testPathIgnorePatterns: ['/node_modules/', '/server/'],
     },
+    // Server tests (Fizz / SSR)
+    {
+      displayName: 'server',
+      testMatch: [
+        '<rootDir>/packages/react-dom-native/src/server/__tests__/**/*.test.js',
+      ],
+      testPathIgnorePatterns: ['/node_modules/'],
+      transform: {},
+    },
   ],
 };

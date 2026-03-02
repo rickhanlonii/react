@@ -92,4 +92,58 @@ function renderToPipeableStream(children, options) {
   };
 }
 
+function resumeToPipeableStream(children, postponedState, options) {
+  if (!options) options = {};
+
+  var request = Fizz.resumeRequest(
+    children,
+    postponedState,
+    NativeFizzConfig.resumeRenderState(
+      postponedState.resumableState,
+      undefined,
+    ),
+    options.onError,
+    options.onAllReady,
+    options.onShellReady,
+    options.onShellError,
+    undefined, // onFatalError
+  );
+
+  var hasStartedFlowing = false;
+  Fizz.startWork(request);
+
+  return {
+    pipe: function pipe(destination) {
+      if (hasStartedFlowing) {
+        throw new Error(
+          'React currently only supports piping to one writable stream.',
+        );
+      }
+      hasStartedFlowing = true;
+      Fizz.prepareForStartFlowingIfBeforeAllReady(request);
+      Fizz.startFlowing(request, destination);
+      destination.on('drain', createDrainHandler(destination, request));
+      destination.on(
+        'error',
+        createCancelHandler(
+          request,
+          'The destination stream errored while writing data.',
+        ),
+      );
+      destination.on(
+        'close',
+        createCancelHandler(
+          request,
+          'The destination stream closed early.',
+        ),
+      );
+      return destination;
+    },
+    abort: function abort(reason) {
+      Fizz.abort(request, reason);
+    },
+  };
+}
+
 exports.renderToPipeableStream = renderToPipeableStream;
+exports.resumeToPipeableStream = resumeToPipeableStream;

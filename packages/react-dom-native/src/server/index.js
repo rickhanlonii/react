@@ -14,3 +14,5 @@
 
 exports.renderToPipeableStream =
   require('./NativeFizzServerNode').renderToPipeableStream;
+exports.resumeToPipeableStream =
+  require('./NativeFizzServerNode').resumeToPipeableStream;
