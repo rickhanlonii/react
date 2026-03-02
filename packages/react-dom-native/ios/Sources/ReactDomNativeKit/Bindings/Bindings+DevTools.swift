@@ -64,10 +64,15 @@ extension Bindings {
     }
 
     /// Captures a screenshot during a commit if commit-level tracing is enabled.
-    /// Called synchronously at the end of $$completeRoot, using afterScreenUpdates: true
-    /// to ensure the just-applied UIKit mutations are rendered in the capture.
+    /// Called synchronously at the end of $$completeRoot. Uses afterScreenUpdates: false
+    /// because we're on the main thread mid-commit — true would deadlock.
+    /// The UIKit view properties (frames, backgrounds, text) are already set by
+    /// applyMutations, so drawHierarchy captures the correct visual state.
     public func captureCommitScreenshot() {
         guard commitScreenshotsEnabled else { return }
+        // Capture timestamp BEFORE rendering — this is the commit time,
+        // in the same clock domain (performanceNow) as all other trace events.
+        let ts = performanceNow() * 1000.0 // ms → µs to match trace event format
         guard let windowScene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
             .first,
@@ -91,12 +96,12 @@ extension Bindings {
 
         let renderer = UIGraphicsImageRenderer(size: renderSize)
         let jpegData = renderer.jpegData(withCompressionQuality: commitScreenshotQuality) { _ in
-            window.drawHierarchy(in: CGRect(origin: .zero, size: renderSize), afterScreenUpdates: true)
+            window.drawHierarchy(in: CGRect(origin: .zero, size: renderSize), afterScreenUpdates: false)
         }
 
         let base64 = jpegData.base64EncodedString()
 
-        let message = "{\"type\":\"screenshot-data\",\"data\":\"\(base64)\",\"width\":\(pixelWidth),\"height\":\(pixelHeight),\"scale\":\(Int(scale))}"
+        let message = "{\"type\":\"screenshot-data\",\"data\":\"\(base64)\",\"width\":\(pixelWidth),\"height\":\(pixelHeight),\"scale\":\(Int(scale)),\"ts\":\(ts)}"
         sendInspectorMessage?(message)
     }
 
