@@ -412,7 +412,11 @@ extension Root {
                 pending()
             }
 
-            self.cleanupSSRState()
+            // Don't cleanup here — hydration may not have committed yet.
+            // Pending reveals and ssrCoordinator are needed until hydration
+            // flushes all deferred Suspense boundaries. Cleanup happens in
+            // maybeCleanupSSRState() after both stream and hydration complete.
+            self.maybeCleanupSSRState()
         }
 
         let session = URLSession(
@@ -734,11 +738,22 @@ extension Root {
             guard let self = self else { return }
             self.hydrationCommitted = true
 
-        // Flush any reveals deferred during hydration
-        if !self.pendingReveals.isEmpty {
-            self.flushPendingReveals()
-        }
+            // Flush any reveals deferred during hydration
+            if !self.pendingReveals.isEmpty {
+                self.flushPendingReveals()
+            }
+
+            self.maybeCleanupSSRState()
         }  // end DispatchQueue.main.async
+    }
+
+    /// Checks if both the SSR stream and hydration are complete, and if so,
+    /// performs cleanup. This prevents the race condition where the stream
+    /// completes before hydration commits, which would clear pending reveals
+    /// and nil out ssrCoordinator before they're needed.
+    func maybeCleanupSSRState() {
+        guard ssrStreamComplete, hydrationCommitted else { return }
+        cleanupSSRState()
     }
 
     /// Cleans up SSR hydration state. Called when the SSR stream completes

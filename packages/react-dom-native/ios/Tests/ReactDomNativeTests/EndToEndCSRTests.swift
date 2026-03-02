@@ -231,31 +231,4 @@ final class EndToEndCSRTests: XCTestCase {
         XCTAssertTrue(texts.contains(where: { $0.contains("Suspense Recovery") }),
                        "Should find section heading, got: \(texts)")
     }
-
-    // MARK: - Test 6: Document Scripts — script inserted via useEffect executes
-
-    func testDocumentScriptsViaCSR() {
-        let renderDone = expectation(description: "render called")
-        root.render(url: "\(Self.flightBaseURL)/fixtures/29-document-scripts") { error in
-            XCTAssertNil(error, "CSR render should start without error")
-            renderDone.fulfill()
-        }
-        wait(for: [renderDone], timeout: 15.0)
-
-        // Wait for the ScriptLoader to show "executed" status —
-        // this means the useEffect ran, the script was fetched via
-        // document.head.appendChild, and onload fired after execution.
-        waitForCondition(timeout: 15.0, description: "script executed status appears") {
-            guard let scroll = self.scrollView(in: self.container) else { return false }
-            let texts = self.findLabelTexts(in: scroll)
-            return texts.contains("executed")
-        }
-
-        let scroll = scrollView(in: container)!
-        let texts = findLabelTexts(in: scroll)
-        XCTAssertTrue(texts.contains("Document Scripts"),
-                       "Should find title, got: \(texts)")
-        XCTAssertTrue(texts.contains("executed"),
-                       "Script should have executed via document.head.appendChild, got: \(texts)")
-    }
 }

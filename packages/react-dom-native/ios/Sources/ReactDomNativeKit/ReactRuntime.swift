@@ -831,9 +831,13 @@ private class FlightHTTPStreamDelegate: NSObject, URLSessionDataDelegate {
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         guard let engine = engine, let text = String(data: data, encoding: .utf8) else { return }
-        // JSON.stringify the text to handle all escaping (quotes, newlines, backslashes, etc.)
-        if let jsonData = try? JSONSerialization.data(withJSONObject: text),
-           let jsonString = String(data: jsonData, encoding: .utf8) {
+        // JSON-escape the text by wrapping in an array, serializing, and stripping the outer [].
+        // JSONSerialization requires NSArray/NSDictionary as top-level objects — bare strings throw
+        // an NSInvalidArgumentException that Swift's try? can't catch.
+        if let jsonData = try? JSONSerialization.data(withJSONObject: [text]),
+           let jsonArray = String(data: jsonData, encoding: .utf8) {
+            // jsonArray is like ["escaped text"] — strip the leading [ and trailing ]
+            let jsonString = String(jsonArray.dropFirst().dropLast())
             engine.evaluate("self.__next_f.push([1,\(jsonString)])")
         }
     }
