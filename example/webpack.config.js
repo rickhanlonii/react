@@ -5,7 +5,7 @@ const webpack = require('webpack');
 const ReactFlightWebpackPlugin = require('react-server-dom-webpack/plugin');
 
 const EXAMPLE_ROOT = __dirname;
-const ENTRY = path.resolve(EXAMPLE_ROOT, '../packages/react-dom-native/src/entry.js');
+const ENTRY = path.resolve(EXAMPLE_ROOT, 'src/entry.js');
 const OUTPUT_DIR = path.resolve(EXAMPLE_ROOT, 'build');
 const COMPONENTS_DIR = path.resolve(EXAMPLE_ROOT, 'server/src/components');
 
