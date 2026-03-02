@@ -35,7 +35,13 @@ function createCancelHandler(request, reason) {
 function renderToPipeableStream(children, options) {
   if (!options) options = {};
 
-  var resumableState = NativeFizzConfig.createResumableState();
+  var resumableState = NativeFizzConfig.createResumableState(
+    undefined,  // identifierPrefix
+    undefined,  // externalRuntimeConfig
+    undefined,  // bootstrapScriptContent
+    options.bootstrapScripts,
+    undefined,  // bootstrapModules
+  );
   var request = Fizz.createRequest(
     children,
     resumableState,

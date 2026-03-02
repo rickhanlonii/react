@@ -167,7 +167,9 @@ exports.createRenderState = function createRenderState(
   onHeaders,
   maxHeadersLength,
 ) {
-  return {};
+  return {
+    bootstrapScripts: resumableState.bootstrapScripts || [],
+  };
 };
 
 exports.createResumableState = function createResumableState(
@@ -215,7 +217,17 @@ exports.writeCompletedRoot = function writeCompletedRoot(
   destination,
   renderState,
 ) {
-  const line = JSON.stringify(['R']) + '\n';
+  // Emit bootstrap script URLs before the root complete signal
+  // so the native side can start downloading the JS bundle early.
+  if (renderState.bootstrapScripts && renderState.bootstrapScripts.length > 0) {
+    for (var i = 0; i < renderState.bootstrapScripts.length; i++) {
+      var scriptUrl = renderState.bootstrapScripts[i];
+      var line = JSON.stringify(['BOOT', scriptUrl]) + '\n';
+      destination.write(line);
+    }
+    renderState.bootstrapScripts = [];
+  }
+  var line = JSON.stringify(['R']) + '\n';
   return destination.write(line);
 };
 
@@ -381,16 +393,7 @@ exports.writeHoistables = function writeHoistables(
   resumableState,
   renderState,
 ) {
-  // Emit bootstrap script URLs so the native side knows which JS bundle to load
-  if (resumableState.bootstrapScripts && resumableState.bootstrapScripts.length > 0) {
-    for (var i = 0; i < resumableState.bootstrapScripts.length; i++) {
-      var scriptUrl = resumableState.bootstrapScripts[i];
-      var line = JSON.stringify(['BOOT', scriptUrl]) + '\n';
-      destination.write(line);
-    }
-    // Only emit once
-    resumableState.bootstrapScripts = [];
-  }
+  // No-op — bootstrap scripts are emitted in writeCompletedRoot instead
 };
 
 exports.writeHoistablesForBoundary = function writeHoistablesForBoundary(
