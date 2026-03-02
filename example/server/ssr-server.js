@@ -572,33 +572,53 @@ function handlePrerenderResume(name, cached, req, res) {
 
       var resumeToPipeableStream =
         require('react-dom-native/server').resumeToPipeableStream;
+      // Deep-clone postponed state — Fizz mutates replayNodes during resume
+      var postponedClone = JSON.parse(JSON.stringify(cached.postponed));
       var nativeStream = resumeToPipeableStream(
         React.createElement(Root),
-        cached.postponed,
+        postponedClone,
         {
           onShellReady: function () {
             res.setHeader('Content-Type', 'application/x-native-ssr');
             res.setHeader('Access-Control-Allow-Origin', '*');
             res.setHeader('Cache-Control', 'no-cache');
 
-            // 1. Send cached prelude (static shell) immediately
-            res.write(cached.prelude);
-
-            // 2. Flush pending Flight JS rows
+            // 1. Flush Flight JS bootstrap rows FIRST — must arrive before ["R"]
+            // so the client's Flight data receiver is initialized before hydration
+            // starts. The cached prelude contains ["R"] which triggers hydration.
             for (var i = 0; i < pendingRows.length; i++) {
               res.write(pendingRows[i]);
             }
             pendingRows = null;
             shellReady = true;
 
+            // 2. Send cached prelude (static shell with ["R"] at the end)
+            res.write(cached.prelude);
+
             // 3. Pipe resume Fizz output (completed segments + boundary reveals)
+            // End response only when BOTH Fizz and Flight capture are done,
+            // so the Flight stream close instructions are always sent.
+            var fizzDone = false;
+            var flightDone = false;
+            function maybeEnd() {
+              if (fizzDone && flightDone) {
+                res.end();
+              }
+            }
+
             var fizzPassThrough = new PassThrough();
             nativeStream.pipe(fizzPassThrough);
             fizzPassThrough.on('data', function (chunk) {
               res.write(chunk);
             });
             fizzPassThrough.on('end', function () {
-              res.end();
+              fizzDone = true;
+              maybeEnd();
+            });
+
+            flightCapture.on('end', function () {
+              flightDone = true;
+              maybeEnd();
             });
           },
           onShellError: function (error) {
