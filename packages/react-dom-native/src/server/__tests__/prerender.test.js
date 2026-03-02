@@ -1,7 +1,9 @@
 'use strict';
 
 var React = require('react');
-var {prerenderToNodeStream} = require('../NativeFizzStaticNode');
+var {prerenderToNodeStream, prerender} = require('../NativeFizzStaticNode');
+var {renderToPipeableStream} = require('../NativeFizzServerNode');
+var {PassThrough} = require('stream');
 
 function readStream(readable) {
   return new Promise(function (resolve, reject) {
@@ -13,6 +15,39 @@ function readStream(readable) {
       resolve(chunks.join(''));
     });
     readable.on('error', reject);
+  });
+}
+
+function pipeToString(pipeable) {
+  return new Promise(function (resolve, reject) {
+    var passThrough = new PassThrough();
+    var chunks = [];
+    passThrough.on('data', function (chunk) {
+      chunks.push(chunk.toString());
+    });
+    passThrough.on('end', function () {
+      resolve(chunks.join(''));
+    });
+    passThrough.on('error', reject);
+    pipeable.pipe(passThrough);
+  });
+}
+
+function readWebStream(readableStream) {
+  return new Promise(function (resolve, reject) {
+    var reader = readableStream.getReader();
+    var chunks = [];
+    function pump() {
+      reader.read().then(function (result) {
+        if (result.done) {
+          resolve(chunks.join(''));
+          return;
+        }
+        chunks.push(new TextDecoder().decode(result.value));
+        pump();
+      }).catch(reject);
+    }
+    pump();
   });
 }
 
@@ -37,7 +72,6 @@ describe('prerenderToNodeStream', function () {
     var raw = await readStream(prelude);
     var instructions = parseInstructions(raw);
 
-    // Should have Open div, Text, Close, Root complete
     var openDiv = instructions.find(function (i) {
       return i[0] === 'O' && i[1] === 'div';
     });
@@ -54,7 +88,6 @@ describe('prerenderToNodeStream', function () {
     });
     expect(rootComplete).toBeDefined();
 
-    // No postponed state for a fully static render
     expect(postponed).toBeNull();
   });
 
@@ -87,7 +120,7 @@ describe('prerenderToNodeStream', function () {
     var opens = instructions.filter(function (i) {
       return i[0] === 'O';
     });
-    expect(opens.length).toBe(3); // div, span, p
+    expect(opens.length).toBe(3);
 
     var types = opens.map(function (i) {
       return i[1];
@@ -106,7 +139,6 @@ describe('prerenderToNodeStream', function () {
     var raw = await readStream(prelude);
     var instructions = parseInstructions(raw);
 
-    // The content should be inline (completed suspense boundary)
     var suspenseOpen = instructions.find(function (i) {
       return i[0] === 'O' && i[1] === '#suspense';
     });
@@ -133,5 +165,210 @@ describe('prerenderToNodeStream', function () {
     });
     expect(openDiv[2]).toEqual({id: 'test'});
     expect(openDiv[2].onClick).toBeUndefined();
+  });
+
+  it('produces matching Open/Close pairs', async function () {
+    var element = React.createElement('div', null,
+      React.createElement('section', null,
+        React.createElement('h1', null, 'title'),
+        React.createElement('p', null, 'body'),
+      ),
+    );
+
+    var {prelude} = await prerenderToNodeStream(element);
+    var raw = await readStream(prelude);
+    var instructions = parseInstructions(raw);
+
+    var openCount = instructions.filter(function (i) {
+      return i[0] === 'O' && i[1] !== '#suspense';
+    }).length;
+    var closeCount = instructions.filter(function (i) {
+      return i[0] === 'C';
+    }).length;
+    expect(openCount).toBe(closeCount);
+  });
+
+  it('waits for async Suspense content before resolving', async function () {
+    var dataPromise = new Promise(function (resolve) {
+      setTimeout(function () { resolve('async data'); }, 50);
+    });
+
+    function AsyncComponent() {
+      var data = React.use(dataPromise);
+      return React.createElement('p', null, data);
+    }
+
+    var element = React.createElement('div', null,
+      React.createElement(React.Suspense, {
+        fallback: React.createElement('span', null, 'loading...')
+      },
+        React.createElement(AsyncComponent)
+      )
+    );
+
+    var {prelude, postponed} = await prerenderToNodeStream(element);
+    var raw = await readStream(prelude);
+    var instructions = parseInstructions(raw);
+
+    // Async data should be resolved in the output
+    var asyncText = instructions.find(function (i) {
+      return i[0] === 'T' && i[1] === 'async data';
+    });
+    expect(asyncText).toBeDefined();
+
+    // Fallback should NOT appear
+    var fallback = instructions.find(function (i) {
+      return i[0] === 'T' && i[1] === 'loading...';
+    });
+    expect(fallback).toBeUndefined();
+
+    // No postponed state since everything resolved
+    expect(postponed).toBeNull();
+  });
+
+  it('produces same output as renderToPipeableStream for static content', async function () {
+    var element = React.createElement('div', {style: {color: 'red'}},
+      React.createElement('span', null, 'hello'),
+      React.createElement('p', {id: 'msg'}, 'world'),
+    );
+
+    // Prerender
+    var {prelude} = await prerenderToNodeStream(element);
+    var prerenderOutput = await readStream(prelude);
+
+    // Render
+    var renderOutput = await new Promise(function (resolve, reject) {
+      var pipeable = renderToPipeableStream(element, {
+        onAllReady: function () {
+          pipeToString(pipeable).then(resolve).catch(reject);
+        }
+      });
+    });
+
+    expect(prerenderOutput).toBe(renderOutput);
+  });
+
+  it('calls onError for rendering errors', async function () {
+    function BadComponent() {
+      throw new Error('render error');
+    }
+
+    var errors = [];
+    var element = React.createElement('div', null,
+      React.createElement(React.Suspense, {
+        fallback: React.createElement('span', null, 'error fallback')
+      },
+        React.createElement(BadComponent)
+      )
+    );
+
+    var {prelude} = await prerenderToNodeStream(element, {
+      onError: function (err) {
+        errors.push(err.message || err);
+      }
+    });
+    await readStream(prelude);
+
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0]).toBe('render error');
+  });
+
+  it('handles abort signal on already-aborted controller', async function () {
+    var controller = new AbortController();
+    controller.abort('pre-aborted');
+
+    var errors = [];
+    var element = React.createElement('div', null, 'test');
+
+    var {prelude} = await prerenderToNodeStream(element, {
+      signal: controller.signal,
+      onError: function (err) {
+        errors.push(err);
+      }
+    });
+    await readStream(prelude);
+
+    // Should still resolve (Fizz handles abort gracefully)
+    expect(errors).toContain('pre-aborted');
+  });
+
+  it('produces postponed state when aborted with pending Suspense', async function () {
+    var controller = new AbortController();
+    var neverResolve = new Promise(function () {});
+
+    function HangingComponent() {
+      React.use(neverResolve);
+      return React.createElement('p', null, 'never');
+    }
+
+    var element = React.createElement('div', null,
+      React.createElement('h1', null, 'static'),
+      React.createElement(React.Suspense, {
+        fallback: React.createElement('span', null, 'fb')
+      },
+        React.createElement(HangingComponent)
+      )
+    );
+
+    setTimeout(function () {
+      controller.abort('timeout');
+    }, 50);
+
+    var {prelude, postponed} = await prerenderToNodeStream(element, {
+      signal: controller.signal,
+      onError: function () {},
+    });
+    var raw = await readStream(prelude);
+    var instructions = parseInstructions(raw);
+
+    // Static content should be in the prelude
+    var staticText = instructions.find(function (i) {
+      return i[0] === 'T' && i[1] === 'static';
+    });
+    expect(staticText).toBeDefined();
+
+    // Fallback should be in the prelude (as pending boundary)
+    var pendingBoundary = instructions.find(function (i) {
+      return i[0] === 'B';
+    });
+    expect(pendingBoundary).toBeDefined();
+
+    // Postponed state should exist for the resume phase
+    expect(postponed).not.toBeNull();
+    expect(postponed.replayNodes).toBeDefined();
+    expect(postponed.replayNodes.length).toBeGreaterThan(0);
+    expect(postponed.resumableState).toBeDefined();
+  });
+});
+
+describe('prerender (Web Streams)', function () {
+  it('returns a ReadableStream prelude', async function () {
+    var element = React.createElement('div', null, 'web streams');
+
+    var {prelude, postponed} = await prerender(element);
+    expect(prelude).toBeInstanceOf(ReadableStream);
+
+    var output = await readWebStream(prelude);
+    var instructions = parseInstructions(output);
+
+    var text = instructions.find(function (i) {
+      return i[0] === 'T' && i[1] === 'web streams';
+    });
+    expect(text).toBeDefined();
+    expect(postponed).toBeNull();
+  });
+
+  it('produces same instructions as prerenderToNodeStream', async function () {
+    var element = React.createElement('div', {id: 'root'},
+      React.createElement('span', null, 'child'),
+    );
+
+    var {prelude: nodePrelude} = await prerenderToNodeStream(element);
+    var nodeOutput = await readStream(nodePrelude);
+
+    var {prelude: webPrelude} = await prerender(element);
+    var webOutput = await readWebStream(webPrelude);
+
+    expect(webOutput).toBe(nodeOutput);
   });
 });
