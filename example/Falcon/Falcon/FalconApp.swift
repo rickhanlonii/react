@@ -5,7 +5,6 @@ import Combine
 struct FixtureConfig: Codable {
     var hideNavBar: Bool?
     var backgroundColor: String?
-    var ssrEndpoint: String?
 }
 
 struct Fixture: Identifiable, Codable {
@@ -101,25 +100,51 @@ struct FalconApp: App {
     }
 }
 
+enum RenderingMode: String, CaseIterable {
+    case server = "server"
+    case hydrated = "hydrated"
+    case ppr = "ppr"
+
+    var label: String {
+        switch self {
+        case .server: return "Server"
+        case .hydrated: return "Hydrated"
+        case .ppr: return "PPR"
+        }
+    }
+}
+
 struct CategoryListView: View {
     @EnvironmentObject var store: FixtureStore
     @Binding var path: NavigationPath
     @State private var hasAutoNavigated = false
+    @AppStorage("renderingMode") private var renderingMode: String = RenderingMode.hydrated.rawValue
 
     var body: some View {
-        List(store.categories) { category in
-            NavigationLink(value: NavDestination.category(category.category)) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(category.category)
-                            .font(.headline)
-                        Text("\(category.fixtures.count) fixture\(category.fixtures.count == 1 ? "" : "s")")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    Spacer()
+        VStack(spacing: 0) {
+            Picker("Rendering Mode", selection: $renderingMode) {
+                ForEach(RenderingMode.allCases, id: \.rawValue) { mode in
+                    Text(mode.label).tag(mode.rawValue)
                 }
-                .padding(.vertical, 4)
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+
+            List(store.categories) { category in
+                NavigationLink(value: NavDestination.category(category.category)) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(category.category)
+                                .font(.headline)
+                            Text("\(category.fixtures.count) fixture\(category.fixtures.count == 1 ? "" : "s")")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                    }
+                    .padding(.vertical, 4)
+                }
             }
         }
         .navigationTitle("Fixtures")
@@ -170,6 +195,7 @@ struct FixtureDetailView: View {
     let fixtureName: String
     @EnvironmentObject var store: FixtureStore
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("renderingMode") private var renderingMode: String = RenderingMode.hydrated.rawValue
 
     private var fixtureConfig: FixtureConfig? {
         store.categories
@@ -186,7 +212,7 @@ struct FixtureDetailView: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            FixtureRootView(fixtureName: fixtureName, ssrEndpoint: fixtureConfig?.ssrEndpoint ?? "ssr")
+            FixtureRootView(fixtureName: fixtureName, renderingMode: renderingMode)
             if fixtureConfig?.hideNavBar == true {
                 Button(action: { dismiss() }) {
                     Image(systemName: "chevron.left")
@@ -217,14 +243,14 @@ struct FixtureDetailView: View {
 
 struct FixtureRootView: UIViewControllerRepresentable {
     let fixtureName: String
-    let ssrEndpoint: String
+    let renderingMode: String
 
     func makeUIViewController(context: Context) -> UIViewController {
-        switch ssrEndpoint {
-        case "prerender":
-            return PrerenderViewController(fixtureName: fixtureName)
-        case "server-only":
+        switch renderingMode {
+        case RenderingMode.server.rawValue:
             return ServerOnlyViewController(fixtureName: fixtureName)
+        case RenderingMode.ppr.rawValue:
+            return PrerenderViewController(fixtureName: fixtureName)
         default:
             return HydrationViewController(fixtureName: fixtureName)
         }
