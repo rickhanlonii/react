@@ -226,9 +226,8 @@ public class ReactRuntime {
     /// into self.__next_f via JS instructions from the SSR stream (replayed
     /// from ssrJavaScriptBuffer during boot). This just creates the ReadableStream
     /// and starts hydration.
-    internal func hydrateSurface(surfaceId: Int, serverURL: String) {
+    internal func hydrateSurface(surfaceId: Int) {
         guard let engine = runtime?.engine else { return }
-        activeSurfaces[surfaceId]?.serverURL = serverURL
 
         // The Flight data is already in the __next_f buffer (from replayed JS
         // instructions). Just start hydration — it creates the ReadableStream

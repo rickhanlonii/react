@@ -184,30 +184,7 @@ extension Root {
                     }
                     self.ssrJavaScriptBuffer.removeAll()
 
-                    // Derive the Flight server URL from the bootstrap URL
-                    let flightServerURL: String
-                    if let bootURL = URL(string: bootstrapURL),
-                       let scheme = bootURL.scheme,
-                       let host = bootURL.host {
-                        let port = bootURL.port.map { ":\($0)" } ?? ""
-                        flightServerURL = "\(scheme)://\(host)\(port)"
-                    } else {
-                        flightServerURL = bootstrapURL
-                    }
-
-                    // Derive the fixture path from the resume URL
-                    let fixturePath: String
-                    let knownPrefixes = ["ssr", "prerender", "resume"]
-                    if let ssrURL = URL(string: resumeURL),
-                       ssrURL.pathComponents.count >= 3,
-                       knownPrefixes.contains(ssrURL.pathComponents[1]) {
-                        fixturePath = "/fixtures/" + ssrURL.pathComponents.dropFirst(2).joined(separator: "/")
-                    } else {
-                        fixturePath = URL(string: resumeURL)?.path ?? "/"
-                    }
-
-                    let fullFlightURL = flightServerURL + fixturePath
-                    rt.hydrateSurface(surfaceId: surfaceId, serverURL: fullFlightURL)
+                    rt.hydrateSurface(surfaceId: surfaceId)
                 }
 
                 if self.ssrShellComplete {

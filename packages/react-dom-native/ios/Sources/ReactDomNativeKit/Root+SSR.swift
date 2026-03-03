@@ -185,34 +185,7 @@ extension Root {
                     }
                     self.ssrJavaScriptBuffer.removeAll()
 
-                    // Derive the Flight server URL from the bootstrap URL
-                    // Bootstrap: "http://localhost:6000/bundle.js" → Flight: "http://localhost:6000"
-                    let flightServerURL: String
-                    if let bootURL = URL(string: bootstrapURL),
-                       let scheme = bootURL.scheme,
-                       let host = bootURL.host {
-                        let port = bootURL.port.map { ":\($0)" } ?? ""
-                        flightServerURL = "\(scheme)://\(host)\(port)"
-                    } else {
-                        flightServerURL = bootstrapURL
-                    }
-
-                    // Derive the fixture path from the SSR URL
-                    // SSR URL: "http://localhost:6001/ssr/05-nested-suspense"
-                    // Flight URL: "http://localhost:6000/fixtures/05-nested-suspense"
-                    let fixturePath: String
-                    let knownPrefixes = ["ssr", "prerender", "resume"]
-                    if let ssrURL = URL(string: url),
-                       ssrURL.pathComponents.count >= 3,
-                       knownPrefixes.contains(ssrURL.pathComponents[1]) {
-                        fixturePath = "/fixtures/" + ssrURL.pathComponents.dropFirst(2).joined(separator: "/")
-                    } else {
-                        // Fallback: use the SSR path as-is
-                        fixturePath = URL(string: url)?.path ?? "/"
-                    }
-
-                    let fullFlightURL = flightServerURL + fixturePath
-                    rt.hydrateSurface(surfaceId: surfaceId, serverURL: fullFlightURL)
+                    rt.hydrateSurface(surfaceId: surfaceId)
                 }
 
                 if self.ssrShellComplete {
