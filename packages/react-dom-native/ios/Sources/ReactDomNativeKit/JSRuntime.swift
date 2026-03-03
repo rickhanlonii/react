@@ -347,6 +347,9 @@ public class JSRuntime {
 
             case "stop-tracing":
                 guard self.tracer.isTracing else { return nil }
+                // Capture a final screenshot to ensure the latest visual state is included,
+                // even if the last React commit didn't go through $$completeRoot.
+                self.bindings.captureCommitScreenshot()
                 let result = self.tracer.stopTracing()
                 self.bindings.nativeTracingEnabled = false
                 // Serialize events to JSON and send via WebSocket
