@@ -12,7 +12,7 @@ import QuartzCore
 //
 //   1. Replays the prelude through the parser → builds shadow tree → UIKit views (instant)
 //   2. POSTs the postponed state to the resume URL → processes dynamic content
-//   3. Starts hydration after the resume stream delivers all Flight data
+//   3. Starts hydration eagerly when boot completes + shell is painted
 //
 // The app owns fetching and caching — this code just consumes the data.
 // ---------------------------------------------------------------------------
@@ -100,8 +100,122 @@ extension Root {
                 components.port = urlObj.port
                 rt.devServerURL = components.url
             }
-            // Boot eagerly — hydration will call boot again (no-op if already done)
-            rt.boot { _ in }
+            // Boot the runtime (downloads the bundle from the URL above)
+            rt.boot { [weak self] error in
+                guard let self = self else { return }
+
+                if let error = error {
+                    print("[ReactDomNativeKit] Failed to boot runtime for resume hydration: \(error)")
+                    self.options.onRecoverableError?(error)
+                    return
+                }
+
+                // Wire hydration completion callback
+                rt.bindings?.onHydrationComplete = { [weak self] surfaceId in
+                    self?.onHydrationCommitted()
+                }
+
+                // Wire boundary reveal callback
+                self.ssrCoordinator?.onBoundaryRevealed = { [weak self] boundaryId in
+                    guard let self = self, let surfaceId = self.surfaceId else { return }
+                    let contentNodes = self.ssrCoordinator?.segmentContentNodes(for: boundaryId) ?? []
+                    rt.bindings?.revealBoundaryInSSRTree(
+                        surfaceId: surfaceId, boundaryId: boundaryId, contentNodes: contentNodes
+                    )
+                    guard let engine = rt.engine else { return }
+                    engine.evaluate("globalThis.$$notifyBoundaryRevealed(\(boundaryId))")
+                }
+
+                let doHydrate = { [weak self] in
+                    guard let self = self, let surfaceId = self.surfaceId else { return }
+
+                    self.hydrationStarted = true
+                    print("[ReactDomNativeKit] Resume hydration starting")
+
+                    // Switch renderer to Bindings' shared infrastructure
+                    if let bindings = rt.bindings {
+                        bindings.viewRegistry.merge(from: self.renderer.viewRegistry)
+                        self.renderer.viewRegistry = bindings.viewRegistry
+                        // Keep old mutation applier alive — SSR-created buttons hold
+                        // a weak reference to it. Rewire its dispatchEvent to Bindings.
+                        self.ssrMutationApplierRef = self.renderer.mutationApplier
+                        self.renderer.mutationApplier.dispatchEvent = { view, eventType, payload in
+                            bindings.eventDispatcher.dispatchEvent(from: view, eventType: eventType, payload: payload)
+                        }
+                        // Create new mutation applier with Bindings' ViewRegistry for future commits
+                        self.renderer.mutationApplier = UIKitMutationApplier(viewRegistry: bindings.viewRegistry)
+                        self.renderer.mutationApplier.dispatchEvent = { view, eventType, payload in
+                            bindings.eventDispatcher.dispatchEvent(from: view, eventType: eventType, payload: payload)
+                        }
+                        bindings.mutationApplier.installRootTapGesture(on: self.renderer.rootView!)
+                    }
+
+                    // Register surface for hydration with the SSR tree
+                    let currentSSRTree = self.ssrCoordinator?.currentRootChildren ?? treeBuilder.rootChildren
+                    print("[ReactDomNativeKit] Registering SSR tree for hydration: \(currentSSRTree.count) root children")
+                    rt.registerSurfaceForHydration(
+                        surfaceId: surfaceId,
+                        rootView: self.container,
+                        ssrTree: currentSSRTree,
+                        ssrViewRegistry: self.renderer.viewRegistry
+                    )
+
+                    rt.bindings?.registerSSRTree(
+                        surfaceId: surfaceId,
+                        rootChildren: currentSSRTree
+                    )
+
+                    // Rewire onViewsNeedUpdate to go through Renderer
+                    self.ssrCoordinator?.onViewsNeedUpdate = { [weak self] _, newRootChildren in
+                        self?.renderer.commitTree(newChildren: newRootChildren, label: "Resume Reveal")
+                    }
+
+                    rt.bindings?.markHydrationStarted(surfaceId: surfaceId)
+
+                    // Push accumulated SSR commit timings
+                    if !self.ssrCommitTimings.isEmpty {
+                        rt.bindings?.addSSRCommitTimings(self.ssrCommitTimings)
+                        self.ssrCommitTimings.removeAll()
+                    }
+
+                    // Replay buffered JS instructions (Flight data from prelude + resume)
+                    for code in self.ssrJavaScriptBuffer {
+                        ReactRuntime.shared.evaluateScript(code)
+                    }
+                    self.ssrJavaScriptBuffer.removeAll()
+
+                    // Derive the Flight server URL from the bootstrap URL
+                    let flightServerURL: String
+                    if let bootURL = URL(string: bootstrapURL),
+                       let scheme = bootURL.scheme,
+                       let host = bootURL.host {
+                        let port = bootURL.port.map { ":\($0)" } ?? ""
+                        flightServerURL = "\(scheme)://\(host)\(port)"
+                    } else {
+                        flightServerURL = bootstrapURL
+                    }
+
+                    // Derive the fixture path from the resume URL
+                    let fixturePath: String
+                    let knownPrefixes = ["ssr", "prerender", "resume"]
+                    if let ssrURL = URL(string: resumeURL),
+                       ssrURL.pathComponents.count >= 3,
+                       knownPrefixes.contains(ssrURL.pathComponents[1]) {
+                        fixturePath = "/fixtures/" + ssrURL.pathComponents.dropFirst(2).joined(separator: "/")
+                    } else {
+                        fixturePath = URL(string: resumeURL)?.path ?? "/"
+                    }
+
+                    let fullFlightURL = flightServerURL + fixturePath
+                    rt.hydrateSurface(surfaceId: surfaceId, serverURL: fullFlightURL)
+                }
+
+                if self.ssrShellComplete {
+                    doHydrate()
+                } else {
+                    self.pendingHydration = doHydrate
+                }
+            }
         }
 
         // Wire postponed state capture (ignored — we already have it from data)
@@ -127,17 +241,25 @@ extension Root {
             guard let self = self else { return }
 
             guard !self.ssrRevealHasOccurred else {
-                print("[ReactDomNativeKit] Resume root complete skipped — reveal already occurred")
+                print("[ReactDomNativeKit] Prerender root complete skipped — reveal already occurred")
                 self.ssrShellComplete = true
+                if let pending = self.pendingHydration {
+                    self.pendingHydration = nil
+                    pending()
+                }
                 return
             }
 
             self.renderer.commitTree(newChildren: rootChildren, label: "Prerender First Paint")
 
-            print("[ReactDomNativeKit] Resume first paint complete (\(rootChildren.count) root children)")
+            print("[ReactDomNativeKit] Prerender first paint complete (\(rootChildren.count) root children)")
             self.shellPaintTime = performanceNow()
             self.ssrShellComplete = true
-            // Note: hydration is NOT triggered here — it starts after resume stream completes
+
+            if let pending = self.pendingHydration {
+                self.pendingHydration = nil
+                pending()
+            }
         }
 
         // Phase 1: Replay prelude instantly (synchronous, no network)
@@ -178,8 +300,8 @@ extension Root {
             let revealCount = self.ssrBoundaryManager?.revealedCount ?? 0
             print("[ReactDomNativeKit] Resume stream complete, reveals processed: \(revealCount)")
 
-            // Resume complete → start hydration phase
-            self.startResumeHydration()
+            // Resume complete → cleanup if hydration already done
+            self.maybeCleanupSSRState()
         }
 
         let session = URLSession(
@@ -190,128 +312,5 @@ extension Root {
         let task = session.dataTask(with: request)
         self.resumeDataTask = task
         task.resume()
-    }
-
-    // MARK: - Resume Hydration
-
-    /// Starts hydration after the resume stream has delivered all Flight data.
-    /// The runtime may already be booted (from BOOT instruction in the prelude).
-    private func startResumeHydration() {
-        guard let url = ssrURL,
-              let bootstrapURL = prerenderBootstrapURL else {
-            print("[ReactDomNativeKit] Cannot start resume hydration — missing URL or bootstrap")
-            return
-        }
-
-        let rt = ReactRuntime.shared
-
-        // boot is a no-op if already booted — calls completion immediately
-        rt.boot { [weak self] error in
-            guard let self = self else { return }
-            guard let surfaceId = self.surfaceId else { return }
-
-            if let error = error {
-                print("[ReactDomNativeKit] Failed to boot runtime for resume hydration: \(error)")
-                self.options.onRecoverableError?(error)
-                return
-            }
-
-            // Wire hydration completion callback
-            rt.bindings?.onHydrationComplete = { [weak self] surfaceId in
-                self?.onHydrationCommitted()
-            }
-
-            // Wire boundary reveal callback
-            self.ssrCoordinator?.onBoundaryRevealed = { [weak self] boundaryId in
-                guard let self = self, let surfaceId = self.surfaceId else { return }
-                let contentNodes = self.ssrCoordinator?.segmentContentNodes(for: boundaryId) ?? []
-                rt.bindings?.revealBoundaryInSSRTree(
-                    surfaceId: surfaceId, boundaryId: boundaryId, contentNodes: contentNodes
-                )
-                guard let engine = rt.engine else { return }
-                engine.evaluate("globalThis.$$notifyBoundaryRevealed(\(boundaryId))")
-            }
-
-            self.hydrationStarted = true
-            print("[ReactDomNativeKit] Resume hydration starting")
-
-            // Switch renderer to Bindings' shared infrastructure
-            if let bindings = rt.bindings {
-                bindings.viewRegistry.merge(from: self.renderer.viewRegistry)
-                self.renderer.viewRegistry = bindings.viewRegistry
-                // Keep old mutation applier alive — SSR-created buttons hold
-                // a weak reference to it. Rewire its dispatchEvent to Bindings.
-                self.ssrMutationApplierRef = self.renderer.mutationApplier
-                self.renderer.mutationApplier.dispatchEvent = { view, eventType, payload in
-                    bindings.eventDispatcher.dispatchEvent(from: view, eventType: eventType, payload: payload)
-                }
-                // Create new mutation applier with Bindings' ViewRegistry for future commits
-                self.renderer.mutationApplier = UIKitMutationApplier(viewRegistry: bindings.viewRegistry)
-                self.renderer.mutationApplier.dispatchEvent = { view, eventType, payload in
-                    bindings.eventDispatcher.dispatchEvent(from: view, eventType: eventType, payload: payload)
-                }
-                bindings.mutationApplier.installRootTapGesture(on: self.renderer.rootView!)
-            }
-
-            // Register surface for hydration with the SSR tree
-            let treeBuilder = self.ssrTreeBuilder!
-            let currentSSRTree = self.ssrCoordinator?.currentRootChildren ?? treeBuilder.rootChildren
-            print("[ReactDomNativeKit] Registering SSR tree for hydration: \(currentSSRTree.count) root children")
-            rt.registerSurfaceForHydration(
-                surfaceId: surfaceId,
-                rootView: self.container,
-                ssrTree: currentSSRTree,
-                ssrViewRegistry: self.renderer.viewRegistry
-            )
-
-            rt.bindings?.registerSSRTree(
-                surfaceId: surfaceId,
-                rootChildren: currentSSRTree
-            )
-
-            // Rewire onViewsNeedUpdate to go through Renderer
-            self.ssrCoordinator?.onViewsNeedUpdate = { [weak self] _, newRootChildren in
-                self?.renderer.commitTree(newChildren: newRootChildren, label: "Resume Reveal")
-            }
-
-            rt.bindings?.markHydrationStarted(surfaceId: surfaceId)
-
-            // Push accumulated SSR commit timings
-            if !self.ssrCommitTimings.isEmpty {
-                rt.bindings?.addSSRCommitTimings(self.ssrCommitTimings)
-                self.ssrCommitTimings.removeAll()
-            }
-
-            // Replay buffered JS instructions (Flight data from prelude + resume)
-            for code in self.ssrJavaScriptBuffer {
-                ReactRuntime.shared.evaluateScript(code)
-            }
-            self.ssrJavaScriptBuffer.removeAll()
-
-            // Derive the Flight server URL from the bootstrap URL
-            let flightServerURL: String
-            if let bootURL = URL(string: bootstrapURL),
-               let scheme = bootURL.scheme,
-               let host = bootURL.host {
-                let port = bootURL.port.map { ":\($0)" } ?? ""
-                flightServerURL = "\(scheme)://\(host)\(port)"
-            } else {
-                flightServerURL = bootstrapURL
-            }
-
-            // Derive the fixture path from the resume URL
-            let fixturePath: String
-            let knownPrefixes = ["ssr", "prerender", "resume"]
-            if let ssrURL = URL(string: url),
-               ssrURL.pathComponents.count >= 3,
-               knownPrefixes.contains(ssrURL.pathComponents[1]) {
-                fixturePath = "/fixtures/" + ssrURL.pathComponents.dropFirst(2).joined(separator: "/")
-            } else {
-                fixturePath = URL(string: url)?.path ?? "/"
-            }
-
-            let fullFlightURL = flightServerURL + fixturePath
-            rt.hydrateSurface(surfaceId: surfaceId, serverURL: fullFlightURL)
-        }
     }
 }

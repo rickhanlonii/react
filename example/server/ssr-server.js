@@ -491,13 +491,6 @@ app.post('/resume/:name', function (req, res) {
       var pendingRows = [];
       var partialRow = '';
 
-      var bootstrap =
-        JSON.stringify(['JS', 'self.__next_f.push([0])']) + '\n';
-      pendingRows.push(bootstrap);
-      var debugBootstrap =
-        JSON.stringify(['JS', 'self.__next_debug.push([0])']) + '\n';
-      pendingRows.push(debugBootstrap);
-
       function emitFlightRow(row) {
         var jsCode =
           'self.__next_f.push([1,' + JSON.stringify(row + '\n') + '])';
