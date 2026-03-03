@@ -2,9 +2,9 @@ const React = require('react');
 const {Suspense} = React;
 
 const fixture = {
-  title: 'Single Suspense',
-  description: 'One async server component in a Suspense boundary with skeleton fallback',
-  category: 'Suspense',
+  title: 'Async Content',
+  description: 'Card with content that loads after a short delay',
+  category: 'Loading Patterns',
 };
 
 async function SlowContent({delay}) {
@@ -32,9 +32,9 @@ function SingleSuspense() {
   return (
     <div style={{display: 'flex', flexDirection: 'column', backgroundColor: '#f2f2f7', minHeight: '100%', padding: 16, gap: 16}}>
       <div style={{paddingTop: 48, paddingBottom: 8}}>
-        <h1 style={{color: '#1c1c1e', marginTop: 0, marginBottom: 4}}>Single Suspense</h1>
+        <h1 style={{color: '#1c1c1e', marginTop: 0, marginBottom: 4}}>Async Content</h1>
         <p style={{color: '#8e8e93', fontSize: 15, marginTop: 0}}>
-          One Suspense boundary with async server content
+          A card that loads its content after a short delay
         </p>
       </div>
       <div style={{backgroundColor: '#ffffff', borderRadius: 12, padding: 16}}>

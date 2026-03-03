@@ -2,9 +2,9 @@ const React = require('react');
 const {Suspense} = React;
 
 const fixture = {
-  title: 'Prerender + Resume',
-  description: 'Static shell served from cache, dynamic content filled per-request via resume',
-  category: 'Advanced',
+  title: 'Async Greeting',
+  description: 'Static shell with dynamic content that loads asynchronously',
+  category: 'Basics',
   config: {},
 };
 
@@ -13,10 +13,9 @@ const fixture = {
 function StaticHeader() {
   return (
     <div style={{paddingTop: 48, paddingBottom: 8}}>
-      <h1 style={{color: '#1c1c1e', marginTop: 0, marginBottom: 4}}>Prerender + Resume</h1>
+      <h1 style={{color: '#1c1c1e', marginTop: 0, marginBottom: 4}}>Async Greeting</h1>
       <p style={{color: '#8e8e93', fontSize: 15, marginTop: 0}}>
-        Static shell served instantly from cache. Dynamic content fills in via
-        resume.
+        Static shell with dynamic content that loads asynchronously.
       </p>
     </div>
   );
@@ -33,7 +32,7 @@ function StaticFooter() {
           marginBottom: 0,
           textAlign: 'center',
         }}>
-        Shell prerendered and cached on device.
+        Static content renders immediately. Async content streams in.
       </p>
     </div>
   );

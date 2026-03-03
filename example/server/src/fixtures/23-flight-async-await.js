@@ -2,9 +2,9 @@ const React = require('react');
 const {Suspense} = React;
 
 const fixture = {
-  title: 'Async Await',
-  description: 'Async server components with visible await entries in the performance trace',
-  category: 'Flight Test',
+  title: 'Sequential Loading',
+  description: 'Three cards loading one after another at increasing delays',
+  category: 'Loading Patterns',
 };
 
 async function sleep(ms) {
@@ -17,7 +17,7 @@ async function DataSection({label, delay}) {
     <div style={{backgroundColor: '#ffffff', borderRadius: 12, padding: 16}}>
       <h3 style={{color: '#1c1c1e', marginTop: 0, marginBottom: 8}}>{label}</h3>
       <p style={{color: '#1c1c1e', marginTop: 0}}>
-        Loaded after {delay}ms — check the "Server Components" track for "await sleep" entries
+        Loaded after {delay}ms
       </p>
     </div>
   );
@@ -36,9 +36,9 @@ function FlightAsyncAwait() {
   return (
     <div style={{display: 'flex', flexDirection: 'column', backgroundColor: '#f2f2f7', minHeight: '100%', padding: 16, gap: 16}}>
       <div style={{paddingTop: 48, paddingBottom: 8}}>
-        <h1 style={{color: '#1c1c1e', marginTop: 0, marginBottom: 4}}>Async Await</h1>
+        <h1 style={{color: '#1c1c1e', marginTop: 0, marginBottom: 4}}>Sequential Loading</h1>
         <p style={{color: '#8e8e93', fontSize: 15, marginTop: 0}}>
-          Each section awaits sleep() — look for "await sleep" entries in the Server Components trace
+          Three cards loading one after another at increasing delays
         </p>
       </div>
       <Suspense fallback={<Skeleton />}>

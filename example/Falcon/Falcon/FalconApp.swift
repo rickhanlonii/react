@@ -107,9 +107,9 @@ enum RenderingMode: String, CaseIterable {
 
     var label: String {
         switch self {
-        case .server: return "Server"
+        case .server: return "Server Only"
         case .hydrated: return "Hydrated"
-        case .ppr: return "PPR"
+        case .ppr: return "Partial Prerender"
         }
     }
 }
@@ -118,33 +118,21 @@ struct CategoryListView: View {
     @EnvironmentObject var store: FixtureStore
     @Binding var path: NavigationPath
     @State private var hasAutoNavigated = false
-    @AppStorage("renderingMode") private var renderingMode: String = RenderingMode.hydrated.rawValue
 
     var body: some View {
-        VStack(spacing: 0) {
-            Picker("Rendering Mode", selection: $renderingMode) {
-                ForEach(RenderingMode.allCases, id: \.rawValue) { mode in
-                    Text(mode.label).tag(mode.rawValue)
-                }
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
-            .padding(.vertical, 8)
-
-            List(store.categories) { category in
-                NavigationLink(value: NavDestination.category(category.category)) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(category.category)
-                                .font(.headline)
-                            Text("\(category.fixtures.count) fixture\(category.fixtures.count == 1 ? "" : "s")")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
-                        Spacer()
+        List(store.categories) { category in
+            NavigationLink(value: NavDestination.category(category.category)) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(category.category)
+                            .font(.headline)
+                        Text("\(category.fixtures.count) fixture\(category.fixtures.count == 1 ? "" : "s")")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
                     }
-                    .padding(.vertical, 4)
+                    Spacer()
                 }
+                .padding(.vertical, 4)
             }
         }
         .navigationTitle("Fixtures")
@@ -213,6 +201,7 @@ struct FixtureDetailView: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             FixtureRootView(fixtureName: fixtureName, renderingMode: renderingMode)
+                .id(renderingMode)
             if fixtureConfig?.hideNavBar == true {
                 Button(action: { dismiss() }) {
                     Image(systemName: "chevron.left")
@@ -228,6 +217,26 @@ struct FixtureDetailView: View {
         }
             .background(backgroundColor.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        ForEach(RenderingMode.allCases, id: \.rawValue) { mode in
+                            Button {
+                                renderingMode = mode.rawValue
+                            } label: {
+                                if renderingMode == mode.rawValue {
+                                    Label(mode.label, systemImage: "checkmark")
+                                } else {
+                                    Text(mode.label)
+                                }
+                            }
+                        }
+                    } label: {
+                        Text(RenderingMode(rawValue: renderingMode)?.label ?? "Hydrated")
+                            .font(.subheadline.weight(.medium))
+                    }
+                }
+            }
             .toolbar(fixtureConfig?.hideNavBar == true ? .hidden : .automatic, for: .navigationBar)
             .onAppear {
                 // Find category for this fixture and store as "category/fixtureName"

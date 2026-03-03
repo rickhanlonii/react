@@ -3,9 +3,9 @@ const {Suspense} = React;
 const ErrorBoundary = require('../components/ErrorBoundary');
 
 const fixture = {
-  title: 'Server Error',
-  description: 'Async component that throws — should show error color in the performance trace',
-  category: 'Flight Test',
+  title: 'Error Recovery',
+  description: 'A successful card alongside a failing card caught by an error boundary',
+  category: 'Loading Patterns',
 };
 
 async function sleep(ms) {
@@ -40,9 +40,9 @@ function FlightServerError() {
   return (
     <div style={{display: 'flex', flexDirection: 'column', backgroundColor: '#f2f2f7', minHeight: '100%', padding: 16, gap: 16}}>
       <div style={{paddingTop: 48, paddingBottom: 8}}>
-        <h1 style={{color: '#1c1c1e', marginTop: 0, marginBottom: 4}}>Server Error</h1>
+        <h1 style={{color: '#1c1c1e', marginTop: 0, marginBottom: 4}}>Error Recovery</h1>
         <p style={{color: '#8e8e93', fontSize: 15, marginTop: 0}}>
-          FailingSection throws after 500ms — check for 'error' color in the trace
+          One card loads successfully, the other fails and is caught by an error boundary
         </p>
       </div>
       <Suspense fallback={<Skeleton />}>

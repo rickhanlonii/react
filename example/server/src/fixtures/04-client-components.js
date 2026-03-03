@@ -3,8 +3,8 @@ const Counter = require('../components/Counter');
 const Tabs = require('../components/Tabs');
 
 const fixture = {
-  title: 'Client Components',
-  description: 'RSC with client components — tests Flight module loading and hydration',
+  title: 'Counter & Tabs',
+  description: 'Interactive counter and tabbed content panels',
   category: 'Basics',
 };
 
@@ -13,9 +13,9 @@ function ClientComponents() {
   return (
     <div style={{display: 'flex', flexDirection: 'column', backgroundColor: '#f2f2f7', minHeight: '100%', padding: 16, gap: 16}}>
       <div style={{paddingTop: 48, paddingBottom: 8}}>
-        <h1 style={{color: '#1c1c1e', marginTop: 0, marginBottom: 4}}>Client Components</h1>
+        <h1 style={{color: '#1c1c1e', marginTop: 0, marginBottom: 4}}>Counter & Tabs</h1>
         <p style={{color: '#8e8e93', fontSize: 15, marginTop: 0}}>
-          Server-rendered with interactive client components
+          Interactive counter and tabbed content panels
         </p>
       </div>
       <div style={{backgroundColor: '#ffffff', borderRadius: 12, padding: 16}}>

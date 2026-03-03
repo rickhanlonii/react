@@ -3,9 +3,9 @@ const {Suspense} = React;
 const Counter = require('../components/Counter');
 
 const fixture = {
-  title: 'Nested Suspense',
-  description: 'Multiple nested Suspense boundaries with staggered delays',
-  category: 'Suspense',
+  title: 'Staggered Loading',
+  description: 'Four sections that load at 500ms, 1000ms, 2000ms, and 3000ms',
+  category: 'Loading Patterns',
 };
 
 async function SlowSection({label, delay}) {
@@ -31,9 +31,9 @@ function NestedSuspense() {
   return (
     <div style={{display: 'flex', flexDirection: 'column', backgroundColor: '#f2f2f7', minHeight: '100%', padding: 16, gap: 16}}>
       <div style={{paddingTop: 48, paddingBottom: 8}}>
-        <h1 style={{color: '#1c1c1e', marginTop: 0, marginBottom: 4}}>Nested Suspense xxx</h1>
+        <h1 style={{color: '#1c1c1e', marginTop: 0, marginBottom: 4}}>Staggered Loading</h1>
         <p style={{color: '#8e8e93', fontSize: 15, marginTop: 0}}>
-          Boundaries resolve in order: 500ms, 1000ms, 2000ms, 3000ms
+          Four sections loading at 500ms, 1000ms, 2000ms, and 3000ms
         </p>
       </div>
       <Suspense fallback={<Skeleton />}>

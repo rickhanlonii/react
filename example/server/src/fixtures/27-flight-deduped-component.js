@@ -2,9 +2,9 @@ const React = require('react');
 const {Suspense} = React;
 
 const fixture = {
-  title: 'Deduped Component',
-  description: 'Same async component referenced from multiple parents — should show deduped entries in trace',
-  category: 'Flight Test',
+  title: 'Shared Content',
+  description: 'Two cards rendering the same shared async content',
+  category: 'Loading Patterns',
 };
 
 async function sleep(ms) {
@@ -48,9 +48,9 @@ function FlightDedupedComponent() {
   return (
     <div style={{display: 'flex', flexDirection: 'column', backgroundColor: '#f2f2f7', minHeight: '100%', padding: 16, gap: 16}}>
       <div style={{paddingTop: 48, paddingBottom: 8}}>
-        <h1 style={{color: '#1c1c1e', marginTop: 0, marginBottom: 4}}>Deduped Component</h1>
+        <h1 style={{color: '#1c1c1e', marginTop: 0, marginBottom: 4}}>Shared Content</h1>
         <p style={{color: '#8e8e93', fontSize: 15, marginTop: 0}}>
-          SharedData appears in two cards — second should show as deduped in trace
+          Two cards rendering the same shared async content
         </p>
       </div>
       <Suspense fallback={<Skeleton />}>

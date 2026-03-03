@@ -2,9 +2,9 @@ const React = require('react');
 const {Suspense} = React;
 
 const fixture = {
-  title: 'Server Only',
-  description: 'SSR-rendered content without hydration — static output, no client JS',
-  category: 'Advanced',
+  title: 'Greeting & Stats',
+  description: 'Async greeting with a stats summary card',
+  category: 'Basics',
   config: {},
 };
 
@@ -19,7 +19,6 @@ async function SlowGreeting() {
       </h3>
       <p style={{color: '#1c1c1e', marginTop: 0, marginBottom: 0}}>
         This greeting was rendered at {new Date().toLocaleTimeString()}.
-        No client JS was loaded — this is purely server-rendered.
       </p>
     </div>
   );
@@ -131,10 +130,10 @@ function ServerOnlyApp() {
       }}>
       <div style={{paddingTop: 48, paddingBottom: 8}}>
         <h1 style={{color: '#1c1c1e', marginTop: 0, marginBottom: 4}}>
-          Server Only
+          Greeting & Stats
         </h1>
         <p style={{color: '#8e8e93', fontSize: 15, marginTop: 0}}>
-          Pure server rendering — no hydration, no client JS
+          Async greeting with a stats summary card
         </p>
       </div>
       <div style={{backgroundColor: '#ffffff', borderRadius: 12, padding: 16}}>
@@ -162,7 +161,7 @@ function ServerOnlyApp() {
             marginBottom: 0,
             textAlign: 'center',
           }}>
-          No JS bundle loaded. Suspense boundaries resolve server-side.
+          All content loads asynchronously from the server.
         </p>
       </div>
     </div>
