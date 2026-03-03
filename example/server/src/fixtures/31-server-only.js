@@ -5,9 +5,7 @@ const fixture = {
   title: 'Server Only',
   description: 'SSR-rendered content without hydration — static output, no client JS',
   category: 'Advanced',
-  config: {
-    ssrEndpoint: 'server-only',
-  },
+  config: {},
 };
 
 // ---------- Async server components ----------

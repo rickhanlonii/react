@@ -5,9 +5,7 @@ const fixture = {
   title: 'Prerender + Resume',
   description: 'Static shell served from cache, dynamic content filled per-request via resume',
   category: 'Advanced',
-  config: {
-    ssrEndpoint: 'prerender',
-  },
+  config: {},
 };
 
 // ---------- Static content (included in the prerendered shell) ----------
