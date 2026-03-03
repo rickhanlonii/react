@@ -137,7 +137,6 @@ function createTracingDomain(targetId, screenshotCapture) {
 
       case 'end': {
         log('Tracing', 'end — sendToApp=' + (ctx.sendToApp ? 'yes' : 'NO'));
-        screenshotCapture.stop();
         if (ctx.sendToApp) {
           ctx.sendToApp(JSON.stringify({type: 'stop-tracing'}));
         }
@@ -157,6 +156,7 @@ function createTracingDomain(targetId, screenshotCapture) {
         });
 
         tracePromise.then(function (traceData) {
+          screenshotCapture.stop();
           var events = traceData.events;
           var tracingStartTs = traceData.tracingStartTs;
           log('Tracing', 'Got ' + events.length + ' events from app (tracingStartTs=' + tracingStartTs + '), emitting');
@@ -217,7 +217,6 @@ function createNodeTracingDomain(targetId, screenshotCapture) {
 
       case 'stop': {
         log('NodeTracing', 'stop — sendToApp=' + (ctx.sendToApp ? 'yes' : 'NO'));
-        screenshotCapture.stop();
         if (ctx.sendToApp) {
           ctx.sendToApp(JSON.stringify({type: 'stop-tracing'}));
         }
@@ -237,6 +236,7 @@ function createNodeTracingDomain(targetId, screenshotCapture) {
         });
 
         tracePromise.then(function (traceData) {
+          screenshotCapture.stop();
           var events = traceData.events;
           var tracingStartTs = traceData.tracingStartTs;
           log('NodeTracing', 'Got ' + events.length + ' events from app (tracingStartTs=' + tracingStartTs + '), emitting');
@@ -560,7 +560,6 @@ function createProfilerDomain(screenshotCapture) {
 
     if (method === 'stop') {
       log('Profiler', 'stop — also stopping tracing, waiting for both responses');
-      screenshotCapture.stop();
       // Stop tracing
       if (ctx.sendToApp) {
         ctx.sendToApp(JSON.stringify({type: 'stop-tracing'}));
@@ -625,6 +624,8 @@ function createProfilerDomain(screenshotCapture) {
     var events = pendingTraceEvents;
 
     log('Profiler', 'Both trace data (' + events.length + ' events) and profiler response ready');
+
+    screenshotCapture.stop();
 
     // Emit trace events FIRST via Tracing.dataCollected
     if (events.length > 0) {
