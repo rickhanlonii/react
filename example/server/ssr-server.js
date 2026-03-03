@@ -26,6 +26,7 @@ var {WebSocketServer} = require('ws');
 var {createInspectorProxy, mountInspectorRoutes, createCDPUpgradeHandler} = require('../scripts/inspector-proxy');
 
 var app = express();
+app.use(express.json({ limit: '1mb' }));
 var PORT = parseInt(process.env.PORT, 10) || 6001;
 var FLIGHT_SERVER = process.env.FLIGHT_SERVER || 'http://localhost:6000';
 
@@ -330,7 +331,23 @@ app.get('/prerender/:name', function (req, res) {
       handleSSR(FLIGHT_SERVER + '/fixtures/' + name, req, res);
       return;
     }
-    handlePrerenderResume(name, cached, req, res);
+
+    // Return prelude + postponed state for client-side caching.
+    // No resume happens server-side — the client sends postponed back via POST /resume.
+    res.setHeader('Content-Type', 'application/x-native-ssr');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'no-cache');
+
+    // Flight JS bootstrap rows first (client needs receiver initialized)
+    res.write(JSON.stringify(['JS', 'self.__next_f.push([0])']) + '\n');
+    res.write(JSON.stringify(['JS', 'self.__next_debug.push([0])']) + '\n');
+
+    // Static shell (prelude from Fizz — includes BOOT and R instructions)
+    res.write(cached.prelude);
+
+    // Postponed state — client caches this and sends it back via POST /resume
+    res.write(JSON.stringify(['POSTPONED', cached.postponed]) + '\n');
+    res.end();
   }
 
   if (prerenderCache[name]) {
@@ -441,7 +458,23 @@ function doPrerender(name, callback) {
   });
 }
 
-function handlePrerenderResume(name, cached, req, res) {
+// ---------------------------------------------------------------------------
+// POST /resume/:name — accepts postponed state, returns resume stream
+//
+// The client sends the postponed state (from a previous prerender) and
+// receives back the dynamic content: Flight JS bootstrap, resume Fizz
+// output (completed segments + boundary reveals), and Flight close.
+// ---------------------------------------------------------------------------
+
+app.post('/resume/:name', function (req, res) {
+  var name = req.params.name;
+  var postponed = req.body && req.body.postponed;
+
+  if (!postponed) {
+    res.status(400).send('Missing postponed state in request body');
+    return;
+  }
+
   var flightURL = FLIGHT_SERVER + '/fixtures/' + name;
 
   http
@@ -453,7 +486,7 @@ function handlePrerenderResume(name, cached, req, res) {
         return;
       }
 
-      // Flight capture/demux — same as handleSSR but writes cached prelude first
+      // Flight capture/demux — captures Flight rows and emits them as JS instructions
       var shellReady = false;
       var pendingRows = [];
       var partialRow = '';
@@ -573,7 +606,7 @@ function handlePrerenderResume(name, cached, req, res) {
       var resumeToPipeableStream =
         require('react-dom-native/server').resumeToPipeableStream;
       // Deep-clone postponed state — Fizz mutates replayNodes during resume
-      var postponedClone = JSON.parse(JSON.stringify(cached.postponed));
+      var postponedClone = JSON.parse(JSON.stringify(postponed));
       var nativeStream = resumeToPipeableStream(
         React.createElement(Root),
         postponedClone,
@@ -583,19 +616,14 @@ function handlePrerenderResume(name, cached, req, res) {
             res.setHeader('Access-Control-Allow-Origin', '*');
             res.setHeader('Cache-Control', 'no-cache');
 
-            // 1. Flush Flight JS bootstrap rows FIRST — must arrive before ["R"]
-            // so the client's Flight data receiver is initialized before hydration
-            // starts. The cached prelude contains ["R"] which triggers hydration.
+            // Flush Flight JS bootstrap rows
             for (var i = 0; i < pendingRows.length; i++) {
               res.write(pendingRows[i]);
             }
             pendingRows = null;
             shellReady = true;
 
-            // 2. Send cached prelude (static shell with ["R"] at the end)
-            res.write(cached.prelude);
-
-            // 3. Pipe resume Fizz output (completed segments + boundary reveals)
+            // Pipe resume Fizz output (completed segments + boundary reveals)
             // End response only when BOTH Fizz and Flight capture are done,
             // so the Flight stream close instructions are always sent.
             var fizzDone = false;
@@ -622,26 +650,25 @@ function handlePrerenderResume(name, cached, req, res) {
             });
           },
           onShellError: function (error) {
-            console.error('[Prerender Resume] Shell error:', error);
-            // Fall back to normal SSR
-            handleSSR(FLIGHT_SERVER + '/fixtures/' + name, req, res);
+            console.error('[Resume] Shell error:', error);
+            res.status(500).send('Resume failed: ' + error.message);
           },
           onError: function (error) {
-            console.error('[Prerender Resume] Error:', error);
+            console.error('[Resume] Error:', error);
           },
         },
       );
     })
     .on('error', function (err) {
       console.error(
-        '[Prerender Resume] Failed to fetch Flight stream:',
+        '[Resume] Failed to fetch Flight stream:',
         err.message,
       );
       res
         .status(502)
         .send('Failed to connect to Flight server: ' + err.message);
     });
-}
+});
 
 app.get('/ssr/:name', function (req, res) {
   handleSSR(FLIGHT_SERVER + '/fixtures/' + req.params.name, req, res);
@@ -713,6 +740,8 @@ devWSS.on('connection', function onDevConnection(ws) {
     // Broadcast reload/refresh to all OTHER app clients (from esbuild watcher)
     if (message.type === 'notify-reload') {
       console.log('[Inspector] Broadcasting reload');
+      // Clear server-side prerender cache so fresh prerenders pick up changes
+      prerenderCache = {};
       var reloadMsg = JSON.stringify({type: 'reload'});
       for (var [client] of devClientInfo) {
         if (client !== ws && client.readyState === 1) {

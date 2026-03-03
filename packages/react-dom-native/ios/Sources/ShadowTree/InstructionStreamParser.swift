@@ -19,6 +19,7 @@ import Foundation
 //   ["P",id]                  Placeholder
 //   ["E",id,"digest"]         Client-render boundary (error)
 //   ["JS","code"]             Evaluate JavaScript
+//   ["POSTPONED",{...}]       Postponed state for prerender resume
 // ---------------------------------------------------------------------------
 
 /// Delegate protocol for handling parsed instructions.
@@ -36,6 +37,7 @@ public protocol InstructionStreamDelegate: AnyObject {
     func didReceiveClientRenderBoundary(id: Int, errorDigest: String?)
     func didReceiveJavaScript(code: String)
     func didReceiveBootstrapURL(_ url: String)
+    func didReceivePostponedState(data: Data)
     func didReceiveError(_ error: Error)
 }
 
@@ -205,6 +207,24 @@ public class InstructionStreamParser {
                     return
                 }
                 delegate?.didReceiveBootstrapURL(url)
+
+            case "POSTPONED":
+                // Postponed state: ["POSTPONED", {...}]
+                guard array.count >= 2 else {
+                    delegate?.didReceiveError(
+                        InstructionParseError.invalidFormat("POSTPONED instruction missing state")
+                    )
+                    return
+                }
+                // Re-serialize the postponed state object back to JSON Data
+                do {
+                    let stateData = try JSONSerialization.data(withJSONObject: array[1])
+                    delegate?.didReceivePostponedState(data: stateData)
+                } catch {
+                    delegate?.didReceiveError(
+                        InstructionParseError.invalidFormat("POSTPONED instruction: failed to serialize state")
+                    )
+                }
 
             default:
                 delegate?.didReceiveError(

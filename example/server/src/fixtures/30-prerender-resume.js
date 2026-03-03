@@ -35,7 +35,7 @@ function StaticFooter() {
           marginBottom: 0,
           textAlign: 'center',
         }}>
-        This footer was prerendered — zero per-request work.
+        Shell prerendered and cached on device.
       </p>
     </div>
   );
@@ -103,7 +103,7 @@ async function DynamicTimestamp() {
   return (
     <div id="timestamp">
       <p style={{color: '#8e8e93', fontSize: 13, marginTop: 0, marginBottom: 0}}>
-        Request processed at: {new Date().toISOString()}
+        Request processed at: {new Date().toLocaleTimeString()}
       </p>
     </div>
   );

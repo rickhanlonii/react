@@ -59,6 +59,9 @@ class SSRCoordinator: InstructionStreamDelegate {
     /// Called when a bootstrap script URL is received from the SSR stream.
     var onBootstrapURLReceived: ((String) -> Void)?
 
+    /// Called when postponed state is received from the prerender stream.
+    var onPostponedStateReceived: ((Data) -> Void)?
+
     init(
         treeBuilder: ShadowTreeBuilder,
         boundaryManager: BoundaryManager,
@@ -331,6 +334,10 @@ class SSRCoordinator: InstructionStreamDelegate {
 
     func didReceiveBootstrapURL(_ url: String) {
         onBootstrapURLReceived?(url)
+    }
+
+    func didReceivePostponedState(data: Data) {
+        onPostponedStateReceived?(data)
     }
 
     func didReceiveError(_ error: Error) {

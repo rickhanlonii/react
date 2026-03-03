@@ -38,6 +38,11 @@ public struct PrerenderResult {
 
     /// Opaque deferred state — send to server for resume.
     public let postponed: Data
+
+    public init(prelude: Data, postponed: Data) {
+        self.prelude = prelude
+        self.postponed = postponed
+    }
 }
 
 /// Options for configuring a Root.
@@ -84,12 +89,14 @@ public class Root {
     enum RenderMode {
         case csr(serverURL: String)
         case ssr(url: String)
+        case prerender(resumeURL: String)
     }
     var renderMode: RenderMode?
 
     /// Whether this root was rendered using SSR + hydration.
     internal var isSSR: Bool {
         if case .ssr = renderMode { return true }
+        if case .prerender = renderMode { return true }
         return false
     }
 
@@ -125,6 +132,20 @@ public class Root {
 
     /// SSR URL used for the initial render (stored for reload recovery).
     var ssrURL: String?
+
+    // MARK: - Prerender State
+
+    /// Resume URL for prerender mode.
+    var prerenderResumeURL: String?
+    /// Bootstrap URL received from prerender stream (for hydration URL derivation).
+    var prerenderBootstrapURL: String?
+    /// Cached prerender data for reload recovery.
+    var prerenderData: PrerenderResult?
+    /// Called when the root re-renders (hot reload, perf tracing). App can use
+    /// this to trigger background revalidation of cached prerender data.
+    public var onReload: (() -> Void)?
+    /// URLSession data task for the resume request.
+    var resumeDataTask: URLSessionDataTask?
 
     // MARK: - Throttled Boundary Reveal State
 
@@ -219,6 +240,11 @@ public class Root {
         // Clean up SSR state
         ssrDataTask?.cancel()
         ssrDataTask = nil
+        resumeDataTask?.cancel()
+        resumeDataTask = nil
+        prerenderResumeURL = nil
+        prerenderBootstrapURL = nil
+        prerenderData = nil
         ssrParser = nil
         ssrTreeBuilder = nil
         ssrBoundaryManager = nil

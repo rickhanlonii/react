@@ -14,6 +14,8 @@ extension Root {
     internal func rerender() {
         guard !isUnmounted else { return }
 
+        onReload?()
+
         // Reset surface ID so render/startHydration re-registers
         surfaceId = nil
         layoutObserver?.invalidate()
@@ -22,6 +24,8 @@ extension Root {
         // Clean up any SSR state from previous render
         ssrDataTask?.cancel()
         ssrDataTask = nil
+        resumeDataTask?.cancel()
+        resumeDataTask = nil
         ssrParser = nil
         ssrTreeBuilder = nil
         ssrBoundaryManager = nil
@@ -36,6 +40,8 @@ extension Root {
         hydrationStarted = false
         hydrationCommitted = false
         pendingHydration = nil
+        prerenderResumeURL = nil
+        prerenderBootstrapURL = nil
 
         // Cancel any pending throttled reveals
         revealTimer?.cancel()
@@ -53,6 +59,17 @@ extension Root {
         case .ssr(let ssrURL):
             print("[Root] Re-rendering (SSR + hydration) — \(ssrURL)")
             startHydration(url: ssrURL)
+
+        case .prerender(let resumeURL):
+            if let data = prerenderData {
+                print("[Root] Re-rendering (prerender + resume) — \(resumeURL)")
+                startResume(data: data, resumeURL: resumeURL)
+            } else {
+                // No cached data — fall back to normal SSR
+                let ssrURL = resumeURL.replacingOccurrences(of: "/resume/", with: "/ssr/")
+                print("[Root] Re-rendering (prerender fallback to SSR) — \(ssrURL)")
+                startHydration(url: ssrURL)
+            }
 
         case .none:
             print("[Root] No render mode recorded, skipping re-render")

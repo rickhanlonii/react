@@ -186,9 +186,10 @@ extension Root {
                     // SSR URL: "http://localhost:6001/ssr/05-nested-suspense"
                     // Flight URL: "http://localhost:6000/fixtures/05-nested-suspense"
                     let fixturePath: String
+                    let knownPrefixes = ["ssr", "prerender", "resume"]
                     if let ssrURL = URL(string: url),
                        ssrURL.pathComponents.count >= 3,
-                       ssrURL.pathComponents[1] == "ssr" {
+                       knownPrefixes.contains(ssrURL.pathComponents[1]) {
                         fixturePath = "/fixtures/" + ssrURL.pathComponents.dropFirst(2).joined(separator: "/")
                     } else {
                         // Fallback: use the SSR path as-is
