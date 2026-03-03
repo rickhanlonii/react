@@ -376,21 +376,22 @@ function emitTraceEvents(ws, id, events, domainPrefix, targetId, ctx, screenshot
       args: {},
     },
   ];
-  events = infraEvents.concat(events);
-
-  // Merge screenshot trace events if available
+  // Merge screenshot trace events right after infra events (before app events)
+  // so they land in the first Tracing.dataCollected chunk alongside
+  // TracingStartedInBrowser — required for Chrome DevTools to build the filmstrip.
+  var screenshotEvents = [];
   if (screenshotCapture) {
     // Use tracingStartTs (app's performance.now() * 1000 at trace start) as
     // the anchor for screenshot timestamps. This correctly handles backdated
     // SSR events whose timestamps predate the trace start — using minTs
     // would shift screenshots by the backdating amount.
     var screenshotAnchor = tracingStartTs || minTs;
-    var screenshotEvents = screenshotCapture.getEvents(screenshotAnchor);
+    screenshotEvents = screenshotCapture.getEvents(screenshotAnchor);
     if (screenshotEvents.length > 0) {
       log(domainPrefix, 'Adding ' + screenshotEvents.length + ' screenshot events to trace (anchor=' + screenshotAnchor + ', minTs=' + minTs + ')');
-      events = events.concat(screenshotEvents);
     }
   }
+  events = infraEvents.concat(screenshotEvents).concat(events);
 
   // Always dump trace events to file for debugging
   try {
