@@ -17,33 +17,22 @@ extension Bindings {
 
     /// Registers a surface for hydration, reusing existing SSR views.
     ///
-    /// Unlike `registerSurface`, this method:
-    /// 1. Moves existing SSR subviews from the container into the scroll view
-    /// 2. Pre-populates `currentTrees` with the SSR tree so the differentiator
-    ///    recognizes existing nodes (no duplicate CREATE mutations)
-    /// 3. Transfers SSR view registry entries so the mutation applier can find
-    ///    existing UIKit views
+    /// The Renderer has already created the scroll view and committed SSR views.
+    /// This method finds the existing scroll view, merges view registries,
+    /// and pre-populates `currentTrees` for DevTools.
     public func registerSurfaceForHydration(
         surfaceId: Int,
         rootView: UIView,
         ssrTree: [ShadowNodeWrapper],
         ssrViewRegistry: ViewRegistry
     ) {
-        let scrollView = UIScrollView(frame: rootView.bounds)
-        scrollView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        scrollView.contentInsetAdjustmentBehavior = .automatic
-
-        // Move existing SSR views into the scroll view (avoids visual flash)
-        for subview in rootView.subviews {
-            subview.removeFromSuperview()
-            scrollView.addSubview(subview)
+        // Find the existing scroll view created by Renderer.registerRootView
+        if let scrollView = rootView.subviews.first(where: { $0 is UIScrollView }) as? UIScrollView {
+            rootViews[surfaceId] = scrollView
         }
-        rootView.addSubview(scrollView)
 
-        rootViews[surfaceId] = scrollView
         currentTrees[surfaceId] = ssrTree
         viewRegistry.merge(from: ssrViewRegistry)
-        mutationApplier.installRootTapGesture(on: scrollView)
     }
 
     // MARK: - SSR Tree Management
@@ -139,186 +128,16 @@ extension Bindings {
         }
     }
 
-    /// Updates the current tree for a surface after an SSR boundary reveal
-    /// during hydration. Calculates layout, diffs old vs new, applies mutations,
-    /// and updates the stored current tree.
-    ///
-    /// This mirrors what $$completeRoot does but for SSR boundary reveals that
-    /// happen after hydration has started (React owns the view hierarchy).
-    /// When tracing is enabled, collects timing and pushes to JS for the
-    /// Shadow Tree and Layout tracks.
-    public func updateCurrentTree(
-        surfaceId: Int,
-        oldTree: [ShadowNodeWrapper],
-        newTree: [ShadowNodeWrapper]
-    ) {
-        let tracing = nativeTracingEnabled
-        let commitStart = tracing ? performanceNow() : 0
-
-        // 1. Calculate layout on new tree
-        let layoutStart = tracing ? performanceNow() : 0
-        var contentSize: CGSize = .zero
-        if let rootView = rootViews[surfaceId] {
-            contentSize = calculateYogaLayout(for: newTree, in: rootView.bounds, surfaceId: surfaceId, tracing: tracing)
-        }
-        let layoutEnd = tracing ? performanceNow() : 0
-
-        // 2. Diff old vs new
-        let diffStart = tracing ? performanceNow() : 0
-        var diffNodeTimings: [(type: String, start: Double, end: Double)] = []
-        let mutations: [Mutation]
-        if tracing {
-            mutations = differentiator.diff(
-                oldChildren: oldTree,
-                newChildren: newTree,
-                parent: nil,
-                tracing: true,
-                nodeTimings: &diffNodeTimings
-            )
-        } else {
-            mutations = differentiator.diff(
-                oldChildren: oldTree,
-                newChildren: newTree,
-                parent: nil
-            )
-        }
-        let diffEnd = tracing ? performanceNow() : 0
-
-        // 3. Apply mutations
-        let mutationsStart = tracing ? performanceNow() : 0
-        var mutationTimings: [(mutationType: String, elementType: String, start: Double, end: Double)] = []
-        var syncNodeTimings: [(type: String, start: Double, end: Double)] = []
-        if let rootView = rootViews[surfaceId] {
-            if tracing {
-                mutationApplier.applyMutations(mutations, rootView: rootView, tracing: true, mutationTimings: &mutationTimings)
-            } else {
-                mutationApplier.applyMutations(mutations, rootView: rootView)
-            }
-
-            let syncStart = tracing ? performanceNow() : 0
-            if tracing {
-                syncAllFrames(newTree, tracing: true, nodeTimings: &syncNodeTimings)
-            } else {
-                syncAllFrames(newTree)
-            }
-            let syncEnd = tracing ? performanceNow() : 0
-            if tracing {
-                lastSyncTimings = (start: syncStart, end: syncEnd)
-            }
-
-            // Attach new root-level children
-            for child in newTree {
-                if let childView = viewRegistry.view(for: child.family) {
-                    if childView.superview == nil {
-                        rootView.addSubview(childView)
-                    }
-                }
-            }
-        }
-        let mutationsEnd = tracing ? performanceNow() : 0
-
-        // 4. Update scroll content size
-        if let scrollView = rootViews[surfaceId] as? UIScrollView {
-            scrollView.contentSize = CGSize(
-                width: scrollView.bounds.width,
-                height: contentSize.height
-            )
-        }
-
-        // 5. Update current tree
-        currentTrees[surfaceId] = newTree
-
-        // 5b. Capture trace screenshot if enabled (synchronous, before next commit)
-        captureCommitScreenshot()
-
-        // 6. Register new nodes in the tree (content nodes + cloned path nodes)
-        for child in newTree {
-            registerNewNodesInSubtree(child)
-        }
-
-        let commitEnd = tracing ? performanceNow() : 0
-
-        // Push timing to JS for Shadow Tree and Layout tracks
-        if tracing {
-            var creates = 0, inserts = 0, deletes = 0, removes = 0, updates = 0
-            var affectedTypes = Set<String>()
-            for mutation in mutations {
-                switch mutation {
-                case .create(let node): creates += 1; affectedTypes.insert(node.family.elementType)
-                case .insert(_, let child, _): inserts += 1; affectedTypes.insert(child.family.elementType)
-                case .delete(let node): deletes += 1; affectedTypes.insert(node.family.elementType)
-                case .remove(_, let child): removes += 1; affectedTypes.insert(child.family.elementType)
-                case .update(let node, _, _): updates += 1; affectedTypes.insert(node.family.elementType)
-                }
-            }
-            let stats = computeTreeStats(newTree)
-            var timing: [String: Any] = [
-                "label": "SSR Reveal",
-                "commitStart": commitStart, "commitEnd": commitEnd,
-                "layoutStart": layoutStart, "layoutEnd": layoutEnd,
-                "diffStart": diffStart, "diffEnd": diffEnd,
-                "mutationsStart": mutationsStart, "mutationsEnd": mutationsEnd,
-                "mutationCount": mutations.count,
-                "creates": creates, "inserts": inserts,
-                "deletes": deletes, "removes": removes, "updates": updates,
-                "nodeCount": stats.nodeCount, "treeDepth": stats.depth,
-                "rootTypes": newTree.map { $0.family.elementType }.joined(separator: ", "),
-                "affectedTypes": affectedTypes.sorted().joined(separator: ", "),
-            ]
-            if let syncTimings = lastSyncTimings {
-                timing["syncStart"] = syncTimings.start
-                timing["syncEnd"] = syncTimings.end
-                lastSyncTimings = nil
-            }
-            if let layoutTimings = lastLayoutTimings {
-                for (key, value) in layoutTimings {
-                    timing[key] = value
-                }
-                lastLayoutTimings = nil
-            }
-            // Per-node timing arrays
-            var diffElements: [Any] = []
-            for entry in diffNodeTimings {
-                diffElements.append(entry.type)
-                diffElements.append(entry.start)
-                diffElements.append(entry.end)
-            }
-            timing["diffNodes"] = diffElements
-            var mutElements: [Any] = []
-            for entry in mutationTimings {
-                mutElements.append(entry.mutationType)
-                mutElements.append(entry.elementType)
-                mutElements.append(entry.start)
-                mutElements.append(entry.end)
-            }
-            timing["mutationNodes"] = mutElements
-            let combinedLayout = lastLayoutNodeTimings + syncNodeTimings
-            var layoutElements: [Any] = []
-            for entry in combinedLayout {
-                layoutElements.append(entry.type)
-                layoutElements.append(entry.start)
-                layoutElements.append(entry.end)
-            }
-            timing["layoutNodes"] = layoutElements
-            lastLayoutNodeTimings = []
-
-            // Push immediately via JSON
-            if let jsonData = try? JSONSerialization.data(withJSONObject: [timing]),
-               let jsonString = String(data: jsonData, encoding: .utf8) {
-                engine.evaluate("globalThis.$$handleSSRCommitTimings && globalThis.$$handleSSRCommitTimings(\(jsonString))")
-            }
-        }
-    }
-
-    /// Applies a boundary reveal to the current committed tree (currentTrees[surfaceId])
-    /// instead of the SSR coordinator's internal tree. Used post-hydration to avoid
-    /// overwriting React's committed state with stale SSR data.
+    /// Applies a boundary reveal to the current committed tree via the Renderer.
+    /// Used post-hydration when React owns the view hierarchy.
     public func revealBoundaryInCurrentTree(
         surfaceId: Int,
         boundaryId: Int,
         contentNodes: [ShadowNodeWrapper]
     ) {
-        guard let oldTree = currentTrees[surfaceId] else { return }
+        guard let root = ReactRuntime.shared.rootForSurface(surfaceId) else { return }
+        let renderer = root.renderer
+        let oldTree = renderer.currentTree
         guard let suspenseNode = findSuspenseNodeByBoundaryId(boundaryId, in: oldTree) else { return }
 
         let newTree = ShadowTreeBuilder.revealBoundaryImmutable(
@@ -327,7 +146,19 @@ extension Bindings {
             contentNodes: contentNodes
         )
 
-        updateCurrentTree(surfaceId: surfaceId, oldTree: oldTree, newTree: newTree)
+        renderer.tracingEnabled = nativeTracingEnabled
+        renderer.commitTree(newChildren: newTree, label: "SSR Reveal")
+
+        // Sync for DevTools
+        currentTrees[surfaceId] = renderer.currentTree
+
+        // Register new nodes
+        for child in newTree {
+            registerNewNodesInSubtree(child)
+        }
+
+        // Capture trace screenshot if enabled
+        captureCommitScreenshot()
     }
 
     /// Updates the SSR tree for hydration traversal after a boundary reveal.

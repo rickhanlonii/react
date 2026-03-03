@@ -983,6 +983,14 @@ private class TestSSRCoordinator: InstructionStreamDelegate {
         // No-op in tests
     }
 
+    func didReceiveBootstrapURL(_ url: String) {
+        // No-op in tests
+    }
+
+    func didReceivePostponedState(data: Data) {
+        // No-op in tests
+    }
+
     func didReceiveError(_ error: Error) {
         print("[TestSSRCoordinator] Parse error: \(error)")
     }

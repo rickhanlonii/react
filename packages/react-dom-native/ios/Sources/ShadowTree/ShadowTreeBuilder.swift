@@ -164,20 +164,26 @@ public class ShadowTreeBuilder {
         }
     }
 
+    /// Whether rootComplete() should calculate Yoga layout.
+    /// Set to false when the Renderer will handle layout via commitTree().
+    public var performLayoutOnComplete: Bool = true
+
     /// Layout timing from the most recent rootComplete() call (ms since boot).
     /// Always collected so SSR first paint timing can be reported retroactively.
     public private(set) var layoutStartTime: Double = 0
     public private(set) var layoutEndTime: Double = 0
 
-    /// Root shell is complete — calculate layout and notify.
+    /// Root shell is complete — calculate layout (if enabled) and notify.
     public func rootComplete() {
         layoutStartTime = performanceNow()
-        ShadowTreeLayout.performLayout(
-            rootYogaNode: rootYogaNode,
-            children: rootChildren,
-            width: viewportWidth,
-            height: .nan
-        )
+        if performLayoutOnComplete {
+            ShadowTreeLayout.performLayout(
+                rootYogaNode: rootYogaNode,
+                children: rootChildren,
+                width: viewportWidth,
+                height: .nan
+            )
+        }
         layoutEndTime = performanceNow()
         onRootComplete?(rootChildren)
     }

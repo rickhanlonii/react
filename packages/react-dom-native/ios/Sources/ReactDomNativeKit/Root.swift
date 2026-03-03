@@ -114,8 +114,10 @@ public class Root {
     /// Buffer for JavaScript code received from JS instructions before the JS engine boots.
     /// Replayed during hydration after the engine is ready.
     var ssrJavaScriptBuffer: [String] = []
-    var ssrViewRegistry: ViewRegistry?
-    var ssrMutationApplier: UIKitMutationApplier?
+    /// Keeps the SSR mutation applier alive after hydration. SSR-created buttons
+    /// hold a weak reference to it as their tap target — if deallocated, taps
+    /// silently stop working. Stays alive until the root is unmounted.
+    var ssrMutationApplierRef: UIKitMutationApplier?
     var ssrRevealHasOccurred: Bool = false
     var ssrStreamComplete: Bool = false
     /// Whether the SSR shell (initial content) has been painted.
@@ -166,12 +168,26 @@ public class Root {
     /// Timestamp (ms) when the SSR shell was first painted.
     var shellPaintTime: Double?
 
+    // MARK: - Renderer
+
+    /// The renderer that owns the commit pipeline for this root.
+    let renderer = Renderer()
+
     // MARK: - Initialization
 
     /// Creates a new root. Use `ReactDomNativeKit.createRoot()` instead.
     internal init(container: UIView, options: RootOptions = RootOptions()) {
         self.container = container
         self.options = options
+
+        // Wire timing collection from Renderer
+        renderer.onTimingCollected = { [weak self] timing in
+            if let bindings = ReactRuntime.shared.bindings, bindings.nativeTracingEnabled {
+                bindings.addSSRCommitTimings([timing])
+            } else {
+                self?.ssrCommitTimings.append(timing)
+            }
+        }
     }
 
     // MARK: - Public API
@@ -207,6 +223,17 @@ public class Root {
 
             // Register surface if not yet registered
             if self.surfaceId == nil {
+                // Wire renderer to Bindings' shared infrastructure
+                if let bindings = rt.bindings {
+                    self.renderer.viewRegistry = bindings.viewRegistry
+                    self.renderer.mutationApplier = UIKitMutationApplier(viewRegistry: bindings.viewRegistry)
+                    self.renderer.mutationApplier.dispatchEvent = { view, eventType, payload in
+                        bindings.eventDispatcher.dispatchEvent(from: view, eventType: eventType, payload: payload)
+                    }
+                }
+                // Create the scroll view (must happen before registerSurface)
+                self.renderer.registerRootView(self.container)
+
                 self.surfaceId = rt.registerSurface(root: self, container: self.container)
                 self.setupLayoutObserver()
             }
@@ -253,8 +280,6 @@ public class Root {
         ssrCoordinator = nil
         ssrFlightDataBuffer.removeAll()
         ssrJavaScriptBuffer.removeAll()
-        ssrViewRegistry = nil
-        ssrMutationApplier = nil
         ssrRevealHasOccurred = false
         ssrStreamComplete = false
         ssrShellComplete = false

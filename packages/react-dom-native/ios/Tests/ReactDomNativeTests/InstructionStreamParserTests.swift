@@ -205,6 +205,10 @@ private class MockDelegate: InstructionStreamDelegate {
         bootstrapURLs.append(url)
     }
 
+    func didReceivePostponedState(data: Data) {
+        // Not tested in these unit tests
+    }
+
     func didReceiveError(_ error: Error) {
         errors.append("\(error)")
     }

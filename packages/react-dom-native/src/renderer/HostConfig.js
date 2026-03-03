@@ -288,10 +288,8 @@ exports.replaceContainerChildren = function replaceContainerChildren(container, 
     console.log('[HostConfig]   [' + i + '] <' + c.type + '> family=' + (c._nativeFamily ? 'shared' : 'new') + ' children=' + (c.children ? c.children.length : 0));
   }
   const childNodes = newChildren.map(c => c._nativeNode);
-  const timings = $$completeRoot(container.surfaceId, childNodes);
-  if (timings) {
-    reportNativeCommitTimings(timings);
-  }
+  $$completeRoot(container.surfaceId, childNodes);
+  // Timing goes through renderer.onTimingCollected → $$handleSSRCommitTimings
   container.currentTree = container.pendingTree;
   container.pendingTree = null;
 };

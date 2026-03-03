@@ -32,8 +32,7 @@ extension Root {
         ssrCoordinator = nil
         ssrFlightDataBuffer.removeAll()
         ssrJavaScriptBuffer.removeAll()
-        ssrViewRegistry = nil
-        ssrMutationApplier = nil
+        ssrMutationApplierRef = nil
         ssrRevealHasOccurred = false
         ssrStreamComplete = false
         ssrShellComplete = false
@@ -42,6 +41,13 @@ extension Root {
         pendingHydration = nil
         prerenderResumeURL = nil
         prerenderBootstrapURL = nil
+
+        // Reset renderer state (new scroll view will be created by render/startHydration)
+        renderer.teardown()
+        // Re-create fresh ViewRegistry/MutationApplier (will be switched to Bindings' at hydration/CSR)
+        renderer.viewRegistry = ViewRegistry()
+        renderer.differentiator = Differentiator()
+        renderer.mutationApplier = UIKitMutationApplier(viewRegistry: renderer.viewRegistry)
 
         // Cancel any pending throttled reveals
         revealTimer?.cancel()

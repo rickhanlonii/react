@@ -466,301 +466,81 @@ extension Bindings {
             return nil
         }
 
-        // $$completeRoot(surfaceId, childNodeIds) -> timings | void
-        // This is the core commit function. Triggers layout, diff, and UIKit mutations.
-        // The JS host config passes an array of native node IDs (integers).
-        // When nativeTracingEnabled is true, returns a timing dictionary to JS.
+        // $$completeRoot(surfaceId, childNodeIds) -> void
+        // This is the core commit function. Routes to the Renderer for the
+        // unified layout → diff → mutations → sync pipeline.
+        // Timing goes through renderer.onTimingCollected → $$handleSSRCommitTimings.
         engine.setGlobalFunction("$$completeRoot") { [weak self, weak engine] args in
             guard let self = self, let engine = engine else { return nil }
 
-            let tracing = self.nativeTracingEnabled
-            let commitStart = tracing ? performanceNow() : 0
-
             let surfaceId = engine.toInt(args[0]) ?? 0
 
-            // 0. Resolve node IDs and prepare trees
-            let prepareStart = tracing ? performanceNow() : 0
-
-            // args[1] is an array of native node IDs from the JS host config
+            // 0. Resolve node IDs from JS
             let childRefs = engine.toArray(args[1]) ?? []
             let newChildren: [ShadowNodeWrapper] = childRefs.compactMap { ref in
                 guard let id = engine.toInt(ref) else { return nil }
                 return self.nodeRegistry[id]
             }
 
-            // 1. Get old tree (empty on first commit)
-            let oldChildren = self.currentTrees[surfaceId] ?? []
+            // 1. Look up root and its renderer
+            guard let root = ReactRuntime.shared.rootForSurface(surfaceId) else {
+                print("[react-dom-native] Warning: No root for surfaceId \(surfaceId)")
+                return nil
+            }
+
+            let renderer = root.renderer
+
+            // 2. Get old tree and prepare for diff
+            let oldChildren = renderer.currentTree
 
             // Debug: dump old and new tree structures with family identity
             print("[completeRoot] surfaceId=\(surfaceId) oldChildren=\(oldChildren.count) newChildren=\(newChildren.count)")
             self.debugDumpTree("  OLD", oldChildren, depth: 0)
             self.debugDumpTree("  NEW", newChildren, depth: 0)
 
-            // 1b. Unwrap revealed #suspense nodes from old tree before diffing.
-            // The hydration commit preserves #suspense wrapper nodes from SSR,
-            // but React's retry render produces trees WITHOUT these wrappers
-            // (Suspense children are placed directly). Unwrapping here aligns
-            // the old tree structure with the new tree, so the diff sees matching
-            // families and produces 0 content mutations instead of redundant
-            // CREATE+DELETE pairs for the entire subtree.
-            //
-            // Safe during the initial hydration commit because the method only
-            // unwraps nodes where pending == false. During the initial hydration
-            // commit all boundaries are still pending, so nothing unwraps.
+            // 2b. Unwrap revealed #suspense nodes from old tree before diffing.
             self.unwrapRevealedSuspenseNodesInTree(oldChildren)
 
             #if DEBUG
-            // Assert no revealed #suspense wrappers remain after unwrapping.
-            // If any remain, the unwrap logic has a bug.
             self.assertNoRevealedSuspenseWrappers(oldChildren)
             #endif
 
-            let prepareEnd = tracing ? performanceNow() : 0
+            // 3. Sync tracing state and route to Renderer
+            renderer.tracingEnabled = self.nativeTracingEnabled
+            renderer.commitTree(newChildren: newChildren, label: "Commit")
 
-            // 2. Calculate layout using Yoga
-            let layoutStart = tracing ? performanceNow() : 0
-            var contentSize: CGSize = .zero
-            if let rootView = self.rootViews[surfaceId] {
-                let bounds = rootView.bounds
-                contentSize = self.calculateYogaLayout(for: newChildren, in: bounds, surfaceId: surfaceId, tracing: tracing)
-            }
-            let layoutEnd = tracing ? performanceNow() : 0
+            // 3b. Sync currentTrees for DevTools and other Bindings consumers
+            self.currentTrees[surfaceId] = renderer.currentTree
 
-            // 3. Diff old tree vs new tree
-            let diffStart = tracing ? performanceNow() : 0
-            var diffNodeTimings: [(type: String, start: Double, end: Double)] = []
-            let mutations = self.differentiator.diff(
-                oldChildren: oldChildren,
-                newChildren: newChildren,
-                parent: nil,
-                tracing: tracing,
-                nodeTimings: &diffNodeTimings
-            )
-            let diffEnd = tracing ? performanceNow() : 0
+            // 4. Post-commit cleanup (Bindings-specific concerns)
 
-            // 3b. Categorize mutations for tracing (zero-cost when not tracing)
-            var creates = 0, deletes = 0, inserts = 0, removes = 0, updates = 0
-            var affectedTypes = Set<String>()
-            if tracing {
-                for mutation in mutations {
-                    switch mutation {
-                    case .create(let node):
-                        creates += 1
-                        affectedTypes.insert(node.family.elementType)
-                    case .delete(let node):
-                        deletes += 1
-                        affectedTypes.insert(node.family.elementType)
-                    case .insert(_, let child, _):
-                        inserts += 1
-                        affectedTypes.insert(child.family.elementType)
-                    case .remove(_, let child):
-                        removes += 1
-                        affectedTypes.insert(child.family.elementType)
-                    case .update(let node, _, _):
-                        updates += 1
-                        affectedTypes.insert(node.family.elementType)
-                    }
-                }
-            }
-
-            // 4. Apply mutations to UIViews atomically
-            let mutationsStart = tracing ? performanceNow() : 0
-            var mutationTimings: [(mutationType: String, elementType: String, start: Double, end: Double)] = []
-            var syncNodeTimings: [(type: String, start: Double, end: Double)] = []
-            if let rootView = self.rootViews[surfaceId] {
-                self.mutationApplier.applyMutations(mutations, rootView: rootView, tracing: tracing, mutationTimings: &mutationTimings)
-
-                // 4b. Sync frames for ALL nodes in the tree.
-                // The Differentiator only emits UPDATE mutations for cloned
-                // nodes (oldChild !== newChild). But Yoga layout recalculates
-                // positions for the entire tree — reused sibling nodes may
-                // have new Y positions when a preceding sibling changed size.
-                // This pass ensures every UIView's frame matches Yoga layout.
-                let syncStart = tracing ? performanceNow() : 0
-                if tracing {
-                    self.syncAllFrames(newChildren, tracing: true, nodeTimings: &syncNodeTimings)
-                } else {
-                    self.syncAllFrames(newChildren)
-                }
-                let syncEnd = tracing ? performanceNow() : 0
-                if tracing {
-                    self.lastSyncTimings = (start: syncStart, end: syncEnd)
-                }
-
-                // 4c. Attach root-level children to the UIKit rootView
-                for child in newChildren {
-                    if let childView = self.viewRegistry.view(for: child.family) {
-                        if childView.superview == nil {
-                            rootView.addSubview(childView)
-                        }
-                    }
-                }
-            } else {
-                print("[react-dom-native] Warning: No rootView for surfaceId \(surfaceId)")
-            }
-            let mutationsEnd = tracing ? performanceNow() : 0
-
-            // 5-8. Post-mutation cleanup
-            let cleanupStart = tracing ? performanceNow() : 0
-
-            // 5-6. Promote new tree
-            let treePromoteStart = tracing ? performanceNow() : 0
-
-            // 5. Set scroll view content size for document-level scrolling
-            if let scrollView = self.rootViews[surfaceId] as? UIScrollView {
-                scrollView.contentSize = CGSize(
-                    width: scrollView.bounds.width,
-                    height: contentSize.height
-                )
-            }
-
-            // 6. Promote new tree to current tree
-            self.currentTrees[surfaceId] = newChildren
-
-            // 6b. Initial hydration commit — apply any queued SSR tree updates
-            // and fire onHydrationComplete. After completion, SSR trees are
-            // cleaned up since #suspense nodes are preserved in currentTrees.
+            // 4a. Hydration completion
             if self.hydrationInProgress.contains(surfaceId) {
                 self.hydrationInProgress.remove(surfaceId)
                 print("[ReactDomNativeKit] Hydration initial commit for surfaceId \(surfaceId)")
-
                 self.onHydrationComplete?(surfaceId)
-
-                // SSR trees no longer needed — #suspense nodes live in currentTrees
                 self.ssrTrees.removeValue(forKey: surfaceId)
             }
-            let treePromoteEnd = tracing ? performanceNow() : 0
 
-            // 7. Clean up stale nodes from registry
-            let nodeGCStart = tracing ? performanceNow() : 0
-            // Collect all node IDs still reachable from any current tree
+            // 4b. Clean up stale nodes from registry
             var liveNodes = Set<Int>()
             for (_, tree) in self.currentTrees {
                 self.collectNodeIds(from: tree, into: &liveNodes)
             }
-            // Remove nodes not in any current tree
             let staleIds = self.nodeRegistry.keys.filter { !liveNodes.contains($0) }
             for id in staleIds {
                 self.nodeRegistry.removeValue(forKey: id)
             }
-            let nodeGCEnd = tracing ? performanceNow() : 0
 
-            // 8. Capture trace screenshot if enabled (synchronous, before dom-updated)
-            // This captures the visual state of THIS commit before the next commit
-            // overwrites it, avoiding the round-trip delay through the inspector proxy.
+            // 4c. Capture trace screenshot if enabled
             self.captureCommitScreenshot()
 
-            // 9. Notify DevTools that the DOM tree changed
-            let devtoolsNotifyStart = tracing ? performanceNow() : 0
+            // 4d. Notify DevTools that the DOM tree changed
             if self.sendInspectorMessage != nil {
                 self.sendInspectorMessage?("{\"type\":\"dom-updated\",\"surfaceId\":\(surfaceId)}")
             }
-            let devtoolsNotifyEnd = tracing ? performanceNow() : 0
 
-            let cleanupEnd = tracing ? performanceNow() : 0
-
-            let commitEnd = tracing ? performanceNow() : 0
-
-            // Return timing dictionary when tracing is enabled
-            guard tracing else { return nil }
-
-            let result = engine.makeObject()
-            engine.setProperty(result, "commitStart", engine.makeNumber(commitStart))
-            engine.setProperty(result, "commitEnd", engine.makeNumber(commitEnd))
-            engine.setProperty(result, "layoutStart", engine.makeNumber(layoutStart))
-            engine.setProperty(result, "layoutEnd", engine.makeNumber(layoutEnd))
-            engine.setProperty(result, "diffStart", engine.makeNumber(diffStart))
-            engine.setProperty(result, "diffEnd", engine.makeNumber(diffEnd))
-            engine.setProperty(result, "mutationsStart", engine.makeNumber(mutationsStart))
-            engine.setProperty(result, "mutationsEnd", engine.makeNumber(mutationsEnd))
-            engine.setProperty(result, "mutationCount", engine.makeNumber(Double(mutations.count)))
-            engine.setProperty(result, "prepareStart", engine.makeNumber(prepareStart))
-            engine.setProperty(result, "prepareEnd", engine.makeNumber(prepareEnd))
-            engine.setProperty(result, "cleanupStart", engine.makeNumber(cleanupStart))
-            engine.setProperty(result, "cleanupEnd", engine.makeNumber(cleanupEnd))
-            engine.setProperty(result, "treePromoteStart", engine.makeNumber(treePromoteStart))
-            engine.setProperty(result, "treePromoteEnd", engine.makeNumber(treePromoteEnd))
-            engine.setProperty(result, "nodeGCStart", engine.makeNumber(nodeGCStart))
-            engine.setProperty(result, "nodeGCEnd", engine.makeNumber(nodeGCEnd))
-            engine.setProperty(result, "devtoolsNotifyStart", engine.makeNumber(devtoolsNotifyStart))
-            engine.setProperty(result, "devtoolsNotifyEnd", engine.makeNumber(devtoolsNotifyEnd))
-
-            // Tree stats
-            let stats = self.computeTreeStats(newChildren)
-            engine.setProperty(result, "nodeCount", engine.makeNumber(Double(stats.nodeCount)))
-            engine.setProperty(result, "treeDepth", engine.makeNumber(Double(stats.depth)))
-
-            // Root element types (e.g. "div, main, footer")
-            let rootTypes = newChildren.map { $0.family.elementType }.joined(separator: ", ")
-            engine.setProperty(result, "rootTypes", engine.makeString(rootTypes))
-
-            // Mutation breakdown
-            engine.setProperty(result, "creates", engine.makeNumber(Double(creates)))
-            engine.setProperty(result, "deletes", engine.makeNumber(Double(deletes)))
-            engine.setProperty(result, "inserts", engine.makeNumber(Double(inserts)))
-            engine.setProperty(result, "removes", engine.makeNumber(Double(removes)))
-            engine.setProperty(result, "updates", engine.makeNumber(Double(updates)))
-
-            // Affected element types
-            let affectedTypesStr = affectedTypes.sorted().joined(separator: ", ")
-            engine.setProperty(result, "affectedTypes", engine.makeString(affectedTypesStr))
-
-            // syncStart/syncEnd are scoped inside the rootView conditional.
-            // Use mutationsStart as fallback when rootView was nil (no sync happened).
-            // The actual sync values are captured via lastSyncTimings.
-            if let syncTimings = self.lastSyncTimings {
-                engine.setProperty(result, "syncStart", engine.makeNumber(syncTimings.start))
-                engine.setProperty(result, "syncEnd", engine.makeNumber(syncTimings.end))
-                self.lastSyncTimings = nil
-            } else {
-                engine.setProperty(result, "syncStart", engine.makeNumber(mutationsEnd))
-                engine.setProperty(result, "syncEnd", engine.makeNumber(mutationsEnd))
-            }
-
-            // Merge sub-phase layout timings
-            if let layoutTimings = self.lastLayoutTimings {
-                for (key, value) in layoutTimings {
-                    engine.setProperty(result, key, engine.makeNumber(value))
-                }
-                self.lastLayoutTimings = nil
-            }
-
-            // Per-node timing arrays for flame graph visualization
-
-            // Diff node timings: [type, start, end, type, start, end, ...]
-            var diffElements: [JSValueRef] = []
-            diffElements.reserveCapacity(diffNodeTimings.count * 3)
-            for entry in diffNodeTimings {
-                diffElements.append(engine.makeString(entry.type))
-                diffElements.append(engine.makeNumber(entry.start))
-                diffElements.append(engine.makeNumber(entry.end))
-            }
-            engine.setProperty(result, "diffNodes", engine.makeArray(diffElements))
-
-            // Mutation timings: [mutationType, elementType, start, end, ...]
-            var mutElements: [JSValueRef] = []
-            mutElements.reserveCapacity(mutationTimings.count * 4)
-            for entry in mutationTimings {
-                mutElements.append(engine.makeString(entry.mutationType))
-                mutElements.append(engine.makeString(entry.elementType))
-                mutElements.append(engine.makeNumber(entry.start))
-                mutElements.append(engine.makeNumber(entry.end))
-            }
-            engine.setProperty(result, "mutationNodes", engine.makeArray(mutElements))
-
-            // Layout node timings (readLayoutFrames + syncAllFrames combined)
-            let combinedLayout = self.lastLayoutNodeTimings + syncNodeTimings
-            var layoutElements: [JSValueRef] = []
-            layoutElements.reserveCapacity(combinedLayout.count * 3)
-            for entry in combinedLayout {
-                layoutElements.append(engine.makeString(entry.type))
-                layoutElements.append(engine.makeNumber(entry.start))
-                layoutElements.append(engine.makeNumber(entry.end))
-            }
-            engine.setProperty(result, "layoutNodes", engine.makeArray(layoutElements))
-            self.lastLayoutNodeTimings = []
-
-            return result
+            return nil
         }
 
         // Hydration-only commit signal — called when React's hydration render

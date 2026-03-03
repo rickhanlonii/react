@@ -39,15 +39,6 @@ public class Bindings {
     /// Whether native commit timing collection is enabled (toggled by JS via $$setNativeTracingEnabled).
     var nativeTracingEnabled = false
 
-    /// Sub-phase timings from the most recent calculateYogaLayout call (when tracing).
-    var lastLayoutTimings: [String: Double]?
-
-    /// Sync frame timings from the most recent $$completeRoot call (when tracing).
-    var lastSyncTimings: (start: Double, end: Double)?
-
-    /// Per-node layout timings from the most recent calculateYogaLayout call (when tracing).
-    var lastLayoutNodeTimings: [(type: String, start: Double, end: Double)] = []
-
     /// Callback used by Swift to send inspector messages to the dev server.
     /// Wired by Root to the HotReloadClient WebSocket.
     public var sendInspectorMessage: ((String) -> Void)?
@@ -137,16 +128,15 @@ public class Bindings {
 
     // MARK: - Surface Management
 
-    /// Registers a root UIView for a surface. Must be called before the
-    /// renderer commits to this surface.
+    /// Registers a root UIView for a surface. The scroll view is created by the
+    /// Renderer; this just installs the tap gesture recognizer and tracks the surface.
     public func registerSurface(surfaceId: Int, rootView: UIView) {
-        let scrollView = UIScrollView(frame: rootView.bounds)
-        scrollView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        scrollView.contentInsetAdjustmentBehavior = .automatic
-        rootView.addSubview(scrollView)
-        rootViews[surfaceId] = scrollView
-        currentTrees[surfaceId] = []
-        mutationApplier.installRootTapGesture(on: scrollView)
+        // The Renderer has already created the scroll view.
+        // Find it and install the tap gesture for event dispatch.
+        if let scrollView = rootView.subviews.first(where: { $0 is UIScrollView }) as? UIScrollView {
+            rootViews[surfaceId] = scrollView
+            mutationApplier.installRootTapGesture(on: scrollView)
+        }
     }
 
     /// Returns the current shadow tree for a surface, or nil if not registered.

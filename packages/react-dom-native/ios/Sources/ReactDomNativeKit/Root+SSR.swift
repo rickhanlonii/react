@@ -59,6 +59,13 @@ extension Root {
             boundaryManager: boundaryManager,
             rootView: container
         )
+
+        // Register root view for rendering and skip layout in tree builder
+        // (Renderer will handle layout via commitTree)
+        self.renderer.registerRootView(container)
+        self.renderer.tracingEnabled = ReactRuntime.shared.isTracingActive
+        treeBuilder.performLayoutOnComplete = false
+
         coordinator.onJavaScriptReceived = { [weak self] code in
             guard let self = self else { return }
             if self.hydrationStarted {
@@ -126,6 +133,24 @@ extension Root {
                     self.hydrationStarted = true
                     print("[ReactDomNativeKit] Hydration starting")
 
+                    // Switch renderer to Bindings' shared infrastructure
+                    if let bindings = rt.bindings {
+                        bindings.viewRegistry.merge(from: self.renderer.viewRegistry)
+                        self.renderer.viewRegistry = bindings.viewRegistry
+                        // Keep old mutation applier alive — SSR-created buttons hold
+                        // a weak reference to it. Rewire its dispatchEvent to Bindings.
+                        self.ssrMutationApplierRef = self.renderer.mutationApplier
+                        self.renderer.mutationApplier.dispatchEvent = { view, eventType, payload in
+                            bindings.eventDispatcher.dispatchEvent(from: view, eventType: eventType, payload: payload)
+                        }
+                        // Create new mutation applier with Bindings' ViewRegistry for future commits
+                        self.renderer.mutationApplier = UIKitMutationApplier(viewRegistry: bindings.viewRegistry)
+                        self.renderer.mutationApplier.dispatchEvent = { view, eventType, payload in
+                            bindings.eventDispatcher.dispatchEvent(from: view, eventType: eventType, payload: payload)
+                        }
+                        bindings.mutationApplier.installRootTapGesture(on: self.renderer.rootView!)
+                    }
+
                     // Register surface for hydration and the SSR tree
                     let currentSSRTree = self.ssrCoordinator?.currentRootChildren ?? treeBuilder.rootChildren
                     print("[ReactDomNativeKit] Registering SSR tree for hydration: \(currentSSRTree.count) root children")
@@ -133,27 +158,17 @@ extension Root {
                         surfaceId: surfaceId,
                         rootView: self.container,
                         ssrTree: currentSSRTree,
-                        ssrViewRegistry: self.ssrViewRegistry ?? ViewRegistry()
+                        ssrViewRegistry: self.renderer.viewRegistry
                     )
 
-                    if let bindings = rt.bindings {
-                        self.ssrMutationApplier?.dispatchEvent = { view, eventType, payload in
-                            bindings.eventDispatcher.dispatchEvent(from: view, eventType: eventType, payload: payload)
-                        }
-                    }
                     rt.bindings?.registerSSRTree(
                         surfaceId: surfaceId,
                         rootChildren: currentSSRTree
                     )
 
-                    // Rewire onViewsNeedUpdate to Bindings
-                    self.ssrCoordinator?.onViewsNeedUpdate = { [weak self] oldRootChildren, newRootChildren in
-                        guard let self = self, let bindings = rt.bindings, let surfaceId = self.surfaceId else { return }
-                        bindings.updateCurrentTree(
-                            surfaceId: surfaceId,
-                            oldTree: oldRootChildren,
-                            newTree: newRootChildren
-                        )
+                    // Rewire onViewsNeedUpdate to go through Renderer
+                    self.ssrCoordinator?.onViewsNeedUpdate = { [weak self] _, newRootChildren in
+                        self?.renderer.commitTree(newChildren: newRootChildren, label: "SSR Reveal")
                     }
 
                     rt.bindings?.markHydrationStarted(surfaceId: surfaceId)
@@ -214,131 +229,7 @@ extension Root {
         coordinator.onViewsNeedUpdate = { [weak self] oldRootChildren, newRootChildren in
             guard let self = self else { return }
             self.ssrRevealHasOccurred = true
-
-            guard let applier = self.ssrMutationApplier,
-                  let registry = self.ssrViewRegistry else {
-                return
-            }
-
-            guard let scrollView = self.container.subviews.first(where: { $0 is UIScrollView }) as? UIScrollView else { return }
-
-            let commitStart = performanceNow()
-
-            let layoutStart = performanceNow()
-            let width = Float(self.container.bounds.width > 0 ? self.container.bounds.width : 390)
-            let rootYogaNode = YGNodeNewWithConfig(YogaConfig.shared)!
-            YGNodeStyleSetFlexDirection(rootYogaNode, .column)
-            YGNodeStyleSetWidth(rootYogaNode, width)
-
-            for (index, child) in newRootChildren.enumerated() {
-                if let owner = YGNodeGetOwner(child.yogaNode) {
-                    YGNodeRemoveChild(owner, child.yogaNode)
-                }
-                YGNodeInsertChild(rootYogaNode, child.yogaNode, index)
-            }
-
-            ShadowTreeLayout.performLayout(
-                rootYogaNode: rootYogaNode,
-                children: newRootChildren,
-                width: width,
-                height: .nan
-            )
-
-            YGNodeRemoveAllChildren(rootYogaNode)
-            YGNodeFree(rootYogaNode)
-            let layoutEnd = performanceNow()
-
-            var diffNodeTimings: [(type: String, start: Double, end: Double)] = []
-            let diffStart = performanceNow()
-            let differentiator = Differentiator()
-            let mutations = differentiator.diff(
-                oldChildren: oldRootChildren,
-                newChildren: newRootChildren,
-                parent: nil,
-                tracing: true,
-                nodeTimings: &diffNodeTimings
-            )
-            let diffEnd = performanceNow()
-
-            var mutationTimings: [(mutationType: String, elementType: String, start: Double, end: Double)] = []
-            let mutationsStart = performanceNow()
-            applier.applyMutations(mutations, rootView: scrollView, tracing: true, mutationTimings: &mutationTimings)
-
-            var syncNodeTimings: [(type: String, start: Double, end: Double)] = []
-            let syncStart = performanceNow()
-            self.syncSSRFrames(newRootChildren, tracing: true, nodeTimings: &syncNodeTimings)
-            let syncEnd = performanceNow()
-
-            let mutationsEnd = performanceNow()
-
-            for child in newRootChildren {
-                if let view = registry.view(for: child.family) {
-                    if view.superview == nil {
-                        scrollView.addSubview(view)
-                    }
-                }
-            }
-
-            let contentHeight = ShadowTreeLayout.computeActualContentHeight(for: newRootChildren)
-            scrollView.contentSize = CGSize(
-                width: scrollView.bounds.width,
-                height: contentHeight
-            )
-
-            let commitEnd = performanceNow()
-
-            let stats = Self.computeSSRTreeStats(newRootChildren)
-            var creates = 0, inserts = 0, deletes = 0, removes = 0, updates = 0
-            var affectedTypes = Set<String>()
-            for mutation in mutations {
-                switch mutation {
-                case .create(let node): creates += 1; affectedTypes.insert(node.family.elementType)
-                case .insert(_, let child, _): inserts += 1; affectedTypes.insert(child.family.elementType)
-                case .delete(let node): deletes += 1; affectedTypes.insert(node.family.elementType)
-                case .remove(_, let child): removes += 1; affectedTypes.insert(child.family.elementType)
-                case .update(let node, _, _): updates += 1; affectedTypes.insert(node.family.elementType)
-                }
-            }
-
-            var diffElements: [Any] = []
-            for entry in diffNodeTimings {
-                diffElements.append(entry.type)
-                diffElements.append(entry.start)
-                diffElements.append(entry.end)
-            }
-            var mutElements: [Any] = []
-            for entry in mutationTimings {
-                mutElements.append(entry.mutationType)
-                mutElements.append(entry.elementType)
-                mutElements.append(entry.start)
-                mutElements.append(entry.end)
-            }
-            var layoutElements: [Any] = []
-            for entry in syncNodeTimings {
-                layoutElements.append(entry.type)
-                layoutElements.append(entry.start)
-                layoutElements.append(entry.end)
-            }
-
-            self.ssrCommitTimings.append([
-                "label": "SSR Reveal",
-                "commitStart": commitStart, "commitEnd": commitEnd,
-                "layoutStart": layoutStart, "layoutEnd": layoutEnd,
-                "diffStart": diffStart, "diffEnd": diffEnd,
-                "mutationsStart": mutationsStart, "mutationsEnd": mutationsEnd,
-                "syncStart": syncStart, "syncEnd": syncEnd,
-                "mutationCount": mutations.count,
-                "creates": creates, "inserts": inserts,
-                "deletes": deletes, "removes": removes, "updates": updates,
-                "nodeCount": stats.nodeCount, "treeDepth": stats.depth,
-                "rootTypes": newRootChildren.map { $0.family.elementType }.joined(separator: ", "),
-                "affectedTypes": affectedTypes.sorted().joined(separator: ", "),
-                "diffNodes": diffElements,
-                "mutationNodes": mutElements,
-                "layoutNodes": layoutElements,
-            ])
-
-            print("[ReactDomNativeKit] Boundary revealed — views updated via diff")
+            self.renderer.commitTree(newChildren: newRootChildren, label: "SSR Reveal")
         }
 
         // Store references
@@ -361,40 +252,7 @@ extension Root {
                 return
             }
 
-            let viewRegistry = ViewRegistry()
-            let applier = UIKitMutationApplier(viewRegistry: viewRegistry, logPrefix: "MutationApplier SSR")
-            self.ssrViewRegistry = viewRegistry
-            self.ssrMutationApplier = applier
-
-            let layoutStart = treeBuilder.layoutStartTime
-            let layoutEnd = treeBuilder.layoutEndTime
-
-            var mutationTimings: [(mutationType: String, elementType: String, start: Double, end: Double)] = []
-            let mutationsStart = performanceNow()
-            self.createViewsFromTree(rootChildren, applier: applier, rootView: self.container, mutationTimings: &mutationTimings)
-            let mutationsEnd = performanceNow()
-
-            var mutElements: [Any] = []
-            for entry in mutationTimings {
-                mutElements.append(entry.mutationType)
-                mutElements.append(entry.elementType)
-                mutElements.append(entry.start)
-                mutElements.append(entry.end)
-            }
-
-            let stats = Self.computeSSRTreeStats(rootChildren)
-            self.ssrCommitTimings.append([
-                "label": "SSR First Paint",
-                "commitStart": layoutStart, "commitEnd": mutationsEnd,
-                "layoutStart": layoutStart, "layoutEnd": layoutEnd,
-                "mutationsStart": mutationsStart, "mutationsEnd": mutationsEnd,
-                "mutationCount": stats.nodeCount * 2,
-                "creates": stats.nodeCount, "inserts": stats.nodeCount,
-                "deletes": 0, "removes": 0, "updates": 0,
-                "nodeCount": stats.nodeCount, "treeDepth": stats.depth,
-                "rootTypes": rootChildren.map { $0.family.elementType }.joined(separator: ", "),
-                "mutationNodes": mutElements,
-            ])
+            self.renderer.commitTree(newChildren: rootChildren, label: "SSR First Paint")
 
             print("[ReactDomNativeKit] SSR first paint complete (\(rootChildren.count) root children)")
             self.shellPaintTime = performanceNow()
@@ -486,6 +344,10 @@ extension Root {
             rootView: container
         )
 
+        // Register root view for rendering and skip layout in tree builder
+        self.renderer.registerRootView(container)
+        treeBuilder.performLayoutOnComplete = false
+
         // Ignore JS instructions — no hydration, no runtime
         coordinator.onJavaScriptReceived = { _ in }
 
@@ -502,61 +364,7 @@ extension Root {
         coordinator.onViewsNeedUpdate = { [weak self] oldRootChildren, newRootChildren in
             guard let self = self else { return }
             self.ssrRevealHasOccurred = true
-
-            guard let applier = self.ssrMutationApplier,
-                  let registry = self.ssrViewRegistry else {
-                return
-            }
-
-            guard let scrollView = self.container.subviews.first(where: { $0 is UIScrollView }) as? UIScrollView else { return }
-
-            let width = Float(self.container.bounds.width > 0 ? self.container.bounds.width : 390)
-            let rootYogaNode = YGNodeNewWithConfig(YogaConfig.shared)!
-            YGNodeStyleSetFlexDirection(rootYogaNode, .column)
-            YGNodeStyleSetWidth(rootYogaNode, width)
-
-            for (index, child) in newRootChildren.enumerated() {
-                if let owner = YGNodeGetOwner(child.yogaNode) {
-                    YGNodeRemoveChild(owner, child.yogaNode)
-                }
-                YGNodeInsertChild(rootYogaNode, child.yogaNode, index)
-            }
-
-            ShadowTreeLayout.performLayout(
-                rootYogaNode: rootYogaNode,
-                children: newRootChildren,
-                width: width,
-                height: .nan
-            )
-
-            YGNodeRemoveAllChildren(rootYogaNode)
-            YGNodeFree(rootYogaNode)
-
-            let differentiator = Differentiator()
-            let mutations = differentiator.diff(
-                oldChildren: oldRootChildren,
-                newChildren: newRootChildren,
-                parent: nil
-            )
-
-            applier.applyMutations(mutations, rootView: scrollView)
-            self.syncSSRFrames(newRootChildren)
-
-            for child in newRootChildren {
-                if let view = registry.view(for: child.family) {
-                    if view.superview == nil {
-                        scrollView.addSubview(view)
-                    }
-                }
-            }
-
-            let contentHeight = ShadowTreeLayout.computeActualContentHeight(for: newRootChildren)
-            scrollView.contentSize = CGSize(
-                width: scrollView.bounds.width,
-                height: contentHeight
-            )
-
-            print("[ReactDomNativeKit] Server-only boundary revealed — views updated via diff")
+            self.renderer.commitTree(newChildren: newRootChildren, label: "Server-Only Reveal")
         }
 
         // Store references
@@ -575,13 +383,7 @@ extension Root {
                 return
             }
 
-            let viewRegistry = ViewRegistry()
-            let applier = UIKitMutationApplier(viewRegistry: viewRegistry, logPrefix: "MutationApplier ServerOnly")
-            self.ssrViewRegistry = viewRegistry
-            self.ssrMutationApplier = applier
-
-            var mutationTimings: [(mutationType: String, elementType: String, start: Double, end: Double)] = []
-            self.createViewsFromTree(rootChildren, applier: applier, rootView: self.container, mutationTimings: &mutationTimings)
+            self.renderer.commitTree(newChildren: rootChildren, label: "Server-Only First Paint")
 
             print("[ReactDomNativeKit] Server-only first paint complete (\(rootChildren.count) root children)")
             self.shellPaintTime = performanceNow()
@@ -649,6 +451,10 @@ extension Root {
             rootView: container
         )
 
+        // Register root view for rendering and skip layout in tree builder
+        self.renderer.registerRootView(container)
+        treeBuilder.performLayoutOnComplete = false
+
         // Wire JS callback (same as renderWithSSR)
         coordinator.onJavaScriptReceived = { [weak self] code in
             guard let self = self else { return }
@@ -670,64 +476,7 @@ extension Root {
         coordinator.onViewsNeedUpdate = { [weak self] oldRootChildren, newRootChildren in
             guard let self = self else { return }
             self.ssrRevealHasOccurred = true
-
-            guard let applier = self.ssrMutationApplier,
-                  let registry = self.ssrViewRegistry else { return }
-
-            guard let scrollView = self.container.subviews.first(where: { $0 is UIScrollView }) as? UIScrollView else { return }
-
-            // 1. Calculate layout on the new tree
-            let width = Float(self.container.bounds.width > 0 ? self.container.bounds.width : 390)
-            let rootYogaNode = YGNodeNewWithConfig(YogaConfig.shared)!
-            YGNodeStyleSetFlexDirection(rootYogaNode, .column)
-            YGNodeStyleSetWidth(rootYogaNode, width)
-
-            for (index, child) in newRootChildren.enumerated() {
-                if let owner = YGNodeGetOwner(child.yogaNode) {
-                    YGNodeRemoveChild(owner, child.yogaNode)
-                }
-                YGNodeInsertChild(rootYogaNode, child.yogaNode, index)
-            }
-
-            ShadowTreeLayout.performLayout(
-                rootYogaNode: rootYogaNode,
-                children: newRootChildren,
-                width: width,
-                height: .nan
-            )
-
-            YGNodeRemoveAllChildren(rootYogaNode)
-            YGNodeFree(rootYogaNode)
-
-            // 2. Diff old vs new tree
-            let differentiator = Differentiator()
-            let mutations = differentiator.diff(
-                oldChildren: oldRootChildren,
-                newChildren: newRootChildren,
-                parent: nil
-            )
-
-            // 3. Apply mutations
-            applier.applyMutations(mutations, rootView: scrollView)
-
-            // 4. Sync all frames
-            self.syncSSRFrames(newRootChildren)
-
-            // 5. Attach new root-level views to scroll view
-            for child in newRootChildren {
-                if let view = registry.view(for: child.family) {
-                    if view.superview == nil {
-                        scrollView.addSubview(view)
-                    }
-                }
-            }
-
-            // 6. Update scroll content size
-            let contentHeight = ShadowTreeLayout.computeActualContentHeight(for: newRootChildren)
-            scrollView.contentSize = CGSize(
-                width: scrollView.bounds.width,
-                height: contentHeight
-            )
+            self.renderer.commitTree(newChildren: newRootChildren, label: "SSR Reveal")
         }
 
         // Store references
@@ -745,13 +494,7 @@ extension Root {
                 return
             }
 
-            let viewRegistry = ViewRegistry()
-            let applier = UIKitMutationApplier(viewRegistry: viewRegistry, logPrefix: "MutationApplier SSR Test")
-            self.ssrViewRegistry = viewRegistry
-            self.ssrMutationApplier = applier
-
-            var timings: [(mutationType: String, elementType: String, start: Double, end: Double)] = []
-            self.createViewsFromTree(rootChildren, applier: applier, rootView: self.container, mutationTimings: &timings)
+            self.renderer.commitTree(newChildren: rootChildren, label: "SSR First Paint")
 
             self.ssrShellComplete = true
             completion?(nil)
@@ -787,127 +530,6 @@ extension Root {
         flushPendingReveals()
     }
 
-    // MARK: - SSR View Creation
-
-    /// Creates UIKit views from the SSR shadow tree and adds them to the root view.
-    func createViewsFromTree(
-        _ nodes: [ShadowNodeWrapper],
-        applier: UIKitMutationApplier,
-        rootView: UIView,
-        mutationTimings: inout [(mutationType: String, elementType: String, start: Double, end: Double)]
-    ) {
-        // Use the Differentiator to generate CREATE + INSERT mutations,
-        // then apply them via the mutation applier.
-        var mutations: [Mutation] = []
-
-        for node in nodes {
-            collectCreateMutations(node: node, mutations: &mutations)
-        }
-
-        applier.applyMutations(mutations, rootView: rootView, tracing: true, mutationTimings: &mutationTimings)
-
-        // Create a scroll view wrapper (matching Bindings.registerSurface)
-        let scrollView = UIScrollView(frame: rootView.bounds)
-        scrollView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        scrollView.contentInsetAdjustmentBehavior = .automatic
-        rootView.addSubview(scrollView)
-
-        // Add root-level views as subviews of the scroll view
-        guard let registry = ssrViewRegistry else { return }
-        for node in nodes {
-            if let view = registry.view(for: node.family) {
-                scrollView.addSubview(view)
-            }
-        }
-
-        // Compute content height recursively (matching reconciler path).
-        // Yoga can undercompute parent height when block children have margins
-        // that extend beyond the flex container's computed height.
-        let contentHeight = ShadowTreeLayout.computeActualContentHeight(for: nodes)
-
-        // Set scroll content size for document-level scrolling
-        scrollView.contentSize = CGSize(
-            width: scrollView.bounds.width,
-            height: contentHeight
-        )
-    }
-
-    /// Recursively collects CREATE + INSERT mutations for a subtree.
-    func collectCreateMutations(
-        node: ShadowNodeWrapper,
-        mutations: inout [Mutation]
-    ) {
-        mutations.append(.create(node: node))
-
-        for (index, child) in node.children.enumerated() {
-            collectCreateMutations(node: child, mutations: &mutations)
-            mutations.append(.insert(parent: node, child: child, index: index))
-        }
-    }
-
-    // MARK: - SSR Frame Sync
-
-    /// Recursively syncs every SSR UIView's frame to match its node's layoutFrame.
-    /// Mirrors Bindings.syncAllFrames for the SSR view hierarchy.
-    func syncSSRFrames(_ nodes: [ShadowNodeWrapper]) {
-        guard let registry = ssrViewRegistry else { return }
-        for node in nodes {
-            if let view = registry.view(for: node.family) {
-                if view.frame != node.layoutFrame {
-                    view.frame = node.layoutFrame
-                }
-                if let scrollView = view as? UIScrollView, let contentSize = node.scrollContentSize {
-                    scrollView.contentSize = contentSize
-                }
-            }
-            syncSSRFrames(node.children)
-        }
-    }
-
-    /// Recursively syncs every SSR UIView's frame to match its node's layoutFrame,
-    /// with per-node timing collection for flame graph visualization.
-    func syncSSRFrames(
-        _ nodes: [ShadowNodeWrapper],
-        tracing: Bool,
-        nodeTimings: inout [(type: String, start: Double, end: Double)]
-    ) {
-        guard let registry = ssrViewRegistry else { return }
-        for node in nodes {
-            let nodeStart = performanceNow()
-
-            if let view = registry.view(for: node.family) {
-                if view.frame != node.layoutFrame {
-                    view.frame = node.layoutFrame
-                }
-                if let scrollView = view as? UIScrollView, let contentSize = node.scrollContentSize {
-                    scrollView.contentSize = contentSize
-                }
-            }
-
-            let nodeEnd = performanceNow()
-            nodeTimings.append((type: node.family.elementType, start: nodeStart, end: nodeEnd))
-
-            syncSSRFrames(node.children, tracing: tracing, nodeTimings: &nodeTimings)
-        }
-    }
-
-    // MARK: - SSR Tree Statistics
-
-    /// Computes tree statistics (total node count and max depth) for SSR timing.
-    static func computeSSRTreeStats(_ roots: [ShadowNodeWrapper]) -> (nodeCount: Int, depth: Int) {
-        var count = 0
-        func walk(_ nodes: [ShadowNodeWrapper], currentDepth: Int, maxDepth: inout Int) {
-            for node in nodes {
-                count += 1
-                maxDepth = max(maxDepth, currentDepth)
-                walk(node.children, currentDepth: currentDepth + 1, maxDepth: &maxDepth)
-            }
-        }
-        var maxDepth = 0
-        walk(roots, currentDepth: 1, maxDepth: &maxDepth)
-        return (count, maxDepth)
-    }
-
     // MARK: - Hydration Lifecycle
 
     /// Called when React commits the initial hydration render. Schedules
@@ -941,10 +563,6 @@ extension Root {
     /// Cleans up SSR hydration state. Called when the SSR stream completes
     /// and hydration has committed.
     func cleanupSSRState() {
-        ssrViewRegistry = nil
-        // Keep ssrMutationApplier alive — SSR-created buttons hold a weak
-        // reference to it as their tap target. If deallocated, taps silently
-        // stop working. It stays alive until the root is unmounted.
         ssrRevealHasOccurred = false
         pendingHydration = nil
         ssrCommitTimings.removeAll()

@@ -65,6 +65,9 @@ public class ReactRuntime {
     /// Whether performance tracing was active (survives reload).
     private var tracingActive: Bool = false
 
+    /// Whether performance tracing is currently active (read-only accessor).
+    internal var isTracingActive: Bool { tracingActive }
+
     /// Queued callbacks waiting for boot to complete.
     private var bootCompletionQueue: [((Error?) -> Void)] = []
 
@@ -150,6 +153,11 @@ public class ReactRuntime {
     }
 
     // MARK: - Surface Management
+
+    /// Returns the Root for a given surfaceId, or nil if not found.
+    internal func rootForSurface(_ surfaceId: Int) -> Root? {
+        return activeSurfaces[surfaceId]?.root
+    }
 
     /// Assigns a surface ID and stores surface info without registering with
     /// bindings. Used by SSR path where bindings registration happens later
@@ -272,6 +280,13 @@ public class ReactRuntime {
     }
 
     // MARK: - Viewport
+
+    /// Syncs tracing enabled state to all active Renderers.
+    internal func syncTracingToRenderers(enabled: Bool) {
+        for (_, info) in activeSurfaces {
+            info.root?.renderer.tracingEnabled = enabled
+        }
+    }
 
     /// Updates the viewport size for the JS runtime.
     internal func updateViewportSize(width: CGFloat, height: CGFloat) {
@@ -718,9 +733,11 @@ public class ReactRuntime {
                let type = obj["type"] as? String {
                 if type == "start-tracing" {
                     self?.tracingActive = true
+                    self?.syncTracingToRenderers(enabled: true)
                 }
                 if type == "stop-tracing" {
                     self?.tracingActive = false
+                    self?.syncTracingToRenderers(enabled: false)
                 }
 
                 // Handle dispatch-touch from DevTools screencast
