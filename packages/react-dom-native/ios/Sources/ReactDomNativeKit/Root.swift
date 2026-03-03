@@ -90,6 +90,7 @@ public class Root {
         case csr(serverURL: String)
         case ssr(url: String)
         case prerender(resumeURL: String)
+        case serverOnly(url: String)
     }
     var renderMode: RenderMode?
 
@@ -97,6 +98,7 @@ public class Root {
     internal var isSSR: Bool {
         if case .ssr = renderMode { return true }
         if case .prerender = renderMode { return true }
+        if case .serverOnly = renderMode { return true }
         return false
     }
 

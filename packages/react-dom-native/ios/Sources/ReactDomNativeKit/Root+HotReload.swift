@@ -71,6 +71,10 @@ extension Root {
                 startHydration(url: ssrURL)
             }
 
+        case .serverOnly(let ssrURL):
+            print("[Root] Re-rendering (server-only) — \(ssrURL)")
+            startServerOnly(url: ssrURL)
+
         case .none:
             print("[Root] No render mode recorded, skipping re-render")
         }

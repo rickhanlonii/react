@@ -440,6 +440,177 @@ extension Root {
         task.resume()
     }
 
+    // MARK: - Server-Only SSR (No Hydration)
+
+    /// Starts the SSR streaming flow without hydration.
+    ///
+    /// This renders the server-generated instruction stream to native views
+    /// but does NOT boot the JS runtime or attach React client-side.
+    /// The result is a static view tree — Suspense boundaries are revealed
+    /// as the stream progresses, but there is no interactivity.
+    ///
+    /// Called by the free function `serverOnlyRoot(view, url:)`.
+    ///
+    /// - Parameter url: URL of the SSR endpoint.
+    internal func startServerOnly(url: String) {
+        guard !isUnmounted else {
+            print("[ReactDomNativeKit] Warning: Cannot render to an unmounted root.")
+            return
+        }
+
+        ssrURL = url
+
+        // Store render mode for hot reload recovery
+        renderMode = .serverOnly(url: url)
+
+        // Assign a surfaceId eagerly (SSR needs it before boot completes).
+        if surfaceId == nil {
+            let rt = ReactRuntime.shared
+            surfaceId = rt.reserveSurface(root: self, container: container)
+            setupLayoutObserver()
+        }
+
+        // Set up SSR infrastructure
+        let treeBuilder = ShadowTreeBuilder(
+            surfaceId: surfaceId!,
+            viewportWidth: Float(container.bounds.width > 0 ? container.bounds.width : 390),
+            viewportHeight: Float(container.bounds.height > 0 ? container.bounds.height : 844)
+        )
+
+        let boundaryManager = BoundaryManager()
+        let parser = InstructionStreamParser()
+
+        let coordinator = SSRCoordinator(
+            treeBuilder: treeBuilder,
+            boundaryManager: boundaryManager,
+            rootView: container
+        )
+
+        // Ignore JS instructions — no hydration, no runtime
+        coordinator.onJavaScriptReceived = { _ in }
+
+        // Queue boundary reveals for throttled flushing
+        coordinator.onBoundaryRevealQueued = { [weak self] id, contentNodes in
+            self?.queueBoundaryReveal(id: id, contentNodes: contentNodes)
+        }
+
+        // No onBootstrapURLReceived — we don't boot the JS runtime
+
+        parser.delegate = coordinator
+
+        // Wire boundary reveal view updates
+        coordinator.onViewsNeedUpdate = { [weak self] oldRootChildren, newRootChildren in
+            guard let self = self else { return }
+            self.ssrRevealHasOccurred = true
+
+            guard let applier = self.ssrMutationApplier,
+                  let registry = self.ssrViewRegistry else {
+                return
+            }
+
+            guard let scrollView = self.container.subviews.first(where: { $0 is UIScrollView }) as? UIScrollView else { return }
+
+            let width = Float(self.container.bounds.width > 0 ? self.container.bounds.width : 390)
+            let rootYogaNode = YGNodeNewWithConfig(YogaConfig.shared)!
+            YGNodeStyleSetFlexDirection(rootYogaNode, .column)
+            YGNodeStyleSetWidth(rootYogaNode, width)
+
+            for (index, child) in newRootChildren.enumerated() {
+                if let owner = YGNodeGetOwner(child.yogaNode) {
+                    YGNodeRemoveChild(owner, child.yogaNode)
+                }
+                YGNodeInsertChild(rootYogaNode, child.yogaNode, index)
+            }
+
+            ShadowTreeLayout.performLayout(
+                rootYogaNode: rootYogaNode,
+                children: newRootChildren,
+                width: width,
+                height: .nan
+            )
+
+            YGNodeRemoveAllChildren(rootYogaNode)
+            YGNodeFree(rootYogaNode)
+
+            let differentiator = Differentiator()
+            let mutations = differentiator.diff(
+                oldChildren: oldRootChildren,
+                newChildren: newRootChildren,
+                parent: nil
+            )
+
+            applier.applyMutations(mutations, rootView: scrollView)
+            self.syncSSRFrames(newRootChildren)
+
+            for child in newRootChildren {
+                if let view = registry.view(for: child.family) {
+                    if view.superview == nil {
+                        scrollView.addSubview(view)
+                    }
+                }
+            }
+
+            let contentHeight = ShadowTreeLayout.computeActualContentHeight(for: newRootChildren)
+            scrollView.contentSize = CGSize(
+                width: scrollView.bounds.width,
+                height: contentHeight
+            )
+
+            print("[ReactDomNativeKit] Server-only boundary revealed — views updated via diff")
+        }
+
+        // Store references
+        self.ssrParser = parser
+        self.ssrTreeBuilder = treeBuilder
+        self.ssrBoundaryManager = boundaryManager
+        self.ssrCoordinator = coordinator
+
+        // Handle root completion — first paint
+        treeBuilder.onRootComplete = { [weak self] rootChildren in
+            guard let self = self else { return }
+
+            guard !self.ssrRevealHasOccurred else {
+                print("[ReactDomNativeKit] Server-only root complete skipped — reveal already occurred")
+                self.ssrShellComplete = true
+                return
+            }
+
+            let viewRegistry = ViewRegistry()
+            let applier = UIKitMutationApplier(viewRegistry: viewRegistry, logPrefix: "MutationApplier ServerOnly")
+            self.ssrViewRegistry = viewRegistry
+            self.ssrMutationApplier = applier
+
+            var mutationTimings: [(mutationType: String, elementType: String, start: Double, end: Double)] = []
+            self.createViewsFromTree(rootChildren, applier: applier, rootView: self.container, mutationTimings: &mutationTimings)
+
+            print("[ReactDomNativeKit] Server-only first paint complete (\(rootChildren.count) root children)")
+            self.shellPaintTime = performanceNow()
+            self.ssrShellComplete = true
+        }
+
+        // Start streaming SSR data
+        guard let ssrURLObj = URL(string: url) else {
+            print("[ReactDomNativeKit] Invalid SSR URL: \(url)")
+            return
+        }
+
+        let streamDelegate = SSRStreamDelegate(parser: parser) { [weak self] in
+            guard let self = self else { return }
+            self.ssrStreamComplete = true
+            let revealCount = boundaryManager.revealedCount
+            print("[ReactDomNativeKit] Server-only stream complete, reveals processed: \(revealCount)")
+        }
+
+        let session = URLSession(
+            configuration: .default,
+            delegate: streamDelegate,
+            delegateQueue: .main
+        )
+        let task = session.dataTask(with: ssrURLObj)
+        self.ssrDataTask = task
+        task.resume()
+    }
+
     // MARK: - Test Hooks (SSR)
 
     /// Test-only: Feeds SSR instruction data directly, bypassing HTTP.
