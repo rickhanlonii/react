@@ -74,6 +74,68 @@ exports.pushStartInstance = function pushStartInstance(
   isFallback,
 ) {
   const filteredProps = filterProps(props);
+
+  // Special handling for form action serialization
+  if (type === 'form' && typeof filteredProps.action === 'function') {
+    var action = filteredProps.action;
+    if (typeof action.$$FORM_ACTION === 'function') {
+      // Server reference — call $$FORM_ACTION to get serialized fields
+      var formId = resumableState.nextFormID != null
+        ? resumableState.nextFormID++
+        : 0;
+      var prefix = (resumableState.idPrefix || '') + formId;
+      var customFields = action.$$FORM_ACTION(prefix);
+      if (customFields) {
+        // Store the action ID in props for MPA form submission
+        filteredProps._actionId = customFields.name
+          ? customFields.name
+          : null;
+        filteredProps._actionData = {};
+        if (customFields.data) {
+          customFields.data.forEach(function(value, key) {
+            filteredProps._actionData[key] = value;
+          });
+        }
+      }
+      // Strip the function — native side can't use it
+      filteredProps.action = customFields
+        ? (customFields.action || 'POST')
+        : 'POST';
+    } else {
+      // Client-only function action — strip for SSR,
+      // will be re-attached during hydration from the fiber
+      delete filteredProps.action;
+    }
+  }
+
+  // Special handling for button/input formAction
+  if ((type === 'button' || type === 'input') && typeof filteredProps.formAction === 'function') {
+    var formAction = filteredProps.formAction;
+    if (typeof formAction.$$FORM_ACTION === 'function') {
+      var buttonFormId = resumableState.nextFormID != null
+        ? resumableState.nextFormID++
+        : 0;
+      var buttonPrefix = (resumableState.idPrefix || '') + buttonFormId;
+      var buttonCustomFields = formAction.$$FORM_ACTION(buttonPrefix);
+      if (buttonCustomFields) {
+        filteredProps._formActionId = buttonCustomFields.name
+          ? buttonCustomFields.name
+          : null;
+        filteredProps._formActionData = {};
+        if (buttonCustomFields.data) {
+          buttonCustomFields.data.forEach(function(value, key) {
+            filteredProps._formActionData[key] = value;
+          });
+        }
+      }
+      filteredProps.formAction = buttonCustomFields
+        ? (buttonCustomFields.action || 'POST')
+        : 'POST';
+    } else {
+      delete filteredProps.formAction;
+    }
+  }
+
   // Only include props object if non-empty
   const hasProps = Object.keys(filteredProps).length > 0;
   if (hasProps) {
@@ -188,6 +250,8 @@ exports.createResumableState = function createResumableState(
 ) {
   return {
     bootstrapScripts: bootstrapScripts || [],
+    nextFormID: 0,
+    idPrefix: identifierPrefix || '',
   };
 };
 
@@ -211,11 +275,11 @@ exports.makeId = function makeId(resumableState, treeId, localId) {
 // -- Form state markers --
 
 exports.pushFormStateMarkerIsMatching = function pushFormStateMarkerIsMatching(target) {
-  // No-op
+  writeInstruction(target, ['FSM', true]);
 };
 
 exports.pushFormStateMarkerIsNotMatching = function pushFormStateMarkerIsNotMatching(target) {
-  // No-op
+  writeInstruction(target, ['FSM', false]);
 };
 
 // -- Shell/root completion --
