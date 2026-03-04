@@ -109,6 +109,16 @@ function handleSSR(flightURL, req, res) {
     var debugBootstrap = JSON.stringify(['JS', 'self.__next_debug.push([0])']) + '\n';
     pendingRows.push(debugBootstrap);
 
+    // Set the fixture name so callServer knows where to POST action requests.
+    // Extract fixture name from the Flight URL.
+    var fixtureMatch = flightURL.match(/\/fixtures\/([^/]+)$/);
+    if (fixtureMatch) {
+      var setFixtureJS = JSON.stringify(['JS',
+        'globalThis.__REACT_DOM_NATIVE__._setFixtureName(' + JSON.stringify(fixtureMatch[1]) + ')'
+      ]) + '\n';
+      pendingRows.push(setFixtureJS);
+    }
+
     function emitFlightRow(row) {
       // Emit as JS instruction that pushes Flight data into the inline receiver
       var jsCode = 'self.__next_f.push([1,' + JSON.stringify(row + '\n') + '])';
@@ -342,6 +352,11 @@ app.get('/prerender/:name', function (req, res) {
     res.write(JSON.stringify(['JS', 'self.__next_f.push([0])']) + '\n');
     res.write(JSON.stringify(['JS', 'self.__next_debug.push([0])']) + '\n');
 
+    // After the bootstrap rows
+    res.write(JSON.stringify(['JS',
+      'globalThis.__REACT_DOM_NATIVE__._setFixtureName(' + JSON.stringify(name) + ')'
+    ]) + '\n');
+
     // Static shell (prelude from Fizz — includes BOOT and R instructions)
     res.write(cached.prelude);
 
@@ -490,6 +505,12 @@ app.post('/resume/:name', function (req, res) {
       var shellReady = false;
       var pendingRows = [];
       var partialRow = '';
+
+      // Set fixture name for callServer routing during resume
+      var setFixtureResumeJS = JSON.stringify(['JS',
+        'globalThis.__REACT_DOM_NATIVE__._setFixtureName(' + JSON.stringify(name) + ')'
+      ]) + '\n';
+      pendingRows.push(setFixtureResumeJS);
 
       function emitFlightRow(row) {
         var jsCode =
