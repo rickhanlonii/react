@@ -188,6 +188,21 @@ public class ShadowTreeBuilder {
         onRootComplete?(rootChildren)
     }
 
+    /// Handle a form state marker instruction from Fizz.
+    /// Creates a marker node in the shadow tree that hydration can find.
+    public func didReceiveFormStateMarker(isMatching: Bool) {
+        let family = ShadowNodeFamily(
+            elementType: "#formStateMarker",
+            surfaceId: surfaceId,
+            instanceHandle: nil
+        )
+        let node = ShadowNodeWrapper(
+            props: ["isMatching": isMatching],
+            family: family
+        )
+        appendChild(node)
+    }
+
     /// Reset builder state for reuse.
     public func reset() {
         nodeStack.removeAll()

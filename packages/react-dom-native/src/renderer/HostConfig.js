@@ -696,7 +696,12 @@ exports.registerSuspenseInstanceRetry = function(instance, callback) {
     }
   }
 };
-exports.canHydrateFormStateMarker = function() { return false; };
+exports.canHydrateFormStateMarker = function(instance) {
+  if (instance && instance.type === '#formStateMarker') {
+    return instance;
+  }
+  return false;
+};
 
 // ---------------------------------------------------------------------------
 // Suspense boundary reveal notification (Swift -> JS)
@@ -734,7 +739,9 @@ globalThis.$$notifyBoundaryRevealed = function(boundaryId) {
   }
   pendingSuspenseByBoundary.delete(boundaryId);
 };
-exports.isFormStateMarkerMatching = function() { return false; };
+exports.isFormStateMarkerMatching = function(instance) {
+  return instance && instance.props && instance.props.isMatching === true;
+};
 
 exports.getNextHydratableSibling = function(instance) {
   return $$getNextSSRSibling(instance._ssrNodeRef);

@@ -340,6 +340,10 @@ class SSRCoordinator: InstructionStreamDelegate {
         onPostponedStateReceived?(data)
     }
 
+    func didReceiveFormStateMarker(isMatching: Bool) {
+        activeBuilder.didReceiveFormStateMarker(isMatching: isMatching)
+    }
+
     func didReceiveError(_ error: Error) {
         print("[SSR] Parse error: \(error)")
     }

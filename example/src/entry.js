@@ -354,10 +354,12 @@ globalThis.__REACT_DOM_NATIVE__ = {
       debugChannel: { readable: createDebugDataStream() },
     });
 
+    var formState = globalThis.__REACT_DOM_NATIVE__._formState || null;
     startTransition(function() {
       hydrateRoot(
         {surfaceId: surfaceId},
-        createElement(Root, {tree: tree})
+        createElement(Root, {tree: tree}),
+        { formState: formState }
       );
     });
   },

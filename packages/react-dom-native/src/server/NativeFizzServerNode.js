@@ -52,8 +52,8 @@ function renderToPipeableStream(children, options) {
     options.onAllReady,
     options.onShellReady,
     options.onShellError,
-    undefined,  // onFatalError
-    undefined,  // formState
+    undefined,              // onFatalError
+    options.formState,      // formState — for useActionState matching
   );
 
   var hasStartedFlowing = false;

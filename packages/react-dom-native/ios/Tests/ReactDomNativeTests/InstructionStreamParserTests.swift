@@ -151,6 +151,7 @@ private class MockDelegate: InstructionStreamDelegate {
     var clientRenderBoundaries: [(id: Int, digest: String?)] = []
     var javaScriptCalls: [String] = []
     var bootstrapURLs: [String] = []
+    var formStateMarkers: [Bool] = []
     var errors: [String] = []
 
     func didReceiveOpenElement(type: String, props: [String: Any]) {
@@ -207,6 +208,10 @@ private class MockDelegate: InstructionStreamDelegate {
 
     func didReceivePostponedState(data: Data) {
         // Not tested in these unit tests
+    }
+
+    func didReceiveFormStateMarker(isMatching: Bool) {
+        formStateMarkers.append(isMatching)
     }
 
     func didReceiveError(_ error: Error) {

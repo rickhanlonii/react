@@ -38,6 +38,7 @@ public protocol InstructionStreamDelegate: AnyObject {
     func didReceiveJavaScript(code: String)
     func didReceiveBootstrapURL(_ url: String)
     func didReceivePostponedState(data: Data)
+    func didReceiveFormStateMarker(isMatching: Bool)
     func didReceiveError(_ error: Error)
 }
 
@@ -225,6 +226,16 @@ public class InstructionStreamParser {
                         InstructionParseError.invalidFormat("POSTPONED instruction: failed to serialize state")
                     )
                 }
+
+            case "FSM":
+                guard array.count >= 2 else {
+                    delegate?.didReceiveError(
+                        InstructionParseError.invalidFormat("FSM instruction missing value")
+                    )
+                    return
+                }
+                let isMatching = array[1] as? Bool ?? false
+                delegate?.didReceiveFormStateMarker(isMatching: isMatching)
 
             default:
                 delegate?.didReceiveError(

@@ -991,6 +991,10 @@ private class TestSSRCoordinator: InstructionStreamDelegate {
         // No-op in tests
     }
 
+    func didReceiveFormStateMarker(isMatching: Bool) {
+        // No-op in tests
+    }
+
     func didReceiveError(_ error: Error) {
         print("[TestSSRCoordinator] Parse error: \(error)")
     }

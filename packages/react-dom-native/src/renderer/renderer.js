@@ -222,7 +222,7 @@ function hydrateRoot(nativeRootView, initialElement, options) {
     },
     noop,           // onDefaultTransitionIndicator
     null,           // transitionCallbacks
-    null,           // formState
+    options && options.formState != null ? options.formState : null,  // formState
   );
   console.log('[Renderer] Hydration container created for surfaceId: ' + surfaceId);
   return {

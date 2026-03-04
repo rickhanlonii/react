@@ -27,6 +27,7 @@ var {createInspectorProxy, mountInspectorRoutes, createCDPUpgradeHandler} = requ
 
 var app = express();
 app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({extended: true}));
 var PORT = parseInt(process.env.PORT, 10) || 6001;
 var FLIGHT_SERVER = process.env.FLIGHT_SERVER || 'http://localhost:6000';
 
@@ -79,13 +80,67 @@ function getSSRManifest() {
 }
 
 // ---------------------------------------------------------------------------
+// Server manifest for decodeAction/decodeFormState
+//
+// Maps action IDs (file URLs) to module metadata so the SSR server can
+// resolve server action functions from form data.
+// ---------------------------------------------------------------------------
+
+function getServerManifest() {
+  var manifest = {};
+  var url = require('url');
+  var serverSrcDir = path.resolve(__dirname, 'src');
+
+  function scanDir(dir) {
+    var entries = fs.readdirSync(dir, {withFileTypes: true});
+    for (var i = 0; i < entries.length; i++) {
+      var entry = entries[i];
+      var fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        scanDir(fullPath);
+      } else if (entry.name.endsWith('.js') || entry.name.endsWith('.jsx')) {
+        try {
+          var content = fs.readFileSync(fullPath, 'utf8');
+          if (content.includes("'use server'") || content.includes('"use server"')) {
+            var mod = require(fullPath);
+            var fileUrl = url.pathToFileURL(fullPath).href;
+            for (var exportName in mod) {
+              if (typeof mod[exportName] === 'function') {
+                var fullId = fileUrl + '#' + exportName;
+                manifest[fullId] = {
+                  id: fileUrl,
+                  chunks: [],
+                  name: exportName,
+                };
+              }
+            }
+            if (typeof mod.default === 'function') {
+              manifest[fileUrl] = {
+                id: fileUrl,
+                chunks: [],
+                name: 'default',
+              };
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+  }
+
+  scanDir(serverSrcDir);
+  return manifest;
+}
+
+// ---------------------------------------------------------------------------
 // SSR endpoint — produces native instruction stream
 //
 // Pipeline: Flight server (port 6000) → Flight stream (HTTP)
 //           → Flight client → React elements → Fizz → instruction stream
 // ---------------------------------------------------------------------------
 
-function handleSSR(flightURL, req, res) {
+function handleSSR(flightURL, req, res, formState) {
   // Fetch the Flight stream from the RSC server
   http.get(flightURL, function (flightRes) {
     if (flightRes.statusCode !== 200) {
@@ -117,6 +172,14 @@ function handleSSR(flightURL, req, res) {
         'globalThis.__REACT_DOM_NATIVE__._setFixtureName(' + JSON.stringify(fixtureMatch[1]) + ')'
       ]) + '\n';
       pendingRows.push(setFixtureJS);
+    }
+
+    // Emit formState for useActionState matching during hydration
+    if (formState) {
+      var formStateJS = JSON.stringify(['JS',
+        'globalThis.__REACT_DOM_NATIVE__._formState = ' + JSON.stringify(formState)
+      ]) + '\n';
+      pendingRows.push(formStateJS);
     }
 
     function emitFlightRow(row) {
@@ -241,6 +304,7 @@ function handleSSR(flightURL, req, res) {
     var renderToNativeStream = nativeSSR.renderToPipeableStream;
     var nativeStream = renderToNativeStream(React.createElement(Root), {
       bootstrapScripts: [FLIGHT_SERVER + '/bundle.js'],
+      formState: formState || undefined,
       onShellReady: function () {
         res.setHeader('Content-Type', 'application/x-native-ssr');
         res.setHeader('Access-Control-Allow-Origin', '*');
@@ -681,6 +745,46 @@ app.post('/resume/:name', function (req, res) {
       res
         .status(502)
         .send('Failed to connect to Flight server: ' + err.message);
+    });
+});
+
+app.post('/ssr/:name', function (req, res) {
+  var name = req.params.name;
+
+  // Build FormData from the parsed body
+  var formData = new FormData();
+  if (req.body && typeof req.body === 'object') {
+    for (var key in req.body) {
+      formData.append(key, req.body[key]);
+    }
+  }
+
+  // Use decodeAction to find and bind the server action
+  var {decodeAction, decodeFormState} = require('react-server-dom-webpack/server');
+  var serverManifest = getServerManifest();
+
+  var actionPromise = decodeAction(formData, serverManifest);
+
+  if (!actionPromise) {
+    // No action found in form data — just re-render
+    handleSSR(FLIGHT_SERVER + '/fixtures/' + name, req, res);
+    return;
+  }
+
+  actionPromise
+    .then(function (action) {
+      return action();
+    })
+    .then(function (actionResult) {
+      return decodeFormState(actionResult, formData, serverManifest)
+        .then(function (formState) {
+          var flightURL = FLIGHT_SERVER + '/fixtures/' + name;
+          handleSSR(flightURL, req, res, formState);
+        });
+    })
+    .catch(function (err) {
+      console.error('[SSR] Action execution failed:', err);
+      res.status(500).send('Action execution failed: ' + err.message);
     });
 });
 
