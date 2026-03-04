@@ -22,6 +22,32 @@ reconciler.injectIntoDevTools({
 // Without this, updates land on DefaultLane and passive effects (useEffect,
 // performance profiling) are deferred to the Scheduler's async callback,
 // which may not fire reliably in JavaScriptCore.
+// Collect form data by walking the fiber tree for input elements
+function collectFormDataFromFiber(formFiber) {
+  var data = {};
+  function walk(fiber) {
+    if (!fiber) return;
+    if (fiber.tag === 5 && fiber.type === 'input' && fiber.memoizedProps) {
+      var name = fiber.memoizedProps.name;
+      if (name) {
+        // Read the current React-side value (controlled inputs)
+        var value = fiber.memoizedProps.value || fiber.memoizedProps.defaultValue || '';
+        data[name] = value;
+      }
+    }
+    walk(fiber.child);
+    walk(fiber.sibling);
+  }
+  walk(formFiber.child);
+  return data;
+}
+
+function urlEncodeFormData(data) {
+  return Object.keys(data).map(function(key) {
+    return encodeURIComponent(key) + '=' + encodeURIComponent(data[key]);
+  }).join('&');
+}
+
 $$registerEventHandler(function (instanceHandle, eventType, payload) {
   const propName = 'on' + eventType.charAt(0).toUpperCase() + eventType.slice(1);
   const fiber = instanceHandle;
@@ -47,6 +73,28 @@ $$registerEventHandler(function (instanceHandle, eventType, payload) {
     if (typeof $$isTracing === 'function' && $$isTracing()) {
       var processingEnd = performance.now();
       $$reportInteraction(eventType, $$nextInteractionId(), inputTime, processingStart, processingEnd);
+    }
+  }
+
+  // Handle form submit with string action (MPA form POST)
+  if (eventType === 'submit' && fiber && fiber.memoizedProps) {
+    var action = fiber.memoizedProps.action;
+    if (typeof action === 'string' && action) {
+      // String action — MPA form POST
+      // Collect input values by walking the fiber tree
+      var formData = collectFormDataFromFiber(fiber);
+      var body = urlEncodeFormData(formData);
+
+      $$fetch(action, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: body,
+      }, function(type, data) {
+        if (type === 'error') {
+          console.error('[form submit] POST failed:', data);
+        }
+        // For MPA, the response is a new page — handle in Step 5
+      });
     }
   }
 });

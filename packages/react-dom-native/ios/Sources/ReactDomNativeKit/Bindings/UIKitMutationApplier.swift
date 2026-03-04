@@ -784,6 +784,18 @@ public class UIKitMutationApplier: NSObject {
     }
 
     @objc private func handleButtonTap(_ sender: UIButton) {
+        // Walk up to find nearest <form> ancestor
+        var current: UIView? = sender.superview
+        while let v = current {
+            if let family = viewRegistry.family(for: v),
+               family.elementType == "form" {
+                // Dispatch "submit" event to the form
+                dispatchEvent?(v, "submit", ["_nativeTimestamp": performanceNow()])
+                break
+            }
+            current = v.superview
+        }
+        // Always dispatch the click event on the button
         dispatchEvent?(sender, "click", ["_nativeTimestamp": performanceNow()])
     }
 
