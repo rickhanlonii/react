@@ -39,6 +39,7 @@ var renderer = require('../../packages/react-dom-native/client');
 var createRoot = renderer.createRoot;
 var hydrateRoot = renderer.hydrateRoot;
 var ReactFlightClient = require('react-server-dom-webpack/client.browser');
+var encodeReply = ReactFlightClient.encodeReply;
 
 // ---------------------------------------------------------------------------
 // Inline Flight Data Receiver
@@ -167,6 +168,84 @@ function closeDebugDataStream() {
 selfGlobal.__next_debug = selfGlobal.__next_debug || [];
 selfGlobal.__next_debug.push = debugDataCallback;
 
+// ---------------------------------------------------------------------------
+// Server Action Support
+//
+// When React calls a server action (function marked with "use server"),
+// the Flight client invokes callServer(actionId, args). We serialize the
+// args with encodeReply, POST to the RSC server, and return the
+// deserialized response tree via createFromReadableStream.
+// ---------------------------------------------------------------------------
+
+var FLIGHT_SERVER = 'http://localhost:6000';
+
+// Track the current fixture name for server action routing.
+// Set by SSR bootstrap or by the native side when navigating to a fixture.
+var currentFixtureName = null;
+
+function callServer(id, args) {
+  // Encode the arguments using the Flight reply protocol.
+  // encodeReply returns Promise<string | FormData>.
+  // For now we only handle the string case (no binary blobs in args).
+  return encodeReply(args).then(function(body) {
+    var fixtureName = currentFixtureName || 'kitchen-sink';
+    var url = FLIGHT_SERVER + '/fixtures/' + fixtureName;
+
+    // Create a ReadableStream that will be fed by the $$fetch callback.
+    // We create it eagerly so createFromReadableStream can start consuming
+    // while data is still arriving (true streaming).
+    var streamController = null;
+    var encoder = new TextEncoder();
+
+    var responseStream = new ReadableStream({
+      start: function(controller) {
+        streamController = controller;
+      }
+    });
+
+    // Start consuming the response stream immediately.
+    // createFromReadableStream returns a thenable (React promise) that
+    // resolves to the deserialized React element tree.
+    var result = ReactFlightClient.createFromReadableStream(
+      responseStream,
+      { callServer: callServer }
+    );
+
+    // POST to the RSC server.
+    // After Step 1, $$fetch accepts (url, options, callback).
+    $$fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'text/x-component',
+        'rsc-action': id,
+        'Content-Type': typeof body === 'string' ? 'text/plain' : 'multipart/form-data',
+      },
+      body: typeof body === 'string' ? body : '',
+    }, function(type, data) {
+      if (type === 'error') {
+        if (streamController) {
+          streamController.error(new Error('Server action failed: ' + data));
+        }
+        return;
+      }
+      if (type === 'data') {
+        if (streamController && data) {
+          streamController.enqueue(encoder.encode(data));
+        }
+        return;
+      }
+      if (type === 'end') {
+        if (streamController) {
+          streamController.close();
+          streamController = null;
+        }
+      }
+    });
+
+    return result;
+  });
+}
+
 function Root(props) {
   return use(props.tree);
 }
@@ -251,6 +330,7 @@ globalThis.__REACT_DOM_NATIVE__ = {
   renderFromStream: function renderFromStream(surfaceId) {
     var stream = createFlightDataStream();
     var tree = ReactFlightClient.createFromReadableStream(stream, {
+      callServer: callServer,
       debugChannel: { readable: createDebugDataStream() },
     });
     var root = createRoot({surfaceId: surfaceId});
@@ -270,6 +350,7 @@ globalThis.__REACT_DOM_NATIVE__ = {
   hydrateFromStream: function hydrateFromStream(surfaceId) {
     var stream = createFlightDataStream();
     var tree = ReactFlightClient.createFromReadableStream(stream, {
+      callServer: callServer,
       debugChannel: { readable: createDebugDataStream() },
     });
 
@@ -290,6 +371,11 @@ globalThis.__REACT_DOM_NATIVE__ = {
 
   // Version info
   version: '0.0.1',
+
+  // Set the current fixture name for callServer routing
+  _setFixtureName: function _setFixtureName(name) {
+    currentFixtureName = name;
+  },
 
   // Close the Flight data stream (called when SSR/CSR stream ends)
   __closeFlightDataStream__: closeFlightDataStream,
