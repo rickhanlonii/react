@@ -858,12 +858,9 @@ public class UIKitMutationApplier: NSObject {
         // Try MPA form submit first (works without JS runtime in Server Only mode)
         if let family = viewRegistry.family(for: sender),
            family.isSubmitButton {
-            NSLog("[MPA] handleButtonTap: submit button tapped, ssrBaseURL=\(ssrBaseURL ?? "nil")")
             if attemptMPAFormSubmit(from: sender) {
-                NSLog("[MPA] handleButtonTap: MPA form submit succeeded")
                 return
             }
-            NSLog("[MPA] handleButtonTap: MPA form submit did not match, falling through to JS")
         }
 
         // Dispatch click on the button itself
@@ -913,27 +910,21 @@ public class UIKitMutationApplier: NSObject {
 
             // Check if the form has a string action URL
             guard var actionURL = family.formActionURL, !actionURL.isEmpty else {
-                NSLog("[MPA] attemptMPAFormSubmit: form found but no action URL")
                 return false // Form exists but no action URL
             }
-
-            NSLog("[MPA] attemptMPAFormSubmit: form found with action=\(actionURL)")
 
             // When Fizz serializes a server action, it sets action="POST" (not a URL).
             // Use the SSR base URL as the POST target instead.
             if actionURL == "POST" {
                 guard let baseURL = ssrBaseURL, !baseURL.isEmpty else {
-                    NSLog("[MPA] attemptMPAFormSubmit: action=POST but ssrBaseURL is nil")
                     return false
                 }
                 actionURL = baseURL
-                NSLog("[MPA] attemptMPAFormSubmit: mapped POST to ssrBaseURL=\(actionURL)")
             }
 
             // Collect form data from input descendants
             var formFields: [String: String] = [:]
             collectFormData(from: view, into: &formFields)
-            NSLog("[MPA] attemptMPAFormSubmit: formFields=\(formFields), actionData keys=\(family.formActionData?.keys.joined(separator: ",") ?? "nil")")
 
             // POST to the action URL, including serialized action data
             performMPAFormPost(to: actionURL, fields: formFields, actionData: family.formActionData)
@@ -955,7 +946,7 @@ public class UIKitMutationApplier: NSObject {
 
     func performMPAFormPost(to actionURL: String, fields: [String: String], actionData: [String: String]? = nil) {
         guard let url = URL(string: actionURL) else {
-            NSLog("[MPA] performMPAFormPost: invalid action URL: \(actionURL)")
+            print("[react-dom-native] MPA form submit: invalid action URL: \(actionURL)")
             return
         }
 
@@ -983,27 +974,19 @@ public class UIKitMutationApplier: NSObject {
         }.joined(separator: "&")
         request.httpBody = body.data(using: .utf8)
 
-        NSLog("[MPA] performMPAFormPost: POST \(actionURL), body length=\(body.count)")
-
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 guard let self = self else { return }
 
                 if let error = error {
-                    NSLog("[MPA] performMPAFormPost: request failed: \(error.localizedDescription)")
+                    print("[react-dom-native] MPA form submit failed: \(error.localizedDescription)")
                     return
-                }
-
-                if let httpResponse = response as? HTTPURLResponse {
-                    NSLog("[MPA] performMPAFormPost: HTTP \(httpResponse.statusCode)")
                 }
 
                 guard let data = data, let responseText = String(data: data, encoding: .utf8) else {
-                    NSLog("[MPA] performMPAFormPost: empty response")
+                    print("[react-dom-native] MPA form submit: empty response")
                     return
                 }
-
-                NSLog("[MPA] performMPAFormPost: response length=\(responseText.count)")
 
                 // The response is a new SSR instruction stream.
                 // Delegate to the SSR loading path to replace the current tree.
