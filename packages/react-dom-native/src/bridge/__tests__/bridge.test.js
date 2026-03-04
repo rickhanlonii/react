@@ -388,6 +388,23 @@ describe('Bridge', () => {
         callback,
       );
     });
+
+    it('calls the bridge global with options dict for POST', () => {
+      const callback = jest.fn();
+      const options = {
+        method: 'POST',
+        headers: {'Content-Type': 'text/x-component'},
+        body: 'action data',
+      };
+
+      Bridge.fetch('https://example.com/action', options, callback);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://example.com/action',
+        options,
+        callback,
+      );
+    });
   });
 
   // -----------------------------------------------------------------

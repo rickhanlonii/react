@@ -90,8 +90,8 @@ exports.registerEventHandler = function registerEventHandler(handler) {
   return $$registerEventHandler(handler);
 };
 
-exports.fetch = function fetch(url, headers, callback) {
-  return $$fetch(url, headers, callback);
+exports.fetch = function fetch(url, options, callback) {
+  return $$fetch(url, options, callback);
 };
 
 // ---------------------------------------------------------------------------

@@ -767,14 +767,16 @@ extension Bindings {
     // MARK: - Networking
 
     func registerNetworking() {
-        // $$fetch(url, headers, callback) -> void
+        // $$fetch(url, options, callback) -> void
+        // options: { headers?: {}, method?: string, body?: string }
+        // Backward compat: options can also be a flat headers dict (old API)
         // Asynchronous - URLSession runs on background thread, callbacks
         // dispatched to main thread.
         engine.setGlobalFunction("$$fetch") { [weak self, weak engine] args in
             guard let self = self, let engine = engine else { return nil }
 
             let urlString = engine.toString(args[0]) ?? ""
-            let headersDict = engine.toDictionary(args[1]) ?? [:]
+            let optionsDict = engine.toDictionary(args[1]) ?? [:]
             let callback = args[2]
 
             guard let url = URL(string: urlString) else {
@@ -789,10 +791,33 @@ extension Bindings {
             }
 
             var request = URLRequest(url: url)
-            for (key, value) in headersDict {
-                if let stringValue = value as? String {
-                    request.setValue(stringValue, forHTTPHeaderField: key)
+
+            // Method (default GET)
+            if let method = optionsDict["method"] as? String {
+                request.httpMethod = method.uppercased()
+            }
+
+            // Headers — check for nested headers dict first, fall back to flat dict
+            if let headersDict = optionsDict["headers"] as? [String: Any] {
+                for (key, value) in headersDict {
+                    if let stringValue = value as? String {
+                        request.setValue(stringValue, forHTTPHeaderField: key)
+                    }
                 }
+            } else {
+                // Backward compat: if options IS the headers dict (old API)
+                // Treat any key that isn't a known option key as a header
+                for (key, value) in optionsDict {
+                    if key != "method" && key != "body" && key != "headers",
+                       let stringValue = value as? String {
+                        request.setValue(stringValue, forHTTPHeaderField: key)
+                    }
+                }
+            }
+
+            // Body (string or Data)
+            if let body = optionsDict["body"] as? String {
+                request.httpBody = body.data(using: .utf8)
             }
 
             // Protect callback from GC during async work

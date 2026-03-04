@@ -118,6 +118,12 @@ declare const $$ContinuousEventPriority: number;
 
 declare function $$fetch(
   url: string,
-  headers: Record<string, string>,
+  options:
+    | {
+        method?: string;
+        headers?: Record<string, string>;
+        body?: string;
+      }
+    | Record<string, string>,
   callback: (type: 'data' | 'end' | 'error', payload: string) => void,
 ): void;
