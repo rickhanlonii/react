@@ -17,7 +17,7 @@ class ServerOnlyViewController: UIViewController {
         view.backgroundColor = .clear
 
         let ssrURL = "http://localhost:6001/ssr/\(fixtureName)"
-        root = hydrateRoot(view, url: ssrURL)
+        root = createRootFromFetch(view, url: ssrURL)
     }
 
     deinit {
