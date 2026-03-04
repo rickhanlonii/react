@@ -1,12 +1,21 @@
 {
   "mcpServers": {
-    "claude mcp add chrome-devtools --scope user npx chrome-devtools-mcp@latest": {
-      "command": "npx",
+    "chrome-devtools": {
+      "type": "stdio",
+      "command": "/Users/rickhanlonii/.local/share/nvm/v25.4.0/bin/chrome-devtools-mcp",
       "args": [
-        "chrome-devtools-mcp@latest",
-        "--autoConnect",
-        "--channel=beta"
-      ]
+      ],
+      "env": {
+        "DEBUG": "*"
+      }
+    },
+    "falcon-devtools": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["tools/devtools-mcp/build/src/index.js"],
+      "env": {
+        "FALCON_PROXY_URL": "http://127.0.0.1:6001"
+      }
     }
   }
 }

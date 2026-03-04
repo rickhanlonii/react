@@ -1,0 +1,32 @@
+{
+  "name": "react-dom-native-devtools-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for Falcon DevTools (forked from chrome-devtools-mcp)",
+  "type": "module",
+  "bin": "./build/src/index.js",
+  "main": "./build/src/server.js",
+  "scripts": {
+    "build": "tsc && node scripts/post-build.mjs",
+    "typecheck": "tsc --noEmit",
+    "clean": "node -e \"require('fs').rmSync('build', {recursive: true, force: true})\""
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.27.1",
+    "chrome-devtools-frontend": "1.0.1591204",
+    "core-js": "3.48.0",
+    "debug": "4.4.3",
+    "ws": "^8.18.0",
+    "yargs": "18.0.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/debug": "^4.1.12",
+    "@types/node": "^25.0.0",
+    "@types/ws": "^8.5.0",
+    "@types/yargs": "^17.0.33",
+    "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": "^20.19.0 || ^22.12.0 || >=23"
+  }
+}
