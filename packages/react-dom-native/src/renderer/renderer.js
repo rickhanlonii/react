@@ -74,9 +74,10 @@ $$registerEventHandler(function (instanceHandle, eventType, payload) {
 
         var finalAction = submitterAction || action;
 
-        // Build FormData from the form's descendant input fibers
-        // For now, pass null formData — server actions receive args via encodeReply
-        var formData = null;
+        // Read form field values from the native submit event payload.
+        // The native side collects UITextField values and passes them as _formData.
+        // This is a plain object (not FormData) so encodeReply serializes it as JSON.
+        var formData = (payload && payload._formData) ? payload._formData : collectFormDataFromFiber(formFiber);
 
         reconciler.discreteUpdates(function () {
           reconciler.startHostTransition(formFiber, {pending: true}, finalAction, formData);

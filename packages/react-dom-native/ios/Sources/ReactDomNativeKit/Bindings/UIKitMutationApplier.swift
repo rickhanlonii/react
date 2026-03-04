@@ -841,7 +841,13 @@ public class UIKitMutationApplier: NSObject {
         while let view = formSearch {
             if let family = viewRegistry.family(for: view),
                family.elementType == "form" {
-                dispatchEvent?(view, "submit", ["_nativeTimestamp": performanceNow()])
+                // Collect form field values from native UITextFields
+                var formData: [String: String] = [:]
+                collectFormData(from: view, into: &formData)
+                dispatchEvent?(view, "submit", [
+                    "_nativeTimestamp": performanceNow(),
+                    "_formData": formData
+                ])
                 return
             }
             formSearch = view.superview

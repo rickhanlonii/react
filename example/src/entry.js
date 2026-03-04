@@ -31,6 +31,41 @@ if (__DEV__) {
   globalThis.$RefreshSig$ = function() { return function(type) { return type; }; };
 }
 
+// ---------------------------------------------------------------------------
+// FormData polyfill for JavaScriptCore
+//
+// JSC doesn't have FormData. React Flight's encodeReply checks
+// `value instanceof FormData` which throws a ReferenceError if FormData is
+// undefined. This minimal polyfill prevents the crash. Our form data is
+// passed as plain objects (not FormData instances), so this polyfill is
+// only needed to make the instanceof check safe.
+// ---------------------------------------------------------------------------
+if (typeof FormData === 'undefined') {
+  globalThis.FormData = function FormData() {
+    this._entries = [];
+  };
+  globalThis.FormData.prototype.append = function(name, value) {
+    this._entries.push([name, value]);
+  };
+  globalThis.FormData.prototype.get = function(name) {
+    for (var i = 0; i < this._entries.length; i++) {
+      if (this._entries[i][0] === name) return this._entries[i][1];
+    }
+    return null;
+  };
+  globalThis.FormData.prototype.has = function(name) {
+    for (var i = 0; i < this._entries.length; i++) {
+      if (this._entries[i][0] === name) return true;
+    }
+    return false;
+  };
+  globalThis.FormData.prototype.forEach = function(callback) {
+    for (var i = 0; i < this._entries.length; i++) {
+      callback(this._entries[i][1], this._entries[i][0]);
+    }
+  };
+}
+
 var React = require('react');
 var use = React.use;
 var startTransition = React.startTransition;
@@ -183,6 +218,9 @@ var FLIGHT_SERVER = 'http://localhost:6000';
 // Set by SSR bootstrap or by the native side when navigating to a fixture.
 var currentFixtureName = null;
 
+// Track the current React root so we can re-render after server actions.
+var currentRoot = null;
+
 function callServer(id, args) {
   // Encode the arguments using the Flight reply protocol.
   // encodeReply returns Promise<string | FormData>.
@@ -239,10 +277,56 @@ function callServer(id, args) {
           streamController.close();
           streamController = null;
         }
+        // After the action response is fully received, re-fetch the fixture
+        // to get updated server state (e.g. new todos). This runs after
+        // useActionState processes the return value.
+        refetchCurrentFixture();
       }
     });
 
     return result;
+  });
+}
+
+// Re-fetch the current fixture's Flight stream to get updated server state
+// after a server action has mutated data. Renders the new tree into the
+// existing React root.
+function refetchCurrentFixture() {
+  var fixtureName = currentFixtureName;
+  if (!fixtureName || !currentRoot) return;
+
+  var url = FLIGHT_SERVER + '/fixtures/' + fixtureName;
+  var controller = null;
+  var encoder = new TextEncoder();
+
+  var stream = new ReadableStream({
+    start: function(c) { controller = c; }
+  });
+
+  var tree = ReactFlightClient.createFromReadableStream(stream, {
+    callServer: callServer,
+  });
+
+  $$fetch(url, {
+    headers: {'Accept': 'text/x-component'},
+  }, function(type, data) {
+    if (type === 'data' && controller && data) {
+      controller.enqueue(encoder.encode(data));
+    } else if (type === 'end' && controller) {
+      controller.close();
+      controller = null;
+    } else if (type === 'error' && controller) {
+      controller.error(new Error('Refetch failed: ' + data));
+      controller = null;
+    }
+  });
+
+  Promise.resolve(tree).then(function(element) {
+    if (currentRoot) {
+      startTransition(function() {
+        currentRoot.render(createElement(Root, {tree: Promise.resolve(element)}));
+      });
+    }
   });
 }
 
@@ -334,6 +418,7 @@ globalThis.__REACT_DOM_NATIVE__ = {
       debugChannel: { readable: createDebugDataStream() },
     });
     var root = createRoot({surfaceId: surfaceId});
+    currentRoot = root;
 
     tree.then(function(element) {
       root.render(element);
@@ -356,7 +441,7 @@ globalThis.__REACT_DOM_NATIVE__ = {
 
     var formState = globalThis.__REACT_DOM_NATIVE__._formState || null;
     startTransition(function() {
-      hydrateRoot(
+      currentRoot = hydrateRoot(
         {surfaceId: surfaceId},
         createElement(Root, {tree: tree}),
         { formState: formState }

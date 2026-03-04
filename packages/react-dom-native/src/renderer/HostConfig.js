@@ -555,7 +555,12 @@ exports.HostTransitionContext = {
   _threadCount: 0,
 };
 
-exports.NotPendingTransition = null;
+exports.NotPendingTransition = Object.freeze({
+  pending: false,
+  data: null,
+  method: null,
+  action: null,
+});
 
 exports.scheduleMicrotask = function scheduleMicrotask(fn) {
   queueMicrotask(fn);

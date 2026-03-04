@@ -1,19 +1,29 @@
 'use server';
 
-// In-memory todo storage (shared across requests for the demo)
-var nextId = 3;
-var todos = [
-  {id: 1, text: 'Learn React Server Components', completed: true},
-  {id: 2, text: 'Build with Server Actions', completed: false},
-];
+// In-memory todo storage (shared across requests for the demo).
+// Stored on globalThis so it survives require.cache invalidation
+// (clearServerSourceCache() wipes module-scoped vars on every request).
+if (!globalThis.__todoStore) {
+  globalThis.__todoStore = {
+    nextId: 3,
+    todos: [
+      {id: 1, text: 'Learn React Server Components', completed: true},
+      {id: 2, text: 'Build with Server Actions', completed: false},
+    ],
+  };
+}
+var todos = globalThis.__todoStore.todos;
 
-async function addTodo(text) {
+async function addTodo(previousState, formData) {
+  // useActionState calls with (previousState, formData).
+  // formData is a plain object with input name/value pairs from the native form.
+  var text = formData && formData.text;
   if (!text || typeof text !== 'string' || text.trim() === '') {
     return {error: 'Text is required'};
   }
-  var todo = {id: nextId++, text: text.trim(), completed: false};
+  var todo = {id: globalThis.__todoStore.nextId++, text: text.trim(), completed: false};
   todos.push(todo);
-  return {success: true, todo: todo};
+  return {error: null};
 }
 
 async function toggleTodo(id) {

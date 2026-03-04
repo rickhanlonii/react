@@ -316,24 +316,10 @@ app.post('/fixtures/:name', function (req, res) {
       // action ID or action not found returned early in the previous .then()).
       if (res.headersSent) return;
 
-      // Re-render the fixture with updated server state.
-      // The action has already mutated server state (e.g. added a todo).
-      // Now we render a fresh Flight stream so the client can update its UI.
-      var fixturePath = path.join(FIXTURES_DIR, req.params.name + '.js');
-      if (!fs.existsSync(fixturePath)) {
-        res.status(404).send('Fixture not found: ' + req.params.name);
-        return;
-      }
-
-      var mod = require(fixturePath);
-      var FixtureComponent = mod.default || mod;
-      var element = React.createElement(FixtureComponent);
-
-      // Return the action result as the first element of the returnValue
-      // stream, followed by the re-rendered tree. This matches the Next.js
-      // pattern where the action response is a Flight stream containing
-      // both the return value and the updated RSC tree.
-      renderFlightWithDebugChannel(element, res);
+      // Return the action result (return value of the server action) as a
+      // Flight stream. useActionState uses this as the new state.
+      // The client will separately re-fetch the fixture to get the updated tree.
+      renderFlightWithDebugChannel(actionResult, res);
     }).catch(function (error) {
       console.error('[RSC] Server action error:', error);
       if (!res.headersSent) {

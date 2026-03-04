@@ -307,7 +307,10 @@ describe('POST /fixtures/:name endpoint', function () {
     expect(result.body).toContain('MPA form POST not yet implemented');
   });
 
-  it('returns 404 with non-existent fixture', async function () {
+  it('executes action even with non-existent fixture (returns action result)', async function () {
+    // Server actions return the action result directly (not a re-rendered fixture),
+    // so the fixture name in the URL is just for routing. The action executes
+    // regardless of whether the fixture file exists.
     var result = await makeRequest(
       {
         hostname: 'localhost',
@@ -322,8 +325,7 @@ describe('POST /fixtures/:name endpoint', function () {
       '["Test"]'
     );
 
-    expect(result.status).toBe(404);
-    expect(result.body).toContain('Fixture not found');
+    expect(result.status).toBe(200);
   });
 
   it('parses text/plain body as string', async function () {

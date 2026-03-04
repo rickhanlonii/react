@@ -44,24 +44,21 @@ class EventDispatcher {
     ) {
         // 1. Look up the ShadowNodeFamily for this view
         guard let family = viewRegistry.family(for: view) else {
-            // View not in registry - possibly already unmounted. Silently drop.
             return
         }
 
         // 2. Get the InstanceHandle from the family
         guard let instanceHandle = family.instanceHandle else {
-            // InstanceHandle was GC'd - node is unmounted. Silently drop.
             return
         }
 
         // 3. Get the registered event handler
         guard let handler = eventHandler else {
-            print("[react-dom-native] Warning: No event handler registered")
             return
         }
 
         // 4. Call handler(instanceHandle, eventType, payload)
-        _ = engine.callFunction(handler, args: [
+        let _ = engine.callFunction(handler, args: [
             instanceHandle,
             engine.makeString(eventType),
             engine.wrapNativeObject(payload as NSDictionary)
