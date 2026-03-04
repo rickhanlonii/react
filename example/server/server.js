@@ -18,6 +18,21 @@ var fs = require('fs');
 var {PassThrough} = require('stream');
 var express = require('express');
 var React = require('react');
+var url = require('url');
+
+// __webpack_require__ and __webpack_chunk_load__ — needed by decodeReply/decodeAction
+// to resolve server action modules via resolveServerReference -> requireModule.
+// The RSC server runs Node.js, so we use require() directly and skip chunk loading.
+// Server action IDs are file:// URLs (set by node-register's registerServerReference).
+globalThis.__webpack_require__ = function (id) {
+  if (id.startsWith('file://')) {
+    return require(url.fileURLToPath(id));
+  }
+  return require(id);
+};
+globalThis.__webpack_chunk_load__ = function () {
+  return Promise.resolve();
+};
 
 var app = express();
 var PORT = parseInt(process.env.PORT, 10) || 6000;
@@ -69,8 +84,67 @@ function getLatestVersion() {
   return latest;
 }
 
+// Build server manifest — maps server action IDs to module metadata.
+//
+// resolveServerReference (in react-server-dom-webpack) looks up entries
+// by full ID ("file:///path.js#export") first, then falls back to
+// module path ("file:///path.js") splitting at the last #.
+//
+// Each entry: { id: moduleId, chunks: [], name: exportName }
+// - id: passed to __webpack_require__ to load the module
+// - chunks: empty (Node.js require, no chunk loading needed)
+// - name: the export to access on the module
+var SERVER_ACTIONS_DIR = path.resolve(__dirname, 'src/actions');
+
+function getServerManifest() {
+  var manifest = {};
+  if (!fs.existsSync(SERVER_ACTIONS_DIR)) return manifest;
+
+  var files = fs.readdirSync(SERVER_ACTIONS_DIR).filter(function (f) {
+    return f.endsWith('.js');
+  });
+
+  for (var i = 0; i < files.length; i++) {
+    var filePath = path.resolve(SERVER_ACTIONS_DIR, files[i]);
+    var fileUrl = url.pathToFileURL(filePath).href;
+
+    // Require the module (node-register will handle 'use server')
+    var mod = require(filePath);
+
+    // Register each exported function in the manifest
+    for (var exportName in mod) {
+      if (typeof mod[exportName] === 'function') {
+        var fullId = fileUrl + '#' + exportName;
+        // Entry keyed by full ID (primary lookup path)
+        manifest[fullId] = {
+          id: fileUrl,
+          chunks: [],
+          name: exportName,
+        };
+      }
+    }
+
+    // Also register by module path (fallback lookup path).
+    // When resolveServerReference splits at #, it looks up manifest[modulePath]
+    // and uses the name from the metadata. We register with name '' so the
+    // full-ID path is preferred (it has the correct export name).
+    manifest[fileUrl] = {
+      id: fileUrl,
+      chunks: [],
+      name: '',
+    };
+  }
+
+  return manifest;
+}
+
 // Serve webpack output (bundle, chunks, manifests) as static files
 app.use(express.static(path.resolve(__dirname, '../build')));
+
+// Body parsing for server action requests.
+// Interactive callServer sends Content-Type: text/plain with encoded args.
+// MPA form POST sends multipart/form-data (handled by busboy in Step 5).
+app.use(express.text({type: 'text/plain'}));
 
 // Test script endpoint — sets a global variable to confirm script execution
 app.get('/test-script.js', function (req, res) {
@@ -180,6 +254,98 @@ function renderFlightWithDebugChannel(element, res) {
     if (mainDone) res.end();
   });
 }
+
+// CORS preflight for server action POST requests
+app.options('/fixtures/:name', function (req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, rsc-action');
+  res.status(204).end();
+});
+
+app.post('/fixtures/:name', function (req, res) {
+  clearServerSourceCache();
+
+  var rscAction = req.headers['rsc-action'];
+
+  if (rscAction) {
+    // Interactive mode: callServer sent action ID in header + encoded args in body.
+    // The client called encodeReply(args) which produces either a JSON string
+    // or FormData. For now we handle the string case (no binary blobs in args).
+    var serverModule = require('react-server-dom-webpack/server');
+    var decodeReply = serverModule.decodeReply;
+
+    var serverManifest = getServerManifest();
+
+    // Decode the reply body (serialized arguments).
+    // decodeReply accepts a string or FormData. When given a string, it
+    // internally wraps it in FormData. Returns a thenable (React's internal
+    // Promise-like), which must be wrapped in Promise.resolve() so .then()
+    // returns a proper Promise for chaining.
+    var bodyPromise;
+    if (typeof req.body === 'string' && req.body.length > 0) {
+      bodyPromise = Promise.resolve(decodeReply(req.body, serverManifest));
+    } else {
+      bodyPromise = Promise.resolve([]);
+    }
+
+    bodyPromise.then(function (decodedArgs) {
+      // Resolve the server action function from the manifest.
+      // The action ID is the $$id set by node-register, e.g.
+      // "file:///path/to/todo-actions.js#addTodo"
+      var idx = rscAction.lastIndexOf('#');
+      if (idx === -1) {
+        res.status(400).send('Invalid action ID (missing #): ' + rscAction);
+        return Promise.resolve();
+      }
+      var modulePath = rscAction.slice(0, idx);
+      var exportName = rscAction.slice(idx + 1);
+
+      // Load the module via __webpack_require__ (which calls Node require)
+      var mod = __webpack_require__(modulePath);
+      var fn = mod[exportName];
+      if (typeof fn !== 'function') {
+        res.status(404).send('Server action not found: ' + rscAction);
+        return Promise.resolve();
+      }
+
+      // Execute the action
+      return Promise.resolve(fn.apply(null, decodedArgs));
+    }).then(function (actionResult) {
+      // Skip re-rendering if an error response was already sent (e.g. invalid
+      // action ID or action not found returned early in the previous .then()).
+      if (res.headersSent) return;
+
+      // Re-render the fixture with updated server state.
+      // The action has already mutated server state (e.g. added a todo).
+      // Now we render a fresh Flight stream so the client can update its UI.
+      var fixturePath = path.join(FIXTURES_DIR, req.params.name + '.js');
+      if (!fs.existsSync(fixturePath)) {
+        res.status(404).send('Fixture not found: ' + req.params.name);
+        return;
+      }
+
+      var mod = require(fixturePath);
+      var FixtureComponent = mod.default || mod;
+      var element = React.createElement(FixtureComponent);
+
+      // Return the action result as the first element of the returnValue
+      // stream, followed by the re-rendered tree. This matches the Next.js
+      // pattern where the action response is a Flight stream containing
+      // both the return value and the updated RSC tree.
+      renderFlightWithDebugChannel(element, res);
+    }).catch(function (error) {
+      console.error('[RSC] Server action error:', error);
+      if (!res.headersSent) {
+        res.status(500).send('Server action failed: ' + error.message);
+      }
+    });
+  } else {
+    // MPA mode: form POST with FormData body.
+    // Will be implemented in Step 5 (SSR MPA handling) using decodeAction.
+    res.status(501).send('MPA form POST not yet implemented on RSC server');
+  }
+});
 
 app.get('/fixtures/:name', function (req, res) {
   clearServerSourceCache();

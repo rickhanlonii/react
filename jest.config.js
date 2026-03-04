@@ -30,5 +30,14 @@ module.exports = {
       testPathIgnorePatterns: ['/node_modules/'],
       transform: {},
     },
+    // Server action tests (RSC server infrastructure)
+    {
+      displayName: 'server-actions',
+      testMatch: [
+        '<rootDir>/example/server/__tests__/**/*.test.js',
+      ],
+      testPathIgnorePatterns: ['/node_modules/'],
+      transform: {},
+    },
   ],
 };

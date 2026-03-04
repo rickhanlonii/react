@@ -13,7 +13,7 @@
     "build": "cd example && npm run build",
     "build:prod": "cd example && npm run build:prod",
     "dev": "cd example && npm run dev",
-    "test": "jest --selectProjects unit",
+    "test": "jest --selectProjects unit server-actions --forceExit",
     "test:swift": "bash scripts/build-op.sh test-swift",
     "test:fantom": "bash scripts/build-fantom.sh --if-needed && jest --selectProjects fantom",
     "test:all": "jest",
