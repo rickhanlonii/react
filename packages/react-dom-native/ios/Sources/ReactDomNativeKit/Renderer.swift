@@ -59,7 +59,7 @@ class Renderer {
     init() {
         self.viewRegistry = ViewRegistry()
         self.differentiator = Differentiator()
-        self.mutationApplier = UIKitMutationApplier(viewRegistry: viewRegistry)
+        self.mutationApplier = UIKitMutationApplier(viewRegistry: viewRegistry, logPrefix: "MutationApplier SSR")
     }
 
     // MARK: - Root View

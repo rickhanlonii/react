@@ -101,7 +101,7 @@ public class Bindings {
         self.engine = engine
         self.viewRegistry = ViewRegistry()
         self.differentiator = Differentiator()
-        self.mutationApplier = UIKitMutationApplier(viewRegistry: viewRegistry)
+        self.mutationApplier = UIKitMutationApplier(viewRegistry: viewRegistry, logPrefix: "MutationApplier CSR")
         self.eventDispatcher = EventDispatcher(engine: engine, viewRegistry: viewRegistry)
 
         registerBindingFunctions()

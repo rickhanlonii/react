@@ -144,7 +144,7 @@ extension Root {
                             bindings.eventDispatcher.dispatchEvent(from: view, eventType: eventType, payload: payload)
                         }
                         // Create new mutation applier with Bindings' ViewRegistry for future commits
-                        self.renderer.mutationApplier = UIKitMutationApplier(viewRegistry: bindings.viewRegistry)
+                        self.renderer.mutationApplier = UIKitMutationApplier(viewRegistry: bindings.viewRegistry, logPrefix: "MutationApplier CSR")
                         self.renderer.mutationApplier.dispatchEvent = { view, eventType, payload in
                             bindings.eventDispatcher.dispatchEvent(from: view, eventType: eventType, payload: payload)
                         }
@@ -323,7 +323,6 @@ extension Root {
 
         // Set SSR base URL for MPA form submission
         self.renderer.mutationApplier.ssrBaseURL = url
-        self.renderer.mutationApplier.logPrefix = "MutationApplier SSR"
 
         // Wire MPA form response handler — replaces the entire tree
         self.renderer.mutationApplier.onMPAFormResponse = { [weak self] responseText in

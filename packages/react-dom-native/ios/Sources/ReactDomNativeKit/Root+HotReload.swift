@@ -47,7 +47,7 @@ extension Root {
         // Re-create fresh ViewRegistry/MutationApplier (will be switched to Bindings' at hydration/CSR)
         renderer.viewRegistry = ViewRegistry()
         renderer.differentiator = Differentiator()
-        renderer.mutationApplier = UIKitMutationApplier(viewRegistry: renderer.viewRegistry)
+        renderer.mutationApplier = UIKitMutationApplier(viewRegistry: renderer.viewRegistry, logPrefix: "MutationApplier SSR")
 
         // Cancel any pending throttled reveals
         revealTimer?.cancel()
