@@ -925,8 +925,17 @@ public class UIKitMutationApplier: NSObject {
             var formFields: [String: String] = [:]
             collectFormData(from: view, into: &formFields)
 
+            // Disable the submit button and fade it while the POST is in flight.
+            // The button is re-created when reloadFromSSRResponse rebuilds the view tree.
+            if let button = buttonView as? UIButton {
+                button.isEnabled = false
+                UIView.animate(withDuration: 0.2) {
+                    button.alpha = 0.5
+                }
+            }
+
             // POST to the action URL, including serialized action data
-            performMPAFormPost(to: actionURL, fields: formFields, actionData: family.formActionData)
+            performMPAFormPost(to: actionURL, fields: formFields, actionData: family.formActionData, submitButton: buttonView as? UIButton)
             return true
         }
         return false
@@ -943,9 +952,11 @@ public class UIKitMutationApplier: NSObject {
         }
     }
 
-    func performMPAFormPost(to actionURL: String, fields: [String: String], actionData: [String: String]? = nil) {
+    func performMPAFormPost(to actionURL: String, fields: [String: String], actionData: [String: String]? = nil, submitButton: UIButton? = nil) {
         guard let url = URL(string: actionURL) else {
             print("[react-dom-native] MPA form submit: invalid action URL: \(actionURL)")
+            submitButton?.isEnabled = true
+            submitButton?.alpha = 1.0
             return
         }
 
@@ -979,11 +990,15 @@ public class UIKitMutationApplier: NSObject {
 
                 if let error = error {
                     print("[react-dom-native] MPA form submit failed: \(error.localizedDescription)")
+                    submitButton?.isEnabled = true
+                    submitButton?.alpha = 1.0
                     return
                 }
 
                 guard let data = data, let responseText = String(data: data, encoding: .utf8) else {
                     print("[react-dom-native] MPA form submit: empty response")
+                    submitButton?.isEnabled = true
+                    submitButton?.alpha = 1.0
                     return
                 }
 
