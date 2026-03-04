@@ -323,6 +323,7 @@ extension Root {
 
         // Set SSR base URL for MPA form submission
         self.renderer.mutationApplier.ssrBaseURL = url
+        self.renderer.mutationApplier.logPrefix = "MutationApplier SSR"
 
         // Wire MPA form response handler — replaces the entire tree
         self.renderer.mutationApplier.onMPAFormResponse = { [weak self] responseText in

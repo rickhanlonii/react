@@ -34,8 +34,8 @@ public class UIKitMutationApplier: NSObject {
     private var inheritedTextColor: [ObjectIdentifier: UIColor] = [:]
 
     /// Label used in log output to distinguish SSR vs CSR mutations.
-    /// Defaults to "MutationApplier" for the reconciler (CSR) path.
-    private let logPrefix: String
+    /// Defaults to "MutationApplier CSR" for the reconciler path.
+    var logPrefix: String
 
     public init(viewRegistry: ViewRegistry, logPrefix: String = "MutationApplier CSR") {
         self.viewRegistry = viewRegistry
