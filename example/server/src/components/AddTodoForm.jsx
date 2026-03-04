@@ -15,9 +15,11 @@ function AddTodoForm({addTodo}) {
           placeholder="What needs to be done?"
           style={{
             flex: 1,
+            height: 40,
             backgroundColor: '#f2f2f7',
             borderRadius: 8,
-            padding: 10,
+            paddingLeft: 12,
+            paddingRight: 12,
             fontSize: 15,
             color: '#1c1c1e',
           }}
