@@ -1,0 +1,113 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import {zod} from '../third_party/index.js';
+
+import {ToolCategory} from './categories.js';
+import {definePageTool} from './ToolDefinition.js';
+import {notImplemented} from './stubs.js';
+
+export const emulate = definePageTool({
+  name: 'emulate',
+  description: `Emulates various features on the selected page.`,
+  annotations: {
+    category: ToolCategory.EMULATION,
+    readOnlyHint: false,
+  },
+  schema: {
+    networkConditions: zod
+      .string()
+      .optional()
+      .describe(
+        `Throttle network. Set to "No emulation" to disable. If omitted, conditions remain unchanged.`,
+      ),
+    cpuThrottlingRate: zod
+      .number()
+      .min(1)
+      .max(20)
+      .optional()
+      .describe(
+        'Represents the CPU slowdown factor. Set the rate to 1 to disable throttling. If omitted, throttling remains unchanged.',
+      ),
+    geolocation: zod
+      .union([
+        zod.object({
+          latitude: zod
+            .number()
+            .min(-90)
+            .max(90)
+            .describe('Latitude between -90 and 90.'),
+          longitude: zod
+            .number()
+            .min(-180)
+            .max(180)
+            .describe('Longitude between -180 and 180.'),
+        }),
+        zod.null(),
+      ])
+      .optional()
+      .describe(
+        'Geolocation to emulate. Set to null to clear the geolocation override.',
+      ),
+    userAgent: zod
+      .union([zod.string(), zod.null()])
+      .optional()
+      .describe(
+        'User agent to emulate. Set to null to clear the user agent override.',
+      ),
+    colorScheme: zod
+      .enum(['dark', 'light', 'auto'])
+      .optional()
+      .describe(
+        'Emulate the dark or the light mode. Set to "auto" to reset to the default.',
+      ),
+    viewport: zod
+      .union([
+        zod.object({
+          width: zod.number().int().min(0).describe('Page width in pixels.'),
+          height: zod.number().int().min(0).describe('Page height in pixels.'),
+          deviceScaleFactor: zod
+            .number()
+            .min(0)
+            .optional()
+            .describe(
+              'Specify device scale factor (can be thought of as dpr).',
+            ),
+          isMobile: zod
+            .boolean()
+            .optional()
+            .describe(
+              'Whether the meta viewport tag is taken into account. Defaults to false.',
+            ),
+          hasTouch: zod
+            .boolean()
+            .optional()
+            .describe(
+              'Specifies if viewport supports touch events. This should be set to true for mobile devices.',
+            ),
+          isLandscape: zod
+            .boolean()
+            .optional()
+            .describe(
+              'Specifies if viewport is in landscape mode. Defaults to false.',
+            ),
+        }),
+        zod.null(),
+      ])
+      .optional()
+      .describe(
+        'Viewport to emulate. Set to null to reset to the default viewport.',
+      ),
+  },
+  handler: async (_request, response) => {
+    response.appendResponseLine(
+      notImplemented(
+        'emulate',
+        'Native app rendering is not controlled by a browser engine; emulation settings like viewport, network throttling, and geolocation are not applicable.',
+      ),
+    );
+  },
+});
