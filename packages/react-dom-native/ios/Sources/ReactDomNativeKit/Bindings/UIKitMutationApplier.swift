@@ -82,6 +82,15 @@ public class UIKitMutationApplier: NSObject {
                 // (matching CSS stacking context behavior).
                 applyBackgroundLayerIfNeeded(to: view, props: node.props)
                 node.family.hasClickHandler = node.props["onClick"] != nil
+                if node.family.elementType == "button" {
+                    let buttonType = node.props["type"] as? String
+                    // HTML default: <button> without type is type="submit"
+                    node.family.isSubmitButton = (buttonType == nil || buttonType == "submit")
+                }
+                if node.family.elementType == "input" {
+                    let inputType = node.props["type"] as? String
+                    node.family.isSubmitButton = (inputType == "submit" || inputType == "image")
+                }
                 if node.family.elementType == "form" {
                     node.family.formActionURL = node.props["action"] as? String
                 }
@@ -177,6 +186,15 @@ public class UIKitMutationApplier: NSObject {
                 // Apply bounds-dependent props (borders, border-radius) now that frame is set
                 applyBoundsDependentProps(to: view, props: newProps)
                 node.family.hasClickHandler = newProps["onClick"] != nil
+                if node.family.elementType == "button" {
+                    let buttonType = newProps["type"] as? String
+                    // HTML default: <button> without type is type="submit"
+                    node.family.isSubmitButton = (buttonType == nil || buttonType == "submit")
+                }
+                if node.family.elementType == "input" {
+                    let inputType = newProps["type"] as? String
+                    node.family.isSubmitButton = (inputType == "submit" || inputType == "image")
+                }
                 if node.family.elementType == "form" {
                     node.family.formActionURL = newProps["action"] as? String
                 }
@@ -809,19 +827,25 @@ public class UIKitMutationApplier: NSObject {
     }
 
     @objc private func handleButtonTap(_ sender: UIButton) {
-        // Walk up to find nearest <form> ancestor
-        var current: UIView? = sender.superview
-        while let v = current {
-            if let family = viewRegistry.family(for: v),
-               family.elementType == "form" {
-                // Dispatch "submit" event to the form
-                dispatchEvent?(v, "submit", ["_nativeTimestamp": performanceNow()])
-                break
-            }
-            current = v.superview
-        }
-        // Always dispatch the click event on the button
+        // Dispatch click on the button itself
         dispatchEvent?(sender, "click", ["_nativeTimestamp": performanceNow()])
+
+        // Check if this button is a submit button inside a form
+        guard let family = viewRegistry.family(for: sender),
+              family.isSubmitButton else {
+            return
+        }
+
+        // Walk up the view hierarchy looking for a form element
+        var formSearch: UIView? = sender.superview
+        while let view = formSearch {
+            if let family = viewRegistry.family(for: view),
+               family.elementType == "form" {
+                dispatchEvent?(view, "submit", ["_nativeTimestamp": performanceNow()])
+                return
+            }
+            formSearch = view.superview
+        }
     }
 
     @objc private func handleTextFieldChanged(_ sender: UITextField) {

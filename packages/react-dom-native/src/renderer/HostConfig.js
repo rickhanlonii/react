@@ -133,6 +133,13 @@ exports.createInstance = function createInstance(
   // across the JSC bridge. The native side uses these canary values to skip
   // dispatching events for views without handlers.
   replaceEventHandlers(nativeProps);
+  // In createInstance, after replaceEventHandlers(nativeProps):
+  if (type === 'form' && typeof props.action === 'function') {
+    nativeProps.action = true; // canary — marks form as having an action handler
+  }
+  if ((type === 'button' || type === 'input') && typeof props.formAction === 'function') {
+    nativeProps.formAction = true; // canary
+  }
   const nativeNode = $$createNode(
     type,
     rootContainer.surfaceId,
@@ -209,6 +216,12 @@ exports.cloneInstance = function cloneInstance(
   }
   const {children, ...nativeNewProps} = resolvedNewProps;
   replaceEventHandlers(nativeNewProps);
+  if (type === 'form' && typeof newProps.action === 'function') {
+    nativeNewProps.action = true; // canary — marks form as having an action handler
+  }
+  if ((type === 'button' || type === 'input') && typeof newProps.formAction === 'function') {
+    nativeNewProps.formAction = true; // canary
+  }
   let newNativeNode;
   if (keepChildren) {
     newNativeNode = $$cloneNodeWithNewProps(instance._nativeNode, nativeNewProps);

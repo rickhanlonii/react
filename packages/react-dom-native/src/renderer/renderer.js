@@ -49,21 +49,57 @@ function urlEncodeFormData(data) {
 }
 
 $$registerEventHandler(function (instanceHandle, eventType, payload) {
-  const propName = 'on' + eventType.charAt(0).toUpperCase() + eventType.slice(1);
-  const fiber = instanceHandle;
+  var fiber = instanceHandle;
+  if (!fiber) return;
+
+  // Special handling for form submit events
+  if (eventType === 'submit') {
+    // The native side dispatches submit on the form view directly,
+    // so the fiber here is the form fiber.
+    var formFiber = fiber;
+
+    // The form fiber must be a HostComponent (tag === 5) with type "form"
+    if (formFiber.tag === 5 && formFiber.memoizedProps) {
+      var action = formFiber.memoizedProps.action;
+      if (typeof action === 'function') {
+        // Check if a submitter button has a formAction override
+        var submitterAction = null;
+        if (payload && payload._submitterFiberHandle) {
+          var submitterFiber = payload._submitterFiberHandle;
+          if (submitterFiber.memoizedProps &&
+              typeof submitterFiber.memoizedProps.formAction === 'function') {
+            submitterAction = submitterFiber.memoizedProps.formAction;
+          }
+        }
+
+        var finalAction = submitterAction || action;
+
+        // Build FormData from the form's descendant input fibers
+        // For now, pass null formData — server actions receive args via encodeReply
+        var formData = null;
+
+        reconciler.discreteUpdates(function () {
+          reconciler.startHostTransition(formFiber, {pending: true}, finalAction, formData);
+        });
+        reconciler.flushSyncWork();
+        reconciler.flushPassiveEffects();
+        return;
+      }
+    }
+    // If no function action, fall through to normal event dispatch
+  }
+
+  // Normal event dispatch (onClick, onChange, etc.)
+  var propName = 'on' + eventType.charAt(0).toUpperCase() + eventType.slice(1);
   if (fiber && fiber.memoizedProps && typeof fiber.memoizedProps[propName] === 'function') {
     // Capture timing for Interactions track
     var inputTime;
     var processingStart;
     if (typeof $$isTracing === 'function' && $$isTracing()) {
-      // Use native timestamp if available (more accurate — captures before bridge crossing).
-      // Native timestamps are already performance.now()-relative (ms since JSRuntime init).
       inputTime = (payload && payload._nativeTimestamp) ? payload._nativeTimestamp : performance.now();
       processingStart = performance.now();
     }
 
-    // Wrap in discreteUpdates so state updates use SyncLane (not DefaultLane).
-    // This ensures passive effects (including React profiling) flush synchronously.
     reconciler.discreteUpdates(function () {
       fiber.memoizedProps[propName](payload);
     });

@@ -27,6 +27,10 @@ public class ShadowNodeFamily {
     /// Updated during CREATE/UPDATE mutations from the canary value in props.
     public var hasClickHandler: Bool = false
 
+    /// Whether this button is a submit button (type="submit" or no type on <button>).
+    /// Updated during CREATE/UPDATE mutations.
+    public var isSubmitButton: Bool = false
+
     /// The string `action` URL for <form> elements. Set during CREATE/UPDATE.
     public var formActionURL: String? = nil
     /// The `name` attribute for <input> elements. Set during CREATE/UPDATE.
