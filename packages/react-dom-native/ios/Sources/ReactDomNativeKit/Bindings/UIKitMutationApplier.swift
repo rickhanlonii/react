@@ -15,6 +15,10 @@ public class UIKitMutationApplier: NSObject {
     private let viewRegistry: ViewRegistry
     public var dispatchEvent: EventDispatchHandler?
 
+    /// Called when an MPA form POST receives a response.
+    /// The response is a new SSR instruction stream that should replace the current tree.
+    var onMPAFormResponse: ((String) -> Void)?
+
     /// Tracks inherited textAlign per view for CSS textAlign inheritance.
     /// textAlign is an inherited CSS property — parent containers pass it
     /// to all descendant text elements.
@@ -78,6 +82,12 @@ public class UIKitMutationApplier: NSObject {
                 // (matching CSS stacking context behavior).
                 applyBackgroundLayerIfNeeded(to: view, props: node.props)
                 node.family.hasClickHandler = node.props["onClick"] != nil
+                if node.family.elementType == "form" {
+                    node.family.formActionURL = node.props["action"] as? String
+                }
+                if node.family.elementType == "input" {
+                    node.family.inputName = node.props["name"] as? String
+                }
                 print("[\(logPrefix)]   frame: \(view.frame)")
                 viewRegistry.register(view: view, family: node.family)
 
@@ -167,6 +177,12 @@ public class UIKitMutationApplier: NSObject {
                 // Apply bounds-dependent props (borders, border-radius) now that frame is set
                 applyBoundsDependentProps(to: view, props: newProps)
                 node.family.hasClickHandler = newProps["onClick"] != nil
+                if node.family.elementType == "form" {
+                    node.family.formActionURL = newProps["action"] as? String
+                }
+                if node.family.elementType == "input" {
+                    node.family.inputName = newProps["name"] as? String
+                }
                 applyBackgroundLayerIfNeeded(to: view, props: newProps)
                 if let scrollView = view as? UIScrollView, let contentSize = node.scrollContentSize {
                     scrollView.contentSize = contentSize
@@ -740,6 +756,15 @@ public class UIKitMutationApplier: NSObject {
         let point = sender.location(in: rootView)
         guard let hitView = rootView.hitTest(point, with: nil) else { return }
 
+        // Check for pre-hydration MPA form submit: if a button inside a form
+        // with a string action URL is tapped, POST directly to the server.
+        if let family = viewRegistry.family(for: hitView),
+           family.elementType == "button" {
+            if attemptMPAFormSubmit(from: hitView) {
+                return // MPA form submit handled natively
+            }
+        }
+
         // Walk up the view hierarchy from the hit view, dispatching click
         // events for each registered element that has a click handler (event
         // bubbling). Skip UIButton and UITextField — they handle their own
@@ -801,6 +826,86 @@ public class UIKitMutationApplier: NSObject {
 
     @objc private func handleTextFieldChanged(_ sender: UITextField) {
         dispatchEvent?(sender, "change", ["value": sender.text ?? "", "_nativeTimestamp": performanceNow()])
+    }
+
+    // MARK: - MPA Form Submit (Pre-hydration)
+
+    /// When a submit button is tapped before hydration, check if it's inside a
+    /// form with a string action URL. If so, perform a native MPA form submission.
+    func attemptMPAFormSubmit(from buttonView: UIView) -> Bool {
+        // Walk up looking for a <form> with an action URL
+        var formSearch: UIView? = buttonView.superview
+        while let view = formSearch {
+            guard let family = viewRegistry.family(for: view),
+                  family.elementType == "form" else {
+                formSearch = view.superview
+                continue
+            }
+
+            // Check if the form has a string action URL
+            guard let actionURL = family.formActionURL, !actionURL.isEmpty else {
+                return false // Form exists but no action URL
+            }
+
+            // Collect form data from input descendants
+            var formFields: [String: String] = [:]
+            collectFormData(from: view, into: &formFields)
+
+            // POST to the action URL
+            performMPAFormPost(to: actionURL, fields: formFields)
+            return true
+        }
+        return false
+    }
+
+    func collectFormData(from view: UIView, into fields: inout [String: String]) {
+        for subview in view.subviews {
+            if let textField = subview as? UITextField,
+               let family = viewRegistry.family(for: textField),
+               let name = family.inputName, !name.isEmpty {
+                fields[name] = textField.text ?? ""
+            }
+            collectFormData(from: subview, into: &fields)
+        }
+    }
+
+    func performMPAFormPost(to actionURL: String, fields: [String: String]) {
+        guard let url = URL(string: actionURL) else {
+            print("[react-dom-native] MPA form submit: invalid action URL: \(actionURL)")
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+
+        // URL-encode the form fields
+        let body = fields.map { key, value in
+            let encodedKey = key.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? key
+            let encodedValue = value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? value
+            return "\(encodedKey)=\(encodedValue)"
+        }.joined(separator: "&")
+        request.httpBody = body.data(using: .utf8)
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+
+                if let error = error {
+                    print("[react-dom-native] MPA form submit failed: \(error.localizedDescription)")
+                    return
+                }
+
+                guard let data = data, let responseText = String(data: data, encoding: .utf8) else {
+                    print("[react-dom-native] MPA form submit: empty response")
+                    return
+                }
+
+                // The response is a new SSR instruction stream.
+                // Delegate to the SSR loading path to replace the current tree.
+                self.onMPAFormResponse?(responseText)
+            }
+        }.resume()
     }
 
     // MARK: - Text Helpers

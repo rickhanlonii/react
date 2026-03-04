@@ -27,6 +27,11 @@ public class ShadowNodeFamily {
     /// Updated during CREATE/UPDATE mutations from the canary value in props.
     public var hasClickHandler: Bool = false
 
+    /// The string `action` URL for <form> elements. Set during CREATE/UPDATE.
+    public var formActionURL: String? = nil
+    /// The `name` attribute for <input> elements. Set during CREATE/UPDATE.
+    public var inputName: String? = nil
+
     public init(elementType: String, surfaceId: Int, instanceHandle: AnyObject?) {
         self.elementType = elementType
         self.surfaceId = surfaceId
