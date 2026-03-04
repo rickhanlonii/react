@@ -33,6 +33,9 @@ public class ShadowNodeFamily {
 
     /// The string `action` URL for <form> elements. Set during CREATE/UPDATE.
     public var formActionURL: String? = nil
+    /// Serialized action data for MPA form submission (from Fizz $$FORM_ACTION).
+    /// Contains the action reference ID and bound arguments.
+    public var formActionData: [String: String]? = nil
     /// The `name` attribute for <input> elements. Set during CREATE/UPDATE.
     public var inputName: String? = nil
 

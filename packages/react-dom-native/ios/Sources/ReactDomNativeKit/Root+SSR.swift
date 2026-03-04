@@ -321,6 +321,15 @@ extension Root {
         self.renderer.registerRootView(container)
         treeBuilder.performLayoutOnComplete = false
 
+        // Set SSR base URL for MPA form submission
+        self.renderer.mutationApplier.ssrBaseURL = url
+
+        // Wire MPA form response handler — replaces the entire tree
+        self.renderer.mutationApplier.onMPAFormResponse = { [weak self] responseText in
+            guard let self = self else { return }
+            self.reloadFromSSRResponse(responseText)
+        }
+
         // Ignore JS instructions — no hydration, no runtime
         coordinator.onJavaScriptReceived = { _ in }
 
@@ -384,6 +393,94 @@ extension Root {
         let task = session.dataTask(with: ssrURLObj)
         self.ssrDataTask = task
         task.resume()
+    }
+
+    // MARK: - MPA Form Response (Server-Only)
+
+    /// Re-renders the Server Only tree from a new SSR instruction stream.
+    /// Called when an MPA form POST returns a fresh instruction stream.
+    internal func reloadFromSSRResponse(_ instructionStream: String) {
+        // Remove all child views
+        for subview in container.subviews {
+            subview.removeFromSuperview()
+        }
+
+        // Reset SSR state
+        ssrRevealHasOccurred = false
+        ssrShellComplete = false
+        ssrStreamComplete = false
+
+        // Create fresh SSR infrastructure
+        let treeBuilder = ShadowTreeBuilder(
+            surfaceId: surfaceId!,
+            viewportWidth: Float(container.bounds.width > 0 ? container.bounds.width : 390),
+            viewportHeight: Float(container.bounds.height > 0 ? container.bounds.height : 844)
+        )
+
+        let boundaryManager = BoundaryManager()
+        let parser = InstructionStreamParser()
+
+        let coordinator = SSRCoordinator(
+            treeBuilder: treeBuilder,
+            boundaryManager: boundaryManager,
+            rootView: container
+        )
+
+        // Register root view for rendering and skip layout in tree builder
+        self.renderer.registerRootView(container)
+        treeBuilder.performLayoutOnComplete = false
+
+        // Re-wire MPA form submission on the new mutation applier
+        self.renderer.mutationApplier.ssrBaseURL = self.ssrURL
+        self.renderer.mutationApplier.onMPAFormResponse = { [weak self] responseText in
+            guard let self = self else { return }
+            self.reloadFromSSRResponse(responseText)
+        }
+
+        // Ignore JS instructions — no hydration, no runtime
+        coordinator.onJavaScriptReceived = { _ in }
+
+        // Queue boundary reveals
+        coordinator.onBoundaryRevealQueued = { [weak self] id, contentNodes in
+            self?.queueBoundaryReveal(id: id, contentNodes: contentNodes)
+        }
+
+        parser.delegate = coordinator
+
+        // Wire boundary reveal view updates
+        coordinator.onViewsNeedUpdate = { [weak self] oldRootChildren, newRootChildren in
+            guard let self = self else { return }
+            self.ssrRevealHasOccurred = true
+            self.renderer.commitTree(newChildren: newRootChildren, label: "Server-Only MPA Reveal")
+        }
+
+        // Store references
+        self.ssrParser = parser
+        self.ssrTreeBuilder = treeBuilder
+        self.ssrBoundaryManager = boundaryManager
+        self.ssrCoordinator = coordinator
+
+        // Handle root completion — paint
+        treeBuilder.onRootComplete = { [weak self] rootChildren in
+            guard let self = self else { return }
+
+            guard !self.ssrRevealHasOccurred else {
+                self.ssrShellComplete = true
+                return
+            }
+
+            self.renderer.commitTree(newChildren: rootChildren, label: "Server-Only MPA Paint")
+
+            print("[ReactDomNativeKit] Server-only MPA re-render complete (\(rootChildren.count) root children)")
+            self.ssrShellComplete = true
+        }
+
+        // Feed the instruction stream data directly (no HTTP fetch needed)
+        if let data = instructionStream.data(using: .utf8) {
+            parser.receive(data: data)
+        }
+        parser.finish()
+        ssrStreamComplete = true
     }
 
     // MARK: - Test Hooks (SSR)

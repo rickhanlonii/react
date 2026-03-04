@@ -16,8 +16,9 @@ var todos = globalThis.__todoStore.todos;
 
 async function addTodo(previousState, formData) {
   // useActionState calls with (previousState, formData).
-  // formData is a plain object with input name/value pairs from the native form.
-  var text = formData && formData.text;
+  // In hydrated mode, formData is a plain object {text: "..."} from native form collection.
+  // In MPA mode, formData is a web FormData object from decodeAction.
+  var text = formData && (typeof formData.get === 'function' ? formData.get('text') : formData.text);
   if (!text || typeof text !== 'string' || text.trim() === '') {
     return {error: 'Text is required'};
   }

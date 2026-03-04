@@ -37,6 +37,8 @@ var FLIGHT_SERVER = process.env.FLIGHT_SERVER || 'http://localhost:6000';
 // back to the actual source files on disk.
 globalThis.__webpack_require__ = function (id) {
   var resolved = path.resolve(__dirname, '..', id);
+  // Clear require cache to pick up changes without server restart
+  delete require.cache[require.resolve(resolved)];
   return require(resolved);
 };
 
@@ -378,6 +380,105 @@ function handleSSR(flightURL, req, res, formState) {
   }).on('error', function (err) {
     console.error('[SSR] Failed to fetch Flight stream:', err.message);
     res.status(502).send('Failed to connect to Flight server: ' + err.message);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// MPA form POST — render from an existing Flight stream
+//
+// Like handleSSR but receives a Flight stream directly (from a POST to the
+// Flight server) instead of fetching via HTTP GET. Simplified for MPA/Server
+// Only mode: emits only SSR instructions (no JS/Flight bootstrapping needed
+// since there's no hydration).
+// ---------------------------------------------------------------------------
+
+function handleSSRFromFlightStream(flightStream, req, res) {
+  var partialRow = '';
+
+  // Strip debug rows (tab-prefixed) from the Flight stream
+  var debugPassThrough = new PassThrough();
+  var flightCapture = new Transform({
+    transform: function (chunk, encoding, callback) {
+      var text = chunk.toString();
+      var lines = text.split('\n');
+      lines[0] = partialRow + lines[0];
+      partialRow = '';
+      if (text[text.length - 1] !== '\n') {
+        partialRow = lines.pop();
+      } else if (lines[lines.length - 1] === '') {
+        lines.pop();
+      }
+      var flightChunks = [];
+      for (var i = 0; i < lines.length; i++) {
+        if (lines[i] === '') continue;
+        if (lines[i][0] === '\t') {
+          debugPassThrough.write(lines[i].substring(1) + '\n');
+        } else {
+          flightChunks.push(lines[i] + '\n');
+        }
+      }
+      if (flightChunks.length > 0) {
+        this.push(flightChunks.join(''));
+      }
+      callback();
+    },
+    flush: function (callback) {
+      if (partialRow !== '') {
+        if (partialRow[0] === '\t') {
+          debugPassThrough.write(partialRow.substring(1) + '\n');
+        } else {
+          this.push(partialRow + '\n');
+        }
+        partialRow = '';
+      }
+      debugPassThrough.end();
+      callback();
+    },
+  });
+
+  var passThrough = new PassThrough();
+  flightStream.pipe(flightCapture).pipe(passThrough);
+
+  var createFromNodeStream =
+    require('react-server-dom-webpack/client.node').createFromNodeStream;
+  var ssrManifest = getSSRManifest();
+
+  var cachedResult;
+  var Root = function () {
+    if (!cachedResult) {
+      cachedResult = createFromNodeStream(passThrough, ssrManifest, {
+        debugChannel: debugPassThrough,
+      });
+    }
+    return React.use(cachedResult);
+  };
+
+  var nativeSSR = require('react-dom-native/server');
+  var renderToNativeStream = nativeSSR.renderToPipeableStream;
+  var nativeStream = renderToNativeStream(React.createElement(Root), {
+    onShellReady: function () {
+      res.setHeader('Content-Type', 'application/x-native-ssr');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cache-Control', 'no-cache');
+
+      var fizzPassThrough = new PassThrough();
+      nativeStream.pipe(fizzPassThrough);
+
+      fizzPassThrough.on('data', function (chunk) {
+        res.write(chunk);
+      });
+
+      fizzPassThrough.on('end', function () {
+        res.end();
+      });
+    },
+    onShellError: function (error) {
+      console.error('[SSR/MPA] Shell error:', error);
+      res.status(500).send('SSR shell error: ' + error.message);
+    },
+    onError: function (error) {
+      console.error('[SSR/MPA] Error:', error);
+    },
   });
 }
 
@@ -751,41 +852,46 @@ app.post('/resume/:name', function (req, res) {
 app.post('/ssr/:name', function (req, res) {
   var name = req.params.name;
 
-  // Build FormData from the parsed body
-  var formData = new FormData();
-  if (req.body && typeof req.body === 'object') {
-    for (var key in req.body) {
-      formData.append(key, req.body[key]);
+  // Forward the form data to the Flight server via POST.
+  // The Flight server runs with --conditions react-server and can decode/execute
+  // server actions. After execution, it returns a fresh Flight stream which we
+  // render through Fizz to produce a new instruction stream.
+  var querystring = require('querystring');
+  var body = querystring.stringify(req.body || {});
+
+  var flightURL = FLIGHT_SERVER + '/fixtures/' + name;
+  var parsedURL = require('url').parse(flightURL);
+
+  var postReq = http.request({
+    hostname: parsedURL.hostname,
+    port: parsedURL.port,
+    path: parsedURL.path,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Length': Buffer.byteLength(body),
+    },
+  }, function (flightRes) {
+    if (flightRes.statusCode !== 200) {
+      var errorBody = '';
+      flightRes.on('data', function (chunk) { errorBody += chunk; });
+      flightRes.on('end', function () {
+        console.error('[SSR] Flight server action failed:', flightRes.statusCode, errorBody);
+        res.status(502).send('Flight server action failed: ' + errorBody);
+      });
+      return;
     }
-  }
+    // Flight server returned a new Flight stream — render through Fizz
+    handleSSRFromFlightStream(flightRes, req, res);
+  });
 
-  // Use decodeAction to find and bind the server action
-  var {decodeAction, decodeFormState} = require('react-server-dom-webpack/server');
-  var serverManifest = getServerManifest();
+  postReq.on('error', function (err) {
+    console.error('[SSR] Error forwarding to Flight server:', err);
+    res.status(502).send('Error forwarding to Flight server: ' + err.message);
+  });
 
-  var actionPromise = decodeAction(formData, serverManifest);
-
-  if (!actionPromise) {
-    // No action found in form data — just re-render
-    handleSSR(FLIGHT_SERVER + '/fixtures/' + name, req, res);
-    return;
-  }
-
-  actionPromise
-    .then(function (action) {
-      return action();
-    })
-    .then(function (actionResult) {
-      return decodeFormState(actionResult, formData, serverManifest)
-        .then(function (formState) {
-          var flightURL = FLIGHT_SERVER + '/fixtures/' + name;
-          handleSSR(flightURL, req, res, formState);
-        });
-    })
-    .catch(function (err) {
-      console.error('[SSR] Action execution failed:', err);
-      res.status(500).send('Action execution failed: ' + err.message);
-    });
+  postReq.write(body);
+  postReq.end();
 });
 
 app.get('/ssr/:name', function (req, res) {

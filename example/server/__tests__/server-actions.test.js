@@ -289,7 +289,10 @@ describe('POST /fixtures/:name endpoint', function () {
     expect(result.status).toBe(500);
   });
 
-  it('returns 501 without rsc-action header', async function () {
+  it('handles MPA form POST without rsc-action header', async function () {
+    // Without rsc-action header, the Flight server treats this as an MPA
+    // form POST. With no valid action data in the body, it falls through
+    // to re-rendering the fixture as a Flight stream.
     var result = await makeRequest(
       {
         hostname: 'localhost',
@@ -297,14 +300,13 @@ describe('POST /fixtures/:name endpoint', function () {
         path: '/fixtures/06-kitchen-sink',
         method: 'POST',
         headers: {
-          'Content-Type': 'text/plain',
+          'Content-Type': 'application/x-www-form-urlencoded',
         },
       },
-      'some body'
+      ''
     );
 
-    expect(result.status).toBe(501);
-    expect(result.body).toContain('MPA form POST not yet implemented');
+    expect(result.status).toBe(200);
   });
 
   it('executes action even with non-existent fixture (returns action result)', async function () {

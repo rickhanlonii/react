@@ -143,8 +143,9 @@ app.use(express.static(path.resolve(__dirname, '../build')));
 
 // Body parsing for server action requests.
 // Interactive callServer sends Content-Type: text/plain with encoded args.
-// MPA form POST sends multipart/form-data (handled by busboy in Step 5).
+// MPA form POST sends application/x-www-form-urlencoded from native form submission.
 app.use(express.text({type: 'text/plain'}));
+app.use(express.urlencoded({extended: true}));
 
 // Test script endpoint — sets a global variable to confirm script execution
 app.get('/test-script.js', function (req, res) {
@@ -327,9 +328,55 @@ app.post('/fixtures/:name', function (req, res) {
       }
     });
   } else {
-    // MPA mode: form POST with FormData body.
-    // Will be implemented in Step 5 (SSR MPA handling) using decodeAction.
-    res.status(501).send('MPA form POST not yet implemented on RSC server');
+    // MPA mode: form POST with URL-encoded form data from native form submission.
+    // Build FormData from parsed body, decode the action, execute it,
+    // then re-render the fixture as a new Flight stream.
+    var fixtureName = req.params.name;
+    var serverModule = require('react-server-dom-webpack/server');
+    var decodeAction = serverModule.decodeAction;
+    var serverManifest = getServerManifest();
+
+    var formData = new FormData();
+    if (req.body && typeof req.body === 'object') {
+      for (var key in req.body) {
+        formData.append(key, req.body[key]);
+      }
+    }
+
+    var actionPromise = decodeAction(formData, serverManifest);
+
+    function renderFixtureStream() {
+      clearServerSourceCache();
+      var fixturePath = path.join(FIXTURES_DIR, fixtureName + '.js');
+      if (!fs.existsSync(fixturePath)) {
+        res.status(404).send('Fixture not found: ' + fixtureName);
+        return;
+      }
+      var mod = require(fixturePath);
+      var FixtureComponent = mod.default || mod;
+      renderFlightWithDebugChannel(React.createElement(FixtureComponent), res);
+    }
+
+    if (!actionPromise) {
+      // No action found in form data — just re-render the fixture
+      renderFixtureStream();
+      return;
+    }
+
+    actionPromise
+      .then(function (action) {
+        return action();
+      })
+      .then(function () {
+        // Action executed — re-render the fixture with updated state
+        renderFixtureStream();
+      })
+      .catch(function (error) {
+        console.error('[RSC] MPA action error:', error);
+        if (!res.headersSent) {
+          res.status(500).send('MPA action failed: ' + error.message);
+        }
+      });
   }
 });
 
