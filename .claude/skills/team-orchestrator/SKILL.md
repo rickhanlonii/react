@@ -169,14 +169,14 @@ After both apps are running, assess the current state of each pipeline BEFORE sp
    npm run app:screenshot
    ```
    Then view: `Read /tmp/falcon-screenshot.png`
-3. Start log capture:
+3. Start log capture (relaunches app):
    ```bash
-   curl -s -X POST http://localhost:6002/log-start/demo
+   npm run app:log-start
    ```
 4. Wait 3-5 seconds, interact with the app (tap buttons, scroll)
-5. Stop log capture and read logs:
+5. Read logs:
    ```bash
-   curl -s -X POST http://localhost:6002/log-stop/demo
+   npm run app:log-read
    ```
 6. Search logs for errors: `HydrationMismatch`, `onRecoverableError`, `Error`, `crash`
 7. Note any rendering issues or errors for fix tasks

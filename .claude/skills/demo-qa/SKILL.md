@@ -28,17 +28,17 @@ npm run app:screenshot
 ```
 Then view: `Read /tmp/falcon-screenshot.png`
 
-**For logs**, use the build server curl API:
+**For logs** (captures Swift `print()` output — relaunches the app):
 ```bash
-curl -s -X POST http://localhost:6002/log-start/demo
+npm run app:log-start
 ```
 After interacting with the app:
 ```bash
-curl -s -X POST http://localhost:6002/log-stop/demo
+npm run app:log-read
 ```
-Or read logs without stopping:
+Stop capture:
 ```bash
-curl -s -X POST http://localhost:6002/log-read/demo
+npm run app:log-stop
 ```
 
 **Do NOT use** `start_sim_log_cap` / `stop_sim_log_cap` or `screenshot` MCP tools — they fail due to sandbox restrictions.
@@ -71,14 +71,14 @@ session_set_defaults:
    - Check for: missing elements, wrong layout, visual glitches
 
 4. **Check logs** for errors:
-   - Start log capture:
+   - Start log capture (relaunches app):
      ```bash
-     curl -s -X POST http://localhost:6002/log-start/demo
+     npm run app:log-start
      ```
    - Interact with the app (tap buttons, scroll, type in inputs)
-   - Stop log capture and read logs:
+   - Read logs:
      ```bash
-     curl -s -X POST http://localhost:6002/log-stop/demo
+     npm run app:log-read
      ```
    - Search logs for: `HydrationMismatch`, `onRecoverableError`, `Error`, `crash`, `assertion`
 

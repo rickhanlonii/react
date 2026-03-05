@@ -50,7 +50,7 @@ Pick the right tool for what you're investigating:
 
 - **UI structure**: `npm run app:snapshot-ui` — accessibility tree with element types, labels, frames, IDs
 - **Visual rendering**: `npm run app:screenshot` — capture what the user sees
-- **App logs**: `npm run app:log-start` → `npm run app:log-read` → `npm run app:log-stop` — capture and read native app logs
+- **App logs**: `npm run app:log-start` (relaunches app with stdout capture) → `npm run app:log-read` → `npm run app:log-stop` — captures Swift `print()` output
 - **JS runtime** (console, eval, profiling): Use the `falcon-devtools` MCP tools (e.g. `evaluate_script`, `list_console_messages`) to interact with the app's JSC runtime
 - **Native runtime** (Swift/UIKit): `npm run app:debug-lldb -- demo "<command>"` — run LLDB commands against the running app
 - **Performance traces**: Use `falcon-devtools` MCP tools (`performance_start_trace`/`performance_stop_trace`) to capture Chrome DevTools traces, or `npm run test:trace` to validate trace event format

@@ -16,10 +16,10 @@ Choose the right tool based on what you're investigating:
 - `npm run app:debug-detach` — detach when done
 
 **App logs** — use log capture (requires build server):
-- `npm run app:log-start` — start capturing logs
+- `npm run app:log-start` — terminates and relaunches the app with stdout capture enabled
 - `npm run app:log-read` — read captured logs without stopping
-- `npm run app:log-stop` — stop and return all logs
-- Logs are filtered to the app's bundle ID (`com.react.Falcon`) and process name
+- `npm run app:log-stop` — stop capture and return all logs
+- Captures Swift `print()` output (the app is relaunched with `--console` to stream stdout)
 
 **JS runtime** — use the `falcon-devtools` MCP tools (e.g. `evaluate_script`, `list_console_messages`) to interact with the app's JSC runtime for console logs, JS profiling, and runtime inspection.
 
