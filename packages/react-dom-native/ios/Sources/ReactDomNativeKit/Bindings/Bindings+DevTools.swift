@@ -27,6 +27,9 @@ extension Bindings {
     ///   - quality: JPEG compression quality from 0.0 (most compression) to
     ///     1.0 (least compression).
     public func captureScreenshot(maxWidth: Int, quality: CGFloat) {
+        // Capture timestamp in the same clock domain (performanceNow µs) as
+        // trace events, so the proxy doesn't need wall-clock fallback math.
+        let ts = performanceNow() * 1000.0
         guard let windowScene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
             .first,
@@ -59,7 +62,7 @@ extension Bindings {
 
         // Send the original pixel dimensions (not the possibly-downscaled
         // render size) so the proxy can map click coordinates correctly.
-        let message = "{\"type\":\"screenshot-data\",\"data\":\"\(base64)\",\"width\":\(pixelWidth),\"height\":\(pixelHeight),\"scale\":\(Int(scale))}"
+        let message = "{\"type\":\"screenshot-data\",\"data\":\"\(base64)\",\"width\":\(pixelWidth),\"height\":\(pixelHeight),\"scale\":\(Int(scale)),\"ts\":\(ts)}"
         sendInspectorMessage?(message)
     }
 

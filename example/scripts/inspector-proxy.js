@@ -380,10 +380,9 @@ function emitTraceEvents(ws, id, events, domainPrefix, targetId, ctx, screenshot
 
   // Merge screenshot trace events if available
   if (screenshotCapture) {
-    var screenshotAnchor = tracingStartTs || minTs;
-    var screenshotEvents = screenshotCapture.getEvents(screenshotAnchor);
+    var screenshotEvents = screenshotCapture.getEvents();
     if (screenshotEvents.length > 0) {
-      log(domainPrefix, 'Adding ' + screenshotEvents.length + ' screenshot events to trace (anchor=' + screenshotAnchor + ', minTs=' + minTs + ')');
+      log(domainPrefix, 'Adding ' + screenshotEvents.length + ' screenshot events to trace');
       events = events.concat(screenshotEvents);
     }
   }
@@ -1602,15 +1601,13 @@ function createTarget(targetId, sourceMapResolver) {
   // and buffers them. When trace data arrives, the screenshots are converted
   // to Chrome Trace Format events and merged into the trace output.
   // -----------------------------------------------------------------------
-  var screenshotBuffer = []; // [{data, wallTime}]
-  var tracingStartWall = 0;
+  var screenshotBuffer = []; // [{data, ts}]
   var isCapturingScreenshots = false;
 
   var screenshotCapture = {
     start: function () {
       isCapturingScreenshots = true;
       screenshotBuffer = [];
-      tracingStartWall = Date.now();
       // Capture a baseline frame at trace start
       captureOneScreenshot();
       // Tell the app to capture a screenshot after every commit.
@@ -1631,24 +1628,19 @@ function createTarget(targetId, sourceMapResolver) {
       }
       log('Screenshots', 'Stopped capture (' + screenshotBuffer.length + ' frames buffered)');
     },
-    // Convert buffered screenshots to trace events. Screenshots with an
-    // app-side timestamp (from commit captures) use it directly — same clock
-    // domain as trace events. On-demand captures fall back to proxy-side
-    // wall-clock offsets from tracing start.
-    getEvents: function (minTs) {
+    // Convert buffered screenshots to trace events. All screenshots include
+    // an app-side performanceNow timestamp (µs) in the same clock domain as
+    // trace events.
+    getEvents: function () {
       var events = [];
       for (var i = 0; i < screenshotBuffer.length; i++) {
         var s = screenshotBuffer[i];
-        // Use app-side performanceNow timestamp if available (commit screenshots).
-        // This is in the same clock domain as trace events — no conversion needed.
-        // Fall back to proxy-side wall-clock offset for on-demand captures.
-        var ts = s.ts || (minTs + (s.wallTime - tracingStartWall) * 1000);
         events.push({
           name: 'Screenshot',
           cat: 'disabled-by-default-devtools.screenshot',
           ph: 'O',
           id: '0x1',
-          ts: ts,
+          ts: s.ts,
           pid: 0, // Browser process — DevTools shows filmstrip from browser pid
           tid: 0,
           args: {snapshot: s.data},
@@ -1665,11 +1657,7 @@ function createTarget(targetId, sourceMapResolver) {
         if (!lastFrame || lastFrame.data !== message.data) {
           screenshotBuffer.push({
             data: message.data,
-            // Use app-side performanceNow timestamp (µs) if available.
-            // This places screenshots in the same clock domain as trace events.
-            // Falls back to proxy-side Date.now() for on-demand captures.
-            ts: message.ts || 0,
-            wallTime: Date.now(),
+            ts: message.ts,
           });
           log('Screenshots', 'Buffered frame #' + screenshotBuffer.length);
         } else {
