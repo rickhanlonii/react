@@ -497,10 +497,10 @@ extension Bindings {
             // 2. Get old tree and prepare for diff
             let oldChildren = renderer.currentTree
 
-            // Debug: dump old and new tree structures with family identity
-            print("[completeRoot] surfaceId=\(surfaceId) oldChildren=\(oldChildren.count) newChildren=\(newChildren.count)")
-            self.debugDumpTree("  OLD", oldChildren, depth: 0)
-            self.debugDumpTree("  NEW", newChildren, depth: 0)
+            // Uncomment to debug tree structures with family identity:
+            // print("[completeRoot] surfaceId=\(surfaceId) oldChildren=\(oldChildren.count) newChildren=\(newChildren.count)")
+            // self.debugDumpTree("  OLD", oldChildren, depth: 0)
+            // self.debugDumpTree("  NEW", newChildren, depth: 0)
 
             // 2b. Unwrap revealed #suspense nodes from old tree before diffing.
             self.unwrapRevealedSuspenseNodesInTree(oldChildren)
