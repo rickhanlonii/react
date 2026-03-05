@@ -340,6 +340,17 @@ extension Root {
 
         // No onBootstrapURLReceived — we don't boot the JS runtime
 
+        // Derive the dev server URL so DevTools can connect
+        let rt = ReactRuntime.shared
+        if let ssrURLObj = URL(string: url) {
+            var components = URLComponents()
+            components.scheme = ssrURLObj.scheme
+            components.host = ssrURLObj.host
+            components.port = ssrURLObj.port
+            rt.devServerURL = components.url
+        }
+        rt.setupDevToolsConnectionIfNeeded()
+
         parser.delegate = coordinator
 
         // Wire boundary reveal view updates

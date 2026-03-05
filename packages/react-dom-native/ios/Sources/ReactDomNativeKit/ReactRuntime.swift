@@ -569,6 +569,16 @@ public class ReactRuntime {
         }
     }
 
+    /// Re-fetches all server-only surfaces from their SSR URLs.
+    /// Used when DevTools triggers reload/refresh in server-only mode
+    /// where there is no JS runtime to hot-reload.
+    private func reloadServerOnlySurfaces() {
+        for (_, info) in activeSurfaces {
+            guard let root = info.root else { continue }
+            root.rerender()
+        }
+    }
+
     // MARK: - Bundle Loading (Private)
 
     /// Resolves the bundle URL: dev server override (DEBUG) or package resource.
@@ -671,10 +681,17 @@ public class ReactRuntime {
         return models[modelId] ?? modelId
     }
 
+    /// Ensures devtools WebSocket is connected. Safe to call multiple times.
+    internal func setupDevToolsConnectionIfNeeded() {
+        #if DEBUG
+        guard hotReloadClient == nil || !hotReloadClient!.isConnected else { return }
+        setupDevToolsConnection()
+        #endif
+    }
+
     /// Sets up the devtools WebSocket connection for tracing/inspector support.
     private func setupDevToolsConnection() {
         #if DEBUG
-        guard let bindings = runtime?.bindings else { return }
         guard let devURL = devServerURL else { return }
 
         // Disconnect previous client if any
@@ -705,22 +722,36 @@ public class ReactRuntime {
             self?.clearAllSurfaces()
         }
 
-        // On reload message, do a full reset (since we can't do
-        // in-place fast refresh without knowing individual surface URLs)
+        // On reload message, do a full reset. In server-only mode (no JS runtime),
+        // re-fetch from the server instead.
         client.onReload = { [weak self] in
-            print("[ReactRuntime] onReload triggered — performing full reset")
-            self?.reload(fullReset: true)
+            guard let self = self else { return }
+            if self.hasBooted {
+                print("[ReactRuntime] onReload triggered — performing full reset")
+                self.reload(fullReset: true)
+            } else {
+                print("[ReactRuntime] onReload in server-only mode — performing server re-fetch")
+                self.reloadServerOnlySurfaces()
+            }
         }
 
         // On refresh message, try Fast Refresh (re-evaluate chunks, preserve state).
         // Falls back to full reload if react-refresh can't handle it.
+        // In server-only mode (no JS runtime), do a full server re-fetch instead.
         client.onRefresh = { [weak self] chunks in
-            print("[ReactRuntime] onRefresh triggered — \(chunks.count) chunk(s)")
-            self?.performChunkRefresh(chunks: chunks)
+            guard let self = self else { return }
+            if self.hasBooted {
+                print("[ReactRuntime] onRefresh triggered — \(chunks.count) chunk(s)")
+                self.performChunkRefresh(chunks: chunks)
+            } else {
+                print("[ReactRuntime] onRefresh in server-only mode — performing server re-fetch")
+                self.reloadServerOnlySurfaces()
+            }
         }
 
         // JS -> dev server: Swift CDP dispatch and tracing use this callback
-        bindings.sendInspectorMessage = { [weak client] data in
+        let bindings = runtime?.bindings
+        bindings?.sendInspectorMessage = { [weak client] data in
             client?.send(data)
         }
 
@@ -804,7 +835,7 @@ public class ReactRuntime {
             client?.send(json)
         }
 
-        // Register React error callback bridge globals
+        // Register React error callback bridge globals (only when JS runtime exists)
         guard let engine = runtime?.engine else { return }
 
         engine.setGlobalFunction("$$nativeOnUncaughtError") { [weak engine] args in

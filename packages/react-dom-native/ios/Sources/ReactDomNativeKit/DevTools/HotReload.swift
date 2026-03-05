@@ -5,7 +5,7 @@ public class HotReloadClient {
     private var webSocketTask: URLSessionWebSocketTask?
     private let session = URLSession(configuration: .default)
     private var webSocketURL: URL
-    private var isConnected = false
+    private(set) var isConnected = false
     private var reconnectTimer: Timer?
 
     // Identity info sent on connect
