@@ -196,7 +196,7 @@ public class Root {
         renderer.onPaintTimingCollected = { start, end in
             ReactRuntime.shared.bindings?.tracer?.reportTimeStamp(
                 label: "Native Paint", start: start, end: end,
-                track: "Shadow Tree", trackGroup: "Native ⚛", color: "tertiary"
+                track: "Shadow Tree", trackGroup: "Native ⚛", color: "secondary"
             )
         }
     }
