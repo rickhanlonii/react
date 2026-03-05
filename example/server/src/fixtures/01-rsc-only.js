@@ -6,7 +6,7 @@ const fixture = {
   category: 'Basics',
 };
 
-function RscOnly() {
+function StaticCard() {
   return (
     <div style={{display: 'flex', flexDirection: 'column', backgroundColor: '#f2f2f7', minHeight: '100%', padding: 16, gap: 16}}>
       <div style={{paddingTop: 48, paddingBottom: 8}}>
@@ -33,6 +33,6 @@ function RscOnly() {
   );
 }
 
-module.exports = RscOnly;
-module.exports.default = RscOnly;
+module.exports = StaticCard;
+module.exports.default = StaticCard;
 module.exports.fixture = fixture;

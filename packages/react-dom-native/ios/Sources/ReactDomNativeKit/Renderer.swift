@@ -48,6 +48,10 @@ public class Renderer {
     /// Called when tracing is enabled and a commit completes, with the full timing dict.
     var onTimingCollected: (([String: Any]) -> Void)?
 
+    /// Called after every commitTree completes (regardless of tracing).
+    /// Used to capture screenshots for the performance trace filmstrip.
+    var onCommitPainted: (() -> Void)?
+
     /// Sub-phase timings from the most recent calculateLayout call.
     private var lastLayoutTimings: [String: Double]?
 
@@ -225,6 +229,9 @@ public class Renderer {
 
             onTimingCollected?(timing)
         }
+
+        // Capture screenshot after every paint (SSR reveals, prerender, React commits)
+        onCommitPainted?()
     }
 
     // MARK: - Layout

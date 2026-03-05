@@ -163,8 +163,6 @@ extension Bindings {
             registerNewNodesInSubtree(child)
         }
 
-        // Capture trace screenshot if enabled
-        captureCommitScreenshot()
     }
 
     /// Updates the SSR tree for hydration traversal after a boundary reveal.

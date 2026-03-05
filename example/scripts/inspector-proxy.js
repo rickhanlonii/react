@@ -159,14 +159,15 @@ function createTracingDomain(targetId, screenshotCapture) {
           screenshotCapture.stop();
           var events = traceData.events;
           var tracingStartTs = traceData.tracingStartTs;
-          log('Tracing', 'Got ' + events.length + ' events from app (tracingStartTs=' + tracingStartTs + '), emitting');
+          var tracingStopTs = traceData.tracingStopTs;
+          log('Tracing', 'Got ' + events.length + ' events from app (tracingStartTs=' + tracingStartTs + ', tracingStopTs=' + tracingStopTs + '), emitting');
           log('Tracing', '--- Trace events from app ---');
           for (var k = 0; k < events.length; k++) {
             var e = events[k];
             log('Tracing', '  [' + k + '] name=' + e.name + ' cat=' + e.cat + ' ph=' + e.ph + ' ts=' + e.ts + ' pid=' + e.pid + ' tid=' + e.tid + (e.id2 ? ' id2=' + JSON.stringify(e.id2) : ''));
           }
           log('Tracing', '--- End trace events ---');
-          emitTraceEvents(ws, id, events, 'Tracing', targetId, ctx, screenshotCapture, tracingStartTs);
+          emitTraceEvents(ws, id, events, 'Tracing', targetId, ctx, screenshotCapture, tracingStartTs, tracingStopTs);
         });
 
         return null; // Response sent asynchronously
@@ -190,6 +191,7 @@ function createTracingDomain(targetId, screenshotCapture) {
           resolve({
             events: message.events || [],
             tracingStartTs: message.tracingStartTs || 0,
+            tracingStopTs: message.tracingStopTs || 0,
           });
         }
       }
@@ -239,14 +241,15 @@ function createNodeTracingDomain(targetId, screenshotCapture) {
           screenshotCapture.stop();
           var events = traceData.events;
           var tracingStartTs = traceData.tracingStartTs;
-          log('NodeTracing', 'Got ' + events.length + ' events from app (tracingStartTs=' + tracingStartTs + '), emitting');
+          var tracingStopTs = traceData.tracingStopTs;
+          log('NodeTracing', 'Got ' + events.length + ' events from app (tracingStartTs=' + tracingStartTs + ', tracingStopTs=' + tracingStopTs + '), emitting');
           log('NodeTracing', '--- Trace events from app ---');
           for (var k = 0; k < events.length; k++) {
             var e = events[k];
             log('NodeTracing', '  [' + k + '] name=' + e.name + ' cat=' + e.cat + ' ph=' + e.ph + ' ts=' + e.ts + ' pid=' + e.pid + ' tid=' + e.tid + (e.id2 ? ' id2=' + JSON.stringify(e.id2) : ''));
           }
           log('NodeTracing', '--- End trace events ---');
-          emitTraceEvents(ws, id, events, 'NodeTracing', targetId, ctx, screenshotCapture, tracingStartTs);
+          emitTraceEvents(ws, id, events, 'NodeTracing', targetId, ctx, screenshotCapture, tracingStartTs, tracingStopTs);
         });
 
         return null;
@@ -270,6 +273,7 @@ function createNodeTracingDomain(targetId, screenshotCapture) {
           resolve({
             events: message.events || [],
             tracingStartTs: message.tracingStartTs || 0,
+            tracingStopTs: message.tracingStopTs || 0,
           });
         }
       }
@@ -278,7 +282,7 @@ function createNodeTracingDomain(targetId, screenshotCapture) {
 }
 
 // Shared trace event emission logic
-function emitTraceEvents(ws, id, events, domainPrefix, targetId, ctx, screenshotCapture, tracingStartTs) {
+function emitTraceEvents(ws, id, events, domainPrefix, targetId, ctx, screenshotCapture, tracingStartTs, tracingStopTs) {
   // Chrome DevTools Performance panel needs metadata events to associate
   // trace data with the correct process. We use TracingStartedInBrowser
   // (not TracingStartedInPage) so DevTools creates a browser+renderer
@@ -319,7 +323,14 @@ function emitTraceEvents(ws, id, events, domainPrefix, targetId, ctx, screenshot
   if (tracingStartTs > 0 && tracingStartTs < maxTs) {
     minTs = tracingStartTs;
   }
-  log(domainPrefix, 'Timeline range: minTs=' + minTs + ' maxTs=' + maxTs + ' tracingStartTs=' + tracingStartTs + ' ssrEvents=' + ssrEventCount);
+  // Use tracingStopTs as the end bound when available. This is the
+  // timestamp from performance.now() when the app received stop-tracing,
+  // ensuring the RunTask spans the full recording period (including
+  // screenshots captured after the last React event).
+  if (tracingStopTs > 0 && tracingStopTs > maxTs) {
+    maxTs = tracingStopTs;
+  }
+  log(domainPrefix, 'Timeline range: minTs=' + minTs + ' maxTs=' + maxTs + ' tracingStartTs=' + tracingStartTs + ' tracingStopTs=' + tracingStopTs + ' ssrEvents=' + ssrEventCount);
 
   var infraEvents = [
     // Browser process metadata — needed for screenshot filmstrip
@@ -527,6 +538,7 @@ function createProfilerDomain(screenshotCapture) {
   var nextReqId = 0;
   var pendingTraceEvents = null; // Store trace events until Profiler.stop response
   var pendingTracingStartTs = 0; // App's trace start timestamp for screenshot alignment
+  var pendingTracingStopTs = 0; // App's trace stop timestamp for end-of-trace bound
   var profilerStopPending = null; // {ws, id, ctx} for delayed Profiler.stop response
 
   function handle(method, params, ctx) {
@@ -632,7 +644,7 @@ function createProfilerDomain(screenshotCapture) {
       if (events.length > 20) log('Profiler', '  ... and ' + (events.length - 20) + ' more');
       log('Profiler', '--- End ---');
 
-      emitTraceEvents(ws, null, events, 'Tracing', ctx.targetId, ctx, screenshotCapture, pendingTracingStartTs);
+      emitTraceEvents(ws, null, events, 'Tracing', ctx.targetId, ctx, screenshotCapture, pendingTracingStartTs, pendingTracingStopTs);
     }
 
     // THEN send the Profiler.stop response
@@ -654,6 +666,7 @@ function createProfilerDomain(screenshotCapture) {
         log('Profiler', 'Received trace-data (' + (message.events || []).length + ' events)');
         pendingTraceEvents = message.events || [];
         pendingTracingStartTs = message.tracingStartTs || 0;
+        pendingTracingStopTs = message.tracingStopTs || 0;
         maybeFinishStop();
       }
       if (message.type === 'cdp-response') {
@@ -1610,8 +1623,9 @@ function createTarget(targetId, sourceMapResolver) {
       screenshotBuffer = [];
       // Capture a baseline frame at trace start
       captureOneScreenshot();
-      // Tell the app to capture a screenshot after every commit.
-      // This avoids the round-trip delay that causes missed intermediate frames.
+      // Tell the app to capture a screenshot after every shadow tree commit
+      // (SSR reveals, prerender paints, React commits — all go through
+      // Renderer.commitTree which calls onCommitPainted).
       if (sendToApp) {
         sendToApp(JSON.stringify({
           type: 'enable-commit-screenshots',

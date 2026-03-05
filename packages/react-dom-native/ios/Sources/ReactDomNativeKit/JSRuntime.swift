@@ -357,6 +357,7 @@ public class JSRuntime {
                     "type": "trace-data",
                     "events": result.events,
                     "tracingStartTs": result.tracingStartTs,
+                    "tracingStopTs": result.tracingStopTs,
                 ]
                 if let responseData = try? JSONSerialization.data(withJSONObject: response),
                    let responseString = String(data: responseData, encoding: .utf8) {

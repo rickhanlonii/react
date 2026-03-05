@@ -535,10 +535,7 @@ extension Bindings {
                 self.nodeRegistry.removeValue(forKey: id)
             }
 
-            // 4c. Capture trace screenshot if enabled
-            self.captureCommitScreenshot()
-
-            // 4d. Notify DevTools that the DOM tree changed
+            // 4c. Notify DevTools that the DOM tree changed
             if self.sendInspectorMessage != nil {
                 self.sendInspectorMessage?("{\"type\":\"dom-updated\",\"surfaceId\":\(surfaceId)}")
             }

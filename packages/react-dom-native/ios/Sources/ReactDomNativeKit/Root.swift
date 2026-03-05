@@ -188,6 +188,10 @@ public class Root {
                 self?.ssrCommitTimings.append(timing)
             }
         }
+
+        renderer.onCommitPainted = {
+            ReactRuntime.shared.bindings?.captureCommitScreenshot()
+        }
     }
 
     // MARK: - Public API

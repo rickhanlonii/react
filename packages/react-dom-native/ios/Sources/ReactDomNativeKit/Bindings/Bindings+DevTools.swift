@@ -73,9 +73,6 @@ extension Bindings {
     /// applyMutations, so drawHierarchy captures the correct visual state.
     public func captureCommitScreenshot() {
         guard commitScreenshotsEnabled else { return }
-        // Capture timestamp BEFORE rendering — this is the commit time,
-        // in the same clock domain (performanceNow) as all other trace events.
-        let ts = performanceNow() * 1000.0 // ms → µs to match trace event format
         guard let windowScene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
             .first,
@@ -99,8 +96,12 @@ extension Bindings {
 
         let renderer = UIGraphicsImageRenderer(size: renderSize)
         let jpegData = renderer.jpegData(withCompressionQuality: commitScreenshotQuality) { _ in
-            window.drawHierarchy(in: CGRect(origin: .zero, size: renderSize), afterScreenUpdates: false)
+            window.drawHierarchy(in: CGRect(origin: .zero, size: renderSize), afterScreenUpdates: true)
         }
+        // Capture timestamp AFTER rendering with afterScreenUpdates:true —
+        // this ensures the screenshot reflects the current commit's pixels,
+        // and the timestamp aligns with when those pixels were actually drawn.
+        let ts = performanceNow() * 1000.0 // ms → µs to match trace event format
 
         let base64 = jpegData.base64EncodedString()
 

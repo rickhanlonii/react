@@ -57,12 +57,13 @@ class PerformanceTracer {
         ]
     }
 
-    func stopTracing() -> (events: [[String: Any]], tracingStartTs: Double) {
+    func stopTracing() -> (events: [[String: Any]], tracingStartTs: Double, tracingStopTs: Double) {
         isTracing = false
+        let stopTs = now() * 1000.0 // µs
         let result = events
         let startTs = tracingStartTs
         events = []
-        return (result, startTs)
+        return (result, startTs, stopTs)
     }
 
     // MARK: - Event reporting
