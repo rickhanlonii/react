@@ -353,19 +353,19 @@ class PerformanceTracer {
                 track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(attachStart, attachEnd))
         }
 
-        let screenshotStart = (t["screenshotStart"] as? Double) ?? 0
-        let screenshotEnd = (t["screenshotEnd"] as? Double) ?? 0
-        if screenshotEnd > screenshotStart {
-            reportTimeStamp(label: "Screenshot", start: screenshotStart, end: screenshotEnd,
-                track: "Shadow Tree", trackGroup: "Native ⚛", color: "warning")
-        }
-
         // Prepare Paint — the UIKit view mutation window (mutations + sync + attach)
         let preparePaintStart = (t["preparePaintStart"] as? Double) ?? 0
         let preparePaintEnd = (t["preparePaintEnd"] as? Double) ?? 0
         if preparePaintEnd > preparePaintStart {
             reportTimeStamp(label: "Prepare Paint", start: preparePaintStart, end: preparePaintEnd,
                 track: "Shadow Tree", trackGroup: "Native ⚛", color: "secondary")
+        }
+
+        let screenshotStart = (t["screenshotStart"] as? Double) ?? 0
+        let screenshotEnd = (t["screenshotEnd"] as? Double) ?? 0
+        if screenshotEnd > screenshotStart {
+            reportTimeStamp(label: "Screenshot", start: screenshotStart, end: screenshotEnd,
+                track: "Shadow Tree", trackGroup: "Native ⚛", color: "warning")
         }
 
         // Layout track — outer Calculate Layout span
