@@ -366,7 +366,11 @@ public class ReactRuntime {
     ///   If false (default), re-evaluates the bundle in the existing context
     ///   for fast refresh.
     public func reload(fullReset: Bool = false) {
-        guard hasBooted else { return }
+        // Server-only mode: no JS runtime to reload, re-fetch from server
+        if !hasBooted {
+            reloadServerOnlySurfaces()
+            return
+        }
 
         if fullReset {
             print("[ReactRuntime] Reload (full reset) — \(activeSurfaces.count) active surface(s)")
@@ -835,6 +839,9 @@ public class ReactRuntime {
             client?.send(json)
         }
 
+        // Install Cmd+Shift+R keyboard shortcut for manual reload
+        DevKeyCommands.install()
+
         // Register React error callback bridge globals (only when JS runtime exists)
         guard let engine = runtime?.engine else { return }
 
@@ -881,8 +888,6 @@ public class ReactRuntime {
             return nil
         }
 
-        // Install Cmd+Shift+R keyboard shortcut for manual reload
-        DevKeyCommands.install()
         #endif
     }
 
