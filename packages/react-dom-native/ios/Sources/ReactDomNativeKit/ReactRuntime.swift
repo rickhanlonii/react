@@ -779,6 +779,20 @@ public class ReactRuntime {
                     }
                     return
                 }
+
+                // Handle navigate-fixture from DevTools MCP
+                if type == "navigate-fixture" {
+                    let fixture = obj["fixture"] as? String ?? ""
+                    let variant = obj["variant"] as? String ?? "hydrated"
+                    DispatchQueue.main.async {
+                        NotificationCenter.default.post(
+                            name: Notification.Name("com.react.Falcon.navigateFixture"),
+                            object: nil,
+                            userInfo: ["fixture": fixture, "variant": variant]
+                        )
+                    }
+                    return
+                }
             }
             bindings?.deliverInspectorMessage(json)
         }

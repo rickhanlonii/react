@@ -79,6 +79,7 @@ struct FalconApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var store = FixtureStore()
     @State private var path = NavigationPath()
+    @AppStorage("renderingMode") private var renderingMode: String = RenderingMode.hydrated.rawValue
 
     var body: some Scene {
         WindowGroup {
@@ -95,6 +96,27 @@ struct FalconApp: App {
                                 .environmentObject(store)
                         }
                     }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: Notification.Name("com.react.Falcon.navigateFixture"))) { notification in
+                guard let fixture = notification.userInfo?["fixture"] as? String,
+                      let variant = notification.userInfo?["variant"] as? String else { return }
+
+                // Find the category for this fixture
+                let category = store.categories.first(where: {
+                    $0.fixtures.contains(where: { $0.name == fixture })
+                })?.category
+
+                // Set the rendering mode
+                renderingMode = variant
+
+                // Navigate: reset to root, then push category + fixture
+                path = NavigationPath()
+                if let category = category {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        path.append(NavDestination.category(category))
+                        path.append(NavDestination.fixture(fixture))
+                    }
+                }
             }
         }
     }

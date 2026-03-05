@@ -1566,6 +1566,27 @@ function createPerformanceDomain() {
   return {name: 'Performance', handle: handle};
 }
 
+function createFalconAppDomain() {
+  function handle(method, params, ctx) {
+    log('FalconApp', method, params);
+    switch (method) {
+      case 'navigate': {
+        if (ctx.sendToApp) {
+          ctx.sendToApp(JSON.stringify({
+            type: 'navigate-fixture',
+            fixture: params.fixture || '',
+            variant: params.variant || 'hydrated',
+          }));
+        }
+        return {};
+      }
+      default:
+        return {};
+    }
+  }
+  return {name: 'FalconApp', handle: handle};
+}
+
 // ---------------------------------------------------------------------------
 // createTarget — per-app domain handlers and CDP client tracking
 // ---------------------------------------------------------------------------
@@ -1718,6 +1739,7 @@ function createTarget(targetId, sourceMapResolver) {
     createSecurityDomain(),
     createAuditsDomain(),
     createPerformanceDomain(),
+    createFalconAppDomain(),
   ]);
 
   return {
