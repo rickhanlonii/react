@@ -75,7 +75,7 @@ function commandsForTarget(t) {
     },
     launch: {
       command: 'xcrun',
-      args: ['simctl', 'launch', t.simulatorId, t.bundleId],
+      args: ['simctl', 'launch', '--console', t.simulatorId, t.bundleId],
       timeout: 30000,
     },
   };
