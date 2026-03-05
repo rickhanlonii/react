@@ -125,6 +125,9 @@ public class Renderer {
         let diffEnd = tracing ? performanceNow() : 0
 
         // 3. Apply mutations + sync frames + attach (inside Prepare Paint)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+
         var mutationTimings: [(mutationType: String, elementType: String, start: Double, end: Double)] = []
         var syncNodeTimings: [(type: String, start: Double, end: Double)] = []
         let mutationsStart = tracing ? performanceNow() : 0
@@ -165,6 +168,8 @@ public class Renderer {
 
         // 6. Promote current tree
         currentTree = newChildren
+
+        CATransaction.commit()
         let attachEnd = tracing ? performanceNow() : 0
         let preparePaintEnd = tracing ? performanceNow() : 0
 
