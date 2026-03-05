@@ -407,6 +407,21 @@ function reportNativeCommitTimings(t) {
       'Shadow Tree', 'Native \u269b', durationColor(devtoolsNotifyStart, devtoolsNotifyEnd));
   }
 
+  // Post-mutation phases
+  var attachStart = (t.attachStart || 0) - origin;
+  var attachEnd = (t.attachEnd || 0) - origin;
+  if (attachEnd > attachStart) {
+    $$reportTimeStamp('Attach & Promote', attachStart, attachEnd,
+      'Shadow Tree', 'Native \u269b', durationColor(attachStart, attachEnd));
+  }
+
+  var screenshotStart = (t.screenshotStart || 0) - origin;
+  var screenshotEnd = (t.screenshotEnd || 0) - origin;
+  if (screenshotEnd > screenshotStart) {
+    $$reportTimeStamp('Screenshot', screenshotStart, screenshotEnd,
+      'Shadow Tree', 'Native \u269b', 'warning');
+  }
+
   // Layout track — outer Calculate Layout span
   if (layoutEnd > layoutStart) {
     $$reportTimeStamp('Calculate Layout', layoutStart, layoutEnd,

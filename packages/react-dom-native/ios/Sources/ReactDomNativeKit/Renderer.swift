@@ -140,6 +140,7 @@ public class Renderer {
         let mutationsEnd = tracing ? performanceNow() : 0
 
         // 4. Attach root children to rootView
+        let attachStart = tracing ? performanceNow() : 0
         for child in newChildren {
             if let view = viewRegistry.view(for: child.family) {
                 if view.superview == nil {
@@ -158,6 +159,7 @@ public class Renderer {
 
         // 6. Promote current tree
         currentTree = newChildren
+        let attachEnd = tracing ? performanceNow() : 0
 
         // 7. Fire timing if tracing
         if tracing {
@@ -227,11 +229,21 @@ public class Renderer {
             timing["layoutNodes"] = layoutElements
             lastLayoutNodeTimings = []
 
-            onTimingCollected?(timing)
-        }
+            timing["attachStart"] = attachStart
+            timing["attachEnd"] = attachEnd
 
-        // Capture screenshot after every paint (SSR reveals, prerender, React commits)
-        onCommitPainted?()
+            // Capture screenshot after every paint (SSR reveals, prerender, React commits)
+            let screenshotStart = performanceNow()
+            onCommitPainted?()
+            let screenshotEnd = performanceNow()
+            timing["screenshotStart"] = screenshotStart
+            timing["screenshotEnd"] = screenshotEnd
+
+            onTimingCollected?(timing)
+        } else {
+            // Capture screenshot after every paint (SSR reveals, prerender, React commits)
+            onCommitPainted?()
+        }
     }
 
     // MARK: - Layout

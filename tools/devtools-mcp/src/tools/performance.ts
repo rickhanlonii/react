@@ -55,7 +55,11 @@ export const startTrace = definePageTool({
     // Send Tracing.start via CDP
     const cdpClient = context.cdpClient;
     logger(`CDP: Client connected=${cdpClient.isConnected}`);
-    await cdpClient.send('Tracing.start', {});
+    await cdpClient.send('Tracing.start', {
+      traceConfig: {
+        includedCategories: ['disabled-by-default-devtools.screenshot'],
+      },
+    });
     logger('CDP: Tracing.start sent');
 
     if (request.params.reload) {

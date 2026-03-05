@@ -121,17 +121,24 @@ function createDomainRouter(domains) {
 // Tracing domain
 // ---------------------------------------------------------------------------
 
+function wantsScreenshots(params) {
+  var cats = params && params.traceConfig && params.traceConfig.includedCategories;
+  return Array.isArray(cats) && cats.indexOf('disabled-by-default-devtools.screenshot') !== -1;
+}
+
 function createTracingDomain(targetId, screenshotCapture) {
   var pendingTraceResolve = null;
 
   function handle(method, params, ctx) {
     switch (method) {
       case 'start': {
-        log('Tracing', 'start — sendToApp=' + (ctx.sendToApp ? 'yes' : 'NO'));
+        log('Tracing', 'start — sendToApp=' + (ctx.sendToApp ? 'yes' : 'NO') + ' screenshots=' + wantsScreenshots(params));
         if (ctx.sendToApp) {
           ctx.sendToApp(JSON.stringify({type: 'start-tracing'}));
         }
-        screenshotCapture.start();
+        if (wantsScreenshots(params)) {
+          screenshotCapture.start();
+        }
         return {};
       }
 
@@ -209,11 +216,15 @@ function createNodeTracingDomain(targetId, screenshotCapture) {
   function handle(method, params, ctx) {
     switch (method) {
       case 'start': {
-        log('NodeTracing', 'start — sendToApp=' + (ctx.sendToApp ? 'yes' : 'NO'));
+        var cats = params && params.traceConfig && params.traceConfig.categories;
+        var wantsScreens = typeof cats === 'string' && cats.indexOf('disabled-by-default-devtools.screenshot') !== -1;
+        log('NodeTracing', 'start — sendToApp=' + (ctx.sendToApp ? 'yes' : 'NO') + ' screenshots=' + wantsScreens);
         if (ctx.sendToApp) {
           ctx.sendToApp(JSON.stringify({type: 'start-tracing'}));
         }
-        screenshotCapture.start();
+        if (wantsScreens) {
+          screenshotCapture.start();
+        }
         return {};
       }
 
@@ -1636,6 +1647,7 @@ function createTarget(targetId, sourceMapResolver) {
       log('Screenshots', 'Started capture for tracing');
     },
     stop: function () {
+      if (!isCapturingScreenshots) return;
       isCapturingScreenshots = false;
       if (sendToApp) {
         sendToApp(JSON.stringify({ type: 'disable-commit-screenshots' }));
