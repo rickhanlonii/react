@@ -17,6 +17,18 @@ class PerformanceTracer {
     private let pid = 1
     private let tid = 1
 
+    // MARK: - Pending commit (deferred until async paint completes)
+
+    private struct PendingCommit {
+        let label: String
+        let commitStart: Double
+        let properties: [[String]]
+        let preparePaintEnd: Double
+        let screenshotStart: Double
+        let screenshotEnd: Double
+    }
+    private var pendingCommit: PendingCommit?
+
     // MARK: - Performance entry storage (for getEntriesByType/Name)
 
     private var marks: [[String: Any]] = []
@@ -250,15 +262,12 @@ class PerformanceTracer {
         guard isTracing else { return }
 
         let commitStart = (t["commitStart"] as? Double) ?? 0
-        let commitEnd = (t["commitEnd"] as? Double) ?? 0
         let layoutStart = (t["layoutStart"] as? Double) ?? 0
         let layoutEnd = (t["layoutEnd"] as? Double) ?? 0
         let diffStart = (t["diffStart"] as? Double) ?? 0
         let diffEnd = (t["diffEnd"] as? Double) ?? 0
         let mutationsStart = (t["mutationsStart"] as? Double) ?? 0
         let mutationsEnd = (t["mutationsEnd"] as? Double) ?? 0
-        let syncStart = (t["syncStart"] as? Double) ?? 0
-        let syncEnd = (t["syncEnd"] as? Double) ?? 0
         let yogaStart = (t["yogaStart"] as? Double) ?? 0
         let yogaEnd = (t["yogaEnd"] as? Double) ?? 0
         let textRemeasureStart = (t["textRemeasureStart"] as? Double) ?? 0
@@ -277,34 +286,26 @@ class PerformanceTracer {
         let affectedTypes = (t["affectedTypes"] as? String) ?? "none"
         let didRemeasure = (t["didRemeasure"] as? Bool) ?? false
 
-        // Shadow Tree track — level 1: outer Commit span
+        // Shadow Tree track — level 1: deferred to reportPaintComplete (needs nativePaintEnd)
+
         let label = (t["label"] as? String) ?? "Commit"
-        reportTimeStamp(label: label, start: commitStart, end: commitEnd,
-            track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(commitStart, commitEnd),
-            properties: [["Nodes", String(nodeCount)],
-                         ["Tree depth", String(treeDepth)],
-                         ["Root elements", rootTypes]])
+        let preparePaintStart = (t["preparePaintStart"] as? Double) ?? 0
+        let preparePaintEnd = (t["preparePaintEnd"] as? Double) ?? 0
+        let screenshotStart = (t["screenshotStart"] as? Double) ?? 0
+        let screenshotEnd = (t["screenshotEnd"] as? Double) ?? 0
 
         // Shadow Tree track — level 2: major phases (emitted before level 3 for stacking)
         if layoutEnd > layoutStart {
             reportTimeStamp(label: "Blocked (Layout)", start: layoutStart, end: layoutEnd,
                 track: "Shadow Tree", trackGroup: "Native ⚛", color: "secondary-light")
         }
-        let preparePaintStart = (t["preparePaintStart"] as? Double) ?? 0
-        let preparePaintEnd = (t["preparePaintEnd"] as? Double) ?? 0
         if preparePaintEnd > preparePaintStart {
             reportTimeStamp(label: "Prepare Paint", start: preparePaintStart, end: preparePaintEnd,
                 track: "Shadow Tree", trackGroup: "Native ⚛", color: "tertiary")
         }
-        // (Native Paint is emitted asynchronously from Root.swift via CATransaction)
+        // (Native Paint is emitted asynchronously from reportPaintComplete)
 
-        // Shadow Tree track — level 3: sub-phases (nested inside Prepare Paint / Native Paint)
-        let prepareStart = (t["prepareStart"] as? Double) ?? 0
-        let prepareEnd = (t["prepareEnd"] as? Double) ?? 0
-        if prepareEnd > prepareStart {
-            reportTimeStamp(label: "Prepare", start: prepareStart, end: prepareEnd,
-                track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(prepareStart, prepareEnd))
-        }
+        // Shadow Tree track — level 3: sub-phases (nested inside Prepare Paint)
         if diffEnd > diffStart {
             reportTimeStamp(label: "Diff", start: diffStart, end: diffEnd,
                 track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(diffStart, diffEnd),
@@ -320,31 +321,25 @@ class PerformanceTracer {
                              ["Removes", String(removes)],
                              ["Affected elements", affectedTypes]])
         }
-        if syncEnd > syncStart {
-            reportTimeStamp(label: "Sync Frames", start: syncStart, end: syncEnd,
-                track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(syncStart, syncEnd))
-        }
 
         let attachStart = (t["attachStart"] as? Double) ?? 0
         let attachEnd = (t["attachEnd"] as? Double) ?? 0
         if attachEnd > attachStart {
-            reportTimeStamp(label: "Attach & Promote", start: attachStart, end: attachEnd,
+            reportTimeStamp(label: "Promote", start: attachStart, end: attachEnd,
                 track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(attachStart, attachEnd))
         }
 
-        // Commit — bookkeeping after prepare paint (stats, tree promote, cleanup)
-        let screenshotStart = (t["screenshotStart"] as? Double) ?? 0
-        let screenshotEnd = (t["screenshotEnd"] as? Double) ?? 0
-        if commitEnd > preparePaintEnd {
-            let commitPhaseEnd = screenshotStart > preparePaintEnd ? screenshotStart : commitEnd
-            reportTimeStamp(label: "Commit", start: preparePaintEnd, end: commitPhaseEnd,
-                track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(preparePaintEnd, commitPhaseEnd))
-        }
-
-        if screenshotEnd > screenshotStart {
-            reportTimeStamp(label: "Screenshot", start: screenshotStart, end: screenshotEnd,
-                track: "Shadow Tree", trackGroup: "Native ⚛", color: "warning")
-        }
+        // Save pending data for async phase (level 1 + Native Paint children)
+        pendingCommit = PendingCommit(
+            label: label,
+            commitStart: commitStart,
+            properties: [["Nodes", String(nodeCount)],
+                         ["Tree depth", String(treeDepth)],
+                         ["Root elements", rootTypes]],
+            preparePaintEnd: preparePaintEnd,
+            screenshotStart: screenshotStart,
+            screenshotEnd: screenshotEnd
+        )
 
         // Layout track — outer Calculate Layout span
         if layoutEnd > layoutStart {
@@ -416,6 +411,36 @@ class PerformanceTracer {
                     track: "Layout", trackGroup: "Native ⚛", color: "primary-light")
                 i += 3
             }
+        }
+    }
+
+    /// Called asynchronously when CATransaction completes (real paint is done).
+    /// Emits the deferred level 1 span and Native Paint children.
+    func reportPaintComplete(nativePaintEnd: Double) {
+        guard let pending = pendingCommit else { return }
+        pendingCommit = nil
+
+        // Level 1: outer span (e.g. "SSR Reveal") from commitStart → nativePaintEnd
+        reportTimeStamp(label: pending.label, start: pending.commitStart, end: nativePaintEnd,
+            track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(pending.commitStart, nativePaintEnd),
+            properties: pending.properties)
+
+        // Level 2: Native Paint from preparePaintEnd → nativePaintEnd
+        if nativePaintEnd > pending.preparePaintEnd {
+            reportTimeStamp(label: "Native Paint", start: pending.preparePaintEnd, end: nativePaintEnd,
+                track: "Shadow Tree", trackGroup: "Native ⚛", color: "tertiary")
+        }
+
+        // Level 3: Commit (bookkeeping) from preparePaintEnd → screenshotStart
+        if pending.screenshotStart > pending.preparePaintEnd {
+            reportTimeStamp(label: "Commit", start: pending.preparePaintEnd, end: pending.screenshotStart,
+                track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(pending.preparePaintEnd, pending.screenshotStart))
+        }
+
+        // Level 3: Screenshot from screenshotStart → screenshotEnd
+        if pending.screenshotEnd > pending.screenshotStart {
+            reportTimeStamp(label: "Screenshot", start: pending.screenshotStart, end: pending.screenshotEnd,
+                track: "Shadow Tree", trackGroup: "Native ⚛", color: "warning")
         }
     }
 

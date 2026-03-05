@@ -55,7 +55,7 @@ public class Renderer {
     /// Called when a real paint completes (CATransaction commit). Reports the
     /// paint timing span directly to the tracer since it fires asynchronously
     /// after commitTree returns.
-    var onPaintTimingCollected: ((_ start: Double, _ end: Double) -> Void)?
+    var onPaintTimingCollected: ((_ nativePaintEnd: Double) -> Void)?
 
     /// Sub-phase timings from the most recent calculateLayout call.
     private var lastLayoutTimings: [String: Double]?
@@ -102,7 +102,8 @@ public class Renderer {
         let contentSize = calculateLayout(for: newChildren, in: scrollView.bounds, tracing: tracing)
         let layoutEnd = tracing ? performanceNow() : 0
 
-        // 2. Diff old vs new
+        // 2. Diff old vs new (inside Prepare Paint)
+        let preparePaintStart = tracing ? performanceNow() : 0
         let diffStart = tracing ? performanceNow() : 0
         var diffNodeTimings: [(type: String, start: Double, end: Double)] = []
         let mutations: [Mutation]
@@ -123,8 +124,7 @@ public class Renderer {
         }
         let diffEnd = tracing ? performanceNow() : 0
 
-        // 3. Apply mutations + sync frames + attach (Prepare Paint)
-        let preparePaintStart = tracing ? performanceNow() : 0
+        // 3. Apply mutations + sync frames + attach (inside Prepare Paint)
         var mutationTimings: [(mutationType: String, elementType: String, start: Double, end: Double)] = []
         var syncNodeTimings: [(type: String, start: Double, end: Double)] = []
         let mutationsStart = tracing ? performanceNow() : 0
@@ -173,11 +173,10 @@ public class Renderer {
         // bookkeeping and Screenshot phases, and extends to when Core Animation
         // actually commits the layer tree to the render server.
         if tracing {
-            let nativePaintStart = preparePaintEnd
             let callback = onPaintTimingCollected
             CATransaction.setCompletionBlock {
                 let nativePaintEnd = performanceNow()
-                callback?(nativePaintStart, nativePaintEnd)
+                callback?(nativePaintEnd)
             }
         }
 

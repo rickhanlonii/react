@@ -193,11 +193,8 @@ public class Root {
             ReactRuntime.shared.bindings?.captureCommitScreenshot()
         }
 
-        renderer.onPaintTimingCollected = { start, end in
-            ReactRuntime.shared.bindings?.tracer?.reportTimeStamp(
-                label: "Native Paint", start: start, end: end,
-                track: "Shadow Tree", trackGroup: "Native ⚛", color: "tertiary"
-            )
+        renderer.onPaintTimingCollected = { nativePaintEnd in
+            ReactRuntime.shared.bindings?.tracer?.reportPaintComplete(nativePaintEnd: nativePaintEnd)
         }
     }
 
