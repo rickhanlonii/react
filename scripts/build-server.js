@@ -75,7 +75,7 @@ function commandsForTarget(t) {
     },
     launch: {
       command: 'xcrun',
-      args: ['simctl', 'launch', '--console', t.simulatorId, t.bundleId],
+      args: ['simctl', 'launch', t.simulatorId, t.bundleId],
       timeout: 30000,
     },
   };
@@ -196,10 +196,11 @@ const logState = {};
 // Per-target debug (LLDB) session state
 const debugState = {};
 
-function handleLogStart(res, target) {
+async function handleLogStart(res, target) {
   const t = TARGETS[target];
   const state = logState[target] || {};
 
+  // Clean up any previous log capture
   if (state.process) {
     state.process.kill();
   }
@@ -210,11 +211,11 @@ function handleLogStart(res, target) {
   fs.writeFileSync(t.logPath, '');
   const stream = fs.createWriteStream(t.logPath, { flags: 'a' });
 
+  // Terminate the running app, then relaunch with --console to capture stdout
+  await exec('xcrun', ['simctl', 'terminate', t.simulatorId, t.bundleId], 10000);
+
   const proc = spawn('xcrun', [
-    'simctl', 'spawn', t.simulatorId,
-    'log', 'stream',
-    '--style', 'compact',
-    '--predicate', `subsystem == "${t.bundleId}" OR processImagePath ENDSWITH "${t.processName}"`,
+    'simctl', 'launch', '--console', t.simulatorId, t.bundleId,
   ], {
     cwd: PROJECT_ROOT,
     env: { ...process.env },
@@ -231,7 +232,7 @@ function handleLogStart(res, target) {
 
   logState[target] = { process: proc, stream };
 
-  console.log(`\n> [${target}/log-start] capturing logs to ${t.logPath}`);
+  console.log(`\n> [${target}/log-start] relaunched with --console, capturing to ${t.logPath}`);
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ code: 0, stdout: `Log capture started, writing to ${t.logPath}`, stderr: '' }));
 }
