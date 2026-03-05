@@ -135,8 +135,14 @@ extension Bindings {
         boundaryId: Int,
         contentNodes: [ShadowNodeWrapper]
     ) {
-        guard let root = ReactRuntime.shared.rootForSurface(surfaceId) else { return }
-        let renderer = root.renderer
+        let renderer: Renderer
+        if let customRenderer = rendererForSurface?(surfaceId) {
+            renderer = customRenderer
+        } else if let root = ReactRuntime.shared.rootForSurface(surfaceId) {
+            renderer = root.renderer
+        } else {
+            return
+        }
         let oldTree = renderer.currentTree
         guard let suspenseNode = findSuspenseNodeByBoundaryId(boundaryId, in: oldTree) else { return }
 

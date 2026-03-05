@@ -15,7 +15,7 @@ import Yoga
 // Bindings' shared instances so the EventDispatcher can find views.
 // ---------------------------------------------------------------------------
 
-class Renderer {
+public class Renderer {
 
     // MARK: - Commit Infrastructure
 
@@ -56,7 +56,7 @@ class Renderer {
 
     // MARK: - Initialization
 
-    init() {
+    public init() {
         self.viewRegistry = ViewRegistry()
         self.differentiator = Differentiator()
         self.mutationApplier = UIKitMutationApplier(viewRegistry: viewRegistry, logPrefix: "MutationApplier SSR")
@@ -65,7 +65,7 @@ class Renderer {
     // MARK: - Root View
 
     /// Creates a UIScrollView inside the container and stores it as rootView.
-    func registerRootView(_ container: UIView) {
+    public func registerRootView(_ container: UIView) {
         let scrollView = UIScrollView(frame: container.bounds)
         scrollView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         scrollView.contentInsetAdjustmentBehavior = .automatic

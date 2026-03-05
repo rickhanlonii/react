@@ -74,6 +74,11 @@ public class Bindings {
     /// Root uses this to clean up SSR infrastructure (parser, tree builder, etc.).
     public var onHydrationComplete: ((Int) -> Void)?
 
+    /// Provides the Renderer for a given surfaceId. Defaults to looking up
+    /// ReactRuntime.shared, but standalone consumers (e.g. LayoutCompare) can
+    /// override this to provide their own Renderer.
+    public var rendererForSurface: ((Int) -> Renderer?)?
+
     /// Counter for inspector-specific node IDs (document, body wrapper nodes).
     /// Shadow tree nodes use their nodeRegistry IDs directly.
     var inspectorNodeIdCounter = 900000

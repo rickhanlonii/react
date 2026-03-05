@@ -482,13 +482,16 @@ extension Bindings {
                 return self.nodeRegistry[id]
             }
 
-            // 1. Look up root and its renderer
-            guard let root = ReactRuntime.shared.rootForSurface(surfaceId) else {
+            // 1. Look up renderer — try custom closure first, fall back to ReactRuntime.shared
+            let renderer: Renderer
+            if let customRenderer = self.rendererForSurface?(surfaceId) {
+                renderer = customRenderer
+            } else if let root = ReactRuntime.shared.rootForSurface(surfaceId) {
+                renderer = root.renderer
+            } else {
                 print("[react-dom-native] Warning: No root for surfaceId \(surfaceId)")
                 return nil
             }
-
-            let renderer = root.renderer
 
             // 2. Get old tree and prepare for diff
             let oldChildren = renderer.currentTree

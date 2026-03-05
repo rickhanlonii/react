@@ -8,6 +8,7 @@ import Yoga
 @Observable
 class NativeRendererModel {
     private var runtime: JSRuntime?
+    private var renderer: Renderer?
     let scrollView = UIScrollView()
     let containerView = UIView(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
     private let surfaceId = 100
@@ -21,7 +22,15 @@ class NativeRendererModel {
     func renderFixture(_ name: String, completion: @escaping () -> Void) {
         cleanup()
 
+        let newRenderer = Renderer()
+        newRenderer.registerRootView(containerView)
+        self.renderer = newRenderer
+
         runtime = JSRuntime()
+        runtime!.bindings.rendererForSurface = { [weak self] id in
+            guard let self = self, id == self.surfaceId else { return nil }
+            return self.renderer
+        }
         runtime!.bindings.registerSurface(surfaceId: surfaceId, rootView: containerView)
 
         let bundleURL = URL(string: "http://localhost:6100/native-fixtures.js")!
@@ -84,6 +93,7 @@ class NativeRendererModel {
         }
         containerView.subviews.forEach { $0.removeFromSuperview() }
         runtime = nil
+        renderer = nil
     }
 }
 
