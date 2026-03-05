@@ -72,15 +72,23 @@ Orchestrator (main context)
   |           - Runs performance_start_trace with autoStop + filePath
   |           - Saves manifest
   |
-  |-- Phase 3: Analyze all traces (parallel, 3 agents batched)
+  |-- Phase 3: Triage all traces (parallel, 3 agents batched)
   |     |
-  |     |-- Analyzer Agent 1 (fixtures 1-11)
-  |     |-- Analyzer Agent 2 (fixtures 12-22)
-  |     `-- Analyzer Agent 3 (fixtures 23-33)
+  |     |-- Triage Agent 1 (fixtures 1-11)
+  |     |-- Triage Agent 2 (fixtures 12-22)
+  |     `-- Triage Agent 3 (fixtures 23-33)
   |
-  `-- Phase 4: Synthesize results (orchestrator)
+  |-- Phase 4: Root Cause Analysis (parallel, 3 RCA agents)
+  |     |
+  |     |-- RCA Agent 1 (issues batch 1)
+  |     |-- RCA Agent 2 (issues batch 2)
+  |     `-- RCA Agent 3 (issues batch 3)
+  |           Each agent: reads trace data + source code, identifies
+  |           root cause, writes per-issue report with file/line refs
+  |
+  `-- Phase 5: Synthesize results (orchestrator)
         - Compile results table
-        - Group issues by root cause
+        - Attach root causes to issues
         - Write final reports
 ```
 
@@ -190,9 +198,89 @@ Three parallel agents, each analyzing a batch of trace files. Agents read trace 
 
 **Important**: Do NOT read entire trace files — they can be 5-50MB. Use `grep` patterns only.
 
-## Phase 4: Synthesis (Orchestrator)
+## Phase 4: Root Cause Analysis
 
-After all analyzer agents complete, the orchestrator reads all per-trace reports and produces three outputs.
+After triage, the orchestrator collects all critical/warning issues from the analysis reports, deduplicates them by pattern (e.g. "Shadow Tree track missing" across 33 server-variant traces is ONE issue, not 33), and distributes unique issues across 3 RCA agents.
+
+### Issue Deduplication
+
+Before dispatching to RCA agents, group issues by signature:
+- Same `severity` + same `message` pattern + same affected track → one issue group
+- Record which fixture/variant combos are affected
+- Example: if all 33 server-variant traces are missing "Server Components" track, that's 1 issue affecting 33 traces, not 33 issues
+
+### Each RCA Agent
+
+**Input**: A batch of deduplicated issue groups, each with:
+- Issue description and severity
+- List of affected fixture/variant combos
+- One representative trace file path to inspect
+
+**For each issue**:
+
+1. **Examine trace data**: Read relevant sections of a representative trace file to understand what IS present vs what's missing
+2. **Trace the code path**: Follow the event emission chain in source code:
+   - For missing tracks → find where events are emitted in source, check if the code path is reached
+     - `packages/react-dom-native/src/HostConfig.js` — Shadow Tree, Layout track events
+     - `packages/react-dom-native/src/flight/` — Server Requests, Server Components track events
+     - `packages/react-dom-native/src/renderer.js` — Interactions, scheduler events
+   - For missing screenshots → check the screenshot capture flow
+     - `packages/react-dom-native/ios/.../Bindings+DevTools.swift` — `captureCommitScreenshot()`
+     - `example/scripts/inspector-proxy.js` — screenshot forwarding, `enable-commit-screenshots`
+   - For variant-specific issues → check variant code paths
+     - `example/Falcon/Falcon/ServerOnlyViewController.swift`
+     - `example/Falcon/Falcon/HydrationViewController.swift`
+     - `example/Falcon/Falcon/PrerenderViewController.swift`
+   - For malformed events → check event construction
+     - JS: trace event helpers in HostConfig.js, PerformanceTracer
+     - Swift: `PerformanceTracer.swift`, `Bindings+DevTools.swift`
+3. **Classify root cause**:
+   - **Not emitted**: Code path exists but is never reached for this variant/fixture
+   - **Emitted but lost**: Event is created but dropped in proxy/transport
+   - **Wrong data**: Event exists but has incorrect fields/format
+   - **Timing issue**: Event exists but timestamp/duration is wrong
+   - **By design**: The track/event is not expected for this variant (e.g. no Server Components in server-only mode)
+4. **Write report** to `/tmp/falcon-traces/rca/<issue_id>.md`:
+   ```markdown
+   # Issue: <description>
+
+   **Severity**: critical/warning
+   **Affected**: <N> traces (<list of fixture/variant combos>)
+   **Classification**: not emitted | emitted but lost | wrong data | timing | by design
+
+   ## Root Cause
+
+   <Explanation of why the issue occurs, referencing specific source files and line numbers>
+
+   ## Evidence
+
+   - Trace file: <path> — <what was found/not found>
+   - Source: <file>:<line> — <relevant code>
+
+   ## Suggested Fix Category
+
+   <One of: add missing emission, fix proxy forwarding, fix event format,
+    fix timing, update expectations (if by design), needs investigation>
+   ```
+
+### RCA Source Code Reference
+
+Key files for each track:
+
+| Track | Primary Source | What to Check |
+|-------|---------------|---------------|
+| Shadow Tree | `packages/react-dom-native/src/HostConfig.js` | `console.timeStamp` calls with `track:"Shadow Tree"` |
+| Layout | `packages/react-dom-native/src/HostConfig.js` | `console.timeStamp` calls with `track:"Layout"` |
+| Screenshots | `packages/react-dom-native/ios/.../Bindings+DevTools.swift` | `captureCommitScreenshot()`, `commitScreenshotsEnabled` |
+| Screenshots (proxy) | `example/scripts/inspector-proxy.js` | `enable-commit-screenshots` message handling, screenshot event injection |
+| Server Requests | `packages/react-dom-native/src/flight/` | Flight client fetch instrumentation |
+| Server Components | `packages/react-dom-native/src/flight/` | RSC chunk processing instrumentation |
+| Scheduler | React internals | `SchedulerFeatureFlags`, priority/lane events |
+| Interactions | `packages/react-dom-native/src/renderer.js` | Event timing, `reportGlobalEvent` |
+
+## Phase 5: Synthesis (Orchestrator)
+
+After all triage and RCA agents complete, the orchestrator reads all reports and produces three outputs.
 
 ### Output 1: Results Table (`/tmp/falcon-traces/results-table.md`)
 
@@ -201,21 +289,24 @@ After all analyzer agents complete, the orchestrator reads all per-trace reports
 | 01-rsc-only | server | 1234 | 5/5 | Y | Y | Y | Y | Y | Y | 0 |
 | 01-rsc-only | hydrated | 1456 | 6/7 | Y | Y | Y | Y | Y | N | 1 |
 
-### Output 2: Issues By Root Cause (`/tmp/falcon-traces/issues-by-cause.md`)
+### Output 2: Issues With Root Causes (`/tmp/falcon-traces/issues-with-rca.md`)
 
-Group issues across all fixtures by pattern, not by fixture. For each group:
-- Description of the pattern
-- List of affected fixture/variant combinations
-- Likely root cause (which source file/function is responsible)
-- Severity assessment
+For each deduplicated issue group, merge the triage data with the RCA report:
+- Issue description and severity
+- Number of affected fixture/variant combos
+- Root cause classification and explanation (from RCA)
+- Source file(s) and line numbers
+- Suggested fix category
+- Priority ranking (critical issues with many affected traces first)
 
 ### Output 3: Executive Summary (`/tmp/falcon-traces/summary.md`)
 
 - Total traces collected: X/99
-- Total traces with issues: X
-- Track health summary
-- Top issues by frequency
-- Recommendations
+- Total unique issues found: X (after deduplication)
+- Root cause breakdown: N "not emitted", N "emitted but lost", N "by design", etc.
+- Track health summary (which tracks work reliably, which don't)
+- Top 5 issues by impact (severity x breadth)
+- Recommended next steps (ordered by priority)
 
 ## Output Directory Structure
 
@@ -224,10 +315,12 @@ Group issues across all fixtures by pattern, not by fixture. For each group:
   manifest.json                         # Collection manifest (99 entries)
   pilot.json                            # Pilot trace
   <fixture>_<variant>.json              # Raw traces (up to 99)
-  analysis/                             # Per-trace analysis reports
+  analysis/                             # Per-trace triage reports
     <fixture>_<variant>.json            # (up to 99)
+  rca/                                  # Root cause analysis reports
+    <issue_id>.md                       # Per-issue RCA (deduplicated)
   results-table.md                      # Final results table
-  issues-by-cause.md                    # Issues grouped by root cause
+  issues-with-rca.md                    # Issues with root causes
   summary.md                            # Executive summary
 ```
 
@@ -281,13 +374,50 @@ For EACH trace file:
 Do NOT read entire trace files — they are too large. Use grep patterns only.
 ```
 
+### RCA Agent Prompt
+
+```
+You are performing root cause analysis on performance trace issues in the
+Falcon demo app (react-dom-native). You have access to: Read tool, Bash tool,
+Grep tool.
+
+Your issues to investigate: <list of deduplicated issue groups with representative trace paths>
+
+For EACH issue:
+1. Read relevant parts of a representative trace file (use grep, not full reads)
+2. Read the source code responsible for emitting the events (see source reference below)
+3. Determine the root cause — classify as one of:
+   - "not emitted": code path exists but not reached
+   - "emitted but lost": event created but dropped in proxy/transport
+   - "wrong data": event exists but fields are incorrect
+   - "timing": event exists but timestamp/duration is wrong
+   - "by design": track/event not expected for this variant
+4. Write a report to /tmp/falcon-traces/rca/<issue_id>.md with:
+   - Issue description and severity
+   - Affected traces
+   - Root cause classification and explanation
+   - Relevant source file(s) and line numbers
+   - Suggested fix category
+
+KEY SOURCE FILES:
+- Shadow Tree / Layout events: packages/react-dom-native/src/HostConfig.js
+- Screenshots: packages/react-dom-native/ios/Sources/ReactDomNativeKit/Bindings/Bindings+DevTools.swift
+- Screenshot proxy: example/scripts/inspector-proxy.js (search for "screenshot")
+- Flight/RSC events: packages/react-dom-native/src/flight/
+- Renderer/interactions: packages/react-dom-native/src/renderer.js
+- Variant ViewControllers: example/Falcon/Falcon/*ViewController.swift
+
+Do NOT modify any code files. This is read-only analysis.
+```
+
 ## Timing
 
 - **Pilot run**: ~1 min
 - **Trace collection**: 99 traces x ~10s each (3s navigate + 5s trace + 2s overhead) = ~17 min
-- **Analysis**: 3 parallel agents x ~33 traces each = ~10 min wall clock
+- **Triage**: 3 parallel agents x ~33 traces each = ~10 min wall clock
+- **RCA**: 3 parallel agents, ~5 min per issue — depends on issue count after deduplication
 - **Synthesis**: ~2 min
-- **Total**: ~30 min wall clock
+- **Total**: ~45 min wall clock (varies with issue count)
 
 ## Failure Modes
 
