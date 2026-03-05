@@ -360,11 +360,11 @@ class PerformanceTracer {
                 track: "Shadow Tree", trackGroup: "Native ⚛", color: "warning")
         }
 
-        // Paint — the UIKit visual update window (mutations + sync + attach)
+        // Native Paint — the UIKit visual update window (mutations + sync + attach)
         let paintStart = (t["paintStart"] as? Double) ?? 0
         let paintEnd = (t["paintEnd"] as? Double) ?? 0
         if paintEnd > paintStart {
-            reportTimeStamp(label: "Paint", start: paintStart, end: paintEnd,
+            reportTimeStamp(label: "Native Paint", start: paintStart, end: paintEnd,
                 track: "Shadow Tree", trackGroup: "Native ⚛", color: "tertiary")
         }
 
