@@ -62,20 +62,6 @@ module.exports = function (env) {
         __DEV__: isDev ? 'true' : 'false',
         'process.env.NODE_ENV': JSON.stringify(mode),
       }),
-      // Fix Flight client time origin rebasing for native. The default
-      // _timeOrigin = N_row - performance.timeOrigin compares clocks across
-      // processes (Node.js CLOCK_REALTIME+MONOTONIC vs Swift Date()+CACurrentMediaTime)
-      // which drift 50-120ms on macOS, making server component events appear
-      // at t=0 (clamped from negative) instead of after Prerender First Paint.
-      // Fix: use performance.now() to map server time 0 to client's current time.
-      {
-        apply(compiler) {
-          compiler.options.module.rules.push({
-            test: /react-server-dom-webpack[/\\]cjs[/\\].*client.*\.js$/,
-            loader: require.resolve('./scripts/flight-time-origin-loader'),
-          });
-        },
-      },
       // Expose __webpack_module_cache__ as __webpack_require__.c so that
       // $$performFastRefresh can bust cached modules before re-requiring them.
       isDev && {
