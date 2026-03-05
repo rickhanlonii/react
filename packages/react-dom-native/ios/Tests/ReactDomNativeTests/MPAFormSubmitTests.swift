@@ -25,7 +25,7 @@ final class MPAFormSubmitTests: XCTestCase {
 
     func testCollectFormDataFromNestedTextFields() {
         let viewRegistry = ViewRegistry()
-        let applier = UIKitMutationApplier(viewRegistry: viewRegistry, logPrefix: "Test")
+        let applier = UIKitMutationApplier(viewRegistry: viewRegistry)
 
         // Build hierarchy: UIView (form) > UIView (div) > UITextField (name="email") + UITextField (name="password")
         let formView = UIView()
@@ -65,7 +65,7 @@ final class MPAFormSubmitTests: XCTestCase {
 
     func testCollectFormDataSkipsFieldsWithoutName() {
         let viewRegistry = ViewRegistry()
-        let applier = UIKitMutationApplier(viewRegistry: viewRegistry, logPrefix: "Test")
+        let applier = UIKitMutationApplier(viewRegistry: viewRegistry)
 
         let formView = UIView()
         let textField = UITextField()
@@ -84,7 +84,7 @@ final class MPAFormSubmitTests: XCTestCase {
 
     func testCollectFormDataEmptyTextFieldValue() {
         let viewRegistry = ViewRegistry()
-        let applier = UIKitMutationApplier(viewRegistry: viewRegistry, logPrefix: "Test")
+        let applier = UIKitMutationApplier(viewRegistry: viewRegistry)
 
         let formView = UIView()
         let textField = UITextField()
@@ -105,7 +105,7 @@ final class MPAFormSubmitTests: XCTestCase {
 
     func testAttemptMPAFormSubmitFindsFormAncestor() {
         let viewRegistry = ViewRegistry()
-        let applier = UIKitMutationApplier(viewRegistry: viewRegistry, logPrefix: "Test")
+        let applier = UIKitMutationApplier(viewRegistry: viewRegistry)
 
         // Build hierarchy: UIView (form, formActionURL="/submit") > UIView (div) > UIButton (button)
         let formView = UIView()
@@ -131,7 +131,7 @@ final class MPAFormSubmitTests: XCTestCase {
 
     func testAttemptMPAFormSubmitNoFormAncestor() {
         let viewRegistry = ViewRegistry()
-        let applier = UIKitMutationApplier(viewRegistry: viewRegistry, logPrefix: "Test")
+        let applier = UIKitMutationApplier(viewRegistry: viewRegistry)
 
         // Build hierarchy: UIView (div) > UIButton (button) — no form
         let divView = UIView()
@@ -150,7 +150,7 @@ final class MPAFormSubmitTests: XCTestCase {
 
     func testAttemptMPAFormSubmitFormWithNoActionURL() {
         let viewRegistry = ViewRegistry()
-        let applier = UIKitMutationApplier(viewRegistry: viewRegistry, logPrefix: "Test")
+        let applier = UIKitMutationApplier(viewRegistry: viewRegistry)
 
         // Build hierarchy: UIView (form, no action) > UIButton (button)
         let formView = UIView()
@@ -170,7 +170,7 @@ final class MPAFormSubmitTests: XCTestCase {
 
     func testAttemptMPAFormSubmitFormWithEmptyActionURL() {
         let viewRegistry = ViewRegistry()
-        let applier = UIKitMutationApplier(viewRegistry: viewRegistry, logPrefix: "Test")
+        let applier = UIKitMutationApplier(viewRegistry: viewRegistry)
 
         // Build hierarchy: UIView (form, action="") > UIButton (button)
         let formView = UIView()

@@ -147,7 +147,6 @@ exports.createInstance = function createInstance(
     hostContext.isInsideTextContext,
     internalHandle,
   );
-  console.log('[HostConfig] createInstance <' + type + '>');
   return {
     _nativeNode: nativeNode,
     _nativeFamily: nativeNode,
@@ -169,7 +168,6 @@ exports.createTextInstance = function createTextInstance(
     rootContainer.surfaceId,
     internalHandle,
   );
-  console.log('[HostConfig] createTextInstance "' + text + '"');
   return {
     _nativeNode: nativeNode,
     _nativeFamily: nativeNode,
@@ -179,7 +177,6 @@ exports.createTextInstance = function createTextInstance(
 };
 
 exports.appendInitialChild = function appendInitialChild(parentInstance, child) {
-  console.log('[HostConfig] appendInitialChild <' + (child.type || '#text') + '> into <' + parentInstance.type + '>');
   $$appendChild(parentInstance._nativeNode, child._nativeNode);
   parentInstance.children.push(child);
 };
@@ -232,7 +229,6 @@ exports.cloneInstance = function cloneInstance(
       nativeNewProps,
     );
   }
-  console.log('[HostConfig] cloneInstance <' + type + '> keepChildren=' + keepChildren);
   return {
     _nativeNode: newNativeNode,
     _nativeFamily: instance._nativeFamily,
@@ -288,16 +284,10 @@ exports.replaceContainerChildren = function replaceContainerChildren(container, 
   if (newChildren == null) {
     // Hydration commit — React reused the existing SSR tree, no children to swap.
     // Signal completion so native side can clean up SSR state.
-    console.log('[HostConfig] replaceContainerChildren: hydration commit (null children)');
     if (typeof $$onHydrationCommit === 'function') {
       $$onHydrationCommit(container.surfaceId);
     }
     return;
-  }
-  console.log('[HostConfig] replaceContainerChildren: ' + newChildren.length + ' children');
-  for (var i = 0; i < newChildren.length; i++) {
-    var c = newChildren[i];
-    console.log('[HostConfig]   [' + i + '] <' + c.type + '> children=' + (c.children ? c.children.length : 0));
   }
   const childNodes = newChildren.map(c => c._nativeNode);
   $$completeRoot(container.surfaceId, childNodes);
@@ -609,7 +599,6 @@ exports.canHydrateSuspenseInstance = function(instance) {
 };
 
 exports.hydrateInstance = function(instance, type, props, hostContext, internalHandle) {
-  console.log('[HostConfig] hydrateInstance <' + type + '>');
   instance._nativeNode = instance._ssrNodeRef;
   instance._nativeFamily = instance._ssrFamily;
   instance._internalInstanceHandle = internalHandle;
@@ -624,7 +613,6 @@ exports.hydrateInstance = function(instance, type, props, hostContext, internalH
 };
 
 exports.hydrateTextInstance = function(textInstance, text, internalHandle) {
-  console.log('[HostConfig] hydrateTextInstance "' + text + '"');
   textInstance._nativeNode = textInstance._ssrNodeRef;
   textInstance._nativeFamily = textInstance._ssrFamily;
   textInstance._internalInstanceHandle = internalHandle;

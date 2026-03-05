@@ -8,7 +8,7 @@ final class UIKitHelpersTests: XCTestCase {
     override func setUp() {
         super.setUp()
         let registry = ViewRegistry()
-        applier = UIKitMutationApplier(viewRegistry: registry, logPrefix: "Test")
+        applier = UIKitMutationApplier(viewRegistry: registry)
     }
 
     override func tearDown() {

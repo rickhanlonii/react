@@ -144,7 +144,7 @@ extension Root {
                             bindings.eventDispatcher.dispatchEvent(from: view, eventType: eventType, payload: payload)
                         }
                         // Create new mutation applier with Bindings' ViewRegistry for future commits
-                        self.renderer.mutationApplier = UIKitMutationApplier(viewRegistry: bindings.viewRegistry, logPrefix: "MutationApplier CSR")
+                        self.renderer.mutationApplier = UIKitMutationApplier(viewRegistry: bindings.viewRegistry)
                         self.renderer.mutationApplier.dispatchEvent = { view, eventType, payload in
                             bindings.eventDispatcher.dispatchEvent(from: view, eventType: eventType, payload: payload)
                         }

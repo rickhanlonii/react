@@ -139,7 +139,6 @@ $$registerEventHandler(function (instanceHandle, eventType, payload) {
 let nextSurfaceId = 1;
 
 function createRoot(nativeRootView) {
-  console.log('[Renderer] createRoot called with surfaceId: ' + (nativeRootView.surfaceId || 'auto'));
   const surfaceId = nativeRootView.surfaceId != null
     ? nativeRootView.surfaceId
     : nextSurfaceId++;
@@ -169,12 +168,9 @@ function createRoot(nativeRootView) {
       }
     },
   );
-  console.log('[Renderer] Container created for surfaceId: ' + surfaceId);
   return {
     render(element, callback) {
-      console.log('[Renderer] render called with element type: ' + (element ? (element.$$typeof ? String(element.$$typeof) : typeof element) : 'null'));
       reconciler.updateContainer(element, root, null, callback || null);
-      console.log('[Renderer] updateContainer completed');
     },
     unmount() {
       reconciler.updateContainer(null, root, null, null);
@@ -185,7 +181,6 @@ function createRoot(nativeRootView) {
 function noop() {}
 
 function hydrateRoot(nativeRootView, initialElement, options) {
-  console.log('[Renderer] hydrateRoot called with surfaceId: ' + (nativeRootView.surfaceId || 'auto'));
   const surfaceId = nativeRootView.surfaceId != null
     ? nativeRootView.surfaceId
     : nextSurfaceId++;
@@ -225,13 +220,11 @@ function hydrateRoot(nativeRootView, initialElement, options) {
     null,           // transitionCallbacks
     options && options.formState != null ? options.formState : null,  // formState
   );
-  console.log('[Renderer] Hydration container created for surfaceId: ' + surfaceId);
   return {
     render(element) {
       reconciler.updateContainer(element, root, null, null);
     },
     unmount() {
-      console.log('### unmount called.');
       reconciler.updateContainer(null, root, null, null);
     },
   };

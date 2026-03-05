@@ -33,12 +33,8 @@ public class UIKitMutationApplier: NSObject {
     /// to all descendant text elements.
     private var inheritedTextColor: [ObjectIdentifier: UIColor] = [:]
 
-    /// Label used in log output to distinguish SSR vs CSR mutations.
-    private let logPrefix: String
-
-    public init(viewRegistry: ViewRegistry, logPrefix: String) {
+    public init(viewRegistry: ViewRegistry) {
         self.viewRegistry = viewRegistry
-        self.logPrefix = logPrefix
     }
 
     // MARK: - Mutation application
@@ -64,8 +60,6 @@ public class UIKitMutationApplier: NSObject {
         tracing: Bool,
         mutationTimings: inout [(mutationType: String, elementType: String, start: Double, end: Double)]
     ) {
-        print("[\(logPrefix)] Applying \(mutations.count) mutations")
-
         for (index, mutation) in mutations.enumerated() {
             let mutStart = tracing ? performanceNow() : 0
             var mutType = ""
@@ -75,7 +69,6 @@ public class UIKitMutationApplier: NSObject {
             case .create(let node):
                 mutType = "CREATE"
                 elemType = node.family.elementType
-                print("[\(logPrefix)] [\(index)] CREATE: \(node.family.elementType)")
                 let view = createView(for: node)
                 view.frame = node.layoutFrame
                 // Apply bounds-dependent props (borders, border-radius) now that frame is set
@@ -111,13 +104,11 @@ public class UIKitMutationApplier: NSObject {
                 if node.family.elementType == "input" {
                     node.family.inputName = node.props["name"] as? String
                 }
-                print("[\(logPrefix)]   frame: \(view.frame)")
                 viewRegistry.register(view: view, family: node.family)
 
             case .delete(let node):
                 mutType = "DELETE"
                 elemType = node.family.elementType
-                print("[\(logPrefix)] [\(index)] DELETE: \(node.family.elementType)")
                 if let view = viewRegistry.view(for: node.family) {
                     inheritedTextAlign.removeValue(forKey: ObjectIdentifier(view))
                     inheritedTextColor.removeValue(forKey: ObjectIdentifier(view))
@@ -128,10 +119,8 @@ public class UIKitMutationApplier: NSObject {
             case .insert(let parent, let child, let index):
                 mutType = "INSERT"
                 elemType = child.family.elementType
-                print("[\(logPrefix)] [\(index)] INSERT: \(child.family.elementType) into \(parent.family.elementType) at \(index)")
                 guard let parentView = viewRegistry.view(for: parent.family),
                       let childView = viewRegistry.view(for: child.family) else {
-                    print("[\(logPrefix)]   SKIPPED - parent or child view not found")
                     continue
                 }
                 // Inherit font properties from parent text elements to #text children
@@ -177,12 +166,10 @@ public class UIKitMutationApplier: NSObject {
                 }
                 let clampedIndex = min(index, parentView.subviews.count)
                 parentView.insertSubview(childView, at: clampedIndex)
-                print("[\(logPrefix)]   inserted OK")
 
             case .remove(let parent, let child):
                 mutType = "REMOVE"
                 elemType = child.family.elementType
-                print("[\(logPrefix)] [\(index)] REMOVE: \(child.family.elementType)")
                 guard let childView = viewRegistry.view(for: child.family) else {
                     continue
                 }
@@ -191,7 +178,6 @@ public class UIKitMutationApplier: NSObject {
             case .update(let node, _, let newProps):
                 mutType = "UPDATE"
                 elemType = node.family.elementType
-                print("[\(logPrefix)] [\(index)] UPDATE: \(node.family.elementType)")
                 guard let view = viewRegistry.view(for: node.family) else {
                     continue
                 }
@@ -240,7 +226,6 @@ public class UIKitMutationApplier: NSObject {
             }
         }
 
-        print("[\(logPrefix)] Done. Root view subviews: \(rootView.subviews.count)")
     }
 
     // MARK: - View Factory
