@@ -24,11 +24,15 @@ class PerformanceTracer {
 
     // MARK: - Time origin
 
-    /// Unix epoch milliseconds at init — matches browser `performance.timeOrigin`.
+    /// Unix epoch milliseconds, derived from the monotonic clock so that the
+    /// browser invariant `timeOrigin + performance.now() ≈ Date.now()` holds.
+    /// Using `Date.now() - performanceNow()` ensures both sides use the same
+    /// clock source (CLOCK_MONOTONIC via CACurrentMediaTime), avoiding drift
+    /// between CLOCK_REALTIME and CLOCK_MONOTONIC from NTP adjustments.
     let timeOrigin: Double
 
     init() {
-        timeOrigin = Date().timeIntervalSince1970 * 1000.0
+        timeOrigin = Date().timeIntervalSince1970 * 1000.0 - performanceNow()
     }
 
     /// Returns milliseconds elapsed since the monotonic origin (matches browser `performance.now()`).
