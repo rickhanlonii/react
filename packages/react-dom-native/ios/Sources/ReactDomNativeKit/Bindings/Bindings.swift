@@ -11,10 +11,9 @@ import Yoga
 // functions implement the persistent-mode shadow node protocol that the
 // React reconciler's host config calls into.
 //
-// Node identity crosses the JS↔Swift boundary as integer IDs. The
-// nodeRegistry maps these IDs to ShadowNodeWrapper instances. This
-// decouples the ShadowTree from any engine-specific bridging requirements
-// (no @objc, no NSObject, no JSC protocol conformance).
+// Node identity crosses the JS↔Swift boundary as opaque JS objects that
+// wrap direct Swift pointers via wrapNativeObject/unwrapNativeObject.
+// No dictionary lookups — O(1) access on every bridge call.
 //
 // Threading: All calls are synchronous on the main thread. The engine,
 // shadow tree, Yoga layout, and UIKit all share the main thread.
@@ -84,7 +83,6 @@ public class Bindings {
     public var rendererForSurface: ((Int) -> Renderer?)?
 
     /// Counter for inspector-specific node IDs (document, body wrapper nodes).
-    /// Shadow tree nodes use their nodeRegistry IDs directly.
     var inspectorNodeIdCounter = 900000
 
     /// When enabled, captures a screenshot at the end of each $$completeRoot commit
@@ -93,12 +91,14 @@ public class Bindings {
     var commitScreenshotMaxWidth: Int = 300
     var commitScreenshotQuality: CGFloat = 0.4
 
-    // MARK: - Node Registry
+    // MARK: - DevTools Node Registry
 
-    /// Maps integer node IDs to ShadowNodeWrapper instances.
-    /// Nodes cross the JS↔Swift boundary as integer IDs.
-    var nodeRegistry: [Int: ShadowNodeWrapper] = [:]
-    var nextNodeId = 1
+    /// Maps integer node IDs to ShadowNodeWrapper instances for DevTools only.
+    /// Populated lazily when DevTools requests the DOM tree. The hot path
+    /// (create/clone/append/complete) bypasses this entirely, using opaque
+    /// JS handles for O(1) access.
+    var devToolsNodeRegistry: [Int: ShadowNodeWrapper] = [:]
+    var devToolsNextNodeId = 1
 
     /// Maps integer child set IDs to arrays of ShadowNodeWrappers.
     var childSetRegistry: [Int: [ShadowNodeWrapper]] = [:]

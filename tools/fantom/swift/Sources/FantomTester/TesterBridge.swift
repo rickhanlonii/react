@@ -13,7 +13,7 @@ import Yoga
 //   - $$reportResult(jsonString) — receives test results from JS runtime
 //   - $$dispatchEvent(targetType, eventType, payload) — simulate events
 //
-// Uses the same integer node ID approach as Bindings for passing node
+// Uses the same opaque handle approach as Bindings for passing node
 // identity across the JS↔Swift boundary.
 // ---------------------------------------------------------------------------
 
@@ -44,24 +44,13 @@ class TesterBridge {
     /// Test results captured from $$reportResult.
     var testResults: String?
 
-    // MARK: - Node Registry
-
-    private var nodeRegistry: [Int: ShadowNodeWrapper] = [:]
-    private var nextNodeId = 1
+    // MARK: - Node Unwrap Helper
 
     private var childSetRegistry: [Int: [ShadowNodeWrapper]] = [:]
     private var nextChildSetId = 1
 
-    private func registerNode(_ node: ShadowNodeWrapper) -> Int {
-        let id = nextNodeId
-        nextNodeId += 1
-        nodeRegistry[id] = node
-        return id
-    }
-
-    private func lookupNode(_ ref: JSValueRef) -> ShadowNodeWrapper? {
-        guard let id = engine.toInt(ref) else { return nil }
-        return nodeRegistry[id]
+    private func unwrapNode(_ ref: JSValueRef) -> ShadowNodeWrapper? {
+        return engine.unwrapNativeObject(ref, as: ShadowNodeWrapper.self)
     }
 
     // MARK: - Initialization
@@ -154,22 +143,18 @@ class TesterBridge {
             return nil
         }
 
-        // $$getRenderedNodeIds(surfaceId) -> [nodeId]
-        // Returns the node IDs for the current tree's root children.
+        // $$getRenderedNodeIds(surfaceId) -> [opaqueNode]
+        // Returns opaque node handles for the current tree's root children.
         engine.setGlobalFunction("$$getRenderedNodeIds") { [weak self, weak engine] args in
             guard let self = self, let engine = engine else { return nil }
             let surfaceId = engine.toInt(args[0]) ?? 0
             guard let tree = self.currentTrees[surfaceId] else {
                 return engine.makeArray([])
             }
-            let ids: [JSValueRef] = tree.compactMap { node in
-                // Find the node ID in the registry
-                for (id, registeredNode) in self.nodeRegistry where registeredNode === node {
-                    return engine.makeNumber(Double(id))
-                }
-                return nil
+            let handles: [JSValueRef] = tree.map { node in
+                engine.wrapNativeObject(node)
             }
-            return engine.makeArray(ids)
+            return engine.makeArray(handles)
         }
     }
 
@@ -301,9 +286,7 @@ class TesterBridge {
                 YogaStyleApplier.apply(style, to: node.yogaNode)
             }
 
-            let nodeId = self.registerNode(node)
-
-            return engine.makeNumber(Double(nodeId))
+            return engine.wrapNativeObject(node)
         }
 
         engine.setGlobalFunction("$$createTextNode") { [weak self, weak engine] args in
@@ -326,8 +309,7 @@ class TesterBridge {
             // Set up text measurement on the yogaNode
             YogaTextMeasure.setupMeasureFunc(on: node)
 
-            let nodeId = self.registerNode(node)
-            return engine.makeNumber(Double(nodeId))
+            return engine.wrapNativeObject(node)
         }
     }
 
@@ -336,14 +318,13 @@ class TesterBridge {
     private func registerCloneOperations() {
         engine.setGlobalFunction("$$cloneNode") { [weak self, weak engine] args in
             guard let self = self, let engine = engine else { return nil }
-            guard let node = self.lookupNode(args[0]) else { return nil }
-            let newId = self.registerNode(node.clone())
-            return engine.makeNumber(Double(newId))
+            guard let node = self.unwrapNode(args[0]) else { return nil }
+            return engine.wrapNativeObject(node.clone())
         }
 
         engine.setGlobalFunction("$$cloneNodeWithNewProps") { [weak self, weak engine] args in
             guard let self = self, let engine = engine else { return nil }
-            guard let node = self.lookupNode(args[0]) else { return nil }
+            guard let node = self.unwrapNode(args[0]) else { return nil }
             var newProps = engine.toDictionary(args[1]) ?? [:]
             // Merge element-type defaults with user-supplied style
             let elementType = node.family.elementType
@@ -357,20 +338,18 @@ class TesterBridge {
             if let style = newProps["style"] as? [String: Any] {
                 YogaStyleApplier.apply(style, to: cloned.yogaNode)
             }
-            let newId = self.registerNode(cloned)
-            return engine.makeNumber(Double(newId))
+            return engine.wrapNativeObject(cloned)
         }
 
         engine.setGlobalFunction("$$cloneNodeWithNewChildren") { [weak self, weak engine] args in
             guard let self = self, let engine = engine else { return nil }
-            guard let node = self.lookupNode(args[0]) else { return nil }
-            let newId = self.registerNode(node.cloneWithNewChildren([]))
-            return engine.makeNumber(Double(newId))
+            guard let node = self.unwrapNode(args[0]) else { return nil }
+            return engine.wrapNativeObject(node.cloneWithNewChildren([]))
         }
 
         engine.setGlobalFunction("$$cloneNodeWithNewChildrenAndProps") { [weak self, weak engine] args in
             guard let self = self, let engine = engine else { return nil }
-            guard let node = self.lookupNode(args[0]) else { return nil }
+            guard let node = self.unwrapNode(args[0]) else { return nil }
             var newProps = engine.toDictionary(args[2]) ?? [:]
             // Merge element-type defaults with user-supplied style
             let elementType = node.family.elementType
@@ -384,8 +363,7 @@ class TesterBridge {
             if let style = newProps["style"] as? [String: Any] {
                 YogaStyleApplier.apply(style, to: cloned.yogaNode)
             }
-            let newId = self.registerNode(cloned)
-            return engine.makeNumber(Double(newId))
+            return engine.wrapNativeObject(cloned)
         }
     }
 
@@ -394,8 +372,8 @@ class TesterBridge {
     private func registerTreeConstruction() {
         engine.setGlobalFunction("$$appendChild") { [weak self, weak engine] args in
             guard let self = self, let engine = engine else { return nil }
-            guard let parent = self.lookupNode(args[0]),
-                  let child = self.lookupNode(args[1]) else { return nil }
+            guard let parent = self.unwrapNode(args[0]),
+                  let child = self.unwrapNode(args[1]) else { return nil }
             let index = parent.children.count
             parent.children.append(child)
             // Wire up Yoga parent-child relationship
@@ -446,7 +424,7 @@ class TesterBridge {
         engine.setGlobalFunction("$$appendChildToChildSet") { [weak self, weak engine] args in
             guard let self = self, let engine = engine else { return nil }
             let childSetId = engine.toInt(args[0]) ?? 0
-            guard let child = self.lookupNode(args[1]) else { return nil }
+            guard let child = self.unwrapNode(args[1]) else { return nil }
             self.childSetRegistry[childSetId]?.append(child)
             return nil
         }
@@ -455,11 +433,10 @@ class TesterBridge {
             guard let self = self, let engine = engine else { return nil }
             let surfaceId = engine.toInt(args[0]) ?? 0
 
-            // args[1] is an array of native node IDs from the JS host config
+            // args[1] is an array of opaque node handles from the JS host config
             let childRefs = engine.toArray(args[1]) ?? []
             let newChildren: [ShadowNodeWrapper] = childRefs.compactMap { ref in
-                guard let id = engine.toInt(ref) else { return nil }
-                return self.nodeRegistry[id]
+                engine.unwrapNativeObject(ref, as: ShadowNodeWrapper.self)
             }
 
             let oldChildren = self.currentTrees[surfaceId] ?? []
@@ -531,7 +508,7 @@ class TesterBridge {
     private func registerMeasurement() {
         engine.setGlobalFunction("$$measureNode") { [weak self, weak engine] args in
             guard let self = self, let engine = engine else { return nil }
-            guard let node = self.lookupNode(args[0]) else { return nil }
+            guard let node = self.unwrapNode(args[0]) else { return nil }
             let callback = args[1]
             let frame = node.layoutFrame
             _ = engine.callFunction(callback, args: [
@@ -562,16 +539,14 @@ class TesterBridge {
     // MARK: - Hydration Traversal
 
     private func registerHydrationTraversal() {
-        // $$registerSSRTree(surfaceId, nodeIds) -> void
+        // $$registerSSRTree(surfaceId, opaqueNodes) -> void
         // Called from JS to register an SSR tree for hydration.
-        // nodeIds is an array of root-level SSR node IDs.
         engine.setGlobalFunction("$$registerSSRTree") { [weak self, weak engine] args in
             guard let self = self, let engine = engine else { return nil }
             let surfaceId = engine.toInt(args[0]) ?? 0
             let nodeRefs = engine.toArray(args[1]) ?? []
             let nodes: [ShadowNodeWrapper] = nodeRefs.compactMap { ref in
-                guard let id = engine.toInt(ref) else { return nil }
-                return self.nodeRegistry[id]
+                engine.unwrapNativeObject(ref, as: ShadowNodeWrapper.self)
             }
             self.ssrTrees[surfaceId] = nodes
             // Build parent map for resilient sibling lookups
@@ -592,23 +567,21 @@ class TesterBridge {
             return self.makeSSRNodeRef(first, engine: engine)
         }
 
-        // $$getSSRChildOf(nodeId) -> {nodeId, type} | null
+        // $$getSSRChildOf(opaqueNode) -> {_ssrNodeRef, type} | null
         // Returns the first child of an SSR node.
         engine.setGlobalFunction("$$getSSRChildOf") { [weak self, weak engine] args in
             guard let self = self, let engine = engine else { return nil }
-            guard let node = self.lookupNode(args[0]) else { return nil }
+            guard let node = self.unwrapNode(args[0]) else { return nil }
             guard let first = node.children.first else { return nil }
             return self.makeSSRNodeRef(first, engine: engine)
         }
 
-        // $$getNextSSRSibling(nodeId) -> {nodeId, type} | null
+        // $$getNextSSRSibling(opaqueNode) -> {_ssrNodeRef, type} | null
         // Returns the next sibling of an SSR node.
         engine.setGlobalFunction("$$getNextSSRSibling") { [weak self, weak engine] args in
             guard let self = self, let engine = engine else { return nil }
-            guard let node = self.lookupNode(args[0]) else { return nil }
+            guard let node = self.unwrapNode(args[0]) else { return nil }
 
-            // Find this node in its parent's children array
-            // Walk all SSR trees and current trees to find the parent
             if let sibling = self.findNextSibling(of: node) {
                 return self.makeSSRNodeRef(sibling, engine: engine)
             }
@@ -625,13 +598,12 @@ class TesterBridge {
             return nil
         }
 
-        // $$markBoundaryRevealed(nodeId) -> void
+        // $$markBoundaryRevealed(opaqueNode) -> void
         // Called from JS when a boundary is revealed to sync pending=false
         // to the Swift-side ShadowNodeWrapper props.
         engine.setGlobalFunction("$$markBoundaryRevealed") { [weak self, weak engine] args in
             guard let self = self, let engine = engine else { return nil }
-            guard let nodeId = engine.toInt(args[0]) else { return nil }
-            guard let node = self.nodeRegistry[nodeId] else { return nil }
+            guard let node = self.unwrapNode(args[0]) else { return nil }
             node.props["pending"] = false
             return nil
         }
@@ -643,13 +615,12 @@ class TesterBridge {
             return nil
         }
 
-        // $$setInstanceHandle(nodeId, instanceHandle, hasClickHandler) -> void
+        // $$setInstanceHandle(opaqueNode, instanceHandle, hasClickHandler) -> void
         // Called during hydration to attach the React fiber reference to an
         // SSR-created node's family so that event dispatch works.
         engine.setGlobalFunction("$$setInstanceHandle") { [weak self, weak engine] args in
             guard let self = self, let engine = engine else { return nil }
-            guard let nodeId = engine.toInt(args[0]) else { return nil }
-            guard let node = self.nodeRegistry[nodeId] else { return nil }
+            guard let node = self.unwrapNode(args[0]) else { return nil }
             let instanceHandle = args[1]
             engine.protect(instanceHandle)
             node.family.instanceHandle = instanceHandle
@@ -661,12 +632,11 @@ class TesterBridge {
     }
 
     /// Creates a JS object representing an SSR node for hydration traversal.
-    /// Returns { _ssrNodeRef: nodeId, _ssrFamily: nodeId, type: "div"|"#text", props: {...} }
     private func makeSSRNodeRef(_ node: ShadowNodeWrapper, engine: JSEngine) -> JSValueRef? {
-        let nodeId = registerNode(node)
+        let opaqueNode = engine.wrapNativeObject(node)
         let obj = engine.makeObject()
-        engine.setProperty(obj, "_ssrNodeRef", engine.makeNumber(Double(nodeId)))
-        engine.setProperty(obj, "_ssrFamily", engine.makeNumber(Double(nodeId)))
+        engine.setProperty(obj, "_ssrNodeRef", opaqueNode)
+        engine.setProperty(obj, "_ssrFamily", opaqueNode)
         engine.setProperty(obj, "type", engine.makeString(node.family.elementType))
         if let text = node.text {
             engine.setProperty(obj, "text", engine.makeString(text))
@@ -786,9 +756,6 @@ class TesterBridge {
             // Calculate Yoga layout
             self.calculateYogaLayout(for: finalChildren, width: 390, height: 844)
 
-            // Register all nodes in nodeRegistry so hydration traversal can find them
-            self.registerAllDescendants(finalChildren)
-
             // Diff empty old tree vs new tree, apply mutations to rootViews
             let oldChildren = self.currentTrees[surfaceId] ?? []
             let mutations = self.differentiator.diff(
@@ -822,14 +789,6 @@ class TesterBridge {
         }
     }
 
-    /// Recursively registers all nodes in a tree so hydration traversal
-    /// functions ($$getSSRChildOf, $$getNextSSRSibling) can look them up.
-    private func registerAllDescendants(_ children: [ShadowNodeWrapper]) {
-        for child in children {
-            _ = registerNode(child)
-            registerAllDescendants(child.children)
-        }
-    }
 }
 
 // ---------------------------------------------------------------------------

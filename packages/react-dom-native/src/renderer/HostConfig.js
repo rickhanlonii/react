@@ -147,10 +147,10 @@ exports.createInstance = function createInstance(
     hostContext.isInsideTextContext,
     internalHandle,
   );
-  console.log('[HostConfig] createInstance <' + type + '> nativeNode=' + nativeNode + ' family=' + (nativeNode._family || nativeNode));
+  console.log('[HostConfig] createInstance <' + type + '>');
   return {
     _nativeNode: nativeNode,
-    _nativeFamily: nativeNode._family || nativeNode,
+    _nativeFamily: nativeNode,
     _internalInstanceHandle: internalHandle,
     type,
     props,
@@ -169,10 +169,10 @@ exports.createTextInstance = function createTextInstance(
     rootContainer.surfaceId,
     internalHandle,
   );
-  console.log('[HostConfig] createTextInstance "' + text + '" nativeNode=' + nativeNode);
+  console.log('[HostConfig] createTextInstance "' + text + '"');
   return {
     _nativeNode: nativeNode,
-    _nativeFamily: nativeNode._family || nativeNode,
+    _nativeFamily: nativeNode,
     _internalInstanceHandle: internalHandle,
     text,
   };
@@ -232,8 +232,7 @@ exports.cloneInstance = function cloneInstance(
       nativeNewProps,
     );
   }
-  var familyShared = newNativeNode._family === instance._nativeFamily;
-  console.log('[HostConfig] cloneInstance <' + type + '> keepChildren=' + keepChildren + ' familyShared=' + familyShared + ' oldNode=' + instance._nativeNode + ' newNode=' + newNativeNode);
+  console.log('[HostConfig] cloneInstance <' + type + '> keepChildren=' + keepChildren);
   return {
     _nativeNode: newNativeNode,
     _nativeFamily: instance._nativeFamily,
@@ -298,7 +297,7 @@ exports.replaceContainerChildren = function replaceContainerChildren(container, 
   console.log('[HostConfig] replaceContainerChildren: ' + newChildren.length + ' children');
   for (var i = 0; i < newChildren.length; i++) {
     var c = newChildren[i];
-    console.log('[HostConfig]   [' + i + '] <' + c.type + '> family=' + (c._nativeFamily ? 'shared' : 'new') + ' children=' + (c.children ? c.children.length : 0));
+    console.log('[HostConfig]   [' + i + '] <' + c.type + '> children=' + (c.children ? c.children.length : 0));
   }
   const childNodes = newChildren.map(c => c._nativeNode);
   $$completeRoot(container.surfaceId, childNodes);
@@ -610,7 +609,7 @@ exports.canHydrateSuspenseInstance = function(instance) {
 };
 
 exports.hydrateInstance = function(instance, type, props, hostContext, internalHandle) {
-  console.log('[HostConfig] hydrateInstance <' + type + '> ssrNodeRef=' + instance._ssrNodeRef + ' ssrFamily=' + instance._ssrFamily);
+  console.log('[HostConfig] hydrateInstance <' + type + '>');
   instance._nativeNode = instance._ssrNodeRef;
   instance._nativeFamily = instance._ssrFamily;
   instance._internalInstanceHandle = internalHandle;
@@ -625,7 +624,7 @@ exports.hydrateInstance = function(instance, type, props, hostContext, internalH
 };
 
 exports.hydrateTextInstance = function(textInstance, text, internalHandle) {
-  console.log('[HostConfig] hydrateTextInstance "' + text + '" ssrNodeRef=' + textInstance._ssrNodeRef);
+  console.log('[HostConfig] hydrateTextInstance "' + text + '"');
   textInstance._nativeNode = textInstance._ssrNodeRef;
   textInstance._nativeFamily = textInstance._ssrFamily;
   textInstance._internalInstanceHandle = internalHandle;

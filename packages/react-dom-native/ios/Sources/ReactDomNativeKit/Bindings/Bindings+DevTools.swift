@@ -123,6 +123,14 @@ extension Bindings {
         return inspectorNodeIdCounter
     }
 
+    /// Registers a node in the DevTools-only registry and returns its integer ID.
+    func registerDevToolsNode(_ node: ShadowNodeWrapper) -> Int {
+        let id = devToolsNextNodeId
+        devToolsNextNodeId += 1
+        devToolsNodeRegistry[id] = node
+        return id
+    }
+
     // MARK: - Formatting Helpers
 
     func styleDictToCSS(_ style: [String: Any]) -> String {
@@ -308,6 +316,10 @@ extension Bindings {
 
     /// Returns the full CDP DOM.Node document tree for a surface.
     func cdpGetDocumentTree(surfaceId: Int) -> [String: Any] {
+        // Clear stale DevTools registry — repopulated by serializeNodeToDict below
+        devToolsNodeRegistry.removeAll()
+        devToolsNextNodeId = 1
+
         let children: [ShadowNodeWrapper]?
         if surfaceId > 0, let tree = currentTrees[surfaceId] {
             children = tree
@@ -356,7 +368,7 @@ extension Bindings {
 
     /// Returns CDP computedStyle for a node.
     func cdpGetComputedStyle(nodeId: Int) -> [String: Any] {
-        guard let node = nodeRegistry[nodeId] else {
+        guard let node = devToolsNodeRegistry[nodeId] else {
             return ["computedStyle": [] as [Any]]
         }
 
@@ -433,7 +445,7 @@ extension Bindings {
 
     /// Returns CDP inline style for a node.
     func cdpGetInlineStyle(nodeId: Int) -> [String: Any] {
-        guard let node = nodeRegistry[nodeId] else {
+        guard let node = devToolsNodeRegistry[nodeId] else {
             return ["cssProperties": [] as [Any], "shorthandEntries": [] as [Any]]
         }
 
@@ -461,7 +473,7 @@ extension Bindings {
 
     /// Returns CDP outerHTML for a node.
     func cdpGetOuterHTML(nodeId: Int) -> [String: Any] {
-        guard let node = nodeRegistry[nodeId] else {
+        guard let node = devToolsNodeRegistry[nodeId] else {
             return ["outerHTML": ""]
         }
         return ["outerHTML": nodeToHTML(node)]
@@ -469,7 +481,7 @@ extension Bindings {
 
     /// Returns CDP box model for a node.
     func cdpGetBoxModel(nodeId: Int) -> [String: Any] {
-        guard let node = nodeRegistry[nodeId] else {
+        guard let node = devToolsNodeRegistry[nodeId] else {
             return ["model": [
                 "content": [0,0,0,0,0,0,0,0], "padding": [0,0,0,0,0,0,0,0],
                 "border": [0,0,0,0,0,0,0,0], "margin": [0,0,0,0,0,0,0,0],
@@ -585,12 +597,12 @@ extension Bindings {
         }
 
         var nodeId = 0
-        for (id, registeredNode) in nodeRegistry where registeredNode === node {
+        for (id, registeredNode) in devToolsNodeRegistry where registeredNode === node {
             nodeId = id
             break
         }
         if nodeId == 0 {
-            nodeId = registerNode(node)
+            nodeId = registerDevToolsNode(node)
         }
 
         var jsNode: [String: Any]

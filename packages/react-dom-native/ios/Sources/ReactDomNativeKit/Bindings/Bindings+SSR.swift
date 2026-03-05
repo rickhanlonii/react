@@ -41,21 +41,9 @@ extension Bindings {
     /// Called by Root.hydrateRoot() after SSR first paint completes.
     public func registerSSRTree(surfaceId: Int, rootChildren: [ShadowNodeWrapper]) {
         ssrTrees[surfaceId] = rootChildren
-        // Register all SSR nodes so they have IDs for the bridge
-        for child in rootChildren {
-            registerSSRSubtree(child)
-        }
         // Build parent map for resilient sibling lookups
         for child in rootChildren {
             buildParentMap(child)
-        }
-    }
-
-    /// Recursively registers all nodes in an SSR subtree.
-    func registerSSRSubtree(_ node: ShadowNodeWrapper) {
-        _ = registerNode(node)
-        for child in node.children {
-            registerSSRSubtree(child)
         }
     }
 
@@ -85,7 +73,6 @@ extension Bindings {
 
         suspenseNode.children = contentNodes
         suspenseNode.props["pending"] = false
-        for child in contentNodes { registerNewNodesInSubtree(child) }
         buildParentMap(suspenseNode)
 
         #if DEBUG
@@ -157,12 +144,6 @@ extension Bindings {
 
         // Sync for DevTools
         currentTrees[surfaceId] = renderer.currentTree
-
-        // Register new nodes
-        for child in newTree {
-            registerNewNodesInSubtree(child)
-        }
-
     }
 
     /// Updates the SSR tree for hydration traversal after a boundary reveal.
@@ -173,30 +154,17 @@ extension Bindings {
     /// the first $$completeRoot to prevent mid-hydration tree mutations.
     public func updateSSRTree(surfaceId: Int, newTree: [ShadowNodeWrapper]) {
         ssrTrees[surfaceId] = newTree
-        for child in newTree { registerNewNodesInSubtree(child) }
         for child in newTree { buildParentMap(child) }
-    }
-
-    /// Registers nodes in a subtree that aren't already in the node registry.
-    func registerNewNodesInSubtree(_ node: ShadowNodeWrapper) {
-        // Check if already registered (any entry pointing to this exact object)
-        let alreadyRegistered = nodeRegistry.values.contains(where: { $0 === node })
-        if !alreadyRegistered {
-            _ = registerNode(node)
-        }
-        for child in node.children {
-            registerNewNodesInSubtree(child)
-        }
     }
 
     // MARK: - SSR Traversal Helpers
 
     /// Creates a JS object representing an SSR node for hydration traversal.
     func makeSSRNodeRef(_ node: ShadowNodeWrapper, engine: JSEngine) -> JSValueRef? {
-        let nodeId = registerNode(node)
+        let opaqueNode = engine.wrapNativeObject(node)
         let obj = engine.makeObject()
-        engine.setProperty(obj, "_ssrNodeRef", engine.makeNumber(Double(nodeId)))
-        engine.setProperty(obj, "_ssrFamily", engine.makeNumber(Double(nodeId)))
+        engine.setProperty(obj, "_ssrNodeRef", opaqueNode)
+        engine.setProperty(obj, "_ssrFamily", opaqueNode)
         engine.setProperty(obj, "type", engine.makeString(node.family.elementType))
         if let text = node.text {
             engine.setProperty(obj, "text", engine.makeString(text))
