@@ -471,6 +471,9 @@ extension Bindings {
         engine.setGlobalFunction("$$completeRoot") { [weak self, weak engine] args in
             guard let self = self, let engine = engine else { return nil }
 
+            let tracing = self.nativeTracingEnabled
+            let resolveStart = tracing ? performanceNow() : 0
+
             let surfaceId = engine.toInt(args[0]) ?? 0
 
             // 0. Resolve node IDs from JS
@@ -506,9 +509,19 @@ extension Bindings {
             self.assertNoRevealedSuspenseWrappers(oldChildren)
             #endif
 
+            let resolveEnd = tracing ? performanceNow() : 0
+
             // 3. Sync tracing state and route to Renderer
-            renderer.tracingEnabled = self.nativeTracingEnabled
+            renderer.tracingEnabled = tracing
             renderer.commitTree(newChildren: newChildren, label: "Commit")
+
+            // Emit "Resolve Tree" event for the pre-commitTree overhead
+            if tracing, resolveEnd > resolveStart {
+                self.tracer?.reportTimeStamp(
+                    label: "Resolve Tree", start: resolveStart, end: resolveEnd,
+                    track: "Shadow Tree", trackGroup: "Native ⚛", color: "secondary-light"
+                )
+            }
 
             // 3b. Sync currentTrees for DevTools and other Bindings consumers
             self.currentTrees[surfaceId] = renderer.currentTree
