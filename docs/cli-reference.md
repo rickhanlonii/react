@@ -21,7 +21,7 @@ Choose the right tool based on what you're investigating:
 - `npm run app:log-stop` — stop and return all logs
 - Logs are filtered to the app's bundle ID (`com.react.Falcon`) and process name
 
-**JS runtime** — use the `/devtools` skill to connect Chrome DevTools to the app's JSC runtime for console logs, JS profiling, and runtime inspection.
+**JS runtime** — use the `falcon-devtools` MCP tools (e.g. `evaluate_script`, `list_console_messages`) to interact with the app's JSC runtime for console logs, JS profiling, and runtime inspection.
 
 ## UI Automation
 

@@ -42,7 +42,18 @@ A React framework that uses HTML elements (`<div>`, `<span>`, `<p>`, etc.) as th
 
 Run `cd example && npm run dev` to start esbuild watcher + RSC server on `http://localhost:6000`. The native app auto-reloads via WebSocket on JS changes.
 
-For debugging, UI automation, test commands, and output filtering, see `docs/cli-reference.md`.
+For UI automation, test commands, and output filtering, see `docs/cli-reference.md`.
+
+## Debugging
+
+Pick the right tool for what you're investigating:
+
+- **UI structure**: `npm run app:snapshot-ui` — accessibility tree with element types, labels, frames, IDs
+- **Visual rendering**: `npm run app:screenshot` — capture what the user sees
+- **App logs**: `npm run app:log-start` → `npm run app:log-read` → `npm run app:log-stop` — capture and read native app logs
+- **JS runtime** (console, eval, profiling): Use the `falcon-devtools` MCP tools (e.g. `evaluate_script`, `list_console_messages`) to interact with the app's JSC runtime
+- **Native runtime** (Swift/UIKit): `npm run app:debug-lldb -- demo "<command>"` — run LLDB commands against the running app
+- **Performance traces**: Use `falcon-devtools` MCP tools (`performance_start_trace`/`performance_stop_trace`) to capture Chrome DevTools traces, or `npm run test:trace` to validate trace event format
 
 ## Coding Conventions
 
@@ -57,3 +68,5 @@ For debugging, UI automation, test commands, and output filtering, see `docs/cli
 - **Build operations**: NEVER call `bash scripts/build-op.sh` directly or `curl` the build server (port 6002). Always use `npm run app:*` commands.
 
 IMPORTANT: NEVER USE WORKTREES OR GIT BRANCHES. Always execute plans in their entirety without stopping for feedback.
+
+IMPORTANT: NEVER USE `xcrun simctl` or `curl -s http://localhost:6002`, ALWAYS use the CLI in `docs/cli-reference.md`.
