@@ -277,7 +277,7 @@ class PerformanceTracer {
         let affectedTypes = (t["affectedTypes"] as? String) ?? "none"
         let didRemeasure = (t["didRemeasure"] as? Bool) ?? false
 
-        // Shadow Tree track — outer Commit span
+        // Shadow Tree track — level 1: outer Commit span
         let label = (t["label"] as? String) ?? "Commit"
         reportTimeStamp(label: label, start: commitStart, end: commitEnd,
             track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(commitStart, commitEnd),
@@ -285,16 +285,25 @@ class PerformanceTracer {
                          ["Tree depth", String(treeDepth)],
                          ["Root elements", rootTypes]])
 
-        // Shadow Tree track — sub-spans
+        // Shadow Tree track — level 2: major phases (emitted before level 3 for stacking)
+        if layoutEnd > layoutStart {
+            reportTimeStamp(label: "Blocked (Layout)", start: layoutStart, end: layoutEnd,
+                track: "Shadow Tree", trackGroup: "Native ⚛", color: "secondary-light")
+        }
+        let preparePaintStart = (t["preparePaintStart"] as? Double) ?? 0
+        let preparePaintEnd = (t["preparePaintEnd"] as? Double) ?? 0
+        if preparePaintEnd > preparePaintStart {
+            reportTimeStamp(label: "Prepare Paint", start: preparePaintStart, end: preparePaintEnd,
+                track: "Shadow Tree", trackGroup: "Native ⚛", color: "tertiary")
+        }
+        // (Native Paint is emitted asynchronously from Root.swift via CATransaction)
+
+        // Shadow Tree track — level 3: sub-phases (nested inside Prepare Paint / Native Paint)
         let prepareStart = (t["prepareStart"] as? Double) ?? 0
         let prepareEnd = (t["prepareEnd"] as? Double) ?? 0
         if prepareEnd > prepareStart {
             reportTimeStamp(label: "Prepare", start: prepareStart, end: prepareEnd,
                 track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(prepareStart, prepareEnd))
-        }
-        if layoutEnd > layoutStart {
-            reportTimeStamp(label: "Blocked (Layout)", start: layoutStart, end: layoutEnd,
-                track: "Shadow Tree", trackGroup: "Native ⚛", color: "secondary-light")
         }
         if diffEnd > diffStart {
             reportTimeStamp(label: "Diff", start: diffStart, end: diffEnd,
@@ -316,36 +325,6 @@ class PerformanceTracer {
                 track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(syncStart, syncEnd))
         }
 
-        let cleanupStart = (t["cleanupStart"] as? Double) ?? 0
-        let cleanupEnd = (t["cleanupEnd"] as? Double) ?? 0
-        if cleanupEnd > cleanupStart {
-            reportTimeStamp(label: "Cleanup", start: cleanupStart, end: cleanupEnd,
-                track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(cleanupStart, cleanupEnd))
-        }
-
-        // Cleanup sub-spans
-        let treePromoteStart = (t["treePromoteStart"] as? Double) ?? 0
-        let treePromoteEnd = (t["treePromoteEnd"] as? Double) ?? 0
-        if treePromoteEnd > treePromoteStart {
-            reportTimeStamp(label: "Tree Promote", start: treePromoteStart, end: treePromoteEnd,
-                track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(treePromoteStart, treePromoteEnd))
-        }
-
-        let nodeGCStart = (t["nodeGCStart"] as? Double) ?? 0
-        let nodeGCEnd = (t["nodeGCEnd"] as? Double) ?? 0
-        if nodeGCEnd > nodeGCStart {
-            reportTimeStamp(label: "Node GC", start: nodeGCStart, end: nodeGCEnd,
-                track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(nodeGCStart, nodeGCEnd))
-        }
-
-        let devtoolsNotifyStart = (t["devtoolsNotifyStart"] as? Double) ?? 0
-        let devtoolsNotifyEnd = (t["devtoolsNotifyEnd"] as? Double) ?? 0
-        if devtoolsNotifyEnd > devtoolsNotifyStart {
-            reportTimeStamp(label: "DevTools Notify", start: devtoolsNotifyStart, end: devtoolsNotifyEnd,
-                track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(devtoolsNotifyStart, devtoolsNotifyEnd))
-        }
-
-        // Post-mutation phases
         let attachStart = (t["attachStart"] as? Double) ?? 0
         let attachEnd = (t["attachEnd"] as? Double) ?? 0
         if attachEnd > attachStart {
@@ -353,16 +332,15 @@ class PerformanceTracer {
                 track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(attachStart, attachEnd))
         }
 
-        // Prepare Paint — the UIKit view mutation window (mutations + sync + attach)
-        let preparePaintStart = (t["preparePaintStart"] as? Double) ?? 0
-        let preparePaintEnd = (t["preparePaintEnd"] as? Double) ?? 0
-        if preparePaintEnd > preparePaintStart {
-            reportTimeStamp(label: "Prepare Paint", start: preparePaintStart, end: preparePaintEnd,
-                track: "Shadow Tree", trackGroup: "Native ⚛", color: "tertiary")
-        }
-
+        // Commit — bookkeeping after prepare paint (stats, tree promote, cleanup)
         let screenshotStart = (t["screenshotStart"] as? Double) ?? 0
         let screenshotEnd = (t["screenshotEnd"] as? Double) ?? 0
+        if commitEnd > preparePaintEnd {
+            let commitPhaseEnd = screenshotStart > preparePaintEnd ? screenshotStart : commitEnd
+            reportTimeStamp(label: "Commit", start: preparePaintEnd, end: commitPhaseEnd,
+                track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(preparePaintEnd, commitPhaseEnd))
+        }
+
         if screenshotEnd > screenshotStart {
             reportTimeStamp(label: "Screenshot", start: screenshotStart, end: screenshotEnd,
                 track: "Shadow Tree", trackGroup: "Native ⚛", color: "warning")

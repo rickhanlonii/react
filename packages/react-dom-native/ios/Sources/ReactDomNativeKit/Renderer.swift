@@ -168,13 +168,16 @@ public class Renderer {
         let attachEnd = tracing ? performanceNow() : 0
         let preparePaintEnd = tracing ? performanceNow() : 0
 
-        // Schedule real paint timing via CATransaction completion
+        // Schedule real paint timing via CATransaction completion.
+        // Native Paint starts at preparePaintEnd so it contains the Commit
+        // bookkeeping and Screenshot phases, and extends to when Core Animation
+        // actually commits the layer tree to the render server.
         if tracing {
-            let paintStart = performanceNow()
+            let nativePaintStart = preparePaintEnd
             let callback = onPaintTimingCollected
             CATransaction.setCompletionBlock {
-                let paintEnd = performanceNow()
-                callback?(paintStart, paintEnd)
+                let nativePaintEnd = performanceNow()
+                callback?(nativePaintStart, nativePaintEnd)
             }
         }
 
