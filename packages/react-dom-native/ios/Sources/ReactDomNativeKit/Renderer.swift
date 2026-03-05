@@ -52,6 +52,11 @@ public class Renderer {
     /// Used to capture screenshots for the performance trace filmstrip.
     var onCommitPainted: (() -> Void)?
 
+    /// Called when a real paint completes (CATransaction commit). Reports the
+    /// paint timing span directly to the tracer since it fires asynchronously
+    /// after commitTree returns.
+    var onPaintTimingCollected: ((_ start: Double, _ end: Double) -> Void)?
+
     /// Sub-phase timings from the most recent calculateLayout call.
     private var lastLayoutTimings: [String: Double]?
 
@@ -118,8 +123,8 @@ public class Renderer {
         }
         let diffEnd = tracing ? performanceNow() : 0
 
-        // 3. Apply mutations + sync frames + attach (Paint)
-        let paintStart = tracing ? performanceNow() : 0
+        // 3. Apply mutations + sync frames + attach (Prepare Paint)
+        let preparePaintStart = tracing ? performanceNow() : 0
         var mutationTimings: [(mutationType: String, elementType: String, start: Double, end: Double)] = []
         var syncNodeTimings: [(type: String, start: Double, end: Double)] = []
         let mutationsStart = tracing ? performanceNow() : 0
@@ -161,7 +166,17 @@ public class Renderer {
         // 6. Promote current tree
         currentTree = newChildren
         let attachEnd = tracing ? performanceNow() : 0
-        let paintEnd = tracing ? performanceNow() : 0
+        let preparePaintEnd = tracing ? performanceNow() : 0
+
+        // Schedule real paint timing via CATransaction completion
+        if tracing {
+            let paintStart = performanceNow()
+            let callback = onPaintTimingCollected
+            CATransaction.setCompletionBlock {
+                let paintEnd = performanceNow()
+                callback?(paintStart, paintEnd)
+            }
+        }
 
         // 7. Fire timing if tracing
         if tracing {
@@ -233,8 +248,8 @@ public class Renderer {
 
             timing["attachStart"] = attachStart
             timing["attachEnd"] = attachEnd
-            timing["paintStart"] = paintStart
-            timing["paintEnd"] = paintEnd
+            timing["preparePaintStart"] = preparePaintStart
+            timing["preparePaintEnd"] = preparePaintEnd
 
             // Capture screenshot after every paint (SSR reveals, prerender, React commits)
             let screenshotStart = performanceNow()
