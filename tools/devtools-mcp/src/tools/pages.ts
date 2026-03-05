@@ -182,8 +182,34 @@ export const navigatePage = defineTool({
         `Maximum wait time in milliseconds. If set to 0, the default timeout will be used.`,
       ),
   },
-  handler: async (_request, _response, _context) => {
-    throw new Error('navigate_page is not yet implemented for this target.');
+  handler: async (request, response, context) => {
+    const type = request.params.type ?? 'reload';
+
+    switch (type) {
+      case 'reload': {
+        const params: Record<string, unknown> = {};
+        if (request.params.ignoreCache) {
+          params.ignoreCache = true;
+        }
+        logger('CDP: Page.reload');
+        await context.cdpClient.send('Page.reload', params);
+        response.appendResponseLine('Successfully reloaded the page.');
+        break;
+      }
+      case 'url': {
+        response.appendResponseLine(
+          'URL navigation is not supported for native apps. Use reload to refresh the current view.',
+        );
+        break;
+      }
+      case 'back':
+      case 'forward': {
+        response.appendResponseLine(
+          `Navigation "${type}" is not supported. Native apps do not have browser-style navigation history.`,
+        );
+        break;
+      }
+    }
   },
 });
 

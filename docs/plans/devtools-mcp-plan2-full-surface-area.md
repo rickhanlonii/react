@@ -19,19 +19,20 @@ Plan 1 is complete — the MCP connects to the inspector proxy and performance t
 | `performance_stop_trace` | WORKS | Done in Plan 1 |
 | `performance_analyze_insight` | WORKS | Done in Plan 1 |
 | **Script (2)** | | |
-| `evaluate_script` | WORKS | CDP `Runtime.evaluate` / `Runtime.callFunctionOn` |
-| `wait_for` | WORKS | CDP `Runtime.evaluate` polling |
+| `evaluate_script` | WORKS | CDP `Runtime.evaluate` / `Runtime.callFunctionOn` (Plan 2B) |
+| `wait_for` | PARTIAL | Polls `DOM.getDocument` tree for text (Plan 2C) — no real DOM in native app |
 | **Snapshot (1)** | | |
 | `take_snapshot` | PARTIAL | CDP `DOM.getDocument` forwarded to app; adapt a11y tree from shadow tree |
 | **Screenshot (1)** | | |
-| `take_screenshot` | WORKS | CDP screenshot via proxy's `capture-screenshot` mechanism |
-| **Navigation (6)** | | |
+| `take_screenshot` | WORKS | `Page.startScreencast`/`stopScreencast` single-frame capture (Plan 2B) |
+| **Navigation (7)** | | |
 | `list_pages` | WORKS | HTTP `GET /json/list` |
 | `select_page` | WORKS | Switch CDP target WebSocket |
 | `navigate_page` | PARTIAL | `Page.reload` works; back/forward → stub |
 | `close_page` | NOT SUPPORTED | Stub |
 | `new_page` | NOT SUPPORTED | Stub |
 | `resize_page` | NOT SUPPORTED | Stub |
+| `get_tab_id` | NOT SUPPORTED | Stub (experimental interop tool) |
 | **Console (2)** | | |
 | `list_console_messages` | PARTIAL | Collect `Runtime.consoleAPICalled` events from CDP |
 | `get_console_message` | PARTIAL | Return from collected messages |
@@ -62,154 +63,76 @@ Plan 1 is complete — the MCP connects to the inspector proxy and performance t
 | **Dialog (1)** | | |
 | `handle_dialog` | NOT SUPPORTED | Stub |
 
-**Summary: 11 WORKS, 7 PARTIAL, 19 NOT SUPPORTED/N/A**
+**Summary: 38 tools total — 10 WORKS, 8 PARTIAL, 20 NOT SUPPORTED/N/A**
+
+**Sub-plan mapping**: Plan 2A (stubs) → Plan 2B (WORKS tools) → Plan 2C (PARTIAL tools) → Plan 2D (cleanup + verification)
 
 ---
 
-## Step 1: Create stub helper
+## Implementation via Sub-Plans
 
-Add a utility function used by all unsupported tools:
+This plan is broken into 4 sub-plans, each self-contained with detailed implementation steps, testing, and acceptance criteria:
 
-```ts
-function notImplemented(toolName: string): string {
-  return `${toolName} is not supported for react-dom-native. ` +
-    `The inspector proxy does not implement the required CDP domain.`;
-}
-```
+### Plan 2A: Stub All Unsupported Tools
+- Creates `notImplemented()` helper
+- Edits all 9 tool files (kept on disk from Plan 1D) to replace Puppeteer handlers with stubs
+- Updates `tools.ts` to import the 9 stubbed tool modules
+- **20 stub tools** implemented
 
-## Step 2: Implement WORKS tools
+### Plan 2B: Implement WORKS Tools
+- `evaluate_script` — CDP `Runtime.evaluate` / `Runtime.callFunctionOn` (args require Plan 2C snapshot UIDs)
+- `take_screenshot` — `Page.startScreencast`/`stopScreencast` single-frame capture (JPEG)
+- `list_pages` — HTTP `GET /json/list` on proxy URL
+- `select_page` — switch CDP target WebSocket
+- Updates `tools.ts` to import `script.ts` and `screenshot.ts`
+- **4 WORKS tools** implemented (+ 3 performance tools from Plan 1)
 
-### `evaluate_script` (evaluate.ts)
-- Send `Runtime.evaluate` via CDPClient with `expression` = user's function stringified
-- For functions with args (element UIDs), use `Runtime.callFunctionOn` with `objectId`
-- Map Puppeteer's `page.evaluate()` pattern to raw CDP calls
-- Proxy fully supports: `Runtime.evaluate`, `Runtime.callFunctionOn`, `Runtime.getProperties`, `Runtime.releaseObject`
+### Plan 2C: Implement PARTIAL Tools
+- `wait_for` — polls `DOM.getDocument` tree, searches text nodes (no real DOM in native app)
+- `navigate_page` — `Page.reload` works; back/forward/url return "not supported"
+- `take_snapshot` — `DOM.getDocument` tree → formatted text output with UIDs
+- `list_console_messages` / `get_console_message` — `Runtime.consoleAPICalled` event collection
+- `click` / `click_at` — `DOM.getBoxModel` + `Input.dispatchMouseEvent`
+- Updates `tools.ts` to import `snapshot.ts` and `console.ts`
+- **8 PARTIAL tools** implemented
 
-### `wait_for` (wait.ts)
-- Poll `Runtime.evaluate` checking for text presence in the DOM
-- Existing implementation likely uses Puppeteer's `page.waitForFunction()` — replace with a polling loop over CDP `Runtime.evaluate`
-- Respect timeout parameter
+### Plan 2D: Response Cleanup & Verification
+- Extends `McpResponse.ts` with image/snapshot/console output (NOT a rewrite — Plan 1B/1D already stripped Puppeteer)
+- Verifies `McpPage.ts` and `ToolDefinition.ts` interfaces are complete (NOT a rewrite — Plan 1B already did this)
+- Verifies Plan 1A file deletions are complete
+- Verifies all 38 tools are imported in `tools.ts`
+- Produces 38-tool verification matrix
 
-### `take_screenshot` (screenshot.ts)
-- The proxy supports screenshots via the screencast mechanism: send `{type: 'capture-screenshot'}` to the app
-- Alternatively, use `Page.captureScreenshot` CDP method if the proxy implements it
-- Return base64 image data
+## Key Design Decisions (finalized in sub-plans)
 
-### `list_pages` (pages.ts)
-- HTTP `GET /json/list` on the proxy URL → returns target array
-- Map each target to the page format chrome-devtools-mcp uses
-
-### `select_page` (pages.ts)
-- If multiple targets exist (multiple simulators), disconnect current WebSocket and connect to the new target's `webSocketDebuggerUrl`
-
-## Step 3: Implement PARTIAL tools
-
-### `navigate_page` (pages.ts)
-- `reload`: Send CDP `Page.reload` (proxy supports this)
-- `url`: Return "not supported — native apps don't navigate to URLs"
-- `back`/`forward`: Return "not supported"
-
-### `take_snapshot` (snapshot.ts)
-- Send CDP `DOM.getDocument` → proxy forwards to app's shadow tree
-- The response contains the DOM structure; format it as a text tree similar to chrome-devtools-mcp's a11y tree format
-- May need to use `DOM.getOuterHTML` for element details
-
-### `list_console_messages` / `get_console_message` (console.ts)
-- On CDPClient connect, subscribe to `Runtime.consoleAPICalled` events
-- Store messages in an array on the context
-- `list_console_messages` returns the stored array (with pagination)
-- `get_console_message` returns by index/ID
-
-### `click` / `click_at` (input.ts)
-- Send `Input.dispatchMouseEvent` with `type: 'mousePressed'` via CDP
-- The proxy converts device pixels to logical points and forwards to the app
-- Note: only `mousePressed` type is supported by the proxy
-
-## Step 4: Stub NOT SUPPORTED tools
-
-For each tool, replace the handler with:
-
-```ts
-handler: async (request, response) => {
-  response.appendResponseLine(notImplemented('tool_name'));
-}
-```
-
-### Tools to stub:
-- **Input**: `hover`, `fill`, `type_text`, `drag`, `fill_form`, `upload_file`, `press_key`
-- **Navigation**: `close_page`, `new_page`, `resize_page`
-- **Network**: `list_network_requests`, `get_network_request`
-- **Emulation**: `emulate`
-- **Memory**: `take_memory_snapshot`
-- **Lighthouse**: `lighthouse_audit`
-- **Screencast**: `screencast_start`, `screencast_stop`
-- **Extensions**: `install_extension`, `uninstall_extension`, `list_extensions`, `reload_extension`, `trigger_extension_action`
-- **Dialog**: `handle_dialog`
-
-## Step 5: Adapt `McpResponse.ts`
-
-Strip Puppeteer-dependent response formatting:
-- Keep: `appendResponseLine()`, `attachTraceSummary()`, `attachTraceInsight()`, `attachImage()`, text response handling
-- Adapt: snapshot formatting (no Puppeteer accessibility tree — use proxy's DOM tree)
-- Remove: Lighthouse result formatting, extension listing
-- Simplify: network request formatting (or keep with stub data)
-
-## Step 6: Adapt `McpPage.ts`
-
-Create a lightweight page wrapper:
-- No `pptrPage` property
-- CDP-backed snapshot (via `DOM.getDocument`)
-- CDP-backed screenshot (via proxy's screenshot mechanism)
-- No emulation settings, no Puppeteer locators
-
-## Step 7: Delete unused files
-
-Remove files with no equivalent in the new MCP:
-- `src/DevToolsConnectionAdapter.ts` (Puppeteer→DevTools CDP bridge)
-- `src/DevtoolsUtils.ts` (Universe/target management)
-- `src/PageCollector.ts` (Puppeteer-based collectors)
-- `src/SlimMcpResponse.ts` (slim mode)
-- `src/telemetry/` (Clearcut)
-- `src/daemon/` (daemon mode)
-- `src/third_party/lighthouse-devtools-mcp-bundle.js`
-
-## Step 8: Verification
-
-1. Build: `cd tools/devtools-mcp && npm run build`
-2. Test working tools:
-   - `evaluate_script` with `() => document.title`
-   - `take_screenshot` → verify image returned
-   - `list_pages` → verify target info
-   - `wait_for` with text that exists in the app
-3. Test partial tools:
-   - `navigate_page` with `type: 'reload'` → app reloads
-   - `take_snapshot` → verify DOM tree output
-   - `list_console_messages` → verify messages collected
-   - `click` with a UID → verify tap dispatched
-4. Test stubs:
-   - `emulate` → "not supported" message
-   - `take_memory_snapshot` → "not supported" message
-   - `fill` → "not supported" message
-   - `lighthouse_audit` → "not supported" message
+| Decision | Resolution | Sub-plan |
+|----------|-----------|----------|
+| Tool files from Plan 1 | Kept on disk, NOT imported — Plan 2 edits in place | 1D, 2A-2C |
+| `tools.ts` imports | Progressively added: 2A adds 9, 2B adds 2, 2C adds 2 | 2A, 2B, 2C |
+| `wait_for` approach | `DOM.getDocument` tree search (not `Runtime.evaluate`) | 2C |
+| `take_screenshot` approach | `Page.startScreencast`/`stopScreencast` single-frame capture | 2B |
+| `evaluate_script` with args | Works, but UIDs require prior `take_snapshot` (Plan 2C) | 2B |
+| Interface boundaries | `ToolDefinition.ts` finalized in Plan 1B; Plan 2D only extends `McpResponse.ts` | 1B, 2D |
 
 ---
 
 ## Key Files Reference
 
-| Tool file | Tools | Action |
-|-----------|-------|--------|
-| `src/tools/performance.ts` | start/stop/analyze trace | Done in Plan 1 |
-| `src/tools/evaluate.ts` | evaluate_script | Rewrite: Puppeteer→CDP |
-| `src/tools/wait.ts` | wait_for | Rewrite: Puppeteer→CDP polling |
-| `src/tools/screenshot.ts` | take_screenshot | Rewrite: proxy screenshot mechanism |
-| `src/tools/snapshot.ts` | take_snapshot | Rewrite: CDP DOM.getDocument |
-| `src/tools/pages.ts` | list/select/navigate/close/new/resize | Partial rewrite + stubs |
-| `src/tools/console.ts` | list/get console messages | Rewrite: CDP event collection |
-| `src/tools/input.ts` | click, click_at, hover, fill, etc. | Partial rewrite + stubs |
-| `src/tools/network.ts` | list/get network requests | Stub both |
-| `src/tools/emulate.ts` | emulate | Stub |
-| `src/tools/memory.ts` | take_memory_snapshot | Stub |
-| `src/tools/lighthouse.ts` | lighthouse_audit | Stub |
-| `src/tools/screencast.ts` | screencast_start/stop | Stub |
-| `src/tools/extensions.ts` | all 5 extension tools | Stub |
-| `src/tools/dialog.ts` | handle_dialog | Stub |
+| Tool file | Tools | Sub-plan | Action |
+|-----------|-------|----------|--------|
+| `src/tools/performance.ts` | start/stop/analyze trace | Plan 1C | Done in Plan 1 |
+| `src/tools/script.ts` | evaluate_script | Plan 2B | Rewrite: CDP `Runtime.evaluate` |
+| `src/tools/snapshot.ts` | take_snapshot, wait_for | Plan 2C | Rewrite: CDP `DOM.getDocument` tree |
+| `src/tools/screenshot.ts` | take_screenshot | Plan 2B | Rewrite: screencast single-frame capture |
+| `src/tools/pages.ts` | list/select/navigate/close/new/resize, handle_dialog, get_tab_id | Plan 2A+2B+2C | Partial rewrite + stubs |
+| `src/tools/console.ts` | list/get console messages | Plan 2C | Rewrite: CDP event collection |
+| `src/tools/input.ts` | click, click_at, hover, fill, etc. | Plan 2A+2C | Partial rewrite + stubs |
+| `src/tools/network.ts` | list/get network requests | Plan 2A | Stub both |
+| `src/tools/emulation.ts` | emulate | Plan 2A | Stub |
+| `src/tools/memory.ts` | take_memory_snapshot | Plan 2A | Stub |
+| `src/tools/lighthouse.ts` | lighthouse_audit | Plan 2A | Stub |
+| `src/tools/screencast.ts` | screencast_start/stop | Plan 2A | Stub |
+| `src/tools/extensions.ts` | all 5 extension tools | Plan 2A | Stub |
+| `src/tools/tools.ts` | (aggregator) | Plan 2A+2B+2C | Progressive imports |
+
+Note: `wait_for` and `take_snapshot` share `snapshot.ts`. `handle_dialog` and `get_tab_id` are in `pages.ts`. There are no separate `wait.ts`, `dialog.ts`, or `evaluate.ts` files — the actual filenames are `script.ts` and `emulation.ts`.

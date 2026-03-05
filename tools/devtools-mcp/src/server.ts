@@ -13,6 +13,7 @@ import {
   type CallToolResult,
   SetLevelRequestSchema,
 } from './third_party/index.js';
+import {subscribeToConsoleEvents} from './tools/console.js';
 import type {DefinedPageTool, ToolDefinition} from './tools/ToolDefinition.js';
 import {createTools} from './tools/tools.js';
 import {VERSION} from './version.js';
@@ -36,6 +37,10 @@ export async function createMcpServer(serverArgs: ServerArgs) {
   });
 
   const context = new McpContext(serverArgs.proxyUrl);
+
+  // Subscribe to console events so messages are collected from the start.
+  // The Runtime.enable call will trigger the CDP connection lazily on first send.
+  subscribeToConsoleEvents(context.cdpClient);
 
   const toolMutex = new Mutex();
 

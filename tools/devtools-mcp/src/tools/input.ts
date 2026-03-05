@@ -47,7 +47,7 @@ export const click = definePageTool({
     response.appendResponseLine(
       notImplemented(
         'click',
-        'Click interaction requires Puppeteer locator APIs not available via the inspector proxy.',
+        'DOM.getBoxModel returns empty coordinates from the inspector proxy. Use the native tap tool (npm run app:tap) instead.',
       ),
     );
   },
@@ -71,7 +71,7 @@ export const clickAt = definePageTool({
     response.appendResponseLine(
       notImplemented(
         'click_at',
-        'Click interaction requires Puppeteer mouse APIs not available via the inspector proxy.',
+        'Input.dispatchMouseEvent coordinate mapping is unreliable via the inspector proxy. Use the native tap tool (npm run app:tap) instead.',
       ),
     );
   },

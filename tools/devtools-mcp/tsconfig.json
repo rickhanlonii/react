@@ -65,12 +65,7 @@
     "node_modules/chrome-devtools-frontend/mcp"
   ],
   "exclude": [
-    "node_modules/chrome-devtools-frontend/**/*.test.ts",
-    "src/tools/console.ts",
-    "src/tools/snapshot.ts",
-    "src/formatters/ConsoleFormatter.ts",
-    "src/formatters/SnapshotFormatter.ts",
-    "src/utils/keyboard.ts"
+    "node_modules/chrome-devtools-frontend/**/*.test.ts"
   ],
   "files": [
     "node_modules/chrome-devtools-frontend/front_end/third_party/acorn/package/dist/acorn.mjs"

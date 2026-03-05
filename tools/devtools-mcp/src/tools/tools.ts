@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import * as consoleTools from './console.js';
 import * as emulationTools from './emulation.js';
 import * as extensionsTools from './extensions.js';
 import * as inputTools from './input.js';
@@ -15,12 +16,25 @@ import * as performanceTools from './performance.js';
 import * as screencastTools from './screencast.js';
 import * as screenshotTools from './screenshot.js';
 import * as scriptTools from './script.js';
+import * as snapshotTools from './snapshot.js';
 import type {DefinedPageTool, ToolDefinition} from './ToolDefinition.js';
 
 type AnyTool = ToolDefinition | DefinedPageTool;
 
+function isToolDefinition(value: unknown): value is AnyTool {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'handler' in value &&
+    'name' in value &&
+    'schema' in value &&
+    typeof (value as AnyTool).handler === 'function'
+  );
+}
+
 export const createTools = (): AnyTool[] => {
-  const tools = [
+  const allValues = [
+    ...Object.values(consoleTools),
     ...Object.values(performanceTools),
     ...Object.values(inputTools),
     ...Object.values(pagesTools),
@@ -32,8 +46,10 @@ export const createTools = (): AnyTool[] => {
     ...Object.values(extensionsTools),
     ...Object.values(screenshotTools),
     ...Object.values(scriptTools),
-  ] as unknown as AnyTool[];
+    ...Object.values(snapshotTools),
+  ];
 
+  const tools = allValues.filter(isToolDefinition);
   tools.sort((a, b) => a.name.localeCompare(b.name));
   return tools;
 };

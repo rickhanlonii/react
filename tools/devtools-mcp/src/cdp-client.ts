@@ -83,6 +83,12 @@ export class CDPClient {
     await this.#connectWs(this.#wsUrl);
   }
 
+  /** Connect to a specific target by WebSocket URL */
+  async connectToUrl(wsUrl: string): Promise<void> {
+    this.#wsUrl = wsUrl;
+    await this.#connectWs(wsUrl);
+  }
+
   /** Connect to a specific WebSocket URL */
   async #connectWs(wsUrl: string): Promise<void> {
     return new Promise((resolve, reject) => {
