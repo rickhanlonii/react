@@ -5,16 +5,19 @@ import Yoga
 // ---------------------------------------------------------------------------
 // ShadowNodeWrapper
 //
-// Immutable shadow node. Passed between JS and Swift as an integer ID
-// (managed by the Bindings layer's node registry). The ShadowTree module
-// has zero framework dependencies beyond Foundation, CoreGraphics, and Yoga.
+// Shadow node passed between JS and Swift as an opaque JS handle via
+// wrapNativeObject/unwrapNativeObject. The ShadowTree module has zero
+// framework dependencies beyond Foundation, CoreGraphics, and Yoga.
 //
 // Each ShadowNodeWrapper owns a YGNodeRef for Yoga layout. The yogaNode
 // is created in init and freed in deinit. Clone methods create fresh
 // yogaNodes with style copied from the source.
+//
+// Inherits from NSObject so JSValue(object:in:) can wrap it as an opaque
+// JS handle. JSC requires Objective-C-compatible objects for this API.
 // ---------------------------------------------------------------------------
 
-public class ShadowNodeWrapper {
+public class ShadowNodeWrapper: NSObject {
     /// The props dictionary for this node revision.
     public var props: [String: Any]
 
