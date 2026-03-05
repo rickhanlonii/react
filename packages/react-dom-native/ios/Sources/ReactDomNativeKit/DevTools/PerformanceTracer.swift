@@ -358,7 +358,7 @@ class PerformanceTracer {
         let preparePaintEnd = (t["preparePaintEnd"] as? Double) ?? 0
         if preparePaintEnd > preparePaintStart {
             reportTimeStamp(label: "Prepare Paint", start: preparePaintStart, end: preparePaintEnd,
-                track: "Shadow Tree", trackGroup: "Native ⚛", color: "secondary")
+                track: "Shadow Tree", trackGroup: "Native ⚛", color: "tertiary")
         }
 
         let screenshotStart = (t["screenshotStart"] as? Double) ?? 0
