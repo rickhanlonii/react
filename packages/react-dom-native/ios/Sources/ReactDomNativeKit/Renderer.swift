@@ -118,7 +118,8 @@ public class Renderer {
         }
         let diffEnd = tracing ? performanceNow() : 0
 
-        // 3. Apply mutations + sync frames
+        // 3. Apply mutations + sync frames + attach (Paint)
+        let paintStart = tracing ? performanceNow() : 0
         var mutationTimings: [(mutationType: String, elementType: String, start: Double, end: Double)] = []
         var syncNodeTimings: [(type: String, start: Double, end: Double)] = []
         let mutationsStart = tracing ? performanceNow() : 0
@@ -160,6 +161,7 @@ public class Renderer {
         // 6. Promote current tree
         currentTree = newChildren
         let attachEnd = tracing ? performanceNow() : 0
+        let paintEnd = tracing ? performanceNow() : 0
 
         // 7. Fire timing if tracing
         if tracing {
@@ -231,6 +233,8 @@ public class Renderer {
 
             timing["attachStart"] = attachStart
             timing["attachEnd"] = attachEnd
+            timing["paintStart"] = paintStart
+            timing["paintEnd"] = paintEnd
 
             // Capture screenshot after every paint (SSR reveals, prerender, React commits)
             let screenshotStart = performanceNow()

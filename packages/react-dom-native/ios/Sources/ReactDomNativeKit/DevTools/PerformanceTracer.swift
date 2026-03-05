@@ -360,6 +360,14 @@ class PerformanceTracer {
                 track: "Shadow Tree", trackGroup: "Native ⚛", color: "warning")
         }
 
+        // Paint — the UIKit visual update window (mutations + sync + attach)
+        let paintStart = (t["paintStart"] as? Double) ?? 0
+        let paintEnd = (t["paintEnd"] as? Double) ?? 0
+        if paintEnd > paintStart {
+            reportTimeStamp(label: "Paint", start: paintStart, end: paintEnd,
+                track: "Shadow Tree", trackGroup: "Native ⚛", color: "tertiary")
+        }
+
         // Layout track — outer Calculate Layout span
         if layoutEnd > layoutStart {
             reportTimeStamp(label: "Calculate Layout", start: layoutStart, end: layoutEnd,
