@@ -107,11 +107,9 @@ globalThis.__LAYOUT_COMPARE__ = {
 
   renderFixture: function(name) {
     var container = document.getElementById('root');
-    if (root) {
-      root.unmount();
+    if (!root) {
+      root = ReactDOM.createRoot(container);
     }
-    container.innerHTML = '';
-    root = ReactDOM.createRoot(container);
     ReactDOMFlush.flushSync(function() {
       root.render(React.createElement(fixtures[name].component));
     });
