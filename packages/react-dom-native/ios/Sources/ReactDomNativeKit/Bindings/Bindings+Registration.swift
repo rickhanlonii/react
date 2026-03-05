@@ -32,17 +32,15 @@ extension Bindings {
 
     // MARK: - SSR Timing Helper
 
-    /// Serializes pending SSR commit timings to JSON and pushes them to JS
-    /// via globalThis.$$handleSSRCommitTimings for reporting on Shadow Tree
-    /// and Layout tracks.
-    func pushPendingSSRCommitTimingsToJS() {
+    /// Flushes pending SSR commit timings directly to the native PerformanceTracer.
+    func flushPendingCommitTimings() {
         guard !pendingSSRCommitTimings.isEmpty else { return }
         let timings = pendingSSRCommitTimings
         pendingSSRCommitTimings.removeAll()
 
-        if let jsonData = try? JSONSerialization.data(withJSONObject: timings),
-           let jsonString = String(data: jsonData, encoding: .utf8) {
-            engine.evaluate("globalThis.$$handleSSRCommitTimings && globalThis.$$handleSSRCommitTimings(\(jsonString))")
+        guard let tracer = tracer else { return }
+        for timing in timings {
+            tracer.reportCommitTimings(timing)
         }
     }
 
@@ -469,7 +467,7 @@ extension Bindings {
         // $$completeRoot(surfaceId, childNodeIds) -> void
         // This is the core commit function. Routes to the Renderer for the
         // unified layout → diff → mutations → sync pipeline.
-        // Timing goes through renderer.onTimingCollected → $$handleSSRCommitTimings.
+        // Timing goes through renderer.onTimingCollected → tracer.reportCommitTimings.
         engine.setGlobalFunction("$$completeRoot") { [weak self, weak engine] args in
             guard let self = self, let engine = engine else { return nil }
 

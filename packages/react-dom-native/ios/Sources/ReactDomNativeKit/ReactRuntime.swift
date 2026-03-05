@@ -549,7 +549,7 @@ public class ReactRuntime {
                     if let jsRuntime = self.runtime {
                         jsRuntime.tracer.startTracing()
                         jsRuntime.bindings.nativeTracingEnabled = true
-                        jsRuntime.bindings.pushPendingSSRCommitTimingsToJS()
+                        jsRuntime.bindings.flushPendingCommitTimings()
                     }
                 }
 

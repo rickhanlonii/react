@@ -39,6 +39,10 @@ public class Bindings {
     /// Whether native commit timing collection is enabled (toggled by JS via $$setNativeTracingEnabled).
     var nativeTracingEnabled = false
 
+    /// Performance tracer for reporting commit timings directly from Swift.
+    /// Set by JSRuntime after initialization.
+    var tracer: PerformanceTracer?
+
     /// Callback used by Swift to send inspector messages to the dev server.
     /// Wired by Root to the HotReloadClient WebSocket.
     public var sendInspectorMessage: ((String) -> Void)?

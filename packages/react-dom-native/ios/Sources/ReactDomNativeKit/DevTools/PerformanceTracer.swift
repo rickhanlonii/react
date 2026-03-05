@@ -236,6 +236,203 @@ class PerformanceTracer {
         return 0
     }
 
+    // MARK: - Native commit timing reporting
+
+    private func durationColor(_ startMs: Double, _ endMs: Double) -> String {
+        let duration = endMs - startMs
+        return duration < 0.5 ? "primary-light" : duration < 50 ? "primary" : "primary-dark"
+    }
+
+    /// Reports all trace events for a native commit, translating the timing dict
+    /// into reportTimeStamp calls. This is the Swift equivalent of the former
+    /// JS reportNativeCommitTimings function.
+    func reportCommitTimings(_ t: [String: Any]) {
+        guard isTracing else { return }
+
+        let commitStart = (t["commitStart"] as? Double) ?? 0
+        let commitEnd = (t["commitEnd"] as? Double) ?? 0
+        let layoutStart = (t["layoutStart"] as? Double) ?? 0
+        let layoutEnd = (t["layoutEnd"] as? Double) ?? 0
+        let diffStart = (t["diffStart"] as? Double) ?? 0
+        let diffEnd = (t["diffEnd"] as? Double) ?? 0
+        let mutationsStart = (t["mutationsStart"] as? Double) ?? 0
+        let mutationsEnd = (t["mutationsEnd"] as? Double) ?? 0
+        let syncStart = (t["syncStart"] as? Double) ?? 0
+        let syncEnd = (t["syncEnd"] as? Double) ?? 0
+        let yogaStart = (t["yogaStart"] as? Double) ?? 0
+        let yogaEnd = (t["yogaEnd"] as? Double) ?? 0
+        let textRemeasureStart = (t["textRemeasureStart"] as? Double) ?? 0
+        let textRemeasureEnd = (t["textRemeasureEnd"] as? Double) ?? 0
+        let scrollStart = (t["scrollStart"] as? Double) ?? 0
+        let scrollEnd = (t["scrollEnd"] as? Double) ?? 0
+        let nodeCount = t["nodeCount"] as? Int ?? 0
+        let treeDepth = t["treeDepth"] as? Int ?? 0
+        let rootTypes = (t["rootTypes"] as? String) ?? ""
+        let mutationCount = t["mutationCount"] as? Int ?? 0
+        let creates = t["creates"] as? Int ?? 0
+        let updates = t["updates"] as? Int ?? 0
+        let deletes = t["deletes"] as? Int ?? 0
+        let inserts = t["inserts"] as? Int ?? 0
+        let removes = t["removes"] as? Int ?? 0
+        let affectedTypes = (t["affectedTypes"] as? String) ?? "none"
+        let didRemeasure = (t["didRemeasure"] as? Bool) ?? false
+
+        // Shadow Tree track — outer Commit span
+        let label = (t["label"] as? String) ?? "Commit"
+        reportTimeStamp(label: label, start: commitStart, end: commitEnd,
+            track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(commitStart, commitEnd),
+            properties: [["Nodes", String(nodeCount)],
+                         ["Tree depth", String(treeDepth)],
+                         ["Root elements", rootTypes]])
+
+        // Shadow Tree track — sub-spans
+        let prepareStart = (t["prepareStart"] as? Double) ?? 0
+        let prepareEnd = (t["prepareEnd"] as? Double) ?? 0
+        if prepareEnd > prepareStart {
+            reportTimeStamp(label: "Prepare", start: prepareStart, end: prepareEnd,
+                track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(prepareStart, prepareEnd))
+        }
+        if layoutEnd > layoutStart {
+            reportTimeStamp(label: "Blocked (Layout)", start: layoutStart, end: layoutEnd,
+                track: "Shadow Tree", trackGroup: "Native ⚛", color: "secondary-light")
+        }
+        if diffEnd > diffStart {
+            reportTimeStamp(label: "Diff", start: diffStart, end: diffEnd,
+                track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(diffStart, diffEnd),
+                properties: [["Mutations", String(mutationCount)],
+                             ["Creates", String(creates)],
+                             ["Updates", String(updates)],
+                             ["Deletes", String(deletes)]])
+        }
+        if mutationsEnd > mutationsStart {
+            reportTimeStamp(label: "Apply Mutations (\(mutationCount))", start: mutationsStart, end: mutationsEnd,
+                track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(mutationsStart, mutationsEnd),
+                properties: [["Inserts", String(inserts)],
+                             ["Removes", String(removes)],
+                             ["Affected elements", affectedTypes]])
+        }
+        if syncEnd > syncStart {
+            reportTimeStamp(label: "Sync Frames", start: syncStart, end: syncEnd,
+                track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(syncStart, syncEnd))
+        }
+
+        let cleanupStart = (t["cleanupStart"] as? Double) ?? 0
+        let cleanupEnd = (t["cleanupEnd"] as? Double) ?? 0
+        if cleanupEnd > cleanupStart {
+            reportTimeStamp(label: "Cleanup", start: cleanupStart, end: cleanupEnd,
+                track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(cleanupStart, cleanupEnd))
+        }
+
+        // Cleanup sub-spans
+        let treePromoteStart = (t["treePromoteStart"] as? Double) ?? 0
+        let treePromoteEnd = (t["treePromoteEnd"] as? Double) ?? 0
+        if treePromoteEnd > treePromoteStart {
+            reportTimeStamp(label: "Tree Promote", start: treePromoteStart, end: treePromoteEnd,
+                track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(treePromoteStart, treePromoteEnd))
+        }
+
+        let nodeGCStart = (t["nodeGCStart"] as? Double) ?? 0
+        let nodeGCEnd = (t["nodeGCEnd"] as? Double) ?? 0
+        if nodeGCEnd > nodeGCStart {
+            reportTimeStamp(label: "Node GC", start: nodeGCStart, end: nodeGCEnd,
+                track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(nodeGCStart, nodeGCEnd))
+        }
+
+        let devtoolsNotifyStart = (t["devtoolsNotifyStart"] as? Double) ?? 0
+        let devtoolsNotifyEnd = (t["devtoolsNotifyEnd"] as? Double) ?? 0
+        if devtoolsNotifyEnd > devtoolsNotifyStart {
+            reportTimeStamp(label: "DevTools Notify", start: devtoolsNotifyStart, end: devtoolsNotifyEnd,
+                track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(devtoolsNotifyStart, devtoolsNotifyEnd))
+        }
+
+        // Post-mutation phases
+        let attachStart = (t["attachStart"] as? Double) ?? 0
+        let attachEnd = (t["attachEnd"] as? Double) ?? 0
+        if attachEnd > attachStart {
+            reportTimeStamp(label: "Attach & Promote", start: attachStart, end: attachEnd,
+                track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(attachStart, attachEnd))
+        }
+
+        let screenshotStart = (t["screenshotStart"] as? Double) ?? 0
+        let screenshotEnd = (t["screenshotEnd"] as? Double) ?? 0
+        if screenshotEnd > screenshotStart {
+            reportTimeStamp(label: "Screenshot", start: screenshotStart, end: screenshotEnd,
+                track: "Shadow Tree", trackGroup: "Native ⚛", color: "warning")
+        }
+
+        // Layout track — outer Calculate Layout span
+        if layoutEnd > layoutStart {
+            reportTimeStamp(label: "Calculate Layout", start: layoutStart, end: layoutEnd,
+                track: "Layout", trackGroup: "Native ⚛", color: durationColor(layoutStart, layoutEnd),
+                properties: [["Nodes", String(nodeCount)],
+                             ["Second pass", didRemeasure ? "yes" : "no"]])
+        }
+
+        // Layout track — sub-spans
+        if yogaEnd > yogaStart {
+            reportTimeStamp(label: "Yoga", start: yogaStart, end: yogaEnd,
+                track: "Layout", trackGroup: "Native ⚛", color: durationColor(yogaStart, yogaEnd),
+                properties: [["Nodes", String(nodeCount)]])
+        }
+        if didRemeasure {
+            reportTimeStamp(label: "Text Remeasure", start: textRemeasureStart, end: textRemeasureEnd,
+                track: "Layout", trackGroup: "Native ⚛", color: "warning")
+        }
+
+        let readFramesStart = (t["readFramesStart"] as? Double) ?? 0
+        let readFramesEnd = (t["readFramesEnd"] as? Double) ?? 0
+        if readFramesEnd > readFramesStart {
+            reportTimeStamp(label: "Read Frames", start: readFramesStart, end: readFramesEnd,
+                track: "Layout", trackGroup: "Native ⚛", color: durationColor(readFramesStart, readFramesEnd),
+                properties: [["Nodes", String(nodeCount)]])
+        }
+
+        if scrollEnd > scrollStart {
+            reportTimeStamp(label: "Scroll Content", start: scrollStart, end: scrollEnd,
+                track: "Layout", trackGroup: "Native ⚛", color: durationColor(scrollStart, scrollEnd))
+        }
+
+        // Diff Nodes — per-node timing, nested below Diff on Shadow Tree track
+        if let diffNodes = t["diffNodes"] as? [Any], diffNodes.count > 0 {
+            var i = 0
+            while i + 2 < diffNodes.count {
+                let name = diffNodes[i] as? String ?? ""
+                let start = diffNodes[i + 1] as? Double ?? 0
+                let end = diffNodes[i + 2] as? Double ?? 0
+                reportTimeStamp(label: name, start: start, end: end,
+                    track: "Shadow Tree", trackGroup: "Native ⚛", color: "primary-light")
+                i += 3
+            }
+        }
+
+        // Mutation Nodes — per-mutation timing, nested below Apply Mutations on Shadow Tree track
+        if let mutationNodes = t["mutationNodes"] as? [Any], mutationNodes.count > 0 {
+            var i = 0
+            while i + 3 < mutationNodes.count {
+                let op = mutationNodes[i] as? String ?? ""
+                let type = mutationNodes[i + 1] as? String ?? ""
+                let start = mutationNodes[i + 2] as? Double ?? 0
+                let end = mutationNodes[i + 3] as? Double ?? 0
+                reportTimeStamp(label: "\(op) \(type)", start: start, end: end,
+                    track: "Shadow Tree", trackGroup: "Native ⚛", color: "primary-light")
+                i += 4
+            }
+        }
+
+        // Layout Nodes — per-node timing from readLayoutFrames + syncAllFrames, nested on Layout track
+        if let layoutNodes = t["layoutNodes"] as? [Any], layoutNodes.count > 0 {
+            var i = 0
+            while i + 2 < layoutNodes.count {
+                let name = layoutNodes[i] as? String ?? ""
+                let start = layoutNodes[i + 1] as? Double ?? 0
+                let end = layoutNodes[i + 2] as? Double ?? 0
+                reportTimeStamp(label: name, start: start, end: end,
+                    track: "Layout", trackGroup: "Native ⚛", color: "primary-light")
+                i += 3
+            }
+        }
+    }
+
     // MARK: - Helpers
 
     private func nextEventId() -> String {

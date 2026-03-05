@@ -115,16 +115,16 @@ extension Bindings {
         hydrationInProgress.insert(surfaceId)
     }
 
-    /// Stores SSR commit timing data so it can be pushed to JS when tracing starts.
+    /// Stores SSR commit timing data so it can be reported when tracing starts.
     /// Called by Root after SSR first paint and boundary reveals complete.
     ///
     /// If tracing is already active (e.g. "Reload and Profile" triggered SSR
-    /// after tracing started), pushes immediately.
+    /// after tracing started), reports immediately to the tracer.
     public func addSSRCommitTimings(_ timings: [[String: Any]]) {
         pendingSSRCommitTimings.append(contentsOf: timings)
 
         if nativeTracingEnabled {
-            pushPendingSSRCommitTimingsToJS()
+            flushPendingCommitTimings()
         }
     }
 

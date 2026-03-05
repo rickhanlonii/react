@@ -136,6 +136,7 @@ public class JSRuntime {
 
         // Set up the bindings (registers all $$ functions)
         bindings = Bindings(engine: engine)
+        bindings.tracer = perfTracer
 
         // Register performance API polyfill (must be before bundle evaluation)
         setupPerformancePolyfill()

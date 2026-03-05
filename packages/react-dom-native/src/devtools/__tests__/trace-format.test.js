@@ -666,7 +666,7 @@ describe('Native commit timing trace events', () => {
   }
 
   function emitNativeTimings(timings) {
-    // This mirrors what reportNativeCommitTimings does in HostConfig.js
+    // This mirrors what PerformanceTracer.reportCommitTimings does in Swift
     var t = timings;
     function durationColor(startMs, endMs) {
       var duration = endMs - startMs;
@@ -1065,7 +1065,6 @@ describe('SSR commit timing trace events', () => {
 
   beforeEach(() => {
     delete globalThis.performance;
-    delete globalThis.$$handleSSRCommitTimings;
     cleanupMockBridgeFunctions();
     jest.resetModules();
 
@@ -1078,18 +1077,77 @@ describe('SSR commit timing trace events', () => {
       now: function() { return Date.now(); },
       timeOrigin: 0,
     };
-
-    // Stub console.timeStamp to route extended form to tracer (mirrors native)
-    console.timeStamp = function(label, start, end, track, trackGroup, color) {
-      if (arguments.length <= 1) return;
-      if (tracer.isTracing()) {
-        tracer.reportTimeStamp(label, start, end, track, trackGroup, color);
-      }
-    };
-
-    // Load HostConfig to register $$handleSSRCommitTimings
-    require('../../renderer/HostConfig');
   });
+
+  function emitNativeTimings(timings) {
+    // This mirrors what PerformanceTracer.reportCommitTimings does in Swift
+    var t = timings;
+    function durationColor(startMs, endMs) {
+      var duration = endMs - startMs;
+      return duration < 0.5 ? 'primary-light' : duration < 50 ? 'primary' : 'primary-dark';
+    }
+
+    var label = t.label || 'Commit';
+    tracer.reportTimeStamp(label, t.commitStart, t.commitEnd,
+      'Shadow Tree', 'Native \u269b', durationColor(t.commitStart, t.commitEnd),
+      [['Nodes', String(t.nodeCount)],
+       ['Tree depth', String(t.treeDepth)],
+       ['Root elements', t.rootTypes]]);
+    if (t.layoutEnd > t.layoutStart) {
+      tracer.reportTimeStamp('Blocked (Layout)', t.layoutStart, t.layoutEnd,
+        'Shadow Tree', 'Native \u269b', 'secondary-light');
+    }
+    if (t.diffEnd > t.diffStart) {
+      tracer.reportTimeStamp('Diff', t.diffStart, t.diffEnd,
+        'Shadow Tree', 'Native \u269b', durationColor(t.diffStart, t.diffEnd),
+        [['Mutations', String(t.mutationCount)],
+         ['Creates', String(t.creates)],
+         ['Updates', String(t.updates)],
+         ['Deletes', String(t.deletes)]]);
+    }
+    if (t.mutationsEnd > t.mutationsStart) {
+      tracer.reportTimeStamp('Apply Mutations (' + t.mutationCount + ')', t.mutationsStart, t.mutationsEnd,
+        'Shadow Tree', 'Native \u269b', durationColor(t.mutationsStart, t.mutationsEnd),
+        [['Inserts', String(t.inserts)],
+         ['Removes', String(t.removes)],
+         ['Affected elements', t.affectedTypes || 'none']]);
+    }
+    if (t.syncEnd > t.syncStart) {
+      tracer.reportTimeStamp('Sync Frames', t.syncStart, t.syncEnd,
+        'Shadow Tree', 'Native \u269b', durationColor(t.syncStart, t.syncEnd));
+    }
+    if (t.layoutEnd > t.layoutStart) {
+      tracer.reportTimeStamp('Calculate Layout', t.layoutStart, t.layoutEnd,
+        'Layout', 'Native \u269b', durationColor(t.layoutStart, t.layoutEnd),
+        [['Nodes', String(t.nodeCount)],
+         ['Second pass', t.didRemeasure ? 'yes' : 'no']]);
+    }
+
+    // Per-node timing arrays
+    var diffNodes = t.diffNodes;
+    if (diffNodes && diffNodes.length > 0) {
+      for (var i = 0; i < diffNodes.length; i += 3) {
+        tracer.reportTimeStamp(diffNodes[i], diffNodes[i + 1], diffNodes[i + 2],
+          'Shadow Tree', 'Native \u269b', 'primary-light');
+      }
+    }
+    var mutationNodes = t.mutationNodes;
+    if (mutationNodes && mutationNodes.length > 0) {
+      for (var i = 0; i < mutationNodes.length; i += 4) {
+        tracer.reportTimeStamp(
+          mutationNodes[i] + ' ' + mutationNodes[i + 1],
+          mutationNodes[i + 2], mutationNodes[i + 3],
+          'Shadow Tree', 'Native \u269b', 'primary-light');
+      }
+    }
+    var layoutNodes = t.layoutNodes;
+    if (layoutNodes && layoutNodes.length > 0) {
+      for (var i = 0; i < layoutNodes.length; i += 3) {
+        tracer.reportTimeStamp(layoutNodes[i], layoutNodes[i + 1], layoutNodes[i + 2],
+          'Layout', 'Native \u269b', 'primary-light');
+      }
+    }
+  }
 
   function makeSSRFirstPaint(overrides) {
     return Object.assign({
@@ -1146,13 +1204,9 @@ describe('SSR commit timing trace events', () => {
       }));
   }
 
-  it('registers $$handleSSRCommitTimings global function', () => {
-    expect(typeof globalThis.$$handleSSRCommitTimings).toBe('function');
-  });
-
   it('emits SSR First Paint on Shadow Tree and Layout tracks', () => {
     tracer.startTracing();
-    globalThis.$$handleSSRCommitTimings([makeSSRFirstPaint()]);
+    emitNativeTimings(makeSSRFirstPaint());
     const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
@@ -1171,7 +1225,7 @@ describe('SSR commit timing trace events', () => {
 
   it('emits SSR Reveal on Shadow Tree track with Diff and Apply Mutations', () => {
     tracer.startTracing();
-    globalThis.$$handleSSRCommitTimings([makeSSRReveal()]);
+    emitNativeTimings(makeSSRReveal());
     const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
@@ -1185,9 +1239,10 @@ describe('SSR commit timing trace events', () => {
     expect(names.some(n => n.startsWith('Apply Mutations'))).toBe(true);
   });
 
-  it('handles multiple SSR commit timings in one array', () => {
+  it('handles multiple SSR commit timings', () => {
     tracer.startTracing();
-    globalThis.$$handleSSRCommitTimings([makeSSRFirstPaint(), makeSSRReveal()]);
+    emitNativeTimings(makeSSRFirstPaint());
+    emitNativeTimings(makeSSRReveal());
     const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
@@ -1198,8 +1253,8 @@ describe('SSR commit timing trace events', () => {
   });
 
   it('does not emit events when not tracing', () => {
-    // Don't start tracing
-    globalThis.$$handleSSRCommitTimings([makeSSRFirstPaint()]);
+    // Don't start tracing — reportTimeStamp guards on isTracing
+    emitNativeTimings(makeSSRFirstPaint());
 
     tracer.startTracing();
     const events = tracer.stopTracing().events;
@@ -1211,7 +1266,7 @@ describe('SSR commit timing trace events', () => {
 
   it('emits valid begin/end event pairs', () => {
     tracer.startTracing();
-    globalThis.$$handleSSRCommitTimings([makeSSRReveal()]);
+    emitNativeTimings(makeSSRReveal());
     const events = tracer.stopTracing().events;
     const userTiming = events.filter(e => e.cat === 'blink.user_timing');
     const begins = userTiming.filter(e => e.ph === 'b');
@@ -1227,7 +1282,7 @@ describe('SSR commit timing trace events', () => {
 
   it('includes node count and tree depth properties on outer span', () => {
     tracer.startTracing();
-    globalThis.$$handleSSRCommitTimings([makeSSRFirstPaint({nodeCount: 42, treeDepth: 7})]);
+    emitNativeTimings(makeSSRFirstPaint({nodeCount: 42, treeDepth: 7}));
     const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
@@ -1242,11 +1297,11 @@ describe('SSR commit timing trace events', () => {
 
   it('emits per-node component stacks from diffNodes, mutationNodes, and layoutNodes', () => {
     tracer.startTracing();
-    globalThis.$$handleSSRCommitTimings([makeSSRReveal({
+    emitNativeTimings(makeSSRReveal({
       diffNodes: ['div', 85, 86, 'p', 86, 87],
       mutationNodes: ['CREATE', 'div', 90, 91, 'INSERT', 'p', 91, 92],
       layoutNodes: ['div', 95, 96, 'p', 96, 97],
-    })]);
+    }));
     const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
@@ -1270,9 +1325,9 @@ describe('SSR commit timing trace events', () => {
 
   it('emits per-mutation component stacks from SSR First Paint mutationNodes', () => {
     tracer.startTracing();
-    globalThis.$$handleSSRCommitTimings([makeSSRFirstPaint({
+    emitNativeTimings(makeSSRFirstPaint({
       mutationNodes: ['CREATE', 'div', 60, 62, 'INSERT', 'div', 62, 64, 'CREATE', 'h1', 64, 66],
-    })]);
+    }));
     const events = tracer.stopTracing().events;
     const begins = getBeginEvents(events);
 
