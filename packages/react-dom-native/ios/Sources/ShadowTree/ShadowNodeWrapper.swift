@@ -252,44 +252,56 @@ public class ShadowNodeWrapper: NSObject {
     }
 
     /// Clone with new children, keeping existing props.
+    /// Uses YGNodeClone to preserve the source node's layout cache. The
+    /// old children are removed and new ones inserted — YGNodeInsertChild
+    /// marks the clone dirty, but Yoga can still use cached measurements
+    /// from unchanged children for incremental layout.
     public func cloneWithNewChildren(_ newChildren: [ShadowNodeWrapper]) -> ShadowNodeWrapper {
+        let clonedYoga = YGNodeClone(self.yogaNode)!
+        // YGNodeClone copies the children vector — remove them before
+        // inserting new ones. Use removeAllChildren to clear without
+        // freeing the child nodes (they belong to the old tree).
+        YGNodeRemoveAllChildren(clonedYoga)
         let cloned = ShadowNodeWrapper(
             props: self.props,
             children: newChildren,
             family: self.family,
-            text: self.text
+            text: self.text,
+            yogaNode: clonedYoga
         )
         cloned.layoutFrame = self.layoutFrame
-        YGNodeCopyStyle(cloned.yogaNode, self.yogaNode)
         // Insert new children's yogaNodes
         for (index, child) in newChildren.enumerated() {
             if YGNodeGetOwner(child.yogaNode) != nil {
                 YGNodeRemoveChild(YGNodeGetOwner(child.yogaNode)!, child.yogaNode)
             }
-            YGNodeInsertChild(cloned.yogaNode, child.yogaNode, index)
+            YGNodeInsertChild(clonedYoga, child.yogaNode, index)
         }
         return cloned
     }
 
     /// Clone with both new children and new props.
+    /// Uses YGNodeClone to preserve layout cache (see cloneWithNewChildren).
     public func cloneWithNewChildrenAndProps(
         _ newChildren: [ShadowNodeWrapper],
         _ newProps: [String: Any]
     ) -> ShadowNodeWrapper {
+        let clonedYoga = YGNodeClone(self.yogaNode)!
+        YGNodeRemoveAllChildren(clonedYoga)
         let cloned = ShadowNodeWrapper(
             props: newProps,
             children: newChildren,
             family: self.family,
-            text: self.text
+            text: self.text,
+            yogaNode: clonedYoga
         )
         cloned.layoutFrame = self.layoutFrame
-        YGNodeCopyStyle(cloned.yogaNode, self.yogaNode)
         // Insert new children's yogaNodes
         for (index, child) in newChildren.enumerated() {
             if YGNodeGetOwner(child.yogaNode) != nil {
                 YGNodeRemoveChild(YGNodeGetOwner(child.yogaNode)!, child.yogaNode)
             }
-            YGNodeInsertChild(cloned.yogaNode, child.yogaNode, index)
+            YGNodeInsertChild(clonedYoga, child.yogaNode, index)
         }
         return cloned
     }
