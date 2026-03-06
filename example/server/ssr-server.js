@@ -13,7 +13,7 @@ require('@babel/register')({
   ignore: [/node_modules/],
   only: [/example\/server\/src/],
   presets: ['@babel/preset-react'],
-  plugins: ['babel-plugin-react-compiler', '@babel/plugin-transform-modules-commonjs'],
+  plugins: ['@babel/plugin-transform-modules-commonjs'],
   targets: {node: 'current'},
 });
 
