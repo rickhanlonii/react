@@ -195,6 +195,10 @@ public class UIKitMutationApplier: NSObject {
                     continue
                 }
                 updateView(view, elementType: node.family.elementType, props: newProps)
+                // Update text content for #text nodes (family reuse path)
+                if node.family.elementType == "#text", let label = view as? UILabel {
+                    label.text = node.text
+                }
                 view.frame = node.layoutFrame
                 // Apply bounds-dependent props (borders, border-radius) now that frame is set
                 applyBoundsDependentProps(to: view, props: newProps)
@@ -484,9 +488,10 @@ public class UIKitMutationApplier: NSObject {
             }
         }
 
-        // id → accessibilityIdentifier
+        // id → accessibilityIdentifier + mark as accessibility element
         if let id = props["id"] as? String {
             view.accessibilityIdentifier = id
+            view.isAccessibilityElement = true
         }
     }
 

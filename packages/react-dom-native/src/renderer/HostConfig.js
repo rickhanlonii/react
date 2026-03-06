@@ -160,14 +160,31 @@ exports.createTextInstance = function createTextInstance(
   hostContext,
   internalHandle,
 ) {
-  const nativeNode = $$createTextNode(
-    text,
-    rootContainer.surfaceId,
-    internalHandle,
-  );
+  // In persistent mode, text updates call createTextInstance instead of
+  // cloneTextInstance. Reuse the existing family so the Differentiator
+  // generates an UPDATE (just sync frame + text) instead of the expensive
+  // DELETE+CREATE+INSERT+REMOVE cycle that tears down and rebuilds UIViews.
+  var prevInstance = internalHandle && internalHandle.stateNode;
+  var prevFamily = prevInstance && prevInstance._nativeFamily;
+
+  var nativeNode;
+  if (prevFamily) {
+    nativeNode = $$createTextNodeReuse(
+      text,
+      rootContainer.surfaceId,
+      internalHandle,
+      prevFamily,
+    );
+  } else {
+    nativeNode = $$createTextNode(
+      text,
+      rootContainer.surfaceId,
+      internalHandle,
+    );
+  }
   return {
     _nativeNode: nativeNode,
-    _nativeFamily: nativeNode,
+    _nativeFamily: prevFamily || nativeNode,
     _internalInstanceHandle: internalHandle,
     text,
   };
