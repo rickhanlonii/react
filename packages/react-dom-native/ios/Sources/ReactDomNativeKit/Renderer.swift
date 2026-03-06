@@ -306,8 +306,16 @@ public class Renderer {
             let oldMatch = oldByFamily?[ObjectIdentifier(node.family)]
 
             // If the node is the exact same object as in the old tree,
-            // the entire subtree is unchanged — skip.
+            // the subtree structure is unchanged. But layout may have shifted
+            // due to sibling changes (e.g. Suspense reveal), so still sync
+            // this node's frame. Skip children since their relative positions
+            // within this node are unchanged.
             if let old = oldMatch, old === node {
+                if let view = viewRegistry.view(for: node.family) {
+                    if view.frame != node.layoutFrame {
+                        view.frame = node.layoutFrame
+                    }
+                }
                 continue
             }
 
@@ -343,9 +351,13 @@ public class Renderer {
             // Find the matching old node for this family.
             let oldMatch = oldByFamily?[ObjectIdentifier(node.family)]
 
-            // If the node is the exact same object as in the old tree,
-            // the entire subtree is unchanged — skip.
+            // Same pointer — sync frame (layout may have shifted) but skip children.
             if let old = oldMatch, old === node {
+                if let view = viewRegistry.view(for: node.family) {
+                    if view.frame != node.layoutFrame {
+                        view.frame = node.layoutFrame
+                    }
+                }
                 continue
             }
 
