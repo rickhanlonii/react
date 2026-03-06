@@ -40,9 +40,6 @@ module.exports = function (env) {
         {
           test: /\.jsx?$/,
           exclude: /node_modules/,
-          // javascript/auto allows mixing CJS (module.exports) with ESM (import)
-          // which React Compiler output produces (adds import for compiler runtime).
-          type: 'javascript/auto',
           use: [
             // Runs second: wraps module with per-module $RefreshReg$ scoping
             isDev && {
@@ -52,9 +49,15 @@ module.exports = function (env) {
             {
               loader: 'babel-loader',
               options: {
+                // 'unambiguous' lets babel auto-detect: files with import/export
+                // are ESM, files without (CJS with require/module.exports) are scripts.
+                // React Compiler adds `import` to CJS files, so we need the CJS
+                // transform below to convert those back to require().
+                sourceType: 'unambiguous',
                 presets: ['@babel/preset-react'],
                 plugins: [
                   'babel-plugin-react-compiler',
+                  '@babel/plugin-transform-modules-commonjs',
                   ...(isDev ? [require.resolve('react-refresh/babel')] : []),
                 ],
               },

@@ -4,6 +4,17 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 EXAMPLE_ROOT="$(dirname "$SCRIPT_DIR")"
 
+# Kill any existing dev servers on our ports
+for port in 6000 6001; do
+  pid=$(lsof -ti tcp:$port 2>/dev/null || true)
+  if [ -n "$pid" ]; then
+    echo "Killing existing process on port $port (PID $pid)..."
+    kill $pid 2>/dev/null || true
+    # Wait briefly for the port to free up
+    sleep 0.5
+  fi
+done
+
 # Run initial webpack build (must complete before servers start —
 # the Flight server reads react-client-manifest.json from build/)
 echo "Running webpack build..."
