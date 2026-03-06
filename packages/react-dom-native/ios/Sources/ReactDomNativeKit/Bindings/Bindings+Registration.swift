@@ -423,6 +423,22 @@ extension Bindings {
                     lineHeight: lineHeight
                 )
             }
+
+            // --- Speculative background layout ---
+            // The child subtree is fully built (persistent mode guarantee).
+            // Speculatively compute its layout on a background thread using
+            // the parent's previous layout width as the constraint. If the
+            // constraint matches at root layout time, Yoga skips this subtree.
+            let parentWidth = YGNodeLayoutGetWidth(parent.yogaNode)
+            if parentWidth > 0 {
+                let childYogaNode = child.yogaNode
+                self.speculativeLayoutGroup.enter()
+                self.speculativeLayoutQueue.async {
+                    YGNodeCalculateLayout(childYogaNode, parentWidth, .nan, .LTR)
+                    self.speculativeLayoutGroup.leave()
+                }
+            }
+
             return nil
         }
     }
@@ -493,6 +509,9 @@ extension Bindings {
             #endif
 
             let resolveEnd = tracing ? performanceNow() : 0
+
+            // Wait for any in-flight speculative layouts to complete
+            self.speculativeLayoutGroup.wait()
 
             // 3. Sync tracing state and route to Renderer
             renderer.tracingEnabled = tracing
