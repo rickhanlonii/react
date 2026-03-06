@@ -432,9 +432,23 @@ extension Bindings {
             let parentWidth = YGNodeLayoutGetWidth(parent.yogaNode)
             if parentWidth > 0 {
                 let childYogaNode = child.yogaNode
+                let tracing = self.nativeTracingEnabled
+                let childType = child.family.elementType
                 self.speculativeLayoutGroup.enter()
                 self.speculativeLayoutQueue.async {
+                    let start = tracing ? performanceNow() : 0
                     YGNodeCalculateLayout(childYogaNode, parentWidth, .nan, .LTR)
+                    let end = tracing ? performanceNow() : 0
+                    if tracing {
+                        DispatchQueue.main.async {
+                            self.tracer?.reportTimeStamp(
+                                label: "Speculative Layout (\(childType))",
+                                start: start, end: end,
+                                track: "Speculative Layout", trackGroup: "Native ⚛",
+                                color: "tertiary-light"
+                            )
+                        }
+                    }
                     self.speculativeLayoutGroup.leave()
                 }
             }
@@ -511,7 +525,18 @@ extension Bindings {
             let resolveEnd = tracing ? performanceNow() : 0
 
             // Wait for any in-flight speculative layouts to complete
+            let waitStart = tracing ? performanceNow() : 0
             self.speculativeLayoutGroup.wait()
+            let waitEnd = tracing ? performanceNow() : 0
+
+            if tracing, waitEnd > waitStart + 0.001 {
+                self.tracer?.reportTimeStamp(
+                    label: "Wait Speculative Layout",
+                    start: waitStart, end: waitEnd,
+                    track: "Shadow Tree", trackGroup: "Native ⚛",
+                    color: "warning"
+                )
+            }
 
             // 3. Sync tracing state and route to Renderer
             renderer.tracingEnabled = tracing

@@ -18,6 +18,11 @@ import Yoga
 // Threading: All calls are synchronous on the main thread. The engine,
 // shadow tree, Yoga layout, and UIKit all share the main thread.
 //
+// Exception: $$appendChild dispatches speculative Yoga layout on a serial
+// background queue for completed subtrees. The child's Yoga nodes are
+// exclusively owned (persistent mode) so this is thread-safe. $$completeRoot
+// waits for all speculative layouts before running root layout.
+//
 // Exception: $$fetch is asynchronous. The call returns immediately, and
 // URLSession performs the HTTP request on a background thread. Response
 // chunks are delivered via callbacks dispatched to the main thread.
