@@ -75,29 +75,39 @@ function StressTestControls({itemCount, children}) {
   const [highlightedId, setHighlightedId] = useState(-1);
 
   const increment = useCallback(id => {
-    setCounts(prev => ({...prev, [id]: (prev[id] || 0) + 1}));
+    React.startTransition(() => {
+      setCounts(prev => ({...prev, [id]: (prev[id] || 0) + 1}));
+    })
   }, []);
 
   const decrement = useCallback(id => {
-    setCounts(prev => ({...prev, [id]: (prev[id] || 0) - 1}));
+    React.startTransition(() => {
+      setCounts(prev => ({ ...prev, [id]: (prev[id] || 0) - 1 }));
+    });
   }, []);
 
   const handleIncrementAll = useCallback(() => {
-    setCounts(prev => {
-      const next = {...prev};
-      for (let i = 0; i < itemCount; i++) {
-        next[i] = (next[i] || 0) + 1;
-      }
-      return next;
+    React.startTransition(() => {
+      setCounts(prev => {
+        const next = { ...prev };
+        for (let i = 0; i < itemCount; i++) {
+          next[i] = (next[i] || 0) + 1;
+        }
+        return next;
+      });
     });
   }, [itemCount]);
 
   const handleResetAll = useCallback(() => {
-    setCounts({});
+    React.startTransition(() => {
+      setCounts({});
+    })
   }, []);
 
   const handleHighlightToggle = useCallback(() => {
-    setHighlightedId(prev => (prev === -1 ? -2 : -1));
+    React.startTransition(() => {
+      setHighlightedId(prev => (prev === -1 ? -2 : -1));
+    });
   }, []);
 
   const totalCount = useMemo(
