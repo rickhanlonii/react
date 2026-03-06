@@ -70,7 +70,15 @@ private class DebugMenuViewController: UIViewController,
         let handler: () -> Void
     }
 
+    private struct Toggle {
+        let title: String
+        let subtitle: String?
+        let isOn: () -> Bool
+        let handler: (Bool) -> Void
+    }
+
     private var actions: [Action] = []
+    private var toggles: [Toggle] = []
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -92,9 +100,21 @@ private class DebugMenuViewController: UIViewController,
             ),
         ]
 
+        toggles = [
+            Toggle(
+                title: "Speculative Layout",
+                subtitle: "Background Yoga layout during reconciliation",
+                isOn: { ReactRuntime.shared.bindings?.speculativeLayoutEnabled ?? true },
+                handler: { newValue in
+                    ReactRuntime.shared.bindings?.speculativeLayoutEnabled = newValue
+                }
+            ),
+        ]
+
         tableView.dataSource = self
         tableView.delegate = self
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
+        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "toggleCell")
 
         view.addSubview(tableView)
         tableView.translatesAutoresizingMaskIntoConstraints = false
@@ -120,27 +140,61 @@ private class DebugMenuViewController: UIViewController,
 
     // MARK: - UITableViewDataSource
 
+    func numberOfSections(in tableView: UITableView) -> Int {
+        2
+    }
+
+    func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        section == 0 ? "Actions" : "Settings"
+    }
+
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        actions.count
+        section == 0 ? actions.count : toggles.count
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
-        let action = actions[indexPath.row]
+        if indexPath.section == 0 {
+            let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
+            let action = actions[indexPath.row]
 
-        var content = cell.defaultContentConfiguration()
-        content.text = action.title
-        content.secondaryText = action.subtitle
-        cell.contentConfiguration = content
-        cell.accessoryType = .disclosureIndicator
+            var content = cell.defaultContentConfiguration()
+            content.text = action.title
+            content.secondaryText = action.subtitle
+            cell.contentConfiguration = content
+            cell.accessoryType = .disclosureIndicator
 
-        return cell
+            return cell
+        } else {
+            let cell = tableView.dequeueReusableCell(withIdentifier: "toggleCell", for: indexPath)
+            let toggle = toggles[indexPath.row]
+
+            var content = cell.defaultContentConfiguration()
+            content.text = toggle.title
+            content.secondaryText = toggle.subtitle
+            cell.contentConfiguration = content
+            cell.accessoryType = .none
+            cell.selectionStyle = .none
+
+            let switchView = UISwitch()
+            switchView.isOn = toggle.isOn()
+            switchView.tag = indexPath.row
+            switchView.addTarget(self, action: #selector(toggleChanged(_:)), for: .valueChanged)
+            cell.accessoryView = switchView
+
+            return cell
+        }
+    }
+
+    @objc private func toggleChanged(_ sender: UISwitch) {
+        let toggle = toggles[sender.tag]
+        toggle.handler(sender.isOn)
     }
 
     // MARK: - UITableViewDelegate
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
+        guard indexPath.section == 0 else { return }
         let action = actions[indexPath.row]
         dismiss(animated: true) { [weak self] in
             self?.onDismiss?()

@@ -43,6 +43,11 @@ public class Bindings {
     /// Whether native commit timing collection is enabled (toggled by JS via $$setNativeTracingEnabled).
     var nativeTracingEnabled = false
 
+    /// Whether speculative background layout is enabled. When true, $$appendChild
+    /// dispatches Yoga layout for completed subtrees on a background queue. Toggled
+    /// via the debug menu.
+    var speculativeLayoutEnabled = true
+
     /// Performance tracer for reporting commit timings directly from Swift.
     /// Set by JSRuntime after initialization.
     var tracer: PerformanceTracer?

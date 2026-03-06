@@ -442,7 +442,7 @@ extension Bindings {
             // width=auto to (ownerWidth, StretchFit), matching. So we pass
             // ownerWidth = parentInnerWidth - childMarginRow.
             let parentWidth = Float(parent.layoutFrame.size.width)
-            if parentWidth > 0, YGNodeIsDirty(child.yogaNode) {
+            if self.speculativeLayoutEnabled, parentWidth > 0, YGNodeIsDirty(child.yogaNode) {
                 // Compute parent inner width (content box): width minus padding and border.
                 let parentYoga = parent.yogaNode
                 let padL = YGNodeStyleGetPadding(parentYoga, .left)
