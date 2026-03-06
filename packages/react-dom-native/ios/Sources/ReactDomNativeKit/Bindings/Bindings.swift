@@ -46,6 +46,13 @@ public class Bindings {
     /// Wired by Root to the HotReloadClient WebSocket.
     public var sendInspectorMessage: ((String) -> Void)?
 
+    /// Serial background queue for speculative Yoga layout during reconciliation.
+    let speculativeLayoutQueue = DispatchQueue(label: "com.react-dom-native.speculative-layout")
+
+    /// Tracks in-flight speculative layout tasks. $$completeRoot waits on this
+    /// before running root layout to ensure all speculative work is complete.
+    let speculativeLayoutGroup = DispatchGroup()
+
     /// Current tree per surface. Keyed by surfaceId.
     var currentTrees: [Int: [ShadowNodeWrapper]] = [:]
 
