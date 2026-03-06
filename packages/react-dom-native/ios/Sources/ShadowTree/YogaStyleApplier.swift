@@ -10,225 +10,128 @@ public enum YogaStyleApplier {
 
     /// Apply style properties from a dictionary to a Yoga node.
     public static func apply(_ style: [String: Any], to node: YGNodeRef) {
+        guard !style.isEmpty else { return }
+
         // CSS default: content-box (Yoga defaults to border-box)
         YGNodeStyleSetBoxSizing(node, .contentBox)
 
-        // boxSizing
-        if let bs = style["boxSizing"] as? String {
-            switch bs {
-            case "border-box":
-                YGNodeStyleSetBoxSizing(node, .borderBox)
-            case "content-box":
-                YGNodeStyleSetBoxSizing(node, .contentBox)
-            default: break
+        // Border style is needed by border width handlers
+        let borderStyle = style["borderStyle"] as? String
+        let hasBorderStyle = borderStyle != nil && borderStyle != "none"
+
+        for (key, value) in style {
+            switch key {
+            case "boxSizing":
+                applyBoxSizing(value, to: node)
+            case "flexDirection":
+                applyFlexDirection(value, to: node)
+            case "alignItems":
+                applyAlignItems(value, to: node)
+            case "alignSelf":
+                applyAlignSelf(value, to: node)
+            case "alignContent":
+                applyAlignContent(value, to: node)
+            case "justifyContent":
+                applyJustifyContent(value, to: node)
+            case "gap":
+                applyGap(value, to: node, axis: .all)
+            case "rowGap":
+                applyGap(value, to: node, axis: .row)
+            case "columnGap":
+                applyGap(value, to: node, axis: .column)
+            case "padding":
+                applyPadding(value, to: node, edge: .all)
+            case "paddingTop":
+                applyPadding(value, to: node, edge: .top)
+            case "paddingRight":
+                applyPadding(value, to: node, edge: .right)
+            case "paddingBottom":
+                applyPadding(value, to: node, edge: .bottom)
+            case "paddingLeft":
+                applyPadding(value, to: node, edge: .left)
+            case "paddingHorizontal":
+                applyPadding(value, to: node, edge: .horizontal)
+            case "paddingVertical":
+                applyPadding(value, to: node, edge: .vertical)
+            case "margin":
+                applyMargin(value, to: node, edge: .all)
+            case "marginTop":
+                applyMargin(value, to: node, edge: .top)
+            case "marginRight":
+                applyMargin(value, to: node, edge: .right)
+            case "marginBottom":
+                applyMargin(value, to: node, edge: .bottom)
+            case "marginLeft":
+                applyMargin(value, to: node, edge: .left)
+            case "marginHorizontal":
+                applyMargin(value, to: node, edge: .horizontal)
+            case "marginVertical":
+                applyMargin(value, to: node, edge: .vertical)
+            case "width":
+                applyDimension(value, to: node, set: YGNodeStyleSetWidth, setPercent: YGNodeStyleSetWidthPercent)
+            case "height":
+                applyDimension(value, to: node, set: YGNodeStyleSetHeight, setPercent: YGNodeStyleSetHeightPercent)
+            case "minWidth":
+                applyDimension(value, to: node, set: YGNodeStyleSetMinWidth, setPercent: YGNodeStyleSetMinWidthPercent)
+            case "minHeight":
+                applyDimension(value, to: node, set: YGNodeStyleSetMinHeight, setPercent: YGNodeStyleSetMinHeightPercent)
+            case "maxWidth":
+                applyDimension(value, to: node, set: YGNodeStyleSetMaxWidth, setPercent: YGNodeStyleSetMaxWidthPercent)
+            case "maxHeight":
+                applyDimension(value, to: node, set: YGNodeStyleSetMaxHeight, setPercent: YGNodeStyleSetMaxHeightPercent)
+            case "flex":
+                applyFlexShorthand(value, to: node, style: style)
+            case "flexGrow":
+                if let fg = toFloat(value) { YGNodeStyleSetFlexGrow(node, fg) }
+            case "flexShrink":
+                if let fs = toFloat(value) { YGNodeStyleSetFlexShrink(node, fs) }
+            case "flexBasis":
+                if let fb = toFloat(value) { YGNodeStyleSetFlexBasis(node, fb) }
+            case "aspectRatio":
+                applyAspectRatio(value, to: node, style: style)
+            case "flexWrap":
+                applyFlexWrap(value, to: node)
+            case "position":
+                applyPosition(value, to: node)
+            case "top":
+                if let v = toFloat(value) { YGNodeStyleSetPosition(node, .top, v) }
+            case "left":
+                if let v = toFloat(value) { YGNodeStyleSetPosition(node, .left, v) }
+            case "right":
+                if let v = toFloat(value) { YGNodeStyleSetPosition(node, .right, v) }
+            case "bottom":
+                if let v = toFloat(value) { YGNodeStyleSetPosition(node, .bottom, v) }
+            case "display":
+                applyDisplay(value, to: node)
+            case "overflow":
+                applyOverflow(value, to: node)
+            case "borderStyle":
+                // Handled via hasBorderStyle flag; apply uniform border width
+                if hasBorderStyle {
+                    let uniform = toFloat(style["borderWidth"]) ?? 3 // CSS initial = "medium" = 3px
+                    YGNodeStyleSetBorder(node, .all, uniform)
+                }
+            case "borderWidth":
+                // borderWidth is applied via borderStyle case or individual edges below
+                break
+            case "borderTopWidth":
+                if hasBorderStyle, let v = toFloat(value) { YGNodeStyleSetBorder(node, .top, v) }
+            case "borderRightWidth":
+                if hasBorderStyle, let v = toFloat(value) { YGNodeStyleSetBorder(node, .right, v) }
+            case "borderBottomWidth":
+                if hasBorderStyle, let v = toFloat(value) { YGNodeStyleSetBorder(node, .bottom, v) }
+            case "borderLeftWidth":
+                if hasBorderStyle, let v = toFloat(value) { YGNodeStyleSetBorder(node, .left, v) }
+            default:
+                break // Non-Yoga property (backgroundColor, color, etc.)
             }
         }
 
-        // flexDirection
-        if let fd = style["flexDirection"] as? String {
-            switch fd {
-            case "row":
-                YGNodeStyleSetFlexDirection(node, .row)
-            case "column":
-                YGNodeStyleSetFlexDirection(node, .column)
-            case "row-reverse":
-                YGNodeStyleSetFlexDirection(node, .rowReverse)
-            case "column-reverse":
-                YGNodeStyleSetFlexDirection(node, .columnReverse)
-            default: break
-            }
-        }
-
-        // alignItems
-        if let ai = style["alignItems"] as? String {
-            switch ai {
-            case "center":
-                YGNodeStyleSetAlignItems(node, .center)
-            case "flex-start", "flexStart":
-                YGNodeStyleSetAlignItems(node, .flexStart)
-            case "flex-end", "flexEnd":
-                YGNodeStyleSetAlignItems(node, .flexEnd)
-            case "stretch":
-                YGNodeStyleSetAlignItems(node, .stretch)
-            case "baseline":
-                YGNodeStyleSetAlignItems(node, .baseline)
-            default: break
-            }
-        }
-
-        // alignSelf
-        if let as_ = style["alignSelf"] as? String {
-            switch as_ {
-            case "center":
-                YGNodeStyleSetAlignSelf(node, .center)
-            case "flex-start", "flexStart":
-                YGNodeStyleSetAlignSelf(node, .flexStart)
-            case "flex-end", "flexEnd":
-                YGNodeStyleSetAlignSelf(node, .flexEnd)
-            case "stretch":
-                YGNodeStyleSetAlignSelf(node, .stretch)
-            case "baseline":
-                YGNodeStyleSetAlignSelf(node, .baseline)
-            case "auto":
-                YGNodeStyleSetAlignSelf(node, .auto)
-            default: break
-            }
-        }
-
-        // alignContent
-        if let ac = style["alignContent"] as? String {
-            switch ac {
-            case "center":
-                YGNodeStyleSetAlignContent(node, .center)
-            case "flex-start", "flexStart":
-                YGNodeStyleSetAlignContent(node, .flexStart)
-            case "flex-end", "flexEnd":
-                YGNodeStyleSetAlignContent(node, .flexEnd)
-            case "stretch":
-                YGNodeStyleSetAlignContent(node, .stretch)
-            case "space-between", "spaceBetween":
-                YGNodeStyleSetAlignContent(node, .spaceBetween)
-            case "space-around", "spaceAround":
-                YGNodeStyleSetAlignContent(node, .spaceAround)
-            case "space-evenly", "spaceEvenly":
-                YGNodeStyleSetAlignContent(node, .spaceEvenly)
-            default: break
-            }
-        }
-
-        // justifyContent
-        if let jc = style["justifyContent"] as? String {
-            switch jc {
-            case "center":
-                YGNodeStyleSetJustifyContent(node, .center)
-            case "flex-start", "flexStart":
-                YGNodeStyleSetJustifyContent(node, .flexStart)
-            case "flex-end", "flexEnd":
-                YGNodeStyleSetJustifyContent(node, .flexEnd)
-            case "space-between", "spaceBetween":
-                YGNodeStyleSetJustifyContent(node, .spaceBetween)
-            case "space-around", "spaceAround":
-                YGNodeStyleSetJustifyContent(node, .spaceAround)
-            case "space-evenly", "spaceEvenly":
-                YGNodeStyleSetJustifyContent(node, .spaceEvenly)
-            default: break
-            }
-        }
-
-        // gap (all gutters)
-        if let gap = toFloat(style["gap"]) {
-            YGNodeStyleSetGap(node, .all, gap)
-        }
-
-        // rowGap
-        if let rowGap = toFloat(style["rowGap"]) {
-            YGNodeStyleSetGap(node, .row, rowGap)
-        }
-
-        // columnGap
-        if let columnGap = toFloat(style["columnGap"]) {
-            YGNodeStyleSetGap(node, .column, columnGap)
-        }
-
-        // padding (all edges)
-        if let padding = toFloat(style["padding"]) {
-            YGNodeStyleSetPadding(node, .all, padding)
-        }
-        if let pt = toFloat(style["paddingTop"]) {
-            YGNodeStyleSetPadding(node, .top, pt)
-        }
-        if let pr = toFloat(style["paddingRight"]) {
-            YGNodeStyleSetPadding(node, .right, pr)
-        }
-        if let pb = toFloat(style["paddingBottom"]) {
-            YGNodeStyleSetPadding(node, .bottom, pb)
-        }
-        if let pl = toFloat(style["paddingLeft"]) {
-            YGNodeStyleSetPadding(node, .left, pl)
-        }
-        if let ph = toFloat(style["paddingHorizontal"]) {
-            YGNodeStyleSetPadding(node, .horizontal, ph)
-        }
-        if let pv = toFloat(style["paddingVertical"]) {
-            YGNodeStyleSetPadding(node, .vertical, pv)
-        }
-
-        // margin (all edges) — supports numeric values and "auto"
-        if let margin = style["margin"] as? String, margin == "auto" {
-            YGNodeStyleSetMarginAuto(node, .all)
-        } else if let margin = toFloat(style["margin"]) {
-            YGNodeStyleSetMargin(node, .all, margin)
-        }
-        if let mt = style["marginTop"] as? String, mt == "auto" {
-            YGNodeStyleSetMarginAuto(node, .top)
-        } else if let mt = toFloat(style["marginTop"]) {
-            YGNodeStyleSetMargin(node, .top, mt)
-        }
-        if let mr = style["marginRight"] as? String, mr == "auto" {
-            YGNodeStyleSetMarginAuto(node, .right)
-        } else if let mr = toFloat(style["marginRight"]) {
-            YGNodeStyleSetMargin(node, .right, mr)
-        }
-        if let mb = style["marginBottom"] as? String, mb == "auto" {
-            YGNodeStyleSetMarginAuto(node, .bottom)
-        } else if let mb = toFloat(style["marginBottom"]) {
-            YGNodeStyleSetMargin(node, .bottom, mb)
-        }
-        if let ml = style["marginLeft"] as? String, ml == "auto" {
-            YGNodeStyleSetMarginAuto(node, .left)
-        } else if let ml = toFloat(style["marginLeft"]) {
-            YGNodeStyleSetMargin(node, .left, ml)
-        }
-        if let mh = style["marginHorizontal"] as? String, mh == "auto" {
-            YGNodeStyleSetMarginAuto(node, .horizontal)
-        } else if let mh = toFloat(style["marginHorizontal"]) {
-            YGNodeStyleSetMargin(node, .horizontal, mh)
-        }
-        if let mv = style["marginVertical"] as? String, mv == "auto" {
-            YGNodeStyleSetMarginAuto(node, .vertical)
-        } else if let mv = toFloat(style["marginVertical"]) {
-            YGNodeStyleSetMargin(node, .vertical, mv)
-        }
-
-        // width / height (numeric or percentage string like "100%")
-        if let w = toFloat(style["width"]) {
-            YGNodeStyleSetWidth(node, w)
-        } else if let wp = toPercent(style["width"]) {
-            YGNodeStyleSetWidthPercent(node, wp)
-        }
-        if let h = toFloat(style["height"]) {
-            YGNodeStyleSetHeight(node, h)
-        } else if let hp = toPercent(style["height"]) {
-            YGNodeStyleSetHeightPercent(node, hp)
-        }
-
-        // minWidth / minHeight / maxWidth / maxHeight
-        if let mw = toFloat(style["minWidth"]) {
-            YGNodeStyleSetMinWidth(node, mw)
-        } else if let mwp = toPercent(style["minWidth"]) {
-            YGNodeStyleSetMinWidthPercent(node, mwp)
-        }
-        if let mh = toFloat(style["minHeight"]) {
-            YGNodeStyleSetMinHeight(node, mh)
-        } else if let mhp = toPercent(style["minHeight"]) {
-            YGNodeStyleSetMinHeightPercent(node, mhp)
-        }
-        if let mw = toFloat(style["maxWidth"]) {
-            YGNodeStyleSetMaxWidth(node, mw)
-        } else if let mwp = toPercent(style["maxWidth"]) {
-            YGNodeStyleSetMaxWidthPercent(node, mwp)
-        }
-        if let mh = toFloat(style["maxHeight"]) {
-            YGNodeStyleSetMaxHeight(node, mh)
-        } else if let mhp = toPercent(style["maxHeight"]) {
-            YGNodeStyleSetMaxHeightPercent(node, mhp)
-        }
-
-        // Yoga bug workaround: when both height and maxHeight are set as
-        // point values, Yoga's flex layout incorrectly uses the unclamped
+        // Post-pass: Yoga bug workaround — when both height and maxHeight are
+        // set as point values, Yoga's flex layout incorrectly uses the unclamped
         // height when computing the auto height of an ancestor container.
-        // Pre-compute the clamped height so the ancestor sees the correct
-        // value. Same for width/maxWidth.
+        // Pre-compute the clamped height so the ancestor sees the correct value.
+        // Same for width/maxWidth.
         if let h = toFloat(style["height"]),
            let maxH = toFloat(style["maxHeight"]),
            h > maxH {
@@ -239,152 +142,229 @@ public enum YogaStyleApplier {
            w > maxW {
             YGNodeStyleSetWidth(node, maxW)
         }
+    }
 
-        // flex shorthand — expand to flexGrow/flexShrink/flexBasis per CSS spec.
+    // MARK: - Property Handlers
+
+    private static func applyBoxSizing(_ value: Any, to node: YGNodeRef) {
+        guard let bs = value as? String else { return }
+        switch bs {
+        case "border-box":
+            YGNodeStyleSetBoxSizing(node, .borderBox)
+        case "content-box":
+            YGNodeStyleSetBoxSizing(node, .contentBox)
+        default: break
+        }
+    }
+
+    private static func applyFlexDirection(_ value: Any, to node: YGNodeRef) {
+        guard let fd = value as? String else { return }
+        switch fd {
+        case "row":
+            YGNodeStyleSetFlexDirection(node, .row)
+        case "column":
+            YGNodeStyleSetFlexDirection(node, .column)
+        case "row-reverse":
+            YGNodeStyleSetFlexDirection(node, .rowReverse)
+        case "column-reverse":
+            YGNodeStyleSetFlexDirection(node, .columnReverse)
+        default: break
+        }
+    }
+
+    private static func applyAlignItems(_ value: Any, to node: YGNodeRef) {
+        guard let ai = value as? String else { return }
+        switch ai {
+        case "center":
+            YGNodeStyleSetAlignItems(node, .center)
+        case "flex-start", "flexStart":
+            YGNodeStyleSetAlignItems(node, .flexStart)
+        case "flex-end", "flexEnd":
+            YGNodeStyleSetAlignItems(node, .flexEnd)
+        case "stretch":
+            YGNodeStyleSetAlignItems(node, .stretch)
+        case "baseline":
+            YGNodeStyleSetAlignItems(node, .baseline)
+        default: break
+        }
+    }
+
+    private static func applyAlignSelf(_ value: Any, to node: YGNodeRef) {
+        guard let as_ = value as? String else { return }
+        switch as_ {
+        case "center":
+            YGNodeStyleSetAlignSelf(node, .center)
+        case "flex-start", "flexStart":
+            YGNodeStyleSetAlignSelf(node, .flexStart)
+        case "flex-end", "flexEnd":
+            YGNodeStyleSetAlignSelf(node, .flexEnd)
+        case "stretch":
+            YGNodeStyleSetAlignSelf(node, .stretch)
+        case "baseline":
+            YGNodeStyleSetAlignSelf(node, .baseline)
+        case "auto":
+            YGNodeStyleSetAlignSelf(node, .auto)
+        default: break
+        }
+    }
+
+    private static func applyAlignContent(_ value: Any, to node: YGNodeRef) {
+        guard let ac = value as? String else { return }
+        switch ac {
+        case "center":
+            YGNodeStyleSetAlignContent(node, .center)
+        case "flex-start", "flexStart":
+            YGNodeStyleSetAlignContent(node, .flexStart)
+        case "flex-end", "flexEnd":
+            YGNodeStyleSetAlignContent(node, .flexEnd)
+        case "stretch":
+            YGNodeStyleSetAlignContent(node, .stretch)
+        case "space-between", "spaceBetween":
+            YGNodeStyleSetAlignContent(node, .spaceBetween)
+        case "space-around", "spaceAround":
+            YGNodeStyleSetAlignContent(node, .spaceAround)
+        case "space-evenly", "spaceEvenly":
+            YGNodeStyleSetAlignContent(node, .spaceEvenly)
+        default: break
+        }
+    }
+
+    private static func applyJustifyContent(_ value: Any, to node: YGNodeRef) {
+        guard let jc = value as? String else { return }
+        switch jc {
+        case "center":
+            YGNodeStyleSetJustifyContent(node, .center)
+        case "flex-start", "flexStart":
+            YGNodeStyleSetJustifyContent(node, .flexStart)
+        case "flex-end", "flexEnd":
+            YGNodeStyleSetJustifyContent(node, .flexEnd)
+        case "space-between", "spaceBetween":
+            YGNodeStyleSetJustifyContent(node, .spaceBetween)
+        case "space-around", "spaceAround":
+            YGNodeStyleSetJustifyContent(node, .spaceAround)
+        case "space-evenly", "spaceEvenly":
+            YGNodeStyleSetJustifyContent(node, .spaceEvenly)
+        default: break
+        }
+    }
+
+    private static func applyGap(_ value: Any, to node: YGNodeRef, axis: YGGutter) {
+        if let v = toFloat(value) {
+            YGNodeStyleSetGap(node, axis, v)
+        }
+    }
+
+    private static func applyPadding(_ value: Any, to node: YGNodeRef, edge: YGEdge) {
+        if let v = toFloat(value) {
+            YGNodeStyleSetPadding(node, edge, v)
+        }
+    }
+
+    private static func applyMargin(_ value: Any, to node: YGNodeRef, edge: YGEdge) {
+        if let str = value as? String, str == "auto" {
+            YGNodeStyleSetMarginAuto(node, edge)
+        } else if let v = toFloat(value) {
+            YGNodeStyleSetMargin(node, edge, v)
+        }
+    }
+
+    private static func applyDimension(
+        _ value: Any,
+        to node: YGNodeRef,
+        set: (YGNodeRef?, Float) -> Void,
+        setPercent: (YGNodeRef?, Float) -> Void
+    ) {
+        if let v = toFloat(value) {
+            set(node, v)
+        } else if let p = toPercent(value) {
+            setPercent(node, p)
+        }
+    }
+
+    private static func applyFlexShorthand(_ value: Any, to node: YGNodeRef, style: [String: Any]) {
+        guard let f = toFloat(value) else { return }
         // CSS `flex: <number>` means `flex: <number> 1 0%` (basis is always 0%).
-        // Yoga's YGNodeStyleSetFlex only sets basis to 0 when flex > 0, leaving
-        // flex-basis as auto when flex: 0 — which is wrong (CSS collapses the item).
-        //
-        // Use YGNodeStyleSetFlexBasis(0) instead of YGNodeStyleSetFlexBasisPercent(0)
-        // because Yoga's percentage flex-basis incorrectly falls back to auto sizing
-        // in content-box mode when the item also has minWidth set. This causes the
-        // item to use its intrinsic content size as the flex base instead of 0,
-        // resulting in incorrect flex distribution.
-        if let f = toFloat(style["flex"]) {
+        // Only set each sub-property if no explicit override exists in the style
+        // dict, so order of iteration doesn't matter.
+        if style["flexGrow"] == nil {
             YGNodeStyleSetFlexGrow(node, f)
+        }
+        if style["flexShrink"] == nil {
             YGNodeStyleSetFlexShrink(node, 1)
+        }
+        if style["flexBasis"] == nil {
+            // Use YGNodeStyleSetFlexBasis(0) instead of percent because Yoga's
+            // percentage flex-basis incorrectly falls back to auto sizing in
+            // content-box mode when the item also has minWidth set.
             YGNodeStyleSetFlexBasis(node, 0)
         }
-        // Explicit flexGrow/flexShrink/flexBasis override the shorthand
-        if let fg = toFloat(style["flexGrow"]) {
-            YGNodeStyleSetFlexGrow(node, fg)
-        }
-        if let fs = toFloat(style["flexShrink"]) {
-            YGNodeStyleSetFlexShrink(node, fs)
-        }
-        if let fb = toFloat(style["flexBasis"]) {
-            YGNodeStyleSetFlexBasis(node, fb)
-        }
+    }
 
-        // aspectRatio
-        if let ar = toFloat(style["aspectRatio"]) {
-            // Yoga's calculateBlockLayout does NOT apply aspectRatio when
-            // computing child dimensions. It only works in the flex layout
-            // path. Pre-compute the missing dimension here so block-layout
-            // children get the correct height/width from aspectRatio.
-            //
-            // When we can pre-compute (exactly one dimension is set), we set
-            // the missing dimension explicitly and do NOT call
-            // YGNodeStyleSetAspectRatio. Yoga's native aspect ratio in flex
-            // layout computes the missing dimension from the total box size
-            // (including padding) in content-box mode, producing incorrect
-            // values. The pre-compute uses the content-box dimension directly,
-            // matching CSS behavior.
-            //
-            // When we can't pre-compute (neither or both dimensions set),
-            // fall back to Yoga's native aspect ratio.
-            let hasWidth = toFloat(style["width"]) != nil || toPercent(style["width"]) != nil
-            let hasHeight = toFloat(style["height"]) != nil || toPercent(style["height"]) != nil
-            if hasWidth && !hasHeight, let w = toFloat(style["width"]) {
-                YGNodeStyleSetHeight(node, w / ar)
-            } else if hasHeight && !hasWidth, let h = toFloat(style["height"]) {
-                YGNodeStyleSetWidth(node, h * ar)
-            } else {
-                YGNodeStyleSetAspectRatio(node, ar)
-            }
+    private static func applyAspectRatio(_ value: Any, to node: YGNodeRef, style: [String: Any]) {
+        guard let ar = toFloat(value) else { return }
+        // Yoga's calculateBlockLayout does NOT apply aspectRatio when
+        // computing child dimensions. Pre-compute the missing dimension
+        // here so block-layout children get the correct height/width.
+        let hasWidth = toFloat(style["width"]) != nil || toPercent(style["width"]) != nil
+        let hasHeight = toFloat(style["height"]) != nil || toPercent(style["height"]) != nil
+        if hasWidth && !hasHeight, let w = toFloat(style["width"]) {
+            YGNodeStyleSetHeight(node, w / ar)
+        } else if hasHeight && !hasWidth, let h = toFloat(style["height"]) {
+            YGNodeStyleSetWidth(node, h * ar)
+        } else {
+            YGNodeStyleSetAspectRatio(node, ar)
         }
+    }
 
-        // flexWrap
-        if let fw = style["flexWrap"] as? String {
-            switch fw {
-            case "wrap":
-                YGNodeStyleSetFlexWrap(node, .wrap)
-            case "nowrap", "no-wrap":
-                YGNodeStyleSetFlexWrap(node, .noWrap)
-            case "wrap-reverse":
-                YGNodeStyleSetFlexWrap(node, .wrapReverse)
-            default: break
-            }
+    private static func applyFlexWrap(_ value: Any, to node: YGNodeRef) {
+        guard let fw = value as? String else { return }
+        switch fw {
+        case "wrap":
+            YGNodeStyleSetFlexWrap(node, .wrap)
+        case "nowrap", "no-wrap":
+            YGNodeStyleSetFlexWrap(node, .noWrap)
+        case "wrap-reverse":
+            YGNodeStyleSetFlexWrap(node, .wrapReverse)
+        default: break
         }
+    }
 
-        // position
-        if let pos = style["position"] as? String {
-            switch pos {
-            case "relative":
-                YGNodeStyleSetPositionType(node, .relative)
-            case "absolute":
-                YGNodeStyleSetPositionType(node, .absolute)
-            default: break
-            }
+    private static func applyPosition(_ value: Any, to node: YGNodeRef) {
+        guard let pos = value as? String else { return }
+        switch pos {
+        case "relative":
+            YGNodeStyleSetPositionType(node, .relative)
+        case "absolute":
+            YGNodeStyleSetPositionType(node, .absolute)
+        default: break
         }
+    }
 
-        // position offsets (top/left/right/bottom)
-        if let top = toFloat(style["top"]) {
-            YGNodeStyleSetPosition(node, .top, top)
+    private static func applyDisplay(_ value: Any, to node: YGNodeRef) {
+        guard let display = value as? String else { return }
+        switch display {
+        case "flex":
+            YGNodeStyleSetDisplay(node, .flex)
+        case "none":
+            YGNodeStyleSetDisplay(node, .none)
+        case "block":
+            YGNodeStyleSetDisplay(node, .block)
+        case "inline-block", "inline":
+            YGNodeStyleSetDisplay(node, .inlineBlock)
+        default: break
         }
-        if let left = toFloat(style["left"]) {
-            YGNodeStyleSetPosition(node, .left, left)
-        }
-        if let right = toFloat(style["right"]) {
-            YGNodeStyleSetPosition(node, .right, right)
-        }
-        if let bottom = toFloat(style["bottom"]) {
-            YGNodeStyleSetPosition(node, .bottom, bottom)
-        }
+    }
 
-        // display
-        if let display = style["display"] as? String {
-            switch display {
-            case "flex":
-                YGNodeStyleSetDisplay(node, .flex)
-            case "none":
-                YGNodeStyleSetDisplay(node, .none)
-            case "block":
-                YGNodeStyleSetDisplay(node, .block)
-            case "inline-block", "inline":
-                YGNodeStyleSetDisplay(node, .inlineBlock)
-            default: break
-            }
-        }
-
-        // overflow
-        if let overflow = style["overflow"] as? String {
-            switch overflow {
-            case "visible":
-                YGNodeStyleSetOverflow(node, .visible)
-            case "hidden":
-                YGNodeStyleSetOverflow(node, .hidden)
-            case "scroll", "auto":
-                YGNodeStyleSetOverflow(node, .scroll)
-            default: break
-            }
-        }
-
-        // borderWidth (all edges)
-        // CSS quirk: borderWidth computes to 0 when borderStyle is "none"
-        // (the default). Only allocate border space in Yoga when borderStyle
-        // is explicitly set to a visible value.
-        // CSS initial border-width is "medium" (3px). When borderStyle is set
-        // without an explicit borderWidth, each edge defaults to 3px.
-        let borderStyle = style["borderStyle"] as? String
-        let hasBorderStyle = borderStyle != nil && borderStyle != "none"
-        if hasBorderStyle {
-            // CSS initial border-width is "medium" = 3px
-            let cssInitialBorderWidth: Float = 3
-            let uniform = toFloat(style["borderWidth"]) ?? cssInitialBorderWidth
-            YGNodeStyleSetBorder(node, .all, uniform)
-            if let btw = toFloat(style["borderTopWidth"]) {
-                YGNodeStyleSetBorder(node, .top, btw)
-            }
-            if let brw = toFloat(style["borderRightWidth"]) {
-                YGNodeStyleSetBorder(node, .right, brw)
-            }
-            if let bbw = toFloat(style["borderBottomWidth"]) {
-                YGNodeStyleSetBorder(node, .bottom, bbw)
-            }
-            if let blw = toFloat(style["borderLeftWidth"]) {
-                YGNodeStyleSetBorder(node, .left, blw)
-            }
+    private static func applyOverflow(_ value: Any, to node: YGNodeRef) {
+        guard let overflow = value as? String else { return }
+        switch overflow {
+        case "visible":
+            YGNodeStyleSetOverflow(node, .visible)
+        case "hidden":
+            YGNodeStyleSetOverflow(node, .hidden)
+        case "scroll", "auto":
+            YGNodeStyleSetOverflow(node, .scroll)
+        default: break
         }
     }
 

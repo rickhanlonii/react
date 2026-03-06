@@ -1278,5 +1278,6 @@ final class YogaStyleApplierTests: XCTestCase {
         XCTAssertEqual(innerHeight, 80, accuracy: 0.1,
                        "Child should keep explicit height=80, not be flex-shrunk")
     }
+
 }
 
