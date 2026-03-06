@@ -136,6 +136,8 @@ build_json_body() {
     tap)
       if [ -n "${3:-}" ] && [ -n "${4:-}" ]; then
         echo "{\"x\":$3,\"y\":$4}"
+      elif [ -n "${3:-}" ] && [[ "$3" == id:* ]]; then
+        echo "{\"id\":\"${3#id:}\"}"
       elif [ -n "${3:-}" ]; then
         echo "{\"label\":\"$3\"}"
       fi
@@ -262,10 +264,12 @@ case "$OPERATION" in
   tap)
     if [ -n "${3:-}" ] && [ -n "${4:-}" ]; then
       "$AXE_PATH" tap -x "$3" -y "$4" --udid "$SIMULATOR_ID"
+    elif [ -n "${3:-}" ] && [[ "$3" == id:* ]]; then
+      "$AXE_PATH" tap --id "${3#id:}" --udid "$SIMULATOR_ID"
     elif [ -n "${3:-}" ]; then
       "$AXE_PATH" tap --label "$3" --udid "$SIMULATOR_ID"
     else
-      echo "Usage: build-op.sh tap [target] <x> <y>  or  build-op.sh tap [target] <label>"
+      echo "Usage: build-op.sh tap [target] <x> <y>  or  build-op.sh tap [target] <id:elementId>  or  build-op.sh tap [target] <label>"
       exit 1
     fi
     ;;
