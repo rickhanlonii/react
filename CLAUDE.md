@@ -59,6 +59,10 @@ Pick the right tool for what you're investigating:
 
 - **Always set `id` on interactive elements.** Every `<button>`, `<input>`, and other interactive element must have an `id` prop. The `id` maps to `accessibilityIdentifier` on UIKit views, enabling UI automation to target elements by ID instead of coordinates. Use descriptive, kebab-case IDs (e.g. `id="counter-increment"`, `id="login-submit"`).
 
+## Debugging Rules
+
+- **Trust the user's bug reports.** When the user reports a visual bug and attributes it to a change, investigate immediately — don't argue about theoretical correctness. The user can see the screen. Reproduce first, theorize later.
+
 ## Rules
 
 - **Plans**: ALWAYS write plans to `./docs/plans`. When finished, move to `./docs/plans/complete` and include in your commit.
