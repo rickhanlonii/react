@@ -5,17 +5,9 @@
  */
 
 import * as consoleTools from './console.js';
-import * as emulationTools from './emulation.js';
-import * as extensionsTools from './extensions.js';
-import * as inputTools from './input.js';
-import * as lighthouseTools from './lighthouse.js';
-import * as memoryTools from './memory.js';
 import * as navigateTools from './navigate.js';
-import * as networkTools from './network.js';
 import * as pagesTools from './pages.js';
 import * as performanceTools from './performance.js';
-import * as screencastTools from './screencast.js';
-import * as screenshotTools from './screenshot.js';
 import * as scriptTools from './script.js';
 import * as snapshotTools from './snapshot.js';
 import type {DefinedPageTool, ToolDefinition} from './ToolDefinition.js';
@@ -34,19 +26,11 @@ function isToolDefinition(value: unknown): value is AnyTool {
 }
 
 export const createTools = (): AnyTool[] => {
-  const allValues = [
+  const allValues: unknown[] = [
     ...Object.values(consoleTools),
-    ...Object.values(performanceTools),
-    ...Object.values(inputTools),
-    ...Object.values(pagesTools),
-    ...Object.values(networkTools),
-    ...Object.values(emulationTools),
-    ...Object.values(memoryTools),
     ...Object.values(navigateTools),
-    ...Object.values(lighthouseTools),
-    ...Object.values(screencastTools),
-    ...Object.values(extensionsTools),
-    ...Object.values(screenshotTools),
+    ...Object.values(pagesTools),
+    ...Object.values(performanceTools),
     ...Object.values(scriptTools),
     ...Object.values(snapshotTools),
   ];

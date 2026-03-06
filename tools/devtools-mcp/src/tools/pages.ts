@@ -9,7 +9,6 @@ import {zod} from '../third_party/index.js';
 
 import {ToolCategory} from './categories.js';
 import {defineTool} from './ToolDefinition.js';
-import {notImplemented} from './stubs.js';
 
 export const listPages = defineTool({
   name: 'list_pages',
@@ -76,69 +75,6 @@ export const selectPage = defineTool({
 
     response.appendResponseLine(
       `Selected page [${index}]: ${target.title || '(untitled)'} — ${target.url}`,
-    );
-  },
-});
-
-export const closePage = defineTool({
-  name: 'close_page',
-  description: `Closes the page by its index. The last open page cannot be closed.`,
-  annotations: {
-    category: ToolCategory.NAVIGATION,
-    readOnlyHint: false,
-  },
-  schema: {
-    pageId: zod
-      .number()
-      .describe('The ID of the page to close. Call list_pages to list pages.'),
-  },
-  handler: async (_request, response) => {
-    response.appendResponseLine(
-      notImplemented(
-        'close_page',
-        'Cannot close a native app page via CDP.',
-      ),
-    );
-  },
-});
-
-export const newPage = defineTool({
-  name: 'new_page',
-  description: `Creates a new page`,
-  annotations: {
-    category: ToolCategory.NAVIGATION,
-    readOnlyHint: false,
-  },
-  schema: {
-    url: zod.string().describe('URL to load in a new page.'),
-    background: zod
-      .boolean()
-      .optional()
-      .describe(
-        'Whether to open the page in the background without bringing it to the front. Default is false (foreground).',
-      ),
-    isolatedContext: zod
-      .string()
-      .optional()
-      .describe(
-        'If specified, the page is created in an isolated browser context with the given name. ' +
-          'Pages in the same browser context share cookies and storage. ' +
-          'Pages in different browser contexts are fully isolated.',
-      ),
-    timeout: zod
-      .number()
-      .int()
-      .optional()
-      .describe(
-        `Maximum wait time in milliseconds. If set to 0, the default timeout will be used.`,
-      ),
-  },
-  handler: async (_request, response) => {
-    response.appendResponseLine(
-      notImplemented(
-        'new_page',
-        'Cannot open new pages in a native app.',
-      ),
     );
   },
 });
@@ -213,74 +149,3 @@ export const navigatePage = defineTool({
   },
 });
 
-export const resizePage = defineTool({
-  name: 'resize_page',
-  description: `Resizes the selected page's window so that the page has specified dimension`,
-  annotations: {
-    category: ToolCategory.NAVIGATION,
-    readOnlyHint: false,
-  },
-  schema: {
-    width: zod.number().describe('Page width'),
-    height: zod.number().describe('Page height'),
-  },
-  handler: async (_request, response) => {
-    response.appendResponseLine(
-      notImplemented(
-        'resize_page',
-        'Simulator window size is fixed; cannot resize via CDP.',
-      ),
-    );
-  },
-});
-
-export const handleDialog = defineTool({
-  name: 'handle_dialog',
-  description: `If a browser dialog was opened, use this command to handle it`,
-  annotations: {
-    category: ToolCategory.NAVIGATION,
-    readOnlyHint: false,
-  },
-  schema: {
-    action: zod
-      .enum(['accept', 'dismiss'])
-      .describe('Whether to dismiss or accept the dialog'),
-    promptText: zod
-      .string()
-      .optional()
-      .describe('Optional prompt text to enter into the dialog.'),
-  },
-  handler: async (_request, response) => {
-    response.appendResponseLine(
-      notImplemented(
-        'handle_dialog',
-        'Native apps do not produce browser dialogs (alert/confirm/prompt via DOM). UIAlertController is not accessible via CDP.',
-      ),
-    );
-  },
-});
-
-export const getTabId = defineTool({
-  name: 'get_tab_id',
-  description: `Get the tab ID of the page`,
-  annotations: {
-    category: ToolCategory.NAVIGATION,
-    readOnlyHint: true,
-    conditions: ['experimentalInteropTools'],
-  },
-  schema: {
-    pageId: zod
-      .number()
-      .describe(
-        `The ID of the page to get the tab ID for. Call list_pages to get available pages.`,
-      ),
-  },
-  handler: async (_request, response) => {
-    response.appendResponseLine(
-      notImplemented(
-        'get_tab_id',
-        'No browser tabs in a native app.',
-      ),
-    );
-  },
-});
