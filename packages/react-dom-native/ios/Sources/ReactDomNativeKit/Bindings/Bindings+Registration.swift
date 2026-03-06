@@ -429,8 +429,8 @@ extension Bindings {
             // Speculatively compute its layout on a background thread using
             // the parent's previous layout width as the constraint. If the
             // constraint matches at root layout time, Yoga skips this subtree.
-            let parentWidth = YGNodeLayoutGetWidth(parent.yogaNode)
-            if parentWidth > 0 {
+            let parentWidth = Float(parent.layoutFrame.size.width)
+            if parentWidth > 0, YGNodeIsDirty(child.yogaNode) {
                 let childYogaNode = child.yogaNode
                 let tracing = self.nativeTracingEnabled
                 let childType = child.family.elementType

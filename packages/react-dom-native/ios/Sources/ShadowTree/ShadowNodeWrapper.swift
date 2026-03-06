@@ -259,6 +259,7 @@ public class ShadowNodeWrapper: NSObject {
             family: self.family,
             text: self.text
         )
+        cloned.layoutFrame = self.layoutFrame
         YGNodeCopyStyle(cloned.yogaNode, self.yogaNode)
         // Insert new children's yogaNodes
         for (index, child) in newChildren.enumerated() {
@@ -281,6 +282,7 @@ public class ShadowNodeWrapper: NSObject {
             family: self.family,
             text: self.text
         )
+        cloned.layoutFrame = self.layoutFrame
         YGNodeCopyStyle(cloned.yogaNode, self.yogaNode)
         // Insert new children's yogaNodes
         for (index, child) in newChildren.enumerated() {
