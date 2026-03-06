@@ -151,7 +151,7 @@ public class Renderer {
         // 4. Attach root children to rootView
         let attachStart = tracing ? performanceNow() : 0
         for child in newChildren {
-            if let view = viewRegistry.view(for: child.family) {
+            if let view = child.family.view {
                 if view.superview == nil {
                     scrollView.addSubview(view)
                 }
@@ -301,16 +301,10 @@ public class Renderer {
         }
 
         for node in nodes {
-            // Find the matching old node for this family.
             let oldMatch = oldByFamily?[ObjectIdentifier(node.family)]
 
-            // If the node is the exact same object as in the old tree,
-            // the subtree structure is unchanged. But layout may have shifted
-            // due to sibling changes (e.g. Suspense reveal), so still sync
-            // this node's frame. Skip children since their relative positions
-            // within this node are unchanged.
             if let old = oldMatch, old === node {
-                if let view = viewRegistry.view(for: node.family) {
+                if let view = node.family.view {
                     if view.frame != node.layoutFrame {
                         view.frame = node.layoutFrame
                     }
@@ -318,7 +312,7 @@ public class Renderer {
                 continue
             }
 
-            if let view = viewRegistry.view(for: node.family) {
+            if let view = node.family.view {
                 if view.frame != node.layoutFrame {
                     view.frame = node.layoutFrame
                 }
@@ -352,7 +346,7 @@ public class Renderer {
 
             // Same pointer — sync frame (layout may have shifted) but skip children.
             if let old = oldMatch, old === node {
-                if let view = viewRegistry.view(for: node.family) {
+                if let view = node.family.view {
                     if view.frame != node.layoutFrame {
                         view.frame = node.layoutFrame
                     }
@@ -362,7 +356,7 @@ public class Renderer {
 
             let nodeStart = tracing ? performanceNow() : 0
 
-            if let view = viewRegistry.view(for: node.family) {
+            if let view = node.family.view {
                 if view.frame != node.layoutFrame {
                     view.frame = node.layoutFrame
                 }

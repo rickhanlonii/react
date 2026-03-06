@@ -120,7 +120,7 @@ public class UIKitMutationApplier: NSObject {
             case .delete(let node):
                 mutType = "DELETE"
                 elemType = node.family.elementType
-                if let view = viewRegistry.view(for: node.family) {
+                if let view = node.family.view {
                     inheritedTextAlign.removeValue(forKey: ObjectIdentifier(view))
                     inheritedTextColor.removeValue(forKey: ObjectIdentifier(view))
                     view.removeFromSuperview()
@@ -132,8 +132,8 @@ public class UIKitMutationApplier: NSObject {
             case .insert(let parent, let child, let index):
                 mutType = "INSERT"
                 elemType = child.family.elementType
-                guard let parentView = viewRegistry.view(for: parent.family),
-                      let childView = viewRegistry.view(for: child.family) else {
+                guard let parentView = parent.family.view,
+                      let childView = child.family.view else {
                     continue
                 }
                 // Inherit font properties from parent text elements to #text children
@@ -183,7 +183,7 @@ public class UIKitMutationApplier: NSObject {
             case .remove(let parent, let child):
                 mutType = "REMOVE"
                 elemType = child.family.elementType
-                guard let childView = viewRegistry.view(for: child.family) else {
+                guard let childView = child.family.view else {
                     continue
                 }
                 childView.removeFromSuperview()
@@ -191,7 +191,7 @@ public class UIKitMutationApplier: NSObject {
             case .update(let node, _, let newProps):
                 mutType = "UPDATE"
                 elemType = node.family.elementType
-                guard let view = viewRegistry.view(for: node.family) else {
+                guard let view = node.family.view else {
                     continue
                 }
                 updateView(view, elementType: node.family.elementType, props: newProps)

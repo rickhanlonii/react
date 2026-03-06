@@ -43,6 +43,7 @@ public class ViewRegistry {
 
         familyToView[familyId] = view
         viewToFamily[viewId] = family
+        family.view = view
     }
 
     /// Removes the mapping for the given family. Called when a node is deleted
@@ -53,6 +54,7 @@ public class ViewRegistry {
             let viewId = ObjectIdentifier(view)
             viewToFamily.removeValue(forKey: viewId)
         }
+        family.view = nil
     }
 
     /// Removes the mapping for the given view.

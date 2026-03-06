@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 // ---------------------------------------------------------------------------
 // ShadowNodeFamily
@@ -22,6 +23,10 @@ public class ShadowNodeFamily {
     /// prevents GC while we need it. ARC keeps the ref alive as long as
     /// this family is alive.
     public var instanceHandle: AnyObject?
+
+    /// Direct view reference — avoids ViewRegistry hash lookups during
+    /// syncAllFrames and mutation application. Set/cleared by ViewRegistry.
+    public weak var view: UIView? = nil
 
     /// Whether the element has a click event handler (onClick prop).
     /// Updated during CREATE/UPDATE mutations from the canary value in props.
