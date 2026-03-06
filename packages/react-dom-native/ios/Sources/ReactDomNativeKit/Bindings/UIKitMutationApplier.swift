@@ -13,6 +13,7 @@ public typealias EventDispatchHandler = (UIView, String, [String: Any]) -> Void
 public class UIKitMutationApplier: NSObject {
 
     private let viewRegistry: ViewRegistry
+    private let viewPool = ViewPool()
     public var dispatchEvent: EventDispatchHandler?
 
     /// Called when an MPA form POST receives a response.
@@ -69,7 +70,17 @@ public class UIKitMutationApplier: NSObject {
             case .create(let node):
                 mutType = "CREATE"
                 elemType = node.family.elementType
-                let view = createView(for: node)
+                let poolKey = viewPoolKey(elementType: node.family.elementType, props: node.props)
+                let view: UIView
+                if let recycled = viewPool.dequeue(elementType: poolKey) {
+                    view = recycled
+                    updateView(view, elementType: node.family.elementType, props: node.props)
+                    if node.family.elementType == "#text", let label = view as? UILabel {
+                        label.text = node.text
+                    }
+                } else {
+                    view = createView(for: node)
+                }
                 view.frame = node.layoutFrame
                 // Apply bounds-dependent props (borders, border-radius) now that frame is set
                 applyBoundsDependentProps(to: view, props: node.props)
@@ -113,6 +124,8 @@ public class UIKitMutationApplier: NSObject {
                     inheritedTextAlign.removeValue(forKey: ObjectIdentifier(view))
                     inheritedTextColor.removeValue(forKey: ObjectIdentifier(view))
                     view.removeFromSuperview()
+                    let poolKey = viewPoolKey(elementType: node.family.elementType, view: view)
+                    viewPool.recycle(view: view, elementType: poolKey)
                 }
                 viewRegistry.unregister(family: node.family)
 
@@ -231,6 +244,23 @@ public class UIKitMutationApplier: NSObject {
     // MARK: - View Factory
 
     /// Creates a UIView for the given shadow node based on its element type.
+    /// Pool key that distinguishes scroll views from plain views for the same element type.
+    private func viewPoolKey(elementType: String, props: [String: Any]) -> String {
+        let style = props["style"] as? [String: Any] ?? [:]
+        let overflow = style["overflow"] as? String
+        if overflow == "scroll" || overflow == "auto" {
+            return elementType + ":scroll"
+        }
+        return elementType
+    }
+
+    private func viewPoolKey(elementType: String, view: UIView) -> String {
+        if view is UIScrollView {
+            return elementType + ":scroll"
+        }
+        return elementType
+    }
+
     private func createView(for node: ShadowNodeWrapper) -> UIView {
         let elementType = node.family.elementType
         let props = node.props
