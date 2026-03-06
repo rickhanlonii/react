@@ -117,6 +117,10 @@ void YGNodeMarkDirty(const YGNodeRef nodeRef) {
   node->markDirtyAndPropagate();
 }
 
+void YGNodeMarkDirtyNonLeaf(const YGNodeRef nodeRef) {
+  resolveRef(nodeRef)->markDirtyAndPropagate();
+}
+
 void YGNodeSetDirtiedFunc(YGNodeRef node, YGDirtiedFunc dirtiedFunc) {
   resolveRef(node)->setDirtiedFunc(dirtiedFunc);
 }

@@ -52,6 +52,12 @@ public class ShadowNodeWrapper: NSObject {
     /// preserved #suspense children at correct positions. Nil for non-clones.
     public var oldChildFamilies: [ShadowNodeFamily]? = nil
 
+    /// Yoga child node pointers from the clone source, used by $$appendChild
+    /// to detect unchanged children and skip yoga operations. Set by
+    /// cloneWithNewChildren when preserving the cloned yoga children.
+    /// Nil for non-clones or clones where children are fully rebuilt.
+    public var previousYogaChildren: [YGNodeRef]? = nil
+
     // MARK: - Initializers
 
     public init(
@@ -252,16 +258,22 @@ public class ShadowNodeWrapper: NSObject {
     }
 
     /// Clone with new children, keeping existing props.
-    /// Uses YGNodeClone to preserve the source node's layout cache. The
-    /// old children are removed and new ones inserted — YGNodeInsertChild
-    /// marks the clone dirty, but Yoga can still use cached measurements
-    /// from unchanged children for incremental layout.
+    /// Uses YGNodeClone to preserve the source node's layout cache.
+    /// Old yoga children are kept in the cloned yoga node for $$appendChild
+    /// to compare against — unchanged children skip yoga operations entirely.
     public func cloneWithNewChildren(_ newChildren: [ShadowNodeWrapper]) -> ShadowNodeWrapper {
         let clonedYoga = YGNodeClone(self.yogaNode)!
-        // YGNodeClone copies the children vector — remove them before
-        // inserting new ones. Use removeAllChildren to clear without
-        // freeing the child nodes (they belong to the old tree).
-        YGNodeRemoveAllChildren(clonedYoga)
+        // Capture old yoga children BEFORE any modifications.
+        // These are the same pointers as in the original node's yoga tree.
+        let oldYogaChildCount = YGNodeGetChildCount(clonedYoga)
+        var oldYogaChildren: [YGNodeRef] = []
+        oldYogaChildren.reserveCapacity(Int(oldYogaChildCount))
+        for i in 0..<oldYogaChildCount {
+            if let child = YGNodeGetChild(clonedYoga, i) {
+                oldYogaChildren.append(child)
+            }
+        }
+
         let cloned = ShadowNodeWrapper(
             props: self.props,
             children: newChildren,
@@ -270,13 +282,31 @@ public class ShadowNodeWrapper: NSObject {
             yogaNode: clonedYoga
         )
         cloned.layoutFrame = self.layoutFrame
-        // Insert new children's yogaNodes
-        for (index, child) in newChildren.enumerated() {
-            if YGNodeGetOwner(child.yogaNode) != nil {
-                YGNodeRemoveChild(YGNodeGetOwner(child.yogaNode)!, child.yogaNode)
-            }
-            YGNodeInsertChild(clonedYoga, child.yogaNode, index)
+
+        // Store old yoga children for $$appendChild comparison.
+        // If there are no old children (first render), skip — nothing to compare.
+        if !oldYogaChildren.isEmpty {
+            cloned.previousYogaChildren = oldYogaChildren
         }
+
+        // Insert preserved children (e.g. #suspense) into the yoga tree.
+        // These replace old children at their positions.
+        for (index, child) in newChildren.enumerated() {
+            if index < oldYogaChildren.count {
+                // Position occupied by old child — swap it
+                if let owner = YGNodeGetOwner(child.yogaNode), owner != clonedYoga {
+                    YGNodeRemoveChild(owner, child.yogaNode)
+                }
+                YGNodeSwapChild(clonedYoga, child.yogaNode, index)
+            } else {
+                // Beyond old children — append
+                if let owner = YGNodeGetOwner(child.yogaNode) {
+                    YGNodeRemoveChild(owner, child.yogaNode)
+                }
+                YGNodeInsertChild(clonedYoga, child.yogaNode, index)
+            }
+        }
+
         return cloned
     }
 
@@ -287,7 +317,16 @@ public class ShadowNodeWrapper: NSObject {
         _ newProps: [String: Any]
     ) -> ShadowNodeWrapper {
         let clonedYoga = YGNodeClone(self.yogaNode)!
-        YGNodeRemoveAllChildren(clonedYoga)
+        // Capture old yoga children BEFORE any modifications.
+        let oldYogaChildCount = YGNodeGetChildCount(clonedYoga)
+        var oldYogaChildren: [YGNodeRef] = []
+        oldYogaChildren.reserveCapacity(Int(oldYogaChildCount))
+        for i in 0..<oldYogaChildCount {
+            if let child = YGNodeGetChild(clonedYoga, i) {
+                oldYogaChildren.append(child)
+            }
+        }
+
         let cloned = ShadowNodeWrapper(
             props: newProps,
             children: newChildren,
@@ -296,13 +335,27 @@ public class ShadowNodeWrapper: NSObject {
             yogaNode: clonedYoga
         )
         cloned.layoutFrame = self.layoutFrame
-        // Insert new children's yogaNodes
-        for (index, child) in newChildren.enumerated() {
-            if YGNodeGetOwner(child.yogaNode) != nil {
-                YGNodeRemoveChild(YGNodeGetOwner(child.yogaNode)!, child.yogaNode)
-            }
-            YGNodeInsertChild(clonedYoga, child.yogaNode, index)
+
+        // Store old yoga children for $$appendChild comparison.
+        if !oldYogaChildren.isEmpty {
+            cloned.previousYogaChildren = oldYogaChildren
         }
+
+        // Insert preserved children (e.g. #suspense) into the yoga tree.
+        for (index, child) in newChildren.enumerated() {
+            if index < oldYogaChildren.count {
+                if let owner = YGNodeGetOwner(child.yogaNode), owner != clonedYoga {
+                    YGNodeRemoveChild(owner, child.yogaNode)
+                }
+                YGNodeSwapChild(clonedYoga, child.yogaNode, index)
+            } else {
+                if let owner = YGNodeGetOwner(child.yogaNode) {
+                    YGNodeRemoveChild(owner, child.yogaNode)
+                }
+                YGNodeInsertChild(clonedYoga, child.yogaNode, index)
+            }
+        }
+
         return cloned
     }
 

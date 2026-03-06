@@ -227,11 +227,38 @@ extension Bindings {
             }
 
             parent.children.insert(child, at: insertionIndex)
-            // Wire up Yoga parent-child relationship
-            if let owner = YGNodeGetOwner(child.yogaNode) {
-                YGNodeRemoveChild(owner, child.yogaNode)
+
+            // Wire up Yoga parent-child relationship.
+            // When the parent has previousYogaChildren (from cloneWithNewChildren),
+            // compare against the old child at this position. Unchanged children
+            // skip yoga operations entirely — their subtrees won't be traversed
+            // during speculative layout.
+            if let prevChildren = parent.previousYogaChildren,
+               insertionIndex < prevChildren.count,
+               child.yogaNode == prevChildren[insertionIndex] {
+                // UNCHANGED child — already in yoga tree at correct position.
+                // Just update ownership from original parent to clone.
+                YGNodeSwapChild(parent.yogaNode, child.yogaNode, insertionIndex)
+            } else {
+                // CHANGED child (or no previousYogaChildren) — full yoga insert.
+                if let prevChildren = parent.previousYogaChildren,
+                   insertionIndex < prevChildren.count {
+                    // Swap out the old yoga child at this position.
+                    if let owner = YGNodeGetOwner(child.yogaNode), owner != parent.yogaNode {
+                        YGNodeRemoveChild(owner, child.yogaNode)
+                    }
+                    YGNodeSwapChild(parent.yogaNode, child.yogaNode, insertionIndex)
+                    // SwapChild doesn't dirty — manually propagate dirty since
+                    // the child changed.
+                    YGNodeMarkDirtyNonLeaf(parent.yogaNode)
+                } else {
+                    // No previous children or appending beyond old count — regular insert.
+                    if let owner = YGNodeGetOwner(child.yogaNode) {
+                        YGNodeRemoveChild(owner, child.yogaNode)
+                    }
+                    YGNodeInsertChild(parent.yogaNode, child.yogaNode, insertionIndex)
+                }
             }
-            YGNodeInsertChild(parent.yogaNode, child.yogaNode, insertionIndex)
 
             // CSS: block children of flex parents participate in flex layout.
             // Yoga doesn't do this automatically — override display:block to
@@ -628,6 +655,11 @@ extension Bindings {
             #if DEBUG
             self.assertNoRevealedSuspenseWrappers(oldChildren)
             #endif
+
+            // Clean up trailing old yoga children from swap optimization.
+            // Nodes that had more old children than new children still have
+            // stale yoga children that need removal before layout.
+            self.cleanupTrailingYogaChildren(newChildren)
 
             let resolveEnd = tracing ? performanceNow() : 0
 

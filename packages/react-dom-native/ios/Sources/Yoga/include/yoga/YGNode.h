@@ -102,6 +102,13 @@ YG_EXPORT bool YGNodeIsDirty(YGNodeConstRef node);
  */
 YG_EXPORT void YGNodeMarkDirty(YGNodeRef node);
 
+/**
+ * Like YGNodeMarkDirty but works on any node (not just leaves with
+ * measure functions). Used when swapping children via YGNodeSwapChild
+ * which doesn't propagate dirty state.
+ */
+YG_EXPORT void YGNodeMarkDirtyNonLeaf(YGNodeRef node);
+
 typedef void (*YGDirtiedFunc)(YGNodeConstRef node);
 
 /**

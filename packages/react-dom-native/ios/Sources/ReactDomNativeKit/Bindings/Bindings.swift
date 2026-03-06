@@ -203,6 +203,25 @@ public class Bindings {
 
     // MARK: - Speculative Layout Helpers
 
+    /// Recursively cleans up trailing old yoga children from nodes that
+    /// used the swap optimization (previousYogaChildren). Called once
+    /// before speculative layout wait in $$completeRoot.
+    func cleanupTrailingYogaChildren(_ nodes: [ShadowNodeWrapper]) {
+        for node in nodes {
+            if let prevChildren = node.previousYogaChildren {
+                let expectedCount = UInt32(node.children.count)
+                while YGNodeGetChildCount(node.yogaNode) > expectedCount {
+                    let lastIdx = YGNodeGetChildCount(node.yogaNode) - 1
+                    if let trailing = YGNodeGetChild(node.yogaNode, lastIdx) {
+                        YGNodeRemoveChild(node.yogaNode, trailing)
+                    }
+                }
+                node.previousYogaChildren = nil
+            }
+            cleanupTrailingYogaChildren(node.children)
+        }
+    }
+
     /// Recursively removes all Yoga descendants of `yogaNode` from
     /// pendingSpeculativeNodes. Called with speculativeLock held.
     func removeDescendantsFromPending(_ yogaNode: YGNodeRef) {
