@@ -18,10 +18,12 @@ import Yoga
 // Threading: All calls are synchronous on the main thread. The engine,
 // shadow tree, Yoga layout, and UIKit all share the main thread.
 //
-// Exception: $$appendChild dispatches speculative Yoga layout on a serial
-// background queue for completed subtrees. The child's Yoga nodes are
-// exclusively owned (persistent mode) so this is thread-safe. $$completeRoot
-// waits for all speculative layouts before running root layout.
+// Exception: $$appendChild dispatches speculative Yoga layout on a
+// concurrent background queue for completed subtrees. Leaf nodes are
+// skipped. Ancestor deduplication ensures only disjoint subtrees compute
+// concurrently — when a parent is scheduled, pending children are removed,
+// and inflight children cause the parent to skip. $$completeRoot waits
+// for all speculative layouts before running root layout.
 //
 // Exception: $$fetch is asynchronous. The call returns immediately, and
 // URLSession performs the HTTP request on a background thread. Response
@@ -56,12 +58,30 @@ public class Bindings {
     /// Wired by Root to the HotReloadClient WebSocket.
     public var sendInspectorMessage: ((String) -> Void)?
 
-    /// Serial background queue for speculative Yoga layout during reconciliation.
-    let speculativeLayoutQueue = DispatchQueue(label: "com.react-dom-native.speculative-layout")
+    /// Concurrent background queue for speculative Yoga layout during reconciliation.
+    /// Independent subtrees compute in parallel; ancestor dedup prevents overlap.
+    let speculativeLayoutQueue = DispatchQueue(
+        label: "com.react-dom-native.speculative-layout",
+        attributes: .concurrent
+    )
 
     /// Tracks in-flight speculative layout tasks. $$completeRoot waits on this
     /// before running root layout to ensure all speculative work is complete.
     let speculativeLayoutGroup = DispatchGroup()
+
+    /// Yoga nodes scheduled for speculative layout but not yet started.
+    /// Protected by speculativeLock. When a parent is scheduled, its
+    /// descendants are removed — the parent's layout encompasses them.
+    var pendingSpeculativeNodes: Set<UnsafeRawPointer> = []
+
+    /// Yoga nodes currently mid-computation on the concurrent queue.
+    /// Protected by speculativeLock. Parent tasks check this to avoid
+    /// computing a subtree while a child task is still writing to it.
+    var inflightSpeculativeNodes: Set<UnsafeRawPointer> = []
+
+    /// Lock protecting pendingSpeculativeNodes and inflightSpeculativeNodes.
+    /// os_unfair_lock is the fastest option — no syscall in the uncontended case.
+    var speculativeLock = os_unfair_lock()
 
     /// Current tree per surface. Keyed by surfaceId.
     var currentTrees: [Int: [ShadowNodeWrapper]] = [:]
@@ -178,6 +198,20 @@ public class Bindings {
         if let rootYoga = rootYogaNodes.removeValue(forKey: surfaceId) {
             YGNodeRemoveAllChildren(rootYoga)
             YGNodeFree(rootYoga)
+        }
+    }
+
+    // MARK: - Speculative Layout Helpers
+
+    /// Recursively removes all Yoga descendants of `yogaNode` from
+    /// pendingSpeculativeNodes. Called with speculativeLock held.
+    func removeDescendantsFromPending(_ yogaNode: YGNodeRef) {
+        let childCount = YGNodeGetChildCount(yogaNode)
+        for i in 0..<childCount {
+            guard let child = YGNodeGetChild(yogaNode, i) else { continue }
+            let key = UnsafeRawPointer(child)
+            pendingSpeculativeNodes.remove(key)
+            removeDescendantsFromPending(child)
         }
     }
 }

@@ -426,21 +426,15 @@ extension Bindings {
 
             // --- Speculative background layout ---
             // The child subtree is fully built (persistent mode guarantee).
-            // Speculatively compute its layout on a background thread using
-            // the exact constraint Yoga will use at root layout time. For
-            // Yoga's cache to hit, availableWidth/Height and sizing modes
-            // must match exactly.
-            //
-            // For a column flex parent with align-items:stretch (the default),
-            // Yoga passes each child:
-            //   availableWidth = parentInnerWidth - childMarginRow
-            //   widthSizingMode = StretchFit
-            //   availableHeight = NaN (unbounded)
-            //   heightSizingMode = MaxContent
-            //
-            // YGNodeCalculateLayout(child, ownerWidth, NaN, LTR) resolves
-            // width=auto to (ownerWidth, StretchFit), matching. So we pass
-            // ownerWidth = parentInnerWidth - childMarginRow.
+            // Speculatively compute its layout on a concurrent background queue.
+            // Leaf nodes are skipped (trivial for Yoga, parent computes them).
+            // When a parent is scheduled, its pending descendants are removed
+            // since the parent's layout encompasses them.
+
+            // Skip leaf nodes — dispatch overhead exceeds layout cost,
+            // and any non-leaf ancestor will compute them.
+            guard !child.children.isEmpty else { return nil }
+
             let parentWidth = Float(parent.layoutFrame.size.width)
             if self.speculativeLayoutEnabled, parentWidth > 0, YGNodeIsDirty(child.yogaNode) {
                 // Compute parent inner width (content box): width minus padding and border.
@@ -468,13 +462,66 @@ extension Bindings {
                 let availableWidth = parentInnerWidth - childMarginRow
 
                 let childYogaNode = child.yogaNode
+                let childYogaKey = UnsafeRawPointer(childYogaNode)
                 let tracing = self.nativeTracingEnabled
                 let childType = child.family.elementType
+
+                // Add to pending set, removing any descendants already pending
+                // (this node's layout encompasses them).
+                os_unfair_lock_lock(&self.speculativeLock)
+                self.pendingSpeculativeNodes.insert(childYogaKey)
+                self.removeDescendantsFromPending(childYogaNode)
+                os_unfair_lock_unlock(&self.speculativeLock)
+
                 self.speculativeLayoutGroup.enter()
                 self.speculativeLayoutQueue.async {
+                    // Check if this node was superseded by an ancestor
+                    os_unfair_lock_lock(&self.speculativeLock)
+                    let stillPending = self.pendingSpeculativeNodes.contains(childYogaKey)
+                    if stillPending {
+                        self.pendingSpeculativeNodes.remove(childYogaKey)
+                        self.inflightSpeculativeNodes.insert(childYogaKey)
+                    }
+                    os_unfair_lock_unlock(&self.speculativeLock)
+
+                    guard stillPending else {
+                        self.speculativeLayoutGroup.leave()
+                        return
+                    }
+
+                    // Check if any ancestor is currently computing (inflight).
+                    // If so, skip — the ancestor's layout covers this subtree.
+                    var ancestor = YGNodeGetOwner(childYogaNode)
+                    var ancestorInflight = false
+                    os_unfair_lock_lock(&self.speculativeLock)
+                    while let a = ancestor {
+                        if self.inflightSpeculativeNodes.contains(UnsafeRawPointer(a)) {
+                            ancestorInflight = true
+                            break
+                        }
+                        ancestor = YGNodeGetOwner(a)
+                    }
+                    if ancestorInflight {
+                        self.inflightSpeculativeNodes.remove(childYogaKey)
+                    }
+                    os_unfair_lock_unlock(&self.speculativeLock)
+
+                    guard !ancestorInflight else {
+                        self.speculativeLayoutGroup.leave()
+                        return
+                    }
+
+                    // Compute layout — this subtree is disjoint from all other
+                    // inflight computations.
                     let start = tracing ? performanceNow() : 0
                     YGNodeCalculateLayout(childYogaNode, availableWidth, .nan, .LTR)
                     let end = tracing ? performanceNow() : 0
+
+                    // Remove from inflight
+                    os_unfair_lock_lock(&self.speculativeLock)
+                    self.inflightSpeculativeNodes.remove(childYogaKey)
+                    os_unfair_lock_unlock(&self.speculativeLock)
+
                     if tracing {
                         DispatchQueue.main.async {
                             self.tracer?.reportTimeStamp(
@@ -564,6 +611,12 @@ extension Bindings {
             let waitStart = tracing ? performanceNow() : 0
             self.speculativeLayoutGroup.wait()
             let waitEnd = tracing ? performanceNow() : 0
+
+            // Clear tracking sets (should already be empty, but defensive)
+            os_unfair_lock_lock(&self.speculativeLock)
+            self.pendingSpeculativeNodes.removeAll()
+            self.inflightSpeculativeNodes.removeAll()
+            os_unfair_lock_unlock(&self.speculativeLock)
 
             if tracing, waitEnd > waitStart + 0.001 {
                 self.tracer?.reportTimeStamp(
