@@ -453,66 +453,113 @@ extension Bindings {
 
             // --- Speculative background layout ---
             // The child subtree is fully built (persistent mode guarantee).
-            // Speculatively compute its layout on a concurrent background queue.
-            // Leaf nodes are skipped (trivial for Yoga, parent computes them).
-            // When a parent is scheduled, its pending descendants are removed
-            // since the parent's layout encompasses them.
+            // Speculatively compute its layout on a concurrent background queue
+            // using both width and height constraints from the parent's cached
+            // layout. Small subtrees (< 2 children) are skipped to avoid GCD
+            // overhead. Two-pass text re-measurement runs in the background to
+            // match root layout results. Parent-child ordering uses per-node
+            // DispatchGroups instead of global barriers, allowing unrelated
+            // siblings to compute in parallel.
 
-            // Skip leaf nodes — dispatch overhead exceeds layout cost,
-            // and any non-leaf ancestor will compute them.
-            guard !child.children.isEmpty else { return nil }
+            // Skip small subtrees — leaf nodes and single-child wrappers
+            // have too little work to justify dispatch overhead. Their layout
+            // is handled by an ancestor or root layout pass.
+            guard child.children.count >= 2 else { return nil }
 
             let parentWidth = Float(parent.layoutFrame.size.width)
+            let parentHeight = Float(parent.layoutFrame.size.height)
             if self.speculativeLayoutEnabled, parentWidth > 0, YGNodeIsDirty(child.yogaNode) {
-                // Compute parent inner width (content box): width minus padding and border.
+                // Compute parent inner dimensions (content box): size minus padding and border.
                 let parentYoga = parent.yogaNode
                 let padL = YGNodeStyleGetPadding(parentYoga, .left)
                 let padR = YGNodeStyleGetPadding(parentYoga, .right)
+                let padT = YGNodeStyleGetPadding(parentYoga, .top)
+                let padB = YGNodeStyleGetPadding(parentYoga, .bottom)
                 let padAll = YGNodeStyleGetPadding(parentYoga, .all)
                 let borL = YGNodeStyleGetBorder(parentYoga, .left)
                 let borR = YGNodeStyleGetBorder(parentYoga, .right)
+                let borT = YGNodeStyleGetBorder(parentYoga, .top)
+                let borB = YGNodeStyleGetBorder(parentYoga, .bottom)
                 let borAll = YGNodeStyleGetBorder(parentYoga, .all)
-                let totalPad = (padL.unit == .point ? padL.value : (padAll.unit == .point ? padAll.value : 0))
-                             + (padR.unit == .point ? padR.value : (padAll.unit == .point ? padAll.value : 0))
-                let totalBor = (!borL.isNaN ? borL : (!borAll.isNaN ? borAll : 0))
-                             + (!borR.isNaN ? borR : (!borAll.isNaN ? borAll : 0))
-                let parentInnerWidth = parentWidth - totalPad - totalBor
+                let totalHorizPad = (padL.unit == .point ? padL.value : (padAll.unit == .point ? padAll.value : 0))
+                                  + (padR.unit == .point ? padR.value : (padAll.unit == .point ? padAll.value : 0))
+                let totalHorizBor = (!borL.isNaN ? borL : (!borAll.isNaN ? borAll : 0))
+                                  + (!borR.isNaN ? borR : (!borAll.isNaN ? borAll : 0))
+                let parentInnerWidth = parentWidth - totalHorizPad - totalHorizBor
 
-                // Subtract child's horizontal margins — Yoga's flex algorithm
-                // deducts margins from the available width before laying out each child.
+                // Height constraint from cached parent layout. Improves cache
+                // hit rate for row-direction + alignItems:stretch and percentage
+                // heights. NaN when unavailable (first render) — Yoga handles
+                // mismatches by re-computing, so this is never incorrect.
+                let totalVertPad = (padT.unit == .point ? padT.value : (padAll.unit == .point ? padAll.value : 0))
+                                 + (padB.unit == .point ? padB.value : (padAll.unit == .point ? padAll.value : 0))
+                let totalVertBor = (!borT.isNaN ? borT : (!borAll.isNaN ? borAll : 0))
+                                 + (!borB.isNaN ? borB : (!borAll.isNaN ? borAll : 0))
+                let parentInnerHeight = parentHeight > 0
+                    ? parentHeight - totalVertPad - totalVertBor
+                    : Float.nan
+
+                // Subtract child's margins — Yoga deducts margins from
+                // available space before laying out each child.
                 let childYoga = child.yogaNode
                 let cMarL = YGNodeStyleGetMargin(childYoga, .left)
                 let cMarR = YGNodeStyleGetMargin(childYoga, .right)
+                let cMarT = YGNodeStyleGetMargin(childYoga, .top)
+                let cMarB = YGNodeStyleGetMargin(childYoga, .bottom)
                 let cMarAll = YGNodeStyleGetMargin(childYoga, .all)
                 let childMarginRow = (cMarL.unit == .point ? cMarL.value : (cMarAll.unit == .point ? cMarAll.value : 0))
                                    + (cMarR.unit == .point ? cMarR.value : (cMarAll.unit == .point ? cMarAll.value : 0))
+                let childMarginCol = (cMarT.unit == .point ? cMarT.value : (cMarAll.unit == .point ? cMarAll.value : 0))
+                                   + (cMarB.unit == .point ? cMarB.value : (cMarAll.unit == .point ? cMarAll.value : 0))
                 let availableWidth = parentInnerWidth - childMarginRow
+                let availableHeight = parentInnerHeight.isNaN ? Float.nan : parentInnerHeight - childMarginCol
 
                 let childYogaNode = child.yogaNode
                 let childYogaKey = UnsafeRawPointer(childYogaNode)
                 let tracing = self.nativeTracingEnabled
                 let childType = child.family.elementType
+                let childNode = child  // Captured for text re-measurement
 
-                // Check if any direct Yoga child was dispatched (pending or inflight).
-                // If so, this parent must wait for children to complete before
-                // computing — use barrier dispatch to prevent concurrent access.
+                // Check direct Yoga children for speculative layout state.
+                // - If any child already completed: skip this parent entirely.
+                //   The root layout at $$completeRoot uses their cached results.
+                // - If any child is pending/inflight: collect their per-node
+                //   groups so this parent waits only on its own children.
                 os_unfair_lock_lock(&self.speculativeLock)
-                var needsBarrier = false
+                var needsChildWait = false
+                var hasCompletedChild = false
+                var childGroupsToWait: [DispatchGroup] = []
                 let yogaChildCount = YGNodeGetChildCount(childYogaNode)
                 for i in 0..<yogaChildCount {
                     if let yogaChild = YGNodeGetChild(childYogaNode, i) {
                         let key = UnsafeRawPointer(yogaChild)
-                        if self.pendingSpeculativeNodes.contains(key) || self.inflightSpeculativeNodes.contains(key) {
-                            needsBarrier = true
+                        if self.completedSpeculativeNodes.contains(key) {
+                            hasCompletedChild = true
                             break
                         }
+                        if self.pendingSpeculativeNodes.contains(key) || self.inflightSpeculativeNodes.contains(key) {
+                            needsChildWait = true
+                            if let group = self.speculativeNodeGroups[key] {
+                                childGroupsToWait.append(group)
+                            }
+                        }
                     }
+                }
+                if hasCompletedChild {
+                    os_unfair_lock_unlock(&self.speculativeLock)
+                    return nil
                 }
 
                 // Add to pending set, removing any descendants already pending
                 // (this node's layout encompasses them).
                 self.pendingSpeculativeNodes.insert(childYogaKey)
                 self.removeDescendantsFromPending(childYogaNode)
+
+                // Create a per-node group so parents can wait on just this
+                // node instead of draining the entire queue with a barrier.
+                let nodeGroup = DispatchGroup()
+                nodeGroup.enter()
+                self.speculativeNodeGroups[childYogaKey] = nodeGroup
                 os_unfair_lock_unlock(&self.speculativeLock)
 
                 let workItem: @Sendable () -> Void = {
@@ -526,6 +573,7 @@ extension Bindings {
                     os_unfair_lock_unlock(&self.speculativeLock)
 
                     guard stillPending else {
+                        nodeGroup.leave()
                         self.speculativeLayoutGroup.leave()
                         return
                     }
@@ -548,19 +596,27 @@ extension Bindings {
                     os_unfair_lock_unlock(&self.speculativeLock)
 
                     guard !ancestorInflight else {
+                        nodeGroup.leave()
                         self.speculativeLayoutGroup.leave()
                         return
                     }
 
-                    // Compute layout — this subtree is disjoint from all other
-                    // inflight computations.
+                    // Compute layout with width + height constraints.
                     let start = tracing ? performanceNow() : 0
-                    YGNodeCalculateLayout(childYogaNode, availableWidth, .nan, .LTR)
+                    YGNodeCalculateLayout(childYogaNode, availableWidth, availableHeight, .LTR)
+
+                    // Two-pass text re-measurement: if any text nodes were
+                    // flex-shrunk below their measured width, mark dirty and
+                    // re-layout so the cached result matches root layout.
+                    if ShadowTreeLayout.markTextNodesNeedingRemeasure(childNode) {
+                        YGNodeCalculateLayout(childYogaNode, availableWidth, availableHeight, .LTR)
+                    }
                     let end = tracing ? performanceNow() : 0
 
-                    // Remove from inflight
+                    // Move from inflight to completed
                     os_unfair_lock_lock(&self.speculativeLock)
                     self.inflightSpeculativeNodes.remove(childYogaKey)
+                    self.completedSpeculativeNodes.insert(childYogaKey)
                     os_unfair_lock_unlock(&self.speculativeLock)
 
                     if tracing {
@@ -573,15 +629,23 @@ extension Bindings {
                             )
                         }
                     }
+                    nodeGroup.leave()
                     self.speculativeLayoutGroup.leave()
                 }
 
-                // Barrier dispatch ensures children complete before parent
-                // computes, preventing concurrent Yoga writes to the same subtree.
-                // Siblings use regular dispatch for parallel execution.
+                // Per-subtree dispatch: when this node has in-flight children,
+                // wait on their per-node groups instead of using a global barrier.
+                // This allows unrelated sibling subtrees to compute in parallel.
                 self.speculativeLayoutGroup.enter()
-                if needsBarrier {
-                    self.speculativeLayoutQueue.async(flags: .barrier, execute: workItem)
+                if needsChildWait && !childGroupsToWait.isEmpty {
+                    let waitGroup = DispatchGroup()
+                    for childGroup in childGroupsToWait {
+                        waitGroup.enter()
+                        childGroup.notify(queue: self.speculativeLayoutQueue) {
+                            waitGroup.leave()
+                        }
+                    }
+                    waitGroup.notify(queue: self.speculativeLayoutQueue, execute: workItem)
                 } else {
                     self.speculativeLayoutQueue.async(execute: workItem)
                 }
@@ -672,6 +736,8 @@ extension Bindings {
             os_unfair_lock_lock(&self.speculativeLock)
             self.pendingSpeculativeNodes.removeAll()
             self.inflightSpeculativeNodes.removeAll()
+            self.completedSpeculativeNodes.removeAll()
+            self.speculativeNodeGroups.removeAll()
             os_unfair_lock_unlock(&self.speculativeLock)
 
             if tracing, waitEnd > waitStart + 0.001 {
