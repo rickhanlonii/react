@@ -291,36 +291,74 @@ public class Renderer {
     /// Recursively syncs every UIView's frame to match its node's layoutFrame.
     /// Accepts optional old children to skip unchanged subtrees (same pointer).
     func syncAllFrames(_ nodes: [ShadowNodeWrapper], oldNodes: [ShadowNodeWrapper]? = nil) {
-        let oldByFamily: [ObjectIdentifier: ShadowNodeWrapper]?
-        if let oldNodes = oldNodes {
-            var lookup: [ObjectIdentifier: ShadowNodeWrapper] = [:]
-            for old in oldNodes { lookup[ObjectIdentifier(old.family)] = old }
-            oldByFamily = lookup
-        } else {
-            oldByFamily = nil
-        }
-
-        for node in nodes {
-            let oldMatch = oldByFamily?[ObjectIdentifier(node.family)]
-
-            if let old = oldMatch, old === node {
+        guard let oldNodes = oldNodes else {
+            // No old tree — sync all frames without skipping
+            for node in nodes {
                 if let view = node.family.view {
                     if view.frame != node.layoutFrame {
                         view.frame = node.layoutFrame
                     }
+                    if let scrollView = view as? UIScrollView, let contentSize = node.scrollContentSize {
+                        scrollView.contentSize = contentSize
+                    }
                 }
-                continue
+                syncAllFrames(node.children)
             }
+            return
+        }
 
-            if let view = node.family.view {
-                if view.frame != node.layoutFrame {
-                    view.frame = node.layoutFrame
+        // Fast path: same count → zip (O(1) per pair, no dict)
+        if nodes.count == oldNodes.count {
+            for i in 0..<nodes.count {
+                let node = nodes[i]
+                let old = oldNodes[i]
+
+                if old === node {
+                    if let view = node.family.view {
+                        if view.frame != node.layoutFrame {
+                            view.frame = node.layoutFrame
+                        }
+                    }
+                    continue
                 }
-                if let scrollView = view as? UIScrollView, let contentSize = node.scrollContentSize {
-                    scrollView.contentSize = contentSize
+
+                if let view = node.family.view {
+                    if view.frame != node.layoutFrame {
+                        view.frame = node.layoutFrame
+                    }
+                    if let scrollView = view as? UIScrollView, let contentSize = node.scrollContentSize {
+                        scrollView.contentSize = contentSize
+                    }
                 }
+                syncAllFrames(node.children, oldNodes: old.children)
             }
-            syncAllFrames(node.children, oldNodes: oldMatch?.children)
+        } else {
+            // Slow path: different counts → dict lookup
+            var lookup: [ObjectIdentifier: ShadowNodeWrapper] = [:]
+            for old in oldNodes { lookup[ObjectIdentifier(old.family)] = old }
+
+            for node in nodes {
+                let oldMatch = lookup[ObjectIdentifier(node.family)]
+
+                if let old = oldMatch, old === node {
+                    if let view = node.family.view {
+                        if view.frame != node.layoutFrame {
+                            view.frame = node.layoutFrame
+                        }
+                    }
+                    continue
+                }
+
+                if let view = node.family.view {
+                    if view.frame != node.layoutFrame {
+                        view.frame = node.layoutFrame
+                    }
+                    if let scrollView = view as? UIScrollView, let contentSize = node.scrollContentSize {
+                        scrollView.contentSize = contentSize
+                    }
+                }
+                syncAllFrames(node.children, oldNodes: oldMatch?.children)
+            }
         }
     }
 
@@ -331,44 +369,73 @@ public class Renderer {
         tracing: Bool,
         nodeTimings: inout [(type: String, start: Double, end: Double)]
     ) {
-        let oldByFamily: [ObjectIdentifier: ShadowNodeWrapper]?
-        if let oldNodes = oldNodes {
-            var lookup: [ObjectIdentifier: ShadowNodeWrapper] = [:]
-            for old in oldNodes { lookup[ObjectIdentifier(old.family)] = old }
-            oldByFamily = lookup
-        } else {
-            oldByFamily = nil
-        }
-
-        for node in nodes {
-            // Find the matching old node for this family.
-            let oldMatch = oldByFamily?[ObjectIdentifier(node.family)]
-
-            // Same pointer — sync frame (layout may have shifted) but skip children.
-            if let old = oldMatch, old === node {
+        guard let oldNodes = oldNodes else {
+            for node in nodes {
+                let nodeStart = performanceNow()
                 if let view = node.family.view {
                     if view.frame != node.layoutFrame {
                         view.frame = node.layoutFrame
                     }
                 }
-                continue
+                syncAllFrames(node.children, tracing: tracing, nodeTimings: &nodeTimings)
+                nodeTimings.append((node.family.elementType, nodeStart, performanceNow()))
             }
+            return
+        }
 
-            let nodeStart = tracing ? performanceNow() : 0
+        if nodes.count == oldNodes.count {
+            for i in 0..<nodes.count {
+                let node = nodes[i]
+                let old = oldNodes[i]
 
-            if let view = node.family.view {
-                if view.frame != node.layoutFrame {
-                    view.frame = node.layoutFrame
+                if old === node {
+                    if let view = node.family.view {
+                        if view.frame != node.layoutFrame {
+                            view.frame = node.layoutFrame
+                        }
+                    }
+                    continue
                 }
-                if let scrollView = view as? UIScrollView, let contentSize = node.scrollContentSize {
-                    scrollView.contentSize = contentSize
+
+                let nodeStart = performanceNow()
+                if let view = node.family.view {
+                    if view.frame != node.layoutFrame {
+                        view.frame = node.layoutFrame
+                    }
+                    if let scrollView = view as? UIScrollView, let contentSize = node.scrollContentSize {
+                        scrollView.contentSize = contentSize
+                    }
                 }
+                syncAllFrames(node.children, oldNodes: old.children, tracing: tracing, nodeTimings: &nodeTimings)
+                nodeTimings.append((node.family.elementType, nodeStart, performanceNow()))
             }
-            syncAllFrames(node.children, oldNodes: oldMatch?.children, tracing: tracing, nodeTimings: &nodeTimings)
+        } else {
+            var lookup: [ObjectIdentifier: ShadowNodeWrapper] = [:]
+            for old in oldNodes { lookup[ObjectIdentifier(old.family)] = old }
 
-            if tracing {
-                let nodeEnd = performanceNow()
-                nodeTimings.append((node.family.elementType, nodeStart, nodeEnd))
+            for node in nodes {
+                let oldMatch = lookup[ObjectIdentifier(node.family)]
+
+                if let old = oldMatch, old === node {
+                    if let view = node.family.view {
+                        if view.frame != node.layoutFrame {
+                            view.frame = node.layoutFrame
+                        }
+                    }
+                    continue
+                }
+
+                let nodeStart = performanceNow()
+                if let view = node.family.view {
+                    if view.frame != node.layoutFrame {
+                        view.frame = node.layoutFrame
+                    }
+                    if let scrollView = view as? UIScrollView, let contentSize = node.scrollContentSize {
+                        scrollView.contentSize = contentSize
+                    }
+                }
+                syncAllFrames(node.children, oldNodes: oldMatch?.children, tracing: tracing, nodeTimings: &nodeTimings)
+                nodeTimings.append((node.family.elementType, nodeStart, performanceNow()))
             }
         }
     }
