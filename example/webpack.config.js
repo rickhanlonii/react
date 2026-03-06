@@ -40,6 +40,9 @@ module.exports = function (env) {
         {
           test: /\.jsx?$/,
           exclude: /node_modules/,
+          // javascript/auto allows mixing CJS (module.exports) with ESM (import)
+          // which React Compiler output produces (adds import for compiler runtime).
+          type: 'javascript/auto',
           use: [
             // Runs second: wraps module with per-module $RefreshReg$ scoping
             isDev && {
@@ -52,7 +55,6 @@ module.exports = function (env) {
                 presets: ['@babel/preset-react'],
                 plugins: [
                   'babel-plugin-react-compiler',
-                  '@babel/plugin-transform-modules-commonjs',
                   ...(isDev ? [require.resolve('react-refresh/babel')] : []),
                 ],
               },
