@@ -79,7 +79,21 @@ public class Bindings {
     /// computing a subtree while a child task is still writing to it.
     var inflightSpeculativeNodes: Set<UnsafeRawPointer> = []
 
-    /// Lock protecting pendingSpeculativeNodes and inflightSpeculativeNodes.
+    /// Yoga nodes that completed speculative layout this commit.
+    /// Protected by speculativeLock. When a parent is about to be
+    /// scheduled, we check if any of its children already completed —
+    /// if so, skip the parent (root layout uses their cached results).
+    /// Combined with barrier dispatch for pending/inflight children.
+    var completedSpeculativeNodes: Set<UnsafeRawPointer> = []
+
+    /// Per-node DispatchGroups for speculative layout ordering.
+    /// When a parent's children are in-flight, the parent waits on their
+    /// groups instead of using a global barrier — allowing unrelated
+    /// siblings to compute in parallel. Protected by speculativeLock.
+    var speculativeNodeGroups: [UnsafeRawPointer: DispatchGroup] = [:]
+
+    /// Lock protecting pendingSpeculativeNodes, inflightSpeculativeNodes,
+    /// completedSpeculativeNodes, and speculativeNodeGroups.
     /// os_unfair_lock is the fastest option — no syscall in the uncontended case.
     var speculativeLock = os_unfair_lock()
 

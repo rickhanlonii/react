@@ -35,6 +35,19 @@ enum struct LayoutPassReason : int {
   COUNT
 };
 
+struct LayoutLogStats {
+  uint32_t totalNodes = 0;
+  uint32_t cacheHits = 0;
+  uint32_t missNeedToVisit = 0;
+  uint32_t missNoCachedResult = 0;
+  uint32_t missDirty = 0;
+  uint32_t missGenCount = 0;
+  uint32_t missConfigVersion = 0;
+  uint32_t missDirection = 0;
+  uint32_t missDimensions = 0;
+  uint32_t missSizingMode = 0;
+};
+
 struct LayoutData {
   int layouts = 0;
   int measures = 0;
@@ -44,6 +57,7 @@ struct LayoutData {
   int measureCallbacks = 0;
   std::array<int, static_cast<uint8_t>(LayoutPassReason::COUNT)>
       measureCallbackReasonsCount;
+  LayoutLogStats layoutLogStats;
 };
 
 const char* LayoutPassReasonToString(LayoutPassReason value);

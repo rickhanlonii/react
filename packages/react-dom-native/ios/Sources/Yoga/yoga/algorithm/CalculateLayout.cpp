@@ -36,6 +36,18 @@ namespace facebook::yoga {
 
 std::atomic<uint32_t> gCurrentGenerationCount(0);
 
+// Layout cache logging — enabled via YGNodeLayoutSetLogging()
+static bool gLayoutLoggingEnabled = false;
+
+static const char* sizingModeName(SizingMode mode) {
+  switch (mode) {
+    case SizingMode::StretchFit: return "StretchFit";
+    case SizingMode::FitContent: return "FitContent";
+    case SizingMode::MaxContent: return "MaxContent";
+    default: return "?";
+  }
+}
+
 static void constrainMaxSizeForMode(
     const yoga::Node* node,
     Direction direction,
@@ -2672,6 +2684,30 @@ bool calculateLayoutInternal(
         layout->cachedLayout.widthSizingMode == widthSizingMode &&
         layout->cachedLayout.heightSizingMode == heightSizingMode) {
       cachedResults = &layout->cachedLayout;
+    } else {
+      // Lenient check: the cached layout may have been computed with
+      // different entry-point sizing modes (e.g., speculative layout)
+      // but the result is still compatible with the current constraints.
+      const float marginAxisRow =
+          node->style().computeMarginForAxis(FlexDirection::Row, ownerWidth);
+      const float marginAxisColumn =
+          node->style().computeMarginForAxis(FlexDirection::Column, ownerWidth);
+      if (canUseCachedMeasurement(
+              widthSizingMode,
+              availableWidth,
+              heightSizingMode,
+              availableHeight,
+              layout->cachedLayout.widthSizingMode,
+              layout->cachedLayout.availableWidth,
+              layout->cachedLayout.heightSizingMode,
+              layout->cachedLayout.availableHeight,
+              layout->cachedLayout.computedWidth,
+              layout->cachedLayout.computedHeight,
+              marginAxisRow,
+              marginAxisColumn,
+              node->getConfig())) {
+        cachedResults = &layout->cachedLayout;
+      }
     }
   } else {
     for (uint32_t i = 0; i < layout->nextCachedMeasurementsIndex; i++) {
@@ -2695,7 +2731,58 @@ bool calculateLayoutInternal(
 
     (performLayout ? layoutMarkerData.cachedLayouts
                    : layoutMarkerData.cachedMeasures) += 1;
+
+    if (gLayoutLoggingEnabled && performLayout) {
+      layoutMarkerData.layoutLogStats.totalNodes++;
+      layoutMarkerData.layoutLogStats.cacheHits++;
+    }
   } else {
+    if (gLayoutLoggingEnabled && performLayout) {
+      layoutMarkerData.layoutLogStats.totalNodes++;
+      if (needToVisitNode) {
+        layoutMarkerData.layoutLogStats.missNeedToVisit++;
+        if (node->isDirty()) {
+          layoutMarkerData.layoutLogStats.missDirty++;
+          if (layout->generationCount != generationCount) {
+            layoutMarkerData.layoutLogStats.missGenCount++;
+          }
+        }
+        if (layout->configVersion != node->getConfig()->getVersion()) {
+          layoutMarkerData.layoutLogStats.missConfigVersion++;
+        }
+        if (layout->lastOwnerDirection != ownerDirection) {
+          layoutMarkerData.layoutLogStats.missDirection++;
+        }
+      } else {
+        // Not dirty, but no cached result matched
+        layoutMarkerData.layoutLogStats.missNoCachedResult++;
+        // Log WHY the cached layout didn't match
+        if (!yoga::inexactEquals(
+                layout->cachedLayout.availableWidth, availableWidth) ||
+            !yoga::inexactEquals(
+                layout->cachedLayout.availableHeight, availableHeight)) {
+          layoutMarkerData.layoutLogStats.missDimensions++;
+        }
+        if (layout->cachedLayout.widthSizingMode != widthSizingMode ||
+            layout->cachedLayout.heightSizingMode != heightSizingMode) {
+          layoutMarkerData.layoutLogStats.missSizingMode++;
+        }
+        // Verbose: dump exact cached vs requested for each miss
+        printf("  [miss] node=%p cached(w=%.1f %s, h=%.1f %s, cw=%.1f, ch=%.1f) vs requested(w=%.1f %s, h=%.1f %s)\n",
+            (void*)node,
+            layout->cachedLayout.availableWidth,
+            sizingModeName(layout->cachedLayout.widthSizingMode),
+            layout->cachedLayout.availableHeight,
+            sizingModeName(layout->cachedLayout.heightSizingMode),
+            layout->cachedLayout.computedWidth,
+            layout->cachedLayout.computedHeight,
+            availableWidth,
+            sizingModeName(widthSizingMode),
+            availableHeight,
+            sizingModeName(heightSizingMode));
+      }
+    }
+
     calculateLayoutImpl(
         node,
         availableWidth,
@@ -2861,6 +2948,18 @@ void calculateLayout(
   }
 
   Event::publish<Event::LayoutPassEnd>(node, {&markerData});
+
+  if (gLayoutLoggingEnabled) {
+    const auto& s = markerData.layoutLogStats;
+    printf("[YogaLayout] nodes=%u hits=%u miss_dirty=%u(gen=%u) miss_no_cache=%u(dim=%u sizing=%u) miss_cfg=%u miss_dir=%u\n",
+        s.totalNodes, s.cacheHits, s.missDirty, s.missGenCount,
+        s.missNoCachedResult, s.missDimensions, s.missSizingMode,
+        s.missConfigVersion, s.missDirection);
+  }
+}
+
+void setLayoutLogging(bool enabled) {
+  gLayoutLoggingEnabled = enabled;
 }
 
 } // namespace facebook::yoga

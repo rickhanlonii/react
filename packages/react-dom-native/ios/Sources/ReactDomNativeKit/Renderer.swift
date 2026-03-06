@@ -459,20 +459,25 @@ public class Renderer {
         // Update width (may change on rotation)
         YGNodeStyleSetWidth(rootNode, Float(bounds.width))
 
-        // 2. Update root's children using YGNodeSetChildren.
+        // 2. Update root's children, preserving speculative layout cache.
+        // Use YGNodeRemoveChildPreserveLayout instead of YGNodeRemoveChild
+        // because the standard remove wipes the child's layout cache via
+        // setLayout({}). Speculative layout results would be destroyed.
         for child in children {
             if let owner = YGNodeGetOwner(child.yogaNode), owner != rootNode {
-                YGNodeRemoveChild(owner, child.yogaNode)
+                YGNodeRemoveChildPreserveLayout(owner, child.yogaNode)
             }
         }
         var childYogaNodes: [YGNodeRef?] = children.map { $0.yogaNode }
         childYogaNodes.withUnsafeBufferPointer { buffer in
             YGNodeSetChildren(rootNode, buffer.baseAddress, buffer.count)
         }
+        YGNodeMarkDirtyNonLeaf(rootNode)
 
         // 3. Calculate layout (first pass)
         let yogaStart = tracing ? performanceNow() : 0
         YGNodeCalculateLayout(rootNode, Float(bounds.width), .nan, .LTR)
+        let firstPassEnd = tracing ? performanceNow() : 0
 
         // 3b. Post-layout text re-measurement (skip if no text nodes in tree)
         let textRemeasureStart = tracing ? performanceNow() : 0
@@ -530,6 +535,7 @@ public class Renderer {
         if tracing {
             lastLayoutTimings = [
                 "yogaStart": yogaStart, "yogaEnd": yogaEnd,
+                "firstPassEnd": firstPassEnd,
                 "textRemeasureStart": textRemeasureStart, "textRemeasureEnd": textRemeasureEnd,
                 "didRemeasure": didRemeasure ? 1.0 : 0.0,
                 "readFramesStart": readFramesStart, "readFramesEnd": readFramesEnd,

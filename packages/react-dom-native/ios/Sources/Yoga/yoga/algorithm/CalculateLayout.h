@@ -20,6 +20,8 @@ void calculateLayout(
     float ownerHeight,
     Direction ownerDirection);
 
+void setLayoutLogging(bool enabled);
+
 bool calculateLayoutInternal(
     yoga::Node* node,
     float availableWidth,

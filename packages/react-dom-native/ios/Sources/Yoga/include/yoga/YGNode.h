@@ -109,6 +109,12 @@ YG_EXPORT void YGNodeMarkDirty(YGNodeRef node);
  */
 YG_EXPORT void YGNodeMarkDirtyNonLeaf(YGNodeRef node);
 
+/**
+ * Enable/disable layout cache logging. When enabled, each
+ * YGNodeCalculateLayout call prints a summary of cache hits vs misses.
+ */
+YG_EXPORT void YGLayoutSetLogging(bool enabled);
+
 typedef void (*YGDirtiedFunc)(YGNodeConstRef node);
 
 /**
@@ -135,6 +141,12 @@ YG_EXPORT void YGNodeSwapChild(YGNodeRef node, YGNodeRef child, size_t index);
  * Removes the given child node.
  */
 YG_EXPORT void YGNodeRemoveChild(YGNodeRef node, YGNodeRef child);
+
+/**
+ * Removes the given child node, preserving its cached layout results.
+ * Used for re-parenting where the child's layout is still valid.
+ */
+YG_EXPORT void YGNodeRemoveChildPreserveLayout(YGNodeRef node, YGNodeRef child);
 
 /**
  * Removes all children nodes.

@@ -121,6 +121,10 @@ void YGNodeMarkDirtyNonLeaf(const YGNodeRef nodeRef) {
   resolveRef(nodeRef)->markDirtyAndPropagate();
 }
 
+void YGLayoutSetLogging(bool enabled) {
+  yoga::setLayoutLogging(enabled);
+}
+
 void YGNodeSetDirtiedFunc(YGNodeRef node, YGDirtiedFunc dirtiedFunc) {
   resolveRef(node)->setDirtiedFunc(dirtiedFunc);
 }
@@ -186,6 +190,30 @@ void YGNodeRemoveChild(
   }
 }
 
+// Like YGNodeRemoveChild but preserves the child's cached layout results.
+// Used when re-parenting a node (e.g., from a cloned parent to a persistent
+// root) where the child's subtree layout is still valid and should be reused
+// (e.g., from speculative background layout).
+void YGNodeRemoveChildPreserveLayout(
+    const YGNodeRef ownerRef,
+    const YGNodeRef excludedChildRef) {
+  auto owner = resolveRef(ownerRef);
+  auto excludedChild = resolveRef(excludedChildRef);
+
+  if (owner->getChildCount() == 0) {
+    return;
+  }
+
+  auto childOwner = excludedChild->getOwner();
+  if (owner->removeChild(excludedChild)) {
+    if (owner == childOwner) {
+      // Don't wipe layout — the child's cached results are still valid.
+      excludedChild->setOwner(nullptr);
+    }
+    owner->markDirtyAndPropagate();
+  }
+}
+
 void YGNodeRemoveAllChildren(const YGNodeRef ownerRef) {
   auto owner = resolveRef(ownerRef);
 
@@ -194,22 +222,17 @@ void YGNodeRemoveAllChildren(const YGNodeRef ownerRef) {
     // This is an empty set already. Nothing to do.
     return;
   }
-  auto* firstChild = owner->getChild(0);
-  if (firstChild->getOwner() == owner) {
-    // If the first child has this node as its owner, we assume that this child
-    // set is unique.
-    for (size_t i = 0; i < childCount; i++) {
-      yoga::Node* oldChild = owner->getChild(i);
+  // Check each child individually — after YGNodeClone + YGNodeSwapChild,
+  // children may have mixed ownership (some owned by this node, some by
+  // a clone). Only clear owner/layout for children we actually own.
+  for (size_t i = 0; i < childCount; i++) {
+    yoga::Node* oldChild = owner->getChild(i);
+    if (oldChild->getOwner() == owner) {
       oldChild->setLayout({}); // layout is no longer valid
       oldChild->setOwner(nullptr);
     }
-    owner->clearChildren();
-    owner->markDirtyAndPropagate();
-    return;
   }
-  // Otherwise, we are not the owner of the child set. We don't have to do
-  // anything to clear it.
-  owner->setChildren({});
+  owner->clearChildren();
   owner->markDirtyAndPropagate();
 }
 

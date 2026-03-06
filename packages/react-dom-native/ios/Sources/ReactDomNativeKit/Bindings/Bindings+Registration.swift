@@ -515,15 +515,18 @@ extension Bindings {
                                   + (!borR.isNaN ? borR : (!borAll.isNaN ? borAll : 0))
                 let parentInnerWidth = parentWidth - totalHorizPad - totalHorizBor
 
-                // Height constraint from cached parent layout. Improves cache
-                // hit rate for row-direction + alignItems:stretch and percentage
-                // heights. NaN when unavailable (first render) — Yoga handles
-                // mismatches by re-computing, so this is never incorrect.
+                // Height constraint: only pass for row-direction parents
+                // where children get the full cross-axis height. For column
+                // parents, children's heights are determined by the flex
+                // algorithm, so passing the parent's full height produces
+                // cache misses (speculative h=parentH vs root h=flexH).
+                let parentFlexDir = YGNodeStyleGetFlexDirection(parentYoga)
+                let isRowParent = parentFlexDir == .row || parentFlexDir == .rowReverse
                 let totalVertPad = (padT.unit == .point ? padT.value : (padAll.unit == .point ? padAll.value : 0))
                                  + (padB.unit == .point ? padB.value : (padAll.unit == .point ? padAll.value : 0))
                 let totalVertBor = (!borT.isNaN ? borT : (!borAll.isNaN ? borAll : 0))
                                  + (!borB.isNaN ? borB : (!borAll.isNaN ? borAll : 0))
-                let parentInnerHeight = parentHeight > 0
+                let parentInnerHeight = isRowParent && parentHeight > 0
                     ? parentHeight - totalVertPad - totalVertBor
                     : Float.nan
 
@@ -549,31 +552,28 @@ extension Bindings {
                 let childNode = child  // Captured for text re-measurement
 
                 // Check direct Yoga children for speculative layout state.
-                // - If any child already completed: skip this parent entirely.
-                //   The root layout at $$completeRoot uses their cached results.
-                // - If any child is pending/inflight: collect their per-node
-                //   groups so this parent waits only on its own children.
+                // If ALL children are scheduled (pending/inflight/completed),
+                // skip this parent — the child specs fully cover its subtree.
+                // Mark this node as completed so ancestors propagate the skip.
                 os_unfair_lock_lock(&self.speculativeLock)
-                var needsChildWait = false
-                var hasCompletedChild = false
-                var childGroupsToWait: [DispatchGroup] = []
                 let yogaChildCount = YGNodeGetChildCount(childYogaNode)
-                for i in 0..<yogaChildCount {
-                    if let yogaChild = YGNodeGetChild(childYogaNode, i) {
-                        let key = UnsafeRawPointer(yogaChild)
-                        if self.completedSpeculativeNodes.contains(key) {
-                            hasCompletedChild = true
-                            break
-                        }
-                        if self.pendingSpeculativeNodes.contains(key) || self.inflightSpeculativeNodes.contains(key) {
-                            needsChildWait = true
-                            if let group = self.speculativeNodeGroups[key] {
-                                childGroupsToWait.append(group)
+                var scheduledChildCount = 0
+                if yogaChildCount >= 2 {
+                    for i in 0..<yogaChildCount {
+                        if let yogaChild = YGNodeGetChild(childYogaNode, i) {
+                            let key = UnsafeRawPointer(yogaChild)
+                            if self.completedSpeculativeNodes.contains(key) ||
+                               self.pendingSpeculativeNodes.contains(key) ||
+                               self.inflightSpeculativeNodes.contains(key) {
+                                scheduledChildCount += 1
                             }
                         }
                     }
                 }
-                if hasCompletedChild {
+                if scheduledChildCount == yogaChildCount {
+                    // All children are covered by individual specs.
+                    // Mark this node as completed so ancestors also skip.
+                    self.completedSpeculativeNodes.insert(childYogaKey)
                     os_unfair_lock_unlock(&self.speculativeLock)
                     return nil
                 }
@@ -661,22 +661,9 @@ extension Bindings {
                     self.speculativeLayoutGroup.leave()
                 }
 
-                // Per-subtree dispatch: when this node has in-flight children,
-                // wait on their per-node groups instead of using a global barrier.
-                // This allows unrelated sibling subtrees to compute in parallel.
+                // Dispatch speculative layout on background queue.
                 self.speculativeLayoutGroup.enter()
-                if needsChildWait && !childGroupsToWait.isEmpty {
-                    let waitGroup = DispatchGroup()
-                    for childGroup in childGroupsToWait {
-                        waitGroup.enter()
-                        childGroup.notify(queue: self.speculativeLayoutQueue) {
-                            waitGroup.leave()
-                        }
-                    }
-                    waitGroup.notify(queue: self.speculativeLayoutQueue, execute: workItem)
-                } else {
-                    self.speculativeLayoutQueue.async(execute: workItem)
-                }
+                self.speculativeLayoutQueue.async(execute: workItem)
             }
 
             return nil
