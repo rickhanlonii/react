@@ -45,6 +45,11 @@ public class Renderer {
     /// Whether commit timing collection is enabled.
     var tracingEnabled: Bool = false
 
+    /// Whether speculative layout optimizations are active. When true,
+    /// uses YGNodeRemoveChildPreserveLayout and explicit dirty marking
+    /// to preserve layout cache from background speculative layout.
+    var speculativeLayoutEnabled: Bool = false
+
     /// Called when tracing is enabled and a commit completes, with the full timing dict.
     var onTimingCollected: (([String: Any]) -> Void)?
 
@@ -459,20 +464,29 @@ public class Renderer {
         // Update width (may change on rotation)
         YGNodeStyleSetWidth(rootNode, Float(bounds.width))
 
-        // 2. Update root's children, preserving speculative layout cache.
-        // Use YGNodeRemoveChildPreserveLayout instead of YGNodeRemoveChild
-        // because the standard remove wipes the child's layout cache via
-        // setLayout({}). Speculative layout results would be destroyed.
+        // 2. Update root's children.
+        // When speculative layout is enabled, use YGNodeRemoveChildPreserveLayout
+        // to keep the child's layout cache (from background speculative layout).
+        // Otherwise, use standard YGNodeRemoveChild which wipes cache via setLayout({}).
         for child in children {
             if let owner = YGNodeGetOwner(child.yogaNode), owner != rootNode {
-                YGNodeRemoveChildPreserveLayout(owner, child.yogaNode)
+                if speculativeLayoutEnabled {
+                    YGNodeRemoveChildPreserveLayout(owner, child.yogaNode)
+                } else {
+                    YGNodeRemoveChild(owner, child.yogaNode)
+                }
             }
         }
         var childYogaNodes: [YGNodeRef?] = children.map { $0.yogaNode }
         childYogaNodes.withUnsafeBufferPointer { buffer in
             YGNodeSetChildren(rootNode, buffer.baseAddress, buffer.count)
         }
-        YGNodeMarkDirtyNonLeaf(rootNode)
+        // Speculative layout clears the dirty flag on computed nodes, so the
+        // root must be explicitly marked dirty. Without speculative layout,
+        // YGNodeInsertChild (used in the old clone path) already dirties the parent.
+        if speculativeLayoutEnabled {
+            YGNodeMarkDirtyNonLeaf(rootNode)
+        }
 
         // 3. Calculate layout (first pass)
         let yogaStart = tracing ? performanceNow() : 0

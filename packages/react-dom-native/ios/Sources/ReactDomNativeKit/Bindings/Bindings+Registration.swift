@@ -163,7 +163,7 @@ extension Bindings {
             // Preserve #suspense children from old node — they stay until hydrated
             let preserved = node.children.filter { $0.family.elementType == "#suspense" }
 
-            let cloned = node.cloneWithNewChildren(preserved)
+            let cloned = node.cloneWithNewChildren(preserved, preserveLayoutCache: self.speculativeLayoutEnabled)
 
             // Save old ordering for $$appendChild interleaving
             if !preserved.isEmpty {
@@ -189,7 +189,7 @@ extension Bindings {
             // Preserve #suspense children from old node — they stay until hydrated
             let preserved = node.children.filter { $0.family.elementType == "#suspense" }
 
-            let cloned = node.cloneWithNewChildrenAndProps(preserved, newProps)
+            let cloned = node.cloneWithNewChildrenAndProps(preserved, newProps, preserveLayoutCache: self.speculativeLayoutEnabled)
             // Apply merged style to the cloned yogaNode
             if let style = newProps["style"] as? [String: Any] {
                 YogaStyleApplier.apply(style, to: cloned.yogaNode)
@@ -766,6 +766,7 @@ extension Bindings {
 
             // 3. Sync tracing state and route to Renderer
             renderer.tracingEnabled = tracing
+            renderer.speculativeLayoutEnabled = self.speculativeLayoutEnabled
             renderer.commitTree(newChildren: newChildren, label: "Commit")
 
             // Emit "Resolve Tree" event for the pre-commitTree overhead
