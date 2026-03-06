@@ -466,22 +466,20 @@ extension Bindings {
                 let tracing = self.nativeTracingEnabled
                 let childType = child.family.elementType
 
-                // Skip if any Yoga child already completed speculative layout.
-                // The parent's layout would re-traverse those cached subtrees —
-                // root layout at $$completeRoot handles this more efficiently.
+                // Check if any direct Yoga child was dispatched (pending or inflight).
+                // If so, this parent must wait for children to complete before
+                // computing — use barrier dispatch to prevent concurrent access.
                 os_unfair_lock_lock(&self.speculativeLock)
-                var hasCompletedChild = false
+                var needsBarrier = false
                 let yogaChildCount = YGNodeGetChildCount(childYogaNode)
                 for i in 0..<yogaChildCount {
-                    if let yogaChild = YGNodeGetChild(childYogaNode, i),
-                       self.completedSpeculativeNodes.contains(UnsafeRawPointer(yogaChild)) {
-                        hasCompletedChild = true
-                        break
+                    if let yogaChild = YGNodeGetChild(childYogaNode, i) {
+                        let key = UnsafeRawPointer(yogaChild)
+                        if self.pendingSpeculativeNodes.contains(key) || self.inflightSpeculativeNodes.contains(key) {
+                            needsBarrier = true
+                            break
+                        }
                     }
-                }
-                if hasCompletedChild {
-                    os_unfair_lock_unlock(&self.speculativeLock)
-                    return nil
                 }
 
                 // Add to pending set, removing any descendants already pending
@@ -490,8 +488,7 @@ extension Bindings {
                 self.removeDescendantsFromPending(childYogaNode)
                 os_unfair_lock_unlock(&self.speculativeLock)
 
-                self.speculativeLayoutGroup.enter()
-                self.speculativeLayoutQueue.async {
+                let workItem: @Sendable () -> Void = {
                     // Check if this node was superseded by an ancestor
                     os_unfair_lock_lock(&self.speculativeLock)
                     let stillPending = self.pendingSpeculativeNodes.contains(childYogaKey)
@@ -534,10 +531,9 @@ extension Bindings {
                     YGNodeCalculateLayout(childYogaNode, availableWidth, .nan, .LTR)
                     let end = tracing ? performanceNow() : 0
 
-                    // Move from inflight to completed
+                    // Remove from inflight
                     os_unfair_lock_lock(&self.speculativeLock)
                     self.inflightSpeculativeNodes.remove(childYogaKey)
-                    self.completedSpeculativeNodes.insert(childYogaKey)
                     os_unfair_lock_unlock(&self.speculativeLock)
 
                     if tracing {
@@ -551,6 +547,16 @@ extension Bindings {
                         }
                     }
                     self.speculativeLayoutGroup.leave()
+                }
+
+                // Barrier dispatch ensures children complete before parent
+                // computes, preventing concurrent Yoga writes to the same subtree.
+                // Siblings use regular dispatch for parallel execution.
+                self.speculativeLayoutGroup.enter()
+                if needsBarrier {
+                    self.speculativeLayoutQueue.async(flags: .barrier, execute: workItem)
+                } else {
+                    self.speculativeLayoutQueue.async(execute: workItem)
                 }
             }
 
@@ -634,7 +640,6 @@ extension Bindings {
             os_unfair_lock_lock(&self.speculativeLock)
             self.pendingSpeculativeNodes.removeAll()
             self.inflightSpeculativeNodes.removeAll()
-            self.completedSpeculativeNodes.removeAll()
             os_unfair_lock_unlock(&self.speculativeLock)
 
             if tracing, waitEnd > waitStart + 0.001 {
