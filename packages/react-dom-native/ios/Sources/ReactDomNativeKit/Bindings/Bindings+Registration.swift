@@ -427,17 +427,35 @@ extension Bindings {
             // --- Speculative background layout ---
             // The child subtree is fully built (persistent mode guarantee).
             // Speculatively compute its layout on a background thread using
-            // the parent's previous layout width as the constraint. If the
-            // constraint matches at root layout time, Yoga skips this subtree.
+            // the parent's content box width as the constraint. This must
+            // match what Yoga will compute at root layout time, otherwise
+            // the constraint mismatch forces a full recomputation.
             let parentWidth = Float(parent.layoutFrame.size.width)
             if parentWidth > 0, YGNodeIsDirty(child.yogaNode) {
+                // Compute content box width: parent width minus padding and border.
+                // This matches the available width Yoga gives children during layout.
+                // Read from style (not layout) since the cloned yogaNode has no
+                // computed layout yet — style was preserved via YGNodeCopyStyle.
+                let parentYoga = parent.yogaNode
+                let padL = YGNodeStyleGetPadding(parentYoga, .left)
+                let padR = YGNodeStyleGetPadding(parentYoga, .right)
+                let padAll = YGNodeStyleGetPadding(parentYoga, .all)
+                let borL = YGNodeStyleGetBorder(parentYoga, .left)
+                let borR = YGNodeStyleGetBorder(parentYoga, .right)
+                let borAll = YGNodeStyleGetBorder(parentYoga, .all)
+                let totalPad = (padL.unit == .point ? padL.value : (padAll.unit == .point ? padAll.value : 0))
+                             + (padR.unit == .point ? padR.value : (padAll.unit == .point ? padAll.value : 0))
+                let totalBor = (!borL.isNaN ? borL : (!borAll.isNaN ? borAll : 0))
+                             + (!borR.isNaN ? borR : (!borAll.isNaN ? borAll : 0))
+                let contentWidth = parentWidth - totalPad - totalBor
+
                 let childYogaNode = child.yogaNode
                 let tracing = self.nativeTracingEnabled
                 let childType = child.family.elementType
                 self.speculativeLayoutGroup.enter()
                 self.speculativeLayoutQueue.async {
                     let start = tracing ? performanceNow() : 0
-                    YGNodeCalculateLayout(childYogaNode, parentWidth, .nan, .LTR)
+                    YGNodeCalculateLayout(childYogaNode, contentWidth, .nan, .LTR)
                     let end = tracing ? performanceNow() : 0
                     if tracing {
                         DispatchQueue.main.async {
