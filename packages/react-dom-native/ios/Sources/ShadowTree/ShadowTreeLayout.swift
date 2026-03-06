@@ -31,16 +31,18 @@ public enum ShadowTreeLayout {
         }
 
         // 3. Handle text nodes that need remeasurement (flex-shrunk)
-        var needsRelayout = false
-        for child in children {
-            if markTextNodesNeedingRemeasure(child) {
-                needsRelayout = true
-            }
-        }
-        if needsRelayout {
-            YGNodeCalculateLayout(rootYogaNode, width, height, .LTR)
+        if treeHasTextNodes(children) {
+            var needsRelayout = false
             for child in children {
-                readLayoutFrames(node: child)
+                if markTextNodesNeedingRemeasure(child) {
+                    needsRelayout = true
+                }
+            }
+            if needsRelayout {
+                YGNodeCalculateLayout(rootYogaNode, width, height, .LTR)
+                for child in children {
+                    readLayoutFrames(node: child)
+                }
             }
         }
 
@@ -128,6 +130,17 @@ public enum ShadowTreeLayout {
             let nodeEnd = performanceNow()
             nodeTimings.append((node.family.elementType, nodeStart, nodeEnd))
         }
+    }
+
+    /// Quick check: does this tree contain any text nodes?
+    /// Used to skip the more expensive markTextNodesNeedingRemeasure walk
+    /// when no text nodes exist (no possible flex-shrink remeasurement needed).
+    public static func treeHasTextNodes(_ nodes: [ShadowNodeWrapper]) -> Bool {
+        for node in nodes {
+            if node.text != nil { return true }
+            if treeHasTextNodes(node.children) { return true }
+        }
+        return false
     }
 
     /// Recursively check for text nodes that were flex-shrunk narrower than their

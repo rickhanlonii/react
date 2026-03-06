@@ -402,18 +402,20 @@ public class Renderer {
         let yogaStart = tracing ? performanceNow() : 0
         YGNodeCalculateLayout(rootNode, Float(bounds.width), .nan, .LTR)
 
-        // 3b. Post-layout text re-measurement
+        // 3b. Post-layout text re-measurement (skip if no text nodes in tree)
         let textRemeasureStart = tracing ? performanceNow() : 0
-        var needsSecondPass = false
-        for child in children {
-            if ShadowTreeLayout.markTextNodesNeedingRemeasure(child) {
-                needsSecondPass = true
-            }
-        }
         var didRemeasure = false
-        if needsSecondPass {
-            didRemeasure = true
-            YGNodeCalculateLayout(rootNode, Float(bounds.width), .nan, .LTR)
+        if ShadowTreeLayout.treeHasTextNodes(children) {
+            var needsSecondPass = false
+            for child in children {
+                if ShadowTreeLayout.markTextNodesNeedingRemeasure(child) {
+                    needsSecondPass = true
+                }
+            }
+            if needsSecondPass {
+                didRemeasure = true
+                YGNodeCalculateLayout(rootNode, Float(bounds.width), .nan, .LTR)
+            }
         }
         let textRemeasureEnd = tracing ? performanceNow() : 0
         let yogaEnd = tracing ? performanceNow() : 0
