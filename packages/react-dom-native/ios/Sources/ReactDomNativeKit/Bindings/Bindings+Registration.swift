@@ -466,9 +466,26 @@ extension Bindings {
                 let tracing = self.nativeTracingEnabled
                 let childType = child.family.elementType
 
+                // Skip if any Yoga child already completed speculative layout.
+                // The parent's layout would re-traverse those cached subtrees —
+                // root layout at $$completeRoot handles this more efficiently.
+                os_unfair_lock_lock(&self.speculativeLock)
+                var hasCompletedChild = false
+                let yogaChildCount = YGNodeGetChildCount(childYogaNode)
+                for i in 0..<yogaChildCount {
+                    if let yogaChild = YGNodeGetChild(childYogaNode, i),
+                       self.completedSpeculativeNodes.contains(UnsafeRawPointer(yogaChild)) {
+                        hasCompletedChild = true
+                        break
+                    }
+                }
+                if hasCompletedChild {
+                    os_unfair_lock_unlock(&self.speculativeLock)
+                    return nil
+                }
+
                 // Add to pending set, removing any descendants already pending
                 // (this node's layout encompasses them).
-                os_unfair_lock_lock(&self.speculativeLock)
                 self.pendingSpeculativeNodes.insert(childYogaKey)
                 self.removeDescendantsFromPending(childYogaNode)
                 os_unfair_lock_unlock(&self.speculativeLock)
@@ -517,9 +534,10 @@ extension Bindings {
                     YGNodeCalculateLayout(childYogaNode, availableWidth, .nan, .LTR)
                     let end = tracing ? performanceNow() : 0
 
-                    // Remove from inflight
+                    // Move from inflight to completed
                     os_unfair_lock_lock(&self.speculativeLock)
                     self.inflightSpeculativeNodes.remove(childYogaKey)
+                    self.completedSpeculativeNodes.insert(childYogaKey)
                     os_unfair_lock_unlock(&self.speculativeLock)
 
                     if tracing {
@@ -616,6 +634,7 @@ extension Bindings {
             os_unfair_lock_lock(&self.speculativeLock)
             self.pendingSpeculativeNodes.removeAll()
             self.inflightSpeculativeNodes.removeAll()
+            self.completedSpeculativeNodes.removeAll()
             os_unfair_lock_unlock(&self.speculativeLock)
 
             if tracing, waitEnd > waitStart + 0.001 {
