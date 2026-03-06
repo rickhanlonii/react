@@ -33,6 +33,25 @@ function replaceEventHandlers(props) {
   }
 }
 
+// Resolves lazy style refs, strips children, replaces event handlers, and
+// sets form/button canary values. Returns a props dict ready to bridge.
+function prepareNativeProps(type, props) {
+  let resolved = props;
+  const style = props.style;
+  if (style != null && typeof style === 'object' && typeof style._init === 'function') {
+    resolved = {...props, style: style._init(style._payload)};
+  }
+  const {children, ...nativeProps} = resolved;
+  replaceEventHandlers(nativeProps);
+  if (type === 'form' && typeof props.action === 'function') {
+    nativeProps.action = true;
+  }
+  if ((type === 'button' || type === 'input') && typeof props.formAction === 'function') {
+    nativeProps.formAction = true;
+  }
+  return nativeProps;
+}
+
 // ---------------------------------------------------------------------------
 // Suspense boundary tracking — maps SSR boundary IDs to suspense instances
 // so $$notifyBoundaryRevealed can fire retry callbacks when the Swift side
@@ -117,29 +136,7 @@ exports.createInstance = function createInstance(
   hostContext,
   internalHandle,
 ) {
-  // Strip children from props — child nodes are managed by the reconciler
-  // via appendInitialChild, not stored as props on the native node.
-  // Element-type defaults and style shorthand expansion are handled natively
-  // in $$createNode — no JS-side merging needed.
-  let resolvedProps = props;
-  // Resolve Flight lazy references — shared style objects may arrive as lazy
-  // wrappers from the Flight protocol that need JS-side resolution.
-  const style = props.style;
-  if (style != null && typeof style === 'object' && typeof style._init === 'function') {
-    resolvedProps = {...props, style: style._init(style._payload)};
-  }
-  const {children, ...nativeProps} = resolvedProps;
-  // Replace event handler functions with `true` so they survive toDictionary()
-  // across the JSC bridge. The native side uses these canary values to skip
-  // dispatching events for views without handlers.
-  replaceEventHandlers(nativeProps);
-  // In createInstance, after replaceEventHandlers(nativeProps):
-  if (type === 'form' && typeof props.action === 'function') {
-    nativeProps.action = true; // canary — marks form as having an action handler
-  }
-  if ((type === 'button' || type === 'input') && typeof props.formAction === 'function') {
-    nativeProps.formAction = true; // canary
-  }
+  const nativeProps = prepareNativeProps(type, props);
   const nativeNode = $$createNode(
     type,
     rootContainer.surfaceId,
@@ -206,27 +203,22 @@ exports.cloneInstance = function cloneInstance(
   keepChildren,
   recyclable,
 ) {
-  let resolvedNewProps = newProps;
-  const newStyle = newProps.style;
-  if (newStyle != null && typeof newStyle === 'object' && typeof newStyle._init === 'function') {
-    resolvedNewProps = {...newProps, style: newStyle._init(newStyle._payload)};
-  }
-  const {children, ...nativeNewProps} = resolvedNewProps;
-  replaceEventHandlers(nativeNewProps);
-  if (type === 'form' && typeof newProps.action === 'function') {
-    nativeNewProps.action = true; // canary — marks form as having an action handler
-  }
-  if ((type === 'button' || type === 'input') && typeof newProps.formAction === 'function') {
-    nativeNewProps.formAction = true; // canary
-  }
   let newNativeNode;
   if (keepChildren) {
-    newNativeNode = $$cloneNodeWithNewProps(instance._nativeNode, nativeNewProps);
+    // Props changed, same children — bridge new props
+    newNativeNode = $$cloneNodeWithNewProps(
+      instance._nativeNode,
+      prepareNativeProps(type, newProps),
+    );
+  } else if (oldProps === newProps) {
+    // Children changed, props unchanged — skip prop bridging entirely
+    newNativeNode = $$cloneNodeWithNewChildren(instance._nativeNode);
   } else {
+    // Both children and props changed
     newNativeNode = $$cloneNodeWithNewChildrenAndProps(
       instance._nativeNode,
       undefined,
-      nativeNewProps,
+      prepareNativeProps(type, newProps),
     );
   }
   return {

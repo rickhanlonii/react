@@ -93,11 +93,13 @@ public class Differentiator {
 
                 // Check if props or layout changed (identity comparison is
                 // sufficient because nodes are immutable).
-                mutations.append(.update(
-                    node: newChild,
-                    oldProps: oldChild.props,
-                    newProps: newChild.props
-                ))
+                if newChild.propsChanged {
+                    mutations.append(.update(
+                        node: newChild,
+                        oldProps: oldChild.props,
+                        newProps: newChild.props
+                    ))
+                }
 
                 // Recursively diff children of this node.
                 let childMutations = diff(

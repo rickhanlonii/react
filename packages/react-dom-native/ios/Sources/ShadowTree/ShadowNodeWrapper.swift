@@ -58,6 +58,11 @@ public class ShadowNodeWrapper: NSObject {
     /// Nil for non-clones or clones where children are fully rebuilt.
     public var previousYogaChildren: [YGNodeRef]? = nil
 
+    /// Whether this clone's props differ from its source. False when cloned
+    /// via cloneWithNewChildren (only children changed). Used by the
+    /// Differentiator to skip UPDATE mutations for unchanged props.
+    public var propsChanged: Bool = true
+
     // MARK: - Initializers
 
     public init(
@@ -282,6 +287,7 @@ public class ShadowNodeWrapper: NSObject {
             yogaNode: clonedYoga
         )
         cloned.layoutFrame = self.layoutFrame
+        cloned.propsChanged = false
 
         // Store old yoga children for $$appendChild comparison.
         // If there are no old children (first render), skip — nothing to compare.
@@ -373,6 +379,7 @@ public class ShadowNodeWrapper: NSObject {
             yogaNode: clonedYoga
         )
         cloned.layoutFrame = self.layoutFrame
+        cloned.propsChanged = false
         // Transfer children's ownership to the clone without dirtying.
         for (index, child) in cloned.children.enumerated() {
             YGNodeSwapChild(clonedYoga, child.yogaNode, index)
