@@ -52,6 +52,7 @@ module.exports = function (env) {
                 presets: ['@babel/preset-react'],
                 plugins: [
                   'babel-plugin-react-compiler',
+                  '@babel/plugin-transform-modules-commonjs',
                   ...(isDev ? [require.resolve('react-refresh/babel')] : []),
                 ],
               },
