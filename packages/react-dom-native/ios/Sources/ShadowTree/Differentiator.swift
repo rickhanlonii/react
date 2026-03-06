@@ -81,15 +81,23 @@ public class Differentiator {
                 // Existing node — check for updates.
                 matchedFamilies.insert(familyKey)
 
+                // If the node is the exact same object (not just same family),
+                // the entire subtree is unchanged — skip recursion.
+                if oldChild === newChild {
+                    if tracing {
+                        let nodeEnd = performanceNow()
+                        nodeTimings.append((newChild.family.elementType, nodeStart, nodeEnd))
+                    }
+                    continue
+                }
+
                 // Check if props or layout changed (identity comparison is
                 // sufficient because nodes are immutable).
-                if oldChild !== newChild {
-                    mutations.append(.update(
-                        node: newChild,
-                        oldProps: oldChild.props,
-                        newProps: newChild.props
-                    ))
-                }
+                mutations.append(.update(
+                    node: newChild,
+                    oldProps: oldChild.props,
+                    newProps: newChild.props
+                ))
 
                 // Recursively diff children of this node.
                 let childMutations = diff(

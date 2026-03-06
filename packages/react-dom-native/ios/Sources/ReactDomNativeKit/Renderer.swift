@@ -140,9 +140,9 @@ public class Renderer {
 
         let syncStart = tracing ? performanceNow() : 0
         if tracing {
-            syncAllFrames(newChildren, tracing: true, nodeTimings: &syncNodeTimings)
+            syncAllFrames(newChildren, oldNodes: currentTree, tracing: true, nodeTimings: &syncNodeTimings)
         } else {
-            syncAllFrames(newChildren)
+            syncAllFrames(newChildren, oldNodes: currentTree)
         }
         let syncEnd = tracing ? performanceNow() : 0
 
@@ -290,8 +290,27 @@ public class Renderer {
     }
 
     /// Recursively syncs every UIView's frame to match its node's layoutFrame.
-    func syncAllFrames(_ nodes: [ShadowNodeWrapper]) {
+    /// Accepts optional old children to skip unchanged subtrees (same pointer).
+    func syncAllFrames(_ nodes: [ShadowNodeWrapper], oldNodes: [ShadowNodeWrapper]? = nil) {
+        let oldByFamily: [ObjectIdentifier: ShadowNodeWrapper]?
+        if let oldNodes = oldNodes {
+            var lookup: [ObjectIdentifier: ShadowNodeWrapper] = [:]
+            for old in oldNodes { lookup[ObjectIdentifier(old.family)] = old }
+            oldByFamily = lookup
+        } else {
+            oldByFamily = nil
+        }
+
         for node in nodes {
+            // Find the matching old node for this family.
+            let oldMatch = oldByFamily?[ObjectIdentifier(node.family)]
+
+            // If the node is the exact same object as in the old tree,
+            // the entire subtree is unchanged — skip.
+            if let old = oldMatch, old === node {
+                continue
+            }
+
             if let view = viewRegistry.view(for: node.family) {
                 if view.frame != node.layoutFrame {
                     view.frame = node.layoutFrame
@@ -300,17 +319,36 @@ public class Renderer {
                     scrollView.contentSize = contentSize
                 }
             }
-            syncAllFrames(node.children)
+            syncAllFrames(node.children, oldNodes: oldMatch?.children)
         }
     }
 
     /// Recursively syncs every UIView's frame with per-node timing collection.
     func syncAllFrames(
         _ nodes: [ShadowNodeWrapper],
+        oldNodes: [ShadowNodeWrapper]? = nil,
         tracing: Bool,
         nodeTimings: inout [(type: String, start: Double, end: Double)]
     ) {
+        let oldByFamily: [ObjectIdentifier: ShadowNodeWrapper]?
+        if let oldNodes = oldNodes {
+            var lookup: [ObjectIdentifier: ShadowNodeWrapper] = [:]
+            for old in oldNodes { lookup[ObjectIdentifier(old.family)] = old }
+            oldByFamily = lookup
+        } else {
+            oldByFamily = nil
+        }
+
         for node in nodes {
+            // Find the matching old node for this family.
+            let oldMatch = oldByFamily?[ObjectIdentifier(node.family)]
+
+            // If the node is the exact same object as in the old tree,
+            // the entire subtree is unchanged — skip.
+            if let old = oldMatch, old === node {
+                continue
+            }
+
             let nodeStart = tracing ? performanceNow() : 0
 
             if let view = viewRegistry.view(for: node.family) {
@@ -321,7 +359,7 @@ public class Renderer {
                     scrollView.contentSize = contentSize
                 }
             }
-            syncAllFrames(node.children, tracing: tracing, nodeTimings: &nodeTimings)
+            syncAllFrames(node.children, oldNodes: oldMatch?.children, tracing: tracing, nodeTimings: &nodeTimings)
 
             if tracing {
                 let nodeEnd = performanceNow()
