@@ -193,8 +193,8 @@ public class Root {
             ReactRuntime.shared.bindings?.captureCommitScreenshot()
         }
 
-        renderer.onPaintTimingCollected = { nativePaintEnd in
-            ReactRuntime.shared.bindings?.tracer?.reportPaintComplete(nativePaintEnd: nativePaintEnd)
+        renderer.onPaintTimingCollected = { nativePaintEnd, reportTimingEnd in
+            ReactRuntime.shared.bindings?.tracer?.reportPaintComplete(nativePaintEnd: nativePaintEnd, reportTimingEnd: reportTimingEnd)
         }
     }
 

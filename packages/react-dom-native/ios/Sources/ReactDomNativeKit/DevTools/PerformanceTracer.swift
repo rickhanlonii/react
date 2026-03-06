@@ -416,7 +416,7 @@ class PerformanceTracer {
 
     /// Called asynchronously when CATransaction completes (real paint is done).
     /// Emits the deferred level 1 span and Native Paint children.
-    func reportPaintComplete(nativePaintEnd: Double) {
+    func reportPaintComplete(nativePaintEnd: Double, reportTimingEnd: Double) {
         guard let pending = pendingCommit else { return }
         pendingCommit = nil
 
@@ -431,9 +431,9 @@ class PerformanceTracer {
                 track: "Shadow Tree", trackGroup: "Native ⚛", color: "tertiary")
         }
 
-        // Level 3: Commit (bookkeeping) from preparePaintEnd → screenshotStart
+        // Level 3: Bookkeeping from preparePaintEnd → screenshotStart
         if pending.screenshotStart > pending.preparePaintEnd {
-            reportTimeStamp(label: "Commit", start: pending.preparePaintEnd, end: pending.screenshotStart,
+            reportTimeStamp(label: "Bookkeeping", start: pending.preparePaintEnd, end: pending.screenshotStart,
                 track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(pending.preparePaintEnd, pending.screenshotStart))
         }
 
@@ -441,6 +441,18 @@ class PerformanceTracer {
         if pending.screenshotEnd > pending.screenshotStart {
             reportTimeStamp(label: "Screenshot", start: pending.screenshotStart, end: pending.screenshotEnd,
                 track: "Shadow Tree", trackGroup: "Native ⚛", color: "warning")
+        }
+
+        // Level 3: CA Commit from screenshotEnd → nativePaintEnd
+        if nativePaintEnd > pending.screenshotEnd {
+            reportTimeStamp(label: "CA Commit", start: pending.screenshotEnd, end: nativePaintEnd,
+                track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(pending.screenshotEnd, nativePaintEnd))
+        }
+
+        // Level 2: Report Timing from nativePaintEnd → reportTimingEnd (after Native Paint)
+        if reportTimingEnd > nativePaintEnd {
+            reportTimeStamp(label: "Report Timing", start: nativePaintEnd, end: reportTimingEnd,
+                track: "Shadow Tree", trackGroup: "Native ⚛", color: durationColor(nativePaintEnd, reportTimingEnd))
         }
     }
 

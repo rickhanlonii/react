@@ -55,7 +55,7 @@ public class Renderer {
     /// Called when a real paint completes (CATransaction commit). Reports the
     /// paint timing span directly to the tracer since it fires asynchronously
     /// after commitTree returns.
-    var onPaintTimingCollected: ((_ nativePaintEnd: Double) -> Void)?
+    var onPaintTimingCollected: ((_ nativePaintEnd: Double, _ reportTimingEnd: Double) -> Void)?
 
     /// Sub-phase timings from the most recent calculateLayout call.
     private var lastLayoutTimings: [String: Double]?
@@ -173,18 +173,6 @@ public class Renderer {
         let attachEnd = tracing ? performanceNow() : 0
         let preparePaintEnd = tracing ? performanceNow() : 0
 
-        // Schedule real paint timing via CATransaction completion.
-        // Native Paint starts at preparePaintEnd so it contains the Commit
-        // bookkeeping and Screenshot phases, and extends to when Core Animation
-        // actually commits the layer tree to the render server.
-        if tracing {
-            let callback = onPaintTimingCollected
-            CATransaction.setCompletionBlock {
-                let nativePaintEnd = performanceNow()
-                callback?(nativePaintEnd)
-            }
-        }
-
         // 7. Fire timing if tracing
         if tracing {
             var creates = 0, inserts = 0, deletes = 0, removes = 0, updates = 0
@@ -265,7 +253,18 @@ public class Renderer {
             timing["screenshotStart"] = screenshotStart
             timing["screenshotEnd"] = screenshotEnd
 
-            onTimingCollected?(timing)
+            // Defer trace event reporting to after CA commits the layer tree.
+            // This moves Report Timing out of the Native Paint window so it
+            // only measures actual Core Animation work.
+            let timingCallback = onTimingCollected
+            let paintCallback = onPaintTimingCollected
+            CATransaction.setCompletionBlock {
+                let nativePaintEnd = performanceNow()
+                timing["nativePaintEnd"] = nativePaintEnd
+                timingCallback?(timing)
+                let reportTimingEnd = performanceNow()
+                paintCallback?(nativePaintEnd, reportTimingEnd)
+            }
         } else {
             // Capture screenshot after every paint (SSR reveals, prerender, React commits)
             onCommitPainted?()
