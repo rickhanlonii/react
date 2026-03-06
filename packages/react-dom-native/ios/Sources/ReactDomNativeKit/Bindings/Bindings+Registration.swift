@@ -127,6 +127,9 @@ extension Bindings {
             if let style = newProps["style"] as? [String: Any] {
                 YogaStyleApplier.apply(style, to: cloned.yogaNode)
             }
+            // Cache scroll container flag
+            let overflow = mergedStyle["overflow"] as? String
+            cloned.isScrollContainer = (overflow == "scroll" || overflow == "auto")
             return engine.wrapNativeObject(cloned)
         }
 
@@ -169,6 +172,9 @@ extension Bindings {
             if let style = newProps["style"] as? [String: Any] {
                 YogaStyleApplier.apply(style, to: cloned.yogaNode)
             }
+            // Cache scroll container flag
+            let overflow = mergedStyle["overflow"] as? String
+            cloned.isScrollContainer = (overflow == "scroll" || overflow == "auto")
 
             // Save old ordering for $$appendChild interleaving
             if !preserved.isEmpty {

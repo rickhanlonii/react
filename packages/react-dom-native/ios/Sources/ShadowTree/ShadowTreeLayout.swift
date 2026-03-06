@@ -185,10 +185,7 @@ public enum ShadowTreeLayout {
     /// height to compute the natural content size. Yoga's flex-shrink would
     /// otherwise constrain children to the parent's height.
     public static func computeScrollContentSizes(for node: ShadowNodeWrapper) {
-        let style = node.props["style"] as? [String: Any] ?? [:]
-        let overflow = style["overflow"] as? String
-
-        if overflow == "scroll" || overflow == "auto" {
+        if node.isScrollContainer {
             // Create temp root that mirrors the scroll container's styles
             // but with unbounded height for natural content measurement
             let tempRoot = YGNodeNewWithConfig(YogaConfig.shared)!

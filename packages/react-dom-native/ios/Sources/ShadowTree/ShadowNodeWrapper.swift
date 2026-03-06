@@ -63,6 +63,10 @@ public class ShadowNodeWrapper: NSObject {
     /// Differentiator to skip UPDATE mutations for unchanged props.
     public var propsChanged: Bool = true
 
+    /// Whether this node has overflow:scroll or overflow:auto. Cached from
+    /// style to avoid dict lookups during computeScrollContentSizes.
+    public var isScrollContainer: Bool = false
+
     // MARK: - Initializers
 
     public init(
@@ -163,6 +167,10 @@ public class ShadowNodeWrapper: NSObject {
         if !mergedStyle.isEmpty {
             YogaStyleApplier.apply(mergedStyle, to: node.yogaNode)
         }
+
+        // 4b. Cache scroll container flag for computeScrollContentSizes
+        let overflow = mergedStyle["overflow"] as? String
+        node.isScrollContainer = (overflow == "scroll" || overflow == "auto")
 
         // 5. Apply Yoga-only overrides (not stored in style dict)
         if let minH = ElementDefaults.yogaMinHeight(for: type) {
