@@ -427,15 +427,23 @@ extension Bindings {
             // --- Speculative background layout ---
             // The child subtree is fully built (persistent mode guarantee).
             // Speculatively compute its layout on a background thread using
-            // the parent's content box width as the constraint. This must
-            // match what Yoga will compute at root layout time, otherwise
-            // the constraint mismatch forces a full recomputation.
+            // the exact constraint Yoga will use at root layout time. For
+            // Yoga's cache to hit, availableWidth/Height and sizing modes
+            // must match exactly.
+            //
+            // For a column flex parent with align-items:stretch (the default),
+            // Yoga passes each child:
+            //   availableWidth = parentInnerWidth - childMarginRow
+            //   widthSizingMode = StretchFit
+            //   availableHeight = NaN (unbounded)
+            //   heightSizingMode = MaxContent
+            //
+            // YGNodeCalculateLayout(child, ownerWidth, NaN, LTR) resolves
+            // width=auto to (ownerWidth, StretchFit), matching. So we pass
+            // ownerWidth = parentInnerWidth - childMarginRow.
             let parentWidth = Float(parent.layoutFrame.size.width)
             if parentWidth > 0, YGNodeIsDirty(child.yogaNode) {
-                // Compute content box width: parent width minus padding and border.
-                // This matches the available width Yoga gives children during layout.
-                // Read from style (not layout) since the cloned yogaNode has no
-                // computed layout yet — style was preserved via YGNodeCopyStyle.
+                // Compute parent inner width (content box): width minus padding and border.
                 let parentYoga = parent.yogaNode
                 let padL = YGNodeStyleGetPadding(parentYoga, .left)
                 let padR = YGNodeStyleGetPadding(parentYoga, .right)
@@ -447,7 +455,17 @@ extension Bindings {
                              + (padR.unit == .point ? padR.value : (padAll.unit == .point ? padAll.value : 0))
                 let totalBor = (!borL.isNaN ? borL : (!borAll.isNaN ? borAll : 0))
                              + (!borR.isNaN ? borR : (!borAll.isNaN ? borAll : 0))
-                let contentWidth = parentWidth - totalPad - totalBor
+                let parentInnerWidth = parentWidth - totalPad - totalBor
+
+                // Subtract child's horizontal margins — Yoga's flex algorithm
+                // deducts margins from the available width before laying out each child.
+                let childYoga = child.yogaNode
+                let cMarL = YGNodeStyleGetMargin(childYoga, .left)
+                let cMarR = YGNodeStyleGetMargin(childYoga, .right)
+                let cMarAll = YGNodeStyleGetMargin(childYoga, .all)
+                let childMarginRow = (cMarL.unit == .point ? cMarL.value : (cMarAll.unit == .point ? cMarAll.value : 0))
+                                   + (cMarR.unit == .point ? cMarR.value : (cMarAll.unit == .point ? cMarAll.value : 0))
+                let availableWidth = parentInnerWidth - childMarginRow
 
                 let childYogaNode = child.yogaNode
                 let tracing = self.nativeTracingEnabled
@@ -455,7 +473,7 @@ extension Bindings {
                 self.speculativeLayoutGroup.enter()
                 self.speculativeLayoutQueue.async {
                     let start = tracing ? performanceNow() : 0
-                    YGNodeCalculateLayout(childYogaNode, contentWidth, .nan, .LTR)
+                    YGNodeCalculateLayout(childYogaNode, availableWidth, .nan, .LTR)
                     let end = tracing ? performanceNow() : 0
                     if tracing {
                         DispatchQueue.main.async {
