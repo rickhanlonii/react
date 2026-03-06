@@ -6,6 +6,7 @@ require('@babel/register')({
   ignore: [/node_modules/],
   only: [/example\/server\/src/],
   presets: ['@babel/preset-react'],
+  plugins: ['babel-plugin-react-compiler'],
   targets: {node: 'current'},
 });
 

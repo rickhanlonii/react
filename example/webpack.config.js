@@ -50,7 +50,10 @@ module.exports = function (env) {
               loader: 'babel-loader',
               options: {
                 presets: ['@babel/preset-react'],
-                plugins: isDev ? [require.resolve('react-refresh/babel')] : [],
+                plugins: [
+                  'babel-plugin-react-compiler',
+                  ...(isDev ? [require.resolve('react-refresh/babel')] : []),
+                ],
               },
             },
           ].filter(Boolean),
