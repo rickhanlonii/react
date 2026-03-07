@@ -247,4 +247,5 @@ public class Bindings {
             removeDescendantsFromPending(child)
         }
     }
+
 }

@@ -320,4 +320,13 @@ YG_EXPORT bool YGNodeCanUseCachedMeasurement(
     float marginColumn,
     YGConfigRef config);
 
+/**
+ * Reset position values for all direct children of a node.
+ * Yoga's flex positioning is additive (position += mainDim), so children
+ * reused from a previous layout pass carry stale position values. Call
+ * this before YGNodeCalculateLayout when computing speculative layout
+ * on a subtree whose children may already have positions set.
+ */
+YG_EXPORT void YGNodeResetChildPositions(YGNodeRef node);
+
 YG_EXTERN_C_END

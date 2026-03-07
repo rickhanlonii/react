@@ -76,7 +76,8 @@ public enum ShadowTreeLayout {
         tracing: Bool,
         nodeTimings: inout [(type: String, start: Double, end: Double)]
     ) {
-        guard YGNodeGetHasNewLayout(node.yogaNode) else { return }
+        let hasNew = YGNodeGetHasNewLayout(node.yogaNode)
+        guard hasNew else { return }
         YGNodeSetHasNewLayout(node.yogaNode, false)
 
         let nodeStart = tracing ? performanceNow() : 0

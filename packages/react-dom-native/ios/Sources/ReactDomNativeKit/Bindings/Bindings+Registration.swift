@@ -631,6 +631,12 @@ extension Bindings {
 
                     // Compute layout with width + height constraints.
                     let start = tracing ? performanceNow() : 0
+
+                    // Reset child positions before speculative layout.
+                    // Yoga's flex positioning is additive (position += mainDim),
+                    // and children reused from a previous commit carry stale
+                    // position values. Without this reset, positions double.
+                    YGNodeResetChildPositions(childYogaNode)
                     YGNodeCalculateLayout(childYogaNode, availableWidth, availableHeight, .LTR)
 
                     // Two-pass text re-measurement: if any text nodes were

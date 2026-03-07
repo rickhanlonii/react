@@ -11,7 +11,6 @@
 #include <cmath>
 #include <cstring>
 #include <vector>
-
 #include <yoga/Yoga.h>
 
 #include <yoga/algorithm/AbsoluteLayout.h>
@@ -38,15 +37,6 @@ std::atomic<uint32_t> gCurrentGenerationCount(0);
 
 // Layout cache logging — enabled via YGNodeLayoutSetLogging()
 static bool gLayoutLoggingEnabled = false;
-
-static const char* sizingModeName(SizingMode mode) {
-  switch (mode) {
-    case SizingMode::StretchFit: return "StretchFit";
-    case SizingMode::FitContent: return "FitContent";
-    case SizingMode::MaxContent: return "MaxContent";
-    default: return "?";
-  }
-}
 
 static void constrainMaxSizeForMode(
     const yoga::Node* node,
@@ -2767,19 +2757,6 @@ bool calculateLayoutInternal(
             layout->cachedLayout.heightSizingMode != heightSizingMode) {
           layoutMarkerData.layoutLogStats.missSizingMode++;
         }
-        // Verbose: dump exact cached vs requested for each miss
-        printf("  [miss] node=%p cached(w=%.1f %s, h=%.1f %s, cw=%.1f, ch=%.1f) vs requested(w=%.1f %s, h=%.1f %s)\n",
-            (void*)node,
-            layout->cachedLayout.availableWidth,
-            sizingModeName(layout->cachedLayout.widthSizingMode),
-            layout->cachedLayout.availableHeight,
-            sizingModeName(layout->cachedLayout.heightSizingMode),
-            layout->cachedLayout.computedWidth,
-            layout->cachedLayout.computedHeight,
-            availableWidth,
-            sizingModeName(widthSizingMode),
-            availableHeight,
-            sizingModeName(heightSizingMode));
       }
     }
 

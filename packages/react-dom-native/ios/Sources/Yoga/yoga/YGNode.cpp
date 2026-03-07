@@ -391,3 +391,13 @@ bool YGNodeCanUseCachedMeasurement(
       marginColumn,
       resolveRef(config));
 }
+
+void YGNodeResetChildPositions(YGNodeRef node) {
+  auto* n = resolveRef(node);
+  for (auto* child : n->getChildren()) {
+    child->setLayoutPosition(0, yoga::PhysicalEdge::Left);
+    child->setLayoutPosition(0, yoga::PhysicalEdge::Top);
+    child->setLayoutPosition(0, yoga::PhysicalEdge::Right);
+    child->setLayoutPosition(0, yoga::PhysicalEdge::Bottom);
+  }
+}
