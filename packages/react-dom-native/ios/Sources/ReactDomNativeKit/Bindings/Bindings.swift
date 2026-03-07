@@ -248,4 +248,31 @@ public class Bindings {
         }
     }
 
+    /// Collect DispatchGroups for inflight descendant speculative layouts.
+    /// Called with speculativeLock held.
+    func collectInflightDescendantGroups(_ yogaNode: YGNodeRef, into groups: inout [DispatchGroup]) {
+        let childCount = YGNodeGetChildCount(yogaNode)
+        for i in 0..<childCount {
+            guard let child = YGNodeGetChild(yogaNode, i) else { continue }
+            let key = UnsafeRawPointer(child)
+            if let group = speculativeNodeGroups[key],
+               inflightSpeculativeNodes.contains(key) {
+                groups.append(group)
+            }
+            collectInflightDescendantGroups(child, into: &groups)
+        }
+    }
+
+    /// Recursively reset yoga positions for ALL descendants (not just direct children).
+    /// Ensures stale positions from previous layouts or concurrent descendant speculative
+    /// layouts don't accumulate through yoga's additive flex positioning.
+    func resetAllDescendantPositions(_ yogaNode: YGNodeRef) {
+        YGNodeResetChildPositions(yogaNode)
+        let childCount = YGNodeGetChildCount(yogaNode)
+        for i in 0..<childCount {
+            guard let child = YGNodeGetChild(yogaNode, i) else { continue }
+            resetAllDescendantPositions(child)
+        }
+    }
+
 }

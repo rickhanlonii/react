@@ -629,14 +629,28 @@ extension Bindings {
                         return
                     }
 
+                    // Wait for any inflight descendant layouts to complete.
+                    // Without this, a parent and child can compute concurrently
+                    // on the same yoga nodes, causing additive position corruption
+                    // (yoga's flex positioning adds to existing positions).
+                    var descendantGroups: [DispatchGroup] = []
+                    os_unfair_lock_lock(&self.speculativeLock)
+                    self.collectInflightDescendantGroups(childYogaNode, into: &descendantGroups)
+                    os_unfair_lock_unlock(&self.speculativeLock)
+                    for group in descendantGroups {
+                        group.wait()
+                    }
+
                     // Compute layout with width + height constraints.
                     let start = tracing ? performanceNow() : 0
 
-                    // Reset child positions before speculative layout.
+                    // Reset ALL descendant positions before speculative layout.
                     // Yoga's flex positioning is additive (position += mainDim),
-                    // and children reused from a previous commit carry stale
-                    // position values. Without this reset, positions double.
-                    YGNodeResetChildPositions(childYogaNode)
+                    // and children reused from a previous commit (or computed by
+                    // a descendant speculative layout we just waited on) carry
+                    // stale position values. Without this reset, positions double.
+                    self.resetAllDescendantPositions(childYogaNode)
+
                     YGNodeCalculateLayout(childYogaNode, availableWidth, availableHeight, .LTR)
 
                     // Two-pass text re-measurement: if any text nodes were
