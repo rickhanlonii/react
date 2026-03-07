@@ -263,16 +263,4 @@ public class Bindings {
         }
     }
 
-    /// Recursively reset yoga positions for ALL descendants (not just direct children).
-    /// Ensures stale positions from previous layouts or concurrent descendant speculative
-    /// layouts don't accumulate through yoga's additive flex positioning.
-    func resetAllDescendantPositions(_ yogaNode: YGNodeRef) {
-        YGNodeResetChildPositions(yogaNode)
-        let childCount = YGNodeGetChildCount(yogaNode)
-        for i in 0..<childCount {
-            guard let child = YGNodeGetChild(yogaNode, i) else { continue }
-            resetAllDescendantPositions(child)
-        }
-    }
-
 }
