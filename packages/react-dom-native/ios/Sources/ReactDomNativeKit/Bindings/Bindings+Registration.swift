@@ -738,7 +738,9 @@ extension Bindings {
             // Clean up trailing old yoga children from swap optimization.
             // Nodes that had more old children than new children still have
             // stale yoga children that need removal before layout.
-            self.cleanupTrailingYogaChildren(newChildren)
+            // IMPORTANT: Must happen AFTER speculative layout wait — background
+            // threads may be traversing these yoga nodes during layout. Removing
+            // children concurrently would be a data race.
 
             let resolveEnd = tracing ? performanceNow() : 0
 
@@ -746,6 +748,9 @@ extension Bindings {
             let waitStart = tracing ? performanceNow() : 0
             self.speculativeLayoutGroup.wait()
             let waitEnd = tracing ? performanceNow() : 0
+
+            // Now safe to clean up trailing yoga children (no background work in flight)
+            self.cleanupTrailingYogaChildren(newChildren)
 
             // Clear tracking sets (should already be empty, but defensive)
             os_unfair_lock_lock(&self.speculativeLock)
