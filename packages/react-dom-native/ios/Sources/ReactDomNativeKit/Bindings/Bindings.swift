@@ -48,7 +48,7 @@ public class Bindings {
     /// Whether speculative background layout is enabled. When true, $$appendChild
     /// dispatches Yoga layout for completed subtrees on a background queue. Toggled
     /// via the debug menu.
-    var speculativeLayoutEnabled = true
+    var speculativeLayoutEnabled = false
 
     /// Performance tracer for reporting commit timings directly from Swift.
     /// Set by JSRuntime after initialization.

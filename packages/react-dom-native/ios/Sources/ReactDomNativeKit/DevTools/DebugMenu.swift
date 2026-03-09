@@ -104,7 +104,7 @@ private class DebugMenuViewController: UIViewController,
             Toggle(
                 title: "Speculative Layout",
                 subtitle: "Background Yoga layout during reconciliation",
-                isOn: { ReactRuntime.shared.bindings?.speculativeLayoutEnabled ?? true },
+                isOn: { ReactRuntime.shared.bindings?.speculativeLayoutEnabled ?? false },
                 handler: { newValue in
                     ReactRuntime.shared.bindings?.speculativeLayoutEnabled = newValue
                 }
