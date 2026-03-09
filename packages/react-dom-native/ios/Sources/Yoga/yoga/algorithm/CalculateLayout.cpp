@@ -38,6 +38,11 @@ std::atomic<uint32_t> gCurrentGenerationCount(0);
 // Layout cache logging — enabled via YGNodeLayoutSetLogging()
 static bool gLayoutLoggingEnabled = false;
 
+// Lenient cache matching for speculative layout — enabled via
+// YGSetSpeculativeLayoutEnabled(). When true, cachedLayout results
+// computed with different sizing modes can be reused if compatible.
+static bool gSpeculativeLayoutEnabled = false;
+
 static void constrainMaxSizeForMode(
     const yoga::Node* node,
     Direction direction,
@@ -2674,7 +2679,7 @@ bool calculateLayoutInternal(
         layout->cachedLayout.widthSizingMode == widthSizingMode &&
         layout->cachedLayout.heightSizingMode == heightSizingMode) {
       cachedResults = &layout->cachedLayout;
-    } else {
+    } else if (gSpeculativeLayoutEnabled) {
       // Lenient check: the cached layout may have been computed with
       // different entry-point sizing modes (e.g., speculative layout)
       // but the result is still compatible with the current constraints.
@@ -2937,6 +2942,10 @@ void calculateLayout(
 
 void setLayoutLogging(bool enabled) {
   gLayoutLoggingEnabled = enabled;
+}
+
+void setSpeculativeLayoutEnabled(bool enabled) {
+  gSpeculativeLayoutEnabled = enabled;
 }
 
 } // namespace facebook::yoga

@@ -125,6 +125,10 @@ void YGLayoutSetLogging(bool enabled) {
   yoga::setLayoutLogging(enabled);
 }
 
+void YGSetSpeculativeLayoutEnabled(bool enabled) {
+  yoga::setSpeculativeLayoutEnabled(enabled);
+}
+
 void YGNodeSetDirtiedFunc(YGNodeRef node, YGDirtiedFunc dirtiedFunc) {
   resolveRef(node)->setDirtiedFunc(dirtiedFunc);
 }

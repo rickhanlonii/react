@@ -115,6 +115,12 @@ YG_EXPORT void YGNodeMarkDirtyNonLeaf(YGNodeRef node);
  */
 YG_EXPORT void YGLayoutSetLogging(bool enabled);
 
+/**
+ * Enable/disable speculative layout mode. When enabled, cached layout
+ * results can be reused even if sizing modes differ (lenient matching).
+ */
+YG_EXPORT void YGSetSpeculativeLayoutEnabled(bool enabled);
+
 typedef void (*YGDirtiedFunc)(YGNodeConstRef node);
 
 /**

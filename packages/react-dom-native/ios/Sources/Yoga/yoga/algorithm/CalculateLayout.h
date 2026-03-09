@@ -22,6 +22,8 @@ void calculateLayout(
 
 void setLayoutLogging(bool enabled);
 
+void setSpeculativeLayoutEnabled(bool enabled);
+
 bool calculateLayoutInternal(
     yoga::Node* node,
     float availableWidth,
