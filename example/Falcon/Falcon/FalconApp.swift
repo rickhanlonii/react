@@ -156,6 +156,7 @@ struct CategoryListView: View {
                 }
                 .padding(.vertical, 4)
             }
+            .accessibilityIdentifier("category-\(category.category)")
         }
         .navigationTitle("Fixtures")
         .onAppear {
@@ -196,6 +197,7 @@ struct FixtureListView: View {
                 }
                 .padding(.vertical, 4)
             }
+            .accessibilityIdentifier("fixture-\(fixture.name)")
         }
         .navigationTitle(category)
     }

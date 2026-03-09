@@ -4,11 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import * as consoleTools from './console.js';
 import * as navigateTools from './navigate.js';
 import * as pagesTools from './pages.js';
 import * as performanceTools from './performance.js';
-import * as scriptTools from './script.js';
 import * as snapshotTools from './snapshot.js';
 import type {DefinedPageTool, ToolDefinition} from './ToolDefinition.js';
 
@@ -27,11 +25,9 @@ function isToolDefinition(value: unknown): value is AnyTool {
 
 export const createTools = (): AnyTool[] => {
   const allValues: unknown[] = [
-    ...Object.values(consoleTools),
     ...Object.values(navigateTools),
     ...Object.values(pagesTools),
     ...Object.values(performanceTools),
-    ...Object.values(scriptTools),
     ...Object.values(snapshotTools),
   ];
 

@@ -51,17 +51,24 @@ Pick the right tool for what you're investigating:
 - **UI structure**: `npm run app:snapshot-ui` — accessibility tree with element types, labels, frames, IDs
 - **Visual rendering**: `npm run app:screenshot` — capture what the user sees
 - **App logs**: `npm run app:log-start` (relaunches app with stdout capture) → `npm run app:log-read` → `npm run app:log-stop` — captures Swift `print()` output
-- **JS runtime** (console, eval, profiling): Use the `falcon-devtools` MCP tools (e.g. `evaluate_script`, `list_console_messages`) to interact with the app's JSC runtime
+- **JS runtime** (console, eval): Use app log capture — `npm run app:log-start` → `npm run app:log-read` → `npm run app:log-stop`
 - **Native runtime** (Swift/UIKit): `npm run app:debug-lldb -- demo "<command>"` — run LLDB commands against the running app
 - **Performance traces**: Use `falcon-devtools` MCP tools (`performance_start_trace`/`performance_stop_trace`) to capture Chrome DevTools traces, or `npm run test:trace` to validate trace event format
 
 ## Coding Conventions
 
-- **Always set `id` on interactive elements.** Every `<button>`, `<input>`, and other interactive element must have an `id` prop. The `id` maps to `accessibilityIdentifier` on UIKit views, enabling UI automation to target elements by ID instead of coordinates. Use descriptive, kebab-case IDs (e.g. `id="counter-increment"`, `id="login-submit"`).
+- **Always set `id` on interactive elements.** Every `<button>`, `<input>`, and other interactive element must have an `id` prop. The `id` maps to `accessibilityIdentifier` on UIKit views and marks them as accessibility elements (`isAccessibilityElement = true`), enabling UI automation to target elements by ID. Use descriptive, kebab-case IDs (e.g. `id="counter-increment"`, `id="login-submit"`).
+
+## UI Automation
+
+- **Always tap by ID, never by coordinates.** Use `npm run app:tap -- demo "id:<elementId>"` to tap elements. Coordinate-based tapping is not supported.
+- **Workflow**: `snapshot-ui` to find element IDs → `tap` by ID → `screenshot` to verify.
+- **If a tap fails with "No accessibility element matched"**, the element is missing an `id` prop in JSX. Add `id="descriptive-name"` to the element — the `id` prop automatically sets both `accessibilityIdentifier` and `isAccessibilityElement = true` on the UIKit view.
 
 ## Debugging Rules
 
 - **Trust the user's bug reports.** When the user reports a visual bug and attributes it to a change, investigate immediately — don't argue about theoretical correctness. The user can see the screen. Reproduce first, theorize later.
+- **Verify the app is alive before and after traces.** Take a screenshot or snapshot-ui. If either returns empty or errors, the app has crashed — rebuild before retrying. A trace with zero custom track events almost always means a crash.
 
 ## Rules
 

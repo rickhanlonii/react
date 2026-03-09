@@ -23,6 +23,7 @@
     "e2e:check": "node tests/e2e/scripts/check.js",
     "e2e:test": "node tests/e2e/scripts/test.js",
     "test:trace": "node example/scripts/test-trace.js",
+    "perf": "node scripts/perf-profile.js",
     "build-server": "node scripts/build-server.js",
     "test:e2e-swift": "bash scripts/build-op.sh test-e2e-swift",
     "app:run": "bash scripts/build-op.sh run",

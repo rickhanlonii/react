@@ -3,7 +3,7 @@
 const React = require('react');
 const {useState, useCallback, useMemo} = React;
 
-const ITEM_COUNT = 50;
+const ITEM_COUNT = 200;
 
 const colors = {
   bg: '#f2f2f7',

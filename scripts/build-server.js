@@ -185,7 +185,7 @@ function exec(command, args, timeout, cwd) {
     proc.stdout.on('data', d => { stdout += d; });
     proc.stderr.on('data', d => { stderr += d; });
 
-    proc.on('close', (code) => resolve({ code, stdout, stderr }));
+    proc.on('close', (code) => resolve({ code: code ?? 1, stdout, stderr }));
     proc.on('error', (err) => resolve({ code: 1, stdout: '', stderr: err.message }));
   });
 }
@@ -362,8 +362,7 @@ function buildAxeArgs(operation, body, simulatorId) {
       if (body.id) { args.push('--id', assertString(body.id, 'id')); }
       else if (body.label) { args.push('--label', assertString(body.label, 'label')); }
       else {
-        args.push('-x', String(assertNumber(body.x, 'x')),
-                   '-y', String(assertNumber(body.y, 'y')));
+        throw new Error('tap requires "id" or "label"');
       }
       break;
     case 'swipe':
@@ -463,8 +462,51 @@ function handleDebugAttach(res, target) {
     }
   }
 
-  // Use -o to run the attach command on startup (works without a TTY)
-  const proc = spawn('lldb', ['-o', `process attach --name ${t.processName}`], {
+  // Find the app's PID via simctl — more reliable than name-based attach for simulator processes
+  const { execSync } = require('child_process');
+  const lldbPath = execSync('xcrun --find lldb', { encoding: 'utf8' }).trim();
+  let pid;
+  try {
+    const listOutput = execSync(
+      `xcrun simctl spawn ${t.simulatorId} launchctl list`, { encoding: 'utf8' }
+    );
+    const match = listOutput.split('\n').find(l => l.includes(t.bundleId));
+    if (match) pid = match.trim().split(/\s+/)[0];
+  } catch (e) { /* fall through to name-based attach */ }
+
+  if (!pid || pid === '-') {
+    console.log(`\n> [${target}/debug-attach] FAILED: app is not running`);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      code: 1,
+      stdout: `App "${t.processName}" is not running. Launch it first with: npm run app:run`,
+      stderr: '',
+    }));
+    return;
+  }
+
+  // Check if the process is already being debugged (e.g. by Xcode)
+  try {
+    const ppidOutput = execSync(`ps -o ppid= -p ${pid}`, { encoding: 'utf8' }).trim();
+    const ppid = parseInt(ppidOutput, 10);
+    if (ppid) {
+      const parentComm = execSync(`ps -o comm= -p ${ppid}`, { encoding: 'utf8' }).trim();
+      if (parentComm.includes('debugserver')) {
+        console.log(`\n> [${target}/debug-attach] FAILED: app is under Xcode debugger (debugserver pid ${ppid})`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          code: 1,
+          stdout: `App is being debugged by Xcode (debugserver pid ${ppid}). ` +
+            `Terminate and relaunch without Xcode first:\n  npm run app:terminate && npm run app:run`,
+          stderr: '',
+        }));
+        return;
+      }
+    }
+  } catch (e) { /* ignore — proceed with attach */ }
+
+  const attachCmd = `process attach --pid ${pid}`;
+  const proc = spawn(lldbPath, ['-o', attachCmd], {
     cwd: PROJECT_ROOT,
     env: { ...process.env },
   });
@@ -479,15 +521,19 @@ function handleDebugAttach(res, target) {
     debugState[target] = {};
   });
 
-  // Wait for output indicating attach result
-  const timeout = 15000;
+  // Wait for output indicating attach result.
+  // Xcode's LLDB outputs "Target 0: (Falcon) stopped." while Meta's LLDB
+  // outputs "Process <pid> stopped", so we match both patterns.
+  const timeout = 20000;
   const start = Date.now();
   const poll = setInterval(() => {
     const hasError = buffer.includes('error:');
-    const hasAttached = buffer.includes('Process') && buffer.includes('stopped');
+    const hasAttached = buffer.includes('stopped') && (
+      buffer.includes('Process') || buffer.includes('Target')
+    );
     if (hasError || hasAttached) {
       clearInterval(poll);
-      console.log(`\n> [${target}/debug-attach] ${hasError ? 'FAILED' : 'attached to ' + t.processName}`);
+      console.log(`\n> [${target}/debug-attach] ${hasError ? 'FAILED' : 'attached to ' + t.processName + ' (pid ' + pid + ')'}`);
       if (hasError) {
         proc.stdin.write('quit\n');
         debugState[target] = {};

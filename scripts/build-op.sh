@@ -134,9 +134,7 @@ fi
 build_json_body() {
   case "$OPERATION" in
     tap)
-      if [ -n "${3:-}" ] && [ -n "${4:-}" ]; then
-        echo "{\"x\":$3,\"y\":$4}"
-      elif [ -n "${3:-}" ] && [[ "$3" == id:* ]]; then
+      if [ -n "${3:-}" ] && [[ "$3" == id:* ]]; then
         echo "{\"id\":\"${3#id:}\"}"
       elif [ -n "${3:-}" ]; then
         echo "{\"label\":\"$3\"}"
@@ -181,7 +179,7 @@ if curl -sf "http://localhost:$BUILD_SERVER_PORT/healthz" > /dev/null 2>&1; then
     RESPONSE=$(curl -sf -X POST "$BS_URL")
   fi
 
-  EXIT_CODE=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('code', 1))" 2>/dev/null || echo 1)
+  EXIT_CODE=$(echo "$RESPONSE" | python3 -c "import sys,json; c=json.load(sys.stdin).get('code',1); print(0 if c is None else int(c))" 2>/dev/null || echo 1)
   STDOUT=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('stdout', ''))" 2>/dev/null || echo "")
   STDERR=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('stderr', ''))" 2>/dev/null || echo "")
 
@@ -262,14 +260,12 @@ case "$OPERATION" in
     ;;
   # UI automation — direct axe fallback
   tap)
-    if [ -n "${3:-}" ] && [ -n "${4:-}" ]; then
-      "$AXE_PATH" tap -x "$3" -y "$4" --udid "$SIMULATOR_ID"
-    elif [ -n "${3:-}" ] && [[ "$3" == id:* ]]; then
+    if [ -n "${3:-}" ] && [[ "$3" == id:* ]]; then
       "$AXE_PATH" tap --id "${3#id:}" --udid "$SIMULATOR_ID"
     elif [ -n "${3:-}" ]; then
       "$AXE_PATH" tap --label "$3" --udid "$SIMULATOR_ID"
     else
-      echo "Usage: build-op.sh tap [target] <x> <y>  or  build-op.sh tap [target] <id:elementId>  or  build-op.sh tap [target] <label>"
+      echo "Usage: build-op.sh tap [target] <id:elementId>  or  build-op.sh tap [target] <label>"
       exit 1
     fi
     ;;
