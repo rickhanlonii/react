@@ -11,7 +11,7 @@
 #              tap, swipe, gesture, type-text, long-press, touch, button,
 #              key-press, key-sequence, snapshot-ui,
 #              debug-attach, debug-detach, debug-lldb, debug-stack, debug-variables
-# Targets: demo (default), e2e
+# Targets: demo (default), e2e, standalone
 
 set -euo pipefail
 
@@ -42,7 +42,7 @@ if [ -z "$OPERATION" ]; then
   echo "            test-swift, test-e2e-swift, tap, swipe, gesture, type-text, long-press,"
   echo "            touch, button, key-press, key-sequence, snapshot-ui,"
   echo "            debug-attach, debug-detach, debug-lldb, debug-stack, debug-variables"
-  echo "Targets: demo, e2e"
+  echo "Targets: demo, e2e, standalone"
   exit 1
 fi
 
@@ -66,8 +66,15 @@ case "$TARGET" in
     BUNDLE_ID="com.react.LayoutCompare"
     SCREENSHOT_PATH="/tmp/e2e-screenshot.png"
     ;;
+  standalone)
+    PROJECT_PATH="Demo/Demo.xcodeproj"
+    SCHEME="Demo"
+    SIMULATOR_ID="079D4CB9-AD9A-4F2A-B8D9-86315BDDEAA4"
+    BUNDLE_ID="com.react.Demo"
+    SCREENSHOT_PATH="/tmp/standalone-screenshot.png"
+    ;;
   *)
-    echo "[build-op] Unknown target: $TARGET (use 'demo' or 'e2e')"
+    echo "[build-op] Unknown target: $TARGET (use 'demo', 'e2e', or 'standalone')"
     exit 1
     ;;
 esac

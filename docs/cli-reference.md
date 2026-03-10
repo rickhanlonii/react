@@ -39,7 +39,7 @@ Choose the right tool based on what you're investigating:
 
 ## UI Automation
 
-Interact with the running app programmatically. All commands target the demo app by default; pass `e2e` as the second arg for LayoutCompare.
+Interact with the running app programmatically. All commands target the demo app by default; pass `e2e` for LayoutCompare or `standalone` for the standalone Demo app.
 
 - `npm run app:tap -- demo "id:<elementId>"` — tap an element by its `id` prop (maps to `accessibilityIdentifier`)
 - `npm run app:tap -- demo "<label>"` — tap an element by its accessibility label

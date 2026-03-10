@@ -6,9 +6,10 @@
 // Start in a separate terminal: node scripts/build-server.js
 // Claude can then POST operations: POST http://localhost:6002/<operation>/<target>
 //
-// Supports two targets:
+// Supports three targets:
 //   "demo" (default) — Falcon demo app on "Falcon Demo" simulator
 //   "e2e"            — LayoutCompare app on "Falcon E2E" simulator
+//   "standalone"     — Standalone Demo app on "Demo" simulator
 
 const http = require('http');
 const { spawn } = require('child_process');
@@ -41,6 +42,15 @@ const TARGETS = {
     screenshotPath: '/tmp/e2e-screenshot.png',
     logPath: '/tmp/e2e-sim.log',
     processName: 'LayoutCompare',
+  },
+  standalone: {
+    projectPath: 'Demo/Demo.xcodeproj',
+    scheme: 'Demo',
+    simulatorId: '079D4CB9-AD9A-4F2A-B8D9-86315BDDEAA4',
+    bundleId: 'com.react.Demo',
+    screenshotPath: '/tmp/standalone-screenshot.png',
+    logPath: '/tmp/standalone-sim.log',
+    processName: 'Demo',
   },
 };
 
@@ -497,7 +507,7 @@ function handleDebugAttach(res, target) {
         res.end(JSON.stringify({
           code: 1,
           stdout: `App is being debugged by Xcode (debugserver pid ${ppid}). ` +
-            `Terminate and relaunch without Xcode first:\n  npm run app:terminate && npm run app:run`,
+            `Terminate and relaunch without Xcode first.`,
           stderr: '',
         }));
         return;
@@ -704,6 +714,10 @@ async function handleRun(res, target) {
     res.end(JSON.stringify({ error: 'Could not resolve app path from build settings.' }));
     return;
   }
+
+  // 2.5. Boot simulator if needed
+  const bootResult = await exec('xcrun', ['simctl', 'boot', t.simulatorId], 30000);
+  // Ignore errors — already booted returns non-zero
 
   // 3. Install
   const installCmd = commands.install;

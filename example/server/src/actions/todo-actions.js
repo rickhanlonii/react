@@ -5,10 +5,13 @@
 // (clearServerSourceCache() wipes module-scoped vars on every request).
 if (!globalThis.__todoStore) {
   globalThis.__todoStore = {
-    nextId: 3,
+    nextId: 6,
     todos: [
       {id: 1, text: 'Learn React Server Components', completed: true},
-      {id: 2, text: 'Build with Server Actions', completed: false},
+      {id: 2, text: 'Build with Server Actions', completed: true},
+      {id: 3, text: 'Add Suspense loading states', completed: true},
+      {id: 4, text: 'Try Partial Prerendering', completed: false},
+      {id: 5, text: 'Ship it!', completed: false},
     ],
   };
 }
