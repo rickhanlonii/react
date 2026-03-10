@@ -2,7 +2,6 @@ const React = require('react');
 const {Suspense} = React;
 const {getTodos, updateTodos} = require('../actions/todo-actions');
 const TodoApp = require('../components/TodoApp');
-const TodoAppItem = require('../components/TodoAppItem');
 
 const fixture = {
   title: 'Demo Todo',
@@ -52,38 +51,26 @@ function TodoListSkeleton() {
   );
 }
 
-async function DelayedTodoItem({todo, delay}) {
-  await new Promise(resolve => setTimeout(resolve, delay));
-  return <TodoAppItem todo={todo} />;
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 async function TodoListSection() {
   // Simulate fetching the todo list from a database
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await delay(500);
   const todos = getTodos();
+
+  // Create a staggered delay promise per todo for Suspense streaming
+  var todoPromises = {};
+  todos.forEach(function(todo, index) {
+    todoPromises[todo.id] = delay((index + 1) * 50);
+  });
+
   return (
     <TodoApp
       initialTodos={todos}
-      updateTodos={updateTodos}>
-      {todos.map(function(todo, index) {
-        return (
-          <div key={todo.id}>
-            <Suspense fallback={<SkeletonRow />}>
-              <DelayedTodoItem todo={todo} delay={(index + 1) * 50} />
-            </Suspense>
-            {index < todos.length - 1 ? (
-              <div
-                style={{
-                  height: 1,
-                  backgroundColor: colors.divider,
-                  marginLeft: 40,
-                }}
-              />
-            ) : null}
-          </div>
-        );
-      })}
-    </TodoApp>
+      updateTodos={updateTodos}
+      todoPromises={todoPromises} />
   );
 }
 
@@ -107,13 +94,6 @@ function App() {
           Powered by React Server Components
         </p>
       </div>
-
-      {/* Search bar — part of the static shell, renders immediately */}
-      <input
-        type="search"
-        placeholder="Search todos123..."
-        style={{width: '100%', height: 44}}
-      />
 
       {/* Dynamic section — fetches the list then renders with optimistic UI */}
       <Suspense fallback={<TodoListSkeleton />}>

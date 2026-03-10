@@ -66,8 +66,39 @@ function getTodos(query) {
 }
 
 async function updateTodos(previousState, formData) {
-  var text = formData && (typeof formData.get === 'function' ? formData.get('text') : formData.text);
-  var query = formData && (typeof formData.get === 'function' ? formData.get('query') : formData.query);
+  console.log('form data', formData)
+  var get = formData && typeof formData.get === 'function'
+    ? function(k) { return formData.get(k); }
+    : function(k) { return formData && formData[k]; };
+
+  var action = get('_action');
+  var id = get('_id');
+  var text = get('text');
+  var query = get('query');
+
+  // Toggle mode
+  if (action === 'toggle' && id != null) {
+    var toggleId = Number(id);
+    for (var i = 0; i < todos.length; i++) {
+      if (todos[i].id === toggleId) {
+        todos[i] = Object.assign({}, todos[i], {completed: !todos[i].completed});
+        break;
+      }
+    }
+    return {todos: getTodos(previousState.query), query: previousState.query, addError: null};
+  }
+
+  // Delete mode
+  if (action === 'delete' && id != null) {
+    var deleteId = Number(id);
+    for (var j = 0; j < todos.length; j++) {
+      if (todos[j].id === deleteId) {
+        todos.splice(j, 1);
+        break;
+      }
+    }
+    return {todos: getTodos(previousState.query), query: previousState.query, addError: null};
+  }
 
   // Add mode — text field present
   if (text != null) {
@@ -78,11 +109,16 @@ async function updateTodos(previousState, formData) {
     return {todos: getTodos(previousState.query), query: previousState.query, addError: null};
   }
 
-  // Search mode — query field present
-  if (!query || typeof query !== 'string' || query.trim() === '') {
-    return {todos: getTodos(), query: '', addError: null};
+  // Search mode
+  if (action === 'search') {
+    if (!query || typeof query !== 'string' || query.trim() === '') {
+      return {todos: getTodos(), query: '', addError: null};
+    }
+    return {todos: getTodos(query), query: query.trim(), addError: null};
   }
-  return {todos: getTodos(query), query: query.trim(), addError: null};
+
+  // Default — return current state unchanged
+  return {todos: getTodos(previousState.query), query: previousState.query || '', addError: null};
 }
 
 exports.addTodo = addTodo;

@@ -19,7 +19,7 @@ const card = {
   paddingRight: 16,
 };
 
-function TodoApp({initialTodos, updateTodos, children}) {
+function TodoApp({initialTodos, updateTodos, todoPromises}) {
   const [state, dispatch] = useActionState(updateTodos, {
     todos: initialTodos,
     query: '',
@@ -36,6 +36,14 @@ function TodoApp({initialTodos, updateTodos, children}) {
         return current.filter(function(t) { return t.id !== action.id; });
       case 'add':
         return current.concat({id: -Date.now(), text: action.text, completed: false});
+      case 'search':
+        if (!action.query || action.query.trim() === '') {
+          return current;
+        }
+        var q = action.query.trim().toLowerCase();
+        return current.filter(function(t) {
+          return t.text.toLowerCase().indexOf(q) !== -1;
+        });
       default:
         return current;
     }
@@ -44,12 +52,27 @@ function TodoApp({initialTodos, updateTodos, children}) {
   return (
     <TodoContext.Provider value={{dispatch: dispatch, addOptimistic: addOptimistic}}>
       <div style={{display: 'flex', flexDirection: 'column', gap: 14}}>
+        <form
+          action={dispatch}
+          onSubmit={function(e) {
+            var input = e.target.elements.query;
+            var query = input && input.value;
+            addOptimistic({type: 'search', query: query || ''});
+          }}>
+          <input type="hidden" name="_action" value="search" />
+          <input
+            id="todo-search"
+            type="search"
+            name="query"
+            placeholder="Search todos..."
+            style={{width: '100%', height: 44, fontSize: 16}}
+          />
+        </form>
         <div style={card}>
           <TodoAppList
             todos={optimisticTodos}
-            addError={state.addError}>
-            {children}
-          </TodoAppList>
+            addError={state.addError}
+            todoPromises={todoPromises} />
         </div>
       </div>
     </TodoContext.Provider>
