@@ -79,6 +79,7 @@ struct FalconApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var store = FixtureStore()
     @State private var path = NavigationPath()
+    @State private var currentFixture: String? = nil
     @AppStorage("renderingMode") private var renderingMode: String = RenderingMode.hydrated.rawValue
 
     var body: some Scene {
@@ -94,6 +95,8 @@ struct FalconApp: App {
                         case .fixture(let name):
                             FixtureDetailView(fixtureName: name)
                                 .environmentObject(store)
+                                .onAppear { currentFixture = name }
+                                .onDisappear { if currentFixture == name { currentFixture = nil } }
                         }
                     }
             }
@@ -101,13 +104,19 @@ struct FalconApp: App {
                 guard let fixture = notification.userInfo?["fixture"] as? String,
                       let variant = notification.userInfo?["variant"] as? String else { return }
 
+                // Set the rendering mode
+                renderingMode = variant
+
+                // If already on this fixture, just changing renderingMode is enough —
+                // FixtureRootView uses .id(renderingMode) so SwiftUI recreates it.
+                if currentFixture == fixture {
+                    return
+                }
+
                 // Find the category for this fixture
                 let category = store.categories.first(where: {
                     $0.fixtures.contains(where: { $0.name == fixture })
                 })?.category
-
-                // Set the rendering mode
-                renderingMode = variant
 
                 // Navigate: reset to root, then push category + fixture
                 path = NavigationPath()
@@ -115,6 +124,7 @@ struct FalconApp: App {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         path.append(NavDestination.category(category))
                         path.append(NavDestination.fixture(fixture))
+                        currentFixture = fixture
                     }
                 }
             }
@@ -227,16 +237,39 @@ struct FixtureDetailView: View {
             FixtureRootView(fixtureName: fixtureName, renderingMode: renderingMode)
                 .id(renderingMode)
             if fixtureConfig?.hideNavBar == true {
-                Button(action: { dismiss() }) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.primary)
-                        .frame(width: 36, height: 36)
-                        .background(.ultraThinMaterial)
-                        .clipShape(Circle())
+                HStack {
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(.primary)
+                            .frame(width: 36, height: 36)
+                            .background(.ultraThinMaterial)
+                            .clipShape(Circle())
+                    }
+                    Spacer()
+                    Menu {
+                        ForEach(RenderingMode.allCases, id: \.rawValue) { mode in
+                            Button {
+                                renderingMode = mode.rawValue
+                            } label: {
+                                if renderingMode == mode.rawValue {
+                                    Label(mode.label, systemImage: "checkmark")
+                                } else {
+                                    Text(mode.label)
+                                }
+                            }
+                        }
+                    } label: {
+                        Text(RenderingMode(rawValue: renderingMode)?.label ?? "Hydrated")
+                            .font(.subheadline.weight(.medium))
+                            .padding(.horizontal, 12)
+                            .frame(height: 36)
+                            .background(.ultraThinMaterial)
+                            .clipShape(Capsule())
+                    }
                 }
                 .padding(.top, 8)
-                .padding(.leading, 12)
+                .padding(.horizontal, 12)
             }
         }
             .background(backgroundColor.ignoresSafeArea())

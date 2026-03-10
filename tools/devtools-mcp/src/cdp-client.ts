@@ -71,13 +71,24 @@ export class CDPClient {
     });
   }
 
-  /** Connect to the first available target */
+  /** Connect to the first available target (only if there is exactly one) */
   async connect(): Promise<void> {
     const targets = await this.discoverTargets();
-    if (targets.length === 0) {
+    const pages = targets.filter(t => t.type === 'page');
+    if (pages.length === 0) {
       throw new Error('No targets found at inspector proxy');
     }
-    const target = targets[0];
+    if (pages.length > 1) {
+      const listing = pages
+        .map(
+          (t, i) => `  [${i}] ${t.title || '(untitled)'} — ${t.url}`,
+        )
+        .join('\n');
+      throw new Error(
+        `Multiple pages are available. Use the select_page tool to choose one before running this command:\n\n${listing}`,
+      );
+    }
+    const target = pages[0];
     logger(`CDP: connecting to target "${target.title}" (${target.id})`);
     this.#wsUrl = target.webSocketDebuggerUrl;
     await this.#connectWs(this.#wsUrl);
