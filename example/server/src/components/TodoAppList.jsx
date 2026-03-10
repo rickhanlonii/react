@@ -1,6 +1,7 @@
 'use client';
 
 const React = require('react');
+const TodoContext = require('./TodoContext');
 const TodoAppItem = require('./TodoAppItem');
 
 const colors = {
@@ -8,7 +9,11 @@ const colors = {
   divider: '#e5e5ea',
 };
 
-function TodoAppList({todos, toggleTodo, deleteTodo, dispatch, addError}) {
+function TodoAppList({todos, addError, children}) {
+  var ctx = React.useContext(TodoContext);
+  var dispatch = ctx.dispatch;
+  var addOptimistic = ctx.addOptimistic;
+
   if (todos.length === 0) {
     return (
       <div>
@@ -18,7 +23,15 @@ function TodoAppList({todos, toggleTodo, deleteTodo, dispatch, addError}) {
           </p>
         </div>
         <div style={{height: 1, backgroundColor: colors.divider}} />
-        <form action={dispatch}>
+        <form
+          action={dispatch}
+          onSubmit={function(e) {
+            var input = e.target.elements.text;
+            var text = input && input.value && input.value.trim();
+            if (text) {
+              addOptimistic({type: 'add', text: text});
+            }
+          }}>
           <input
             id="todo-add-input"
             name="text"
@@ -35,18 +48,14 @@ function TodoAppList({todos, toggleTodo, deleteTodo, dispatch, addError}) {
     );
   }
 
-  const remaining = todos.filter(function(t) { return !t.completed; }).length;
+  var remaining = todos.filter(function(t) { return !t.completed; }).length;
 
   return (
     <div>
-      {todos.map(function(todo, index) {
+      {children ? children : todos.map(function(todo, index) {
         return (
           <div key={todo.id}>
-            <TodoAppItem
-              todo={todo}
-              toggleTodo={toggleTodo.bind(null, todo.id)}
-              deleteTodo={deleteTodo.bind(null, todo.id)}
-            />
+            <TodoAppItem todo={todo} />
             {index < todos.length - 1 ? (
               <div
                 style={{
@@ -61,7 +70,15 @@ function TodoAppList({todos, toggleTodo, deleteTodo, dispatch, addError}) {
       })}
       {/* Inline add input */}
       <div style={{height: 1, backgroundColor: colors.divider, marginLeft: 40}} />
-      <form action={dispatch}>
+      <form
+        action={dispatch}
+        onSubmit={function(e) {
+          var input = e.target.elements.text;
+          var text = input && input.value && input.value.trim();
+          if (text) {
+            addOptimistic({type: 'add', text: text});
+          }
+        }}>
         <input
           id="todo-add-input"
           name="text"

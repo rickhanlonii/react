@@ -1,6 +1,7 @@
 'use client';
 
 const React = require('react');
+const TodoContext = require('./TodoContext');
 
 const colors = {
   text: '#1c1c1e',
@@ -13,7 +14,10 @@ const colors = {
   uncheckBorder: '#d1d1d6',
 };
 
-function TodoAppItem({todo, toggleTodo, deleteTodo}) {
+function TodoAppItem({todo}) {
+  var ctx = React.useContext(TodoContext);
+  var dispatch = ctx.dispatch;
+  var addOptimistic = ctx.addOptimistic;
   return (
     <div
       style={{
@@ -24,8 +28,15 @@ function TodoAppItem({todo, toggleTodo, deleteTodo}) {
         paddingBottom: 12,
         gap: 14,
       }}>
-      {/* Checkbox - wrapped in form for MPA */}
-      <form action={toggleTodo} style={{display: 'contents'}}>
+      {/* Checkbox - form with hidden fields for MPA, onSubmit for optimistic */}
+      <form
+        action={dispatch}
+        onSubmit={function() {
+          addOptimistic({type: 'toggle', id: todo.id});
+        }}
+        style={{display: 'contents'}}>
+        <input type="hidden" name="_action" value="toggle" />
+        <input type="hidden" name="_id" value={todo.id} />
         <button
           id={'todo-toggle-' + todo.id}
           type="submit"
@@ -61,8 +72,15 @@ function TodoAppItem({todo, toggleTodo, deleteTodo}) {
         </p>
       </div>
 
-      {/* Delete button - wrapped in form for MPA */}
-      <form action={deleteTodo} style={{display: 'contents'}}>
+      {/* Delete button - form with hidden fields for MPA, onSubmit for optimistic */}
+      <form
+        action={dispatch}
+        onSubmit={function() {
+          addOptimistic({type: 'delete', id: todo.id});
+        }}
+        style={{display: 'contents'}}>
+        <input type="hidden" name="_action" value="delete" />
+        <input type="hidden" name="_id" value={todo.id} />
         <button
           id={'todo-delete-' + todo.id}
           type="submit"

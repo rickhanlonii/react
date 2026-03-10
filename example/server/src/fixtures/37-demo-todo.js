@@ -1,12 +1,12 @@
 const React = require('react');
 const {Suspense} = React;
-const {getTodos, toggleTodo, deleteTodo, updateTodos} = require('../actions/todo-actions');
+const {getTodos, updateTodos} = require('../actions/todo-actions');
 const TodoApp = require('../components/TodoApp');
 const TodoAppItem = require('../components/TodoAppItem');
 
 const fixture = {
   title: 'Demo Todo',
-  description: 'Standalone demo — Todo app with Suspense loading',
+  description: 'Standalone demo — Todo app with optimistic UI',
   category: 'Full Pages',
   config: {
     hideNavBar: true,
@@ -40,47 +40,47 @@ function SkeletonRow() {
   );
 }
 
-async function DelayedTodoItem({todo, delay, isLast}) {
-  await new Promise(resolve => setTimeout(resolve, delay));
+function TodoListSkeleton() {
   return (
-    <div>
-      <TodoAppItem
-        todo={todo}
-        toggleTodo={toggleTodo.bind(null, todo.id)}
-        deleteTodo={deleteTodo.bind(null, todo.id)}
-      />
-      {!isLast ? (
-        <div style={{height: 1, backgroundColor: colors.divider, marginLeft: 40}} />
-      ) : null}
+    <div style={card}>
+      <SkeletonRow />
+      <div style={{height: 1, backgroundColor: colors.divider, marginLeft: 38}} />
+      <SkeletonRow />
+      <div style={{height: 1, backgroundColor: colors.divider, marginLeft: 38}} />
+      <SkeletonRow />
     </div>
   );
 }
 
-function TodoListSection() {
+async function DelayedTodoItem({todo, delay}) {
+  await new Promise(resolve => setTimeout(resolve, delay));
+  return <TodoAppItem todo={todo} />;
+}
+
+async function TodoListSection() {
+  // Simulate fetching the todo list from a database
+  await new Promise(resolve => setTimeout(resolve, 500));
   const todos = getTodos();
   return (
     <TodoApp
       initialTodos={todos}
-      updateTodos={updateTodos}
-      toggleTodo={toggleTodo}
-      deleteTodo={deleteTodo}
-    >
+      updateTodos={updateTodos}>
       {todos.map(function(todo, index) {
         return (
-          <Suspense key={todo.id} fallback={
-            <div>
-              <SkeletonRow />
-              {index < todos.length - 1 ? (
-                <div style={{height: 1, backgroundColor: colors.divider, marginLeft: 38}} />
-              ) : null}
-            </div>
-          }>
-            <DelayedTodoItem
-              todo={todo}
-              delay={(index + 1) * 150}
-              isLast={index === todos.length - 1}
-            />
-          </Suspense>
+          <div key={todo.id}>
+            <Suspense fallback={<SkeletonRow />}>
+              <DelayedTodoItem todo={todo} delay={(index + 1) * 50} />
+            </Suspense>
+            {index < todos.length - 1 ? (
+              <div
+                style={{
+                  height: 1,
+                  backgroundColor: colors.divider,
+                  marginLeft: 40,
+                }}
+              />
+            ) : null}
+          </div>
         );
       })}
     </TodoApp>
@@ -111,12 +111,14 @@ function App() {
       {/* Search bar — part of the static shell, renders immediately */}
       <input
         type="search"
-        placeholder="Search todos..."
+        placeholder="Search todos123..."
         style={{width: '100%', height: 44}}
       />
 
-      {/* Dynamic section — each item streams in with increasing delay */}
-      <TodoListSection />
+      {/* Dynamic section — fetches the list then renders with optimistic UI */}
+      <Suspense fallback={<TodoListSkeleton />}>
+        <TodoListSection />
+      </Suspense>
     </div>
   );
 }
