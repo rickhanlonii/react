@@ -39,6 +39,12 @@ public class ShadowTreeBuilder {
     /// Surface ID for ShadowNodeFamily
     public let surfaceId: Int
 
+    /// Old tree cursor for MPA reconciliation — tracks position in previous tree.
+    /// When set, openElement/textNode reuse ShadowNodeFamily from matching old nodes.
+    private var oldTreeStack: [(children: [ShadowNodeWrapper], index: Int)] = []
+    private var oldRootChildren: [ShadowNodeWrapper]?
+    private var oldRootIndex: Int = 0
+
     /// Callback invoked when the root shell is complete and views are ready
     public var onRootComplete: (([ShadowNodeWrapper]) -> Void)?
 
@@ -81,23 +87,62 @@ public class ShadowTreeBuilder {
         YGNodeStyleSetWidth(rootYogaNode, width)
     }
 
+    /// Set the old committed tree for reconciliation. When set, new nodes
+    /// will reuse ShadowNodeFamily from the old tree when types match at
+    /// the same position, enabling UPDATE mutations instead of CREATE+DELETE.
+    public func setOldTree(_ oldChildren: [ShadowNodeWrapper]) {
+        self.oldRootChildren = oldChildren
+        self.oldRootIndex = 0
+    }
+
     /// Open an element — creates a ShadowNodeWrapper and pushes to stack.
+    /// If an old tree cursor is set and the old node at this position has the
+    /// same type, the new node reuses the old ShadowNodeFamily (enabling
+    /// UPDATE mutations instead of CREATE+DELETE).
     public func openElement(type: String, props: [String: Any]) {
-        let node = ShadowNodeWrapper.createElementNode(
-            type: type,
-            props: props,
-            surfaceId: surfaceId
-        )
+        let oldMatch = matchOldNode(type: type)
+
+        let node: ShadowNodeWrapper
+        if let oldNode = oldMatch {
+            // Type matches — create node reusing old family
+            node = ShadowNodeWrapper.createElementNode(
+                type: type,
+                props: props,
+                surfaceId: surfaceId,
+                reuseFamily: oldNode.family
+            )
+            // Push old node's children as the new cursor level
+            oldTreeStack.append((children: oldNode.children, index: 0))
+        } else {
+            // No match — create fresh node
+            node = ShadowNodeWrapper.createElementNode(
+                type: type,
+                props: props,
+                surfaceId: surfaceId
+            )
+            // No old subtree to walk — push empty sentinel
+            if oldRootChildren != nil || !oldTreeStack.isEmpty {
+                oldTreeStack.append((children: [], index: 0))
+            }
+        }
         nodeStack.append(node)
     }
 
     /// Add a text node as child of the current stack top.
     public func textNode(text: String) {
-        let family = ShadowNodeFamily(
-            elementType: "#text",
-            surfaceId: surfaceId,
-            instanceHandle: nil
-        )
+        let oldMatch = matchOldNode(type: "#text")
+
+        let family: ShadowNodeFamily
+        if let oldNode = oldMatch {
+            family = oldNode.family
+        } else {
+            family = ShadowNodeFamily(
+                elementType: "#text",
+                surfaceId: surfaceId,
+                instanceHandle: nil
+            )
+        }
+
         let node = ShadowNodeWrapper(
             props: [:],
             children: [],
@@ -151,6 +196,11 @@ public class ShadowTreeBuilder {
         guard let node = nodeStack.popLast() else {
             print("[ShadowTreeBuilder] Warning: closeElement called with empty stack")
             return
+        }
+
+        // Pop old tree cursor level (if reconciling)
+        if !oldTreeStack.isEmpty {
+            oldTreeStack.removeLast()
         }
 
         if nodeStack.isEmpty {
@@ -301,6 +351,30 @@ public class ShadowTreeBuilder {
     }
 
     // MARK: - Private Helpers
+
+    /// Returns the old node at the current cursor position if its type matches,
+    /// then advances the cursor. Returns nil on type mismatch or if no old tree.
+    private func matchOldNode(type: String) -> ShadowNodeWrapper? {
+        if let stack = oldTreeStack.last {
+            // Inside a subtree
+            let children = stack.children
+            let index = stack.index
+            if index < children.count && children[index].family.elementType == type {
+                oldTreeStack[oldTreeStack.count - 1].index = index + 1
+                return children[index]
+            }
+            return nil
+        } else if let oldRoot = oldRootChildren {
+            // At root level
+            if oldRootIndex < oldRoot.count && oldRoot[oldRootIndex].family.elementType == type {
+                let node = oldRoot[oldRootIndex]
+                oldRootIndex += 1
+                return node
+            }
+            return nil
+        }
+        return nil
+    }
 
     /// Append a child node to the current stack top's children and Yoga tree.
     private func appendChild(_ child: ShadowNodeWrapper) {

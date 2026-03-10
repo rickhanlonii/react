@@ -131,7 +131,8 @@ public class ShadowNodeWrapper: NSObject {
         type: String,
         props: [String: Any],
         surfaceId: Int,
-        instanceHandle: AnyObject? = nil
+        instanceHandle: AnyObject? = nil,
+        reuseFamily: ShadowNodeFamily? = nil
     ) -> ShadowNodeWrapper {
         // 1. Merge element-type defaults with user-supplied style
         let userStyle = props["style"] as? [String: Any]
@@ -148,8 +149,8 @@ public class ShadowNodeWrapper: NSObject {
             nodeProps["style"] = mergedStyle
         }
 
-        // 2. Create family
-        let family = ShadowNodeFamily(
+        // 2. Create or reuse family
+        let family = reuseFamily ?? ShadowNodeFamily(
             elementType: type,
             surfaceId: surfaceId,
             instanceHandle: instanceHandle
