@@ -77,11 +77,12 @@ class SSRCoordinator: InstructionStreamDelegate {
     /// Returns the appropriate tree builder for the current context.
     /// During segment context, routes to the segment's dedicated builder.
     /// During fallback or outside boundaries, routes to the main builder.
+    /// When a boundary (fallback) is nested inside a segment, still uses
+    /// the segment's builder — the boundary context tracks fallback/content
+    /// semantics but doesn't change which builder owns the nodes.
     private var activeBuilder: ShadowTreeBuilder {
-        if let context = boundaryManager.currentBuffer() {
-            if case .segment(let id) = context {
-                return segmentBuilders[id] ?? treeBuilder
-            }
+        if let segmentId = boundaryManager.enclosingSegmentId() {
+            return segmentBuilders[segmentId] ?? treeBuilder
         }
         return treeBuilder
     }

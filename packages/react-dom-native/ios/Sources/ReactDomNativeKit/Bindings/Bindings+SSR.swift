@@ -64,7 +64,10 @@ extension Bindings {
     /// Mutates the SSR reference tree in place when a boundary reveals.
     /// Keeps node IDs stable so React's _ssrNodeRef references remain valid.
     public func revealBoundaryInSSRTree(surfaceId: Int, boundaryId: Int, contentNodes: [ShadowNodeWrapper]) {
-        guard let tree = ssrTrees[surfaceId] else { return }
+        guard let tree = ssrTrees[surfaceId] else {
+            print("[ReactDomNativeKit] Warning: revealBoundaryInSSRTree called but no SSR tree for surfaceId \(surfaceId)")
+            return
+        }
         guard let suspenseNode = findSuspenseNodeByBoundaryId(boundaryId, in: tree) else { return }
 
         #if DEBUG

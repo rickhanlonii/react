@@ -132,6 +132,18 @@ public class BoundaryManager {
         return contextStack.last
     }
 
+    /// Find the nearest enclosing segment context in the stack.
+    /// Used by SSRCoordinator to route tree operations to the correct builder
+    /// when boundary contexts are nested inside segment contexts.
+    public func enclosingSegmentId() -> Int? {
+        for context in contextStack.reversed() {
+            if case .segment(let id) = context {
+                return id
+            }
+        }
+        return nil
+    }
+
     /// Number of boundaries that have been revealed.
     public var revealedCount: Int {
         return boundaries.values.filter { $0.isRevealed }.count

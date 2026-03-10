@@ -813,7 +813,9 @@ extension Bindings {
                 self.hydrationInProgress.remove(surfaceId)
                 print("[ReactDomNativeKit] Hydration initial commit for surfaceId \(surfaceId)")
                 self.onHydrationComplete?(surfaceId)
-                self.ssrTrees.removeValue(forKey: surfaceId)
+                // DON'T remove ssrTrees here — dehydrated boundary retries still
+                // need the SSR tree for hydration traversal via revealBoundaryInSSRTree.
+                // Matches $$onHydrationCommit behavior. Cleanup on unmount.
             }
 
             // 4b. Notify DevTools that the DOM tree changed
