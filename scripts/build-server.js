@@ -221,11 +221,12 @@ async function handleLogStart(res, target) {
   fs.writeFileSync(t.logPath, '');
   const stream = fs.createWriteStream(t.logPath, { flags: 'a' });
 
-  // Terminate the running app, then relaunch with --console to capture stdout
+  // Terminate the running app, then relaunch with --console-pty to capture stdout
+  // (--console doesn't produce output on macOS; --console-pty allocates a pty which forces stdio flushing)
   await exec('xcrun', ['simctl', 'terminate', t.simulatorId, t.bundleId], 10000);
 
   const proc = spawn('xcrun', [
-    'simctl', 'launch', '--console', t.simulatorId, t.bundleId,
+    'simctl', 'launch', '--console-pty', t.simulatorId, t.bundleId,
   ], {
     cwd: PROJECT_ROOT,
     env: { ...process.env },
