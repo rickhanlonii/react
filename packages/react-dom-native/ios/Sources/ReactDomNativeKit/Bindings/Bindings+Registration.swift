@@ -1030,6 +1030,17 @@ extension Bindings {
             self.eventDispatcher.registerEventHandler(handler)
             return nil
         }
+
+        // $$resetFormInstance(opaqueNode) -> void
+        // Walks the form view's subtree and clears all UITextField text values.
+        // Called by React after a successful form action to reset form fields.
+        engine.setGlobalFunction("$$resetFormInstance") { [weak self] args in
+            guard let self = self else { return nil }
+            guard let node = self.unwrapNode(args[0]) else { return nil }
+            guard let view = node.family.view else { return nil }
+            self.mutationApplier.resetFormFields(in: view)
+            return nil
+        }
     }
 
     // MARK: - Networking

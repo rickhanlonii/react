@@ -1,19 +1,40 @@
 'use client';
 
 const React = require('react');
+const {useActionState} = React;
 const TodoAppItem = require('./TodoAppItem');
 
 const colors = {
   secondary: '#8e8e93',
-  divider: '#c6c6c8',
+  divider: '#e5e5ea',
 };
 
-function TodoAppList({todos, toggleTodo, deleteTodo}) {
+function TodoAppList({todos, toggleTodo, deleteTodo, addTodo}) {
+  const [addState, addDispatch, isAddPending] = useActionState(addTodo, {error: null});
+
   if (todos.length === 0) {
     return (
-      <p style={{color: colors.secondary, fontSize: 14, textAlign: 'center', marginTop: 16, marginBottom: 16}}>
-        No todos yet. Add one above!
-      </p>
+      <div>
+        <div style={{paddingTop: 20, paddingBottom: 20}}>
+          <p style={{color: colors.secondary, fontSize: 15, textAlign: 'center', marginTop: 0, marginBottom: 0}}>
+            No todos yet. Add one below!
+          </p>
+        </div>
+        <div style={{height: 1, backgroundColor: colors.divider}} />
+        <form action={addDispatch}>
+          <input
+            id="todo-add-input"
+            name="text"
+            placeholder="Add new todo"
+            style={{width: '100%', height: 44}}
+          />
+          {addState && addState.error ? (
+            <p style={{color: '#ff3b30', fontSize: 13, marginTop: 0, marginBottom: 0}}>
+              {addState.error}
+            </p>
+          ) : null}
+        </form>
+      </div>
     );
   }
 
@@ -34,25 +55,40 @@ function TodoAppList({todos, toggleTodo, deleteTodo}) {
                 style={{
                   height: 1,
                   backgroundColor: colors.divider,
-                  marginLeft: 36,
+                  marginLeft: 40,
                 }}
               />
             ) : null}
           </div>
         );
       })}
+      {/* Inline add input */}
+      <div style={{height: 1, backgroundColor: colors.divider, marginLeft: 40}} />
+      <form action={addDispatch}>
+        <input
+          id="todo-add-input"
+          name="text"
+          placeholder="Add new todo"
+          style={{width: '100%', height: 44}}
+        />
+        {addState && addState.error ? (
+          <p style={{color: '#ff3b30', fontSize: 13, marginTop: 0, marginBottom: 0}}>
+            {addState.error}
+          </p>
+        ) : null}
+      </form>
       {/* Footer with remaining count */}
       <div
         style={{
-          marginTop: 8,
-          paddingTop: 8,
+          marginTop: 6,
+          paddingTop: 10,
           borderTopWidth: 1,
           borderTopColor: colors.divider,
         }}>
         <p
           style={{
             color: colors.secondary,
-            fontSize: 12,
+            fontSize: 13,
             marginTop: 0,
             marginBottom: 0,
           }}>

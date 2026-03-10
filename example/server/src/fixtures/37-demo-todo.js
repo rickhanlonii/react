@@ -1,8 +1,7 @@
 const React = require('react');
 const {Suspense} = React;
-const {getTodos, addTodo, toggleTodo, deleteTodo} = require('../actions/todo-actions');
-const TodoAppList = require('../components/TodoAppList');
-const AddTodoForm = require('../components/AddTodoForm');
+const {getTodos, addTodo, toggleTodo, deleteTodo, searchTodos} = require('../actions/todo-actions');
+const TodoApp = require('../components/TodoApp');
 
 const fixture = {
   title: 'Demo Todo',
@@ -24,14 +23,17 @@ const colors = {
 
 const card = {
   backgroundColor: colors.card,
-  borderRadius: 12,
-  padding: 16,
+  borderRadius: 16,
+  paddingTop: 2,
+  paddingBottom: 14,
+  paddingLeft: 16,
+  paddingRight: 16,
 };
 
 function SkeletonRow() {
   return (
-    <div style={{display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 12, paddingBottom: 12}}>
-      <div style={{width: 24, height: 24, borderRadius: 12, backgroundColor: colors.skeleton}} />
+    <div style={{display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 14, paddingBottom: 14}}>
+      <div style={{width: 26, height: 26, borderRadius: 13, backgroundColor: colors.skeleton}} />
       <div style={{flex: 1, height: 14, backgroundColor: colors.skeleton, borderRadius: 7}} />
     </div>
   );
@@ -41,9 +43,9 @@ function TodoListSkeleton() {
   return (
     <div style={card}>
       <SkeletonRow />
-      <div style={{height: 1, backgroundColor: colors.divider, marginLeft: 36}} />
+      <div style={{height: 1, backgroundColor: colors.divider, marginLeft: 38}} />
       <SkeletonRow />
-      <div style={{height: 1, backgroundColor: colors.divider, marginLeft: 36}} />
+      <div style={{height: 1, backgroundColor: colors.divider, marginLeft: 38}} />
       <SkeletonRow />
     </div>
   );
@@ -53,13 +55,13 @@ async function TodoListSection() {
   await new Promise(resolve => setTimeout(resolve, 800));
   const todos = getTodos();
   return (
-    <div style={card}>
-      <TodoAppList
-        todos={todos}
-        toggleTodo={toggleTodo}
-        deleteTodo={deleteTodo}
-      />
-    </div>
+    <TodoApp
+      initialTodos={todos}
+      searchTodos={searchTodos}
+      addTodo={addTodo}
+      toggleTodo={toggleTodo}
+      deleteTodo={deleteTodo}
+    />
   );
 }
 
@@ -71,20 +73,20 @@ function App() {
         flexDirection: 'column',
         backgroundColor: colors.bg,
         height: '100%',
-        padding: 16,
-        gap: 12,
+        paddingLeft: 20,
+        paddingRight: 20,
+        paddingBottom: 20,
+        gap: 14,
       }}>
       {/* Static shell — renders immediately, cached by PPR */}
-      <div style={{paddingTop: 56, paddingBottom: 4}}>
-        <h1 style={{color: colors.text, marginTop: 0, marginBottom: 4}}>Todos</h1>
-        <p style={{color: colors.secondary, fontSize: 14, marginTop: 0, marginBottom: 0}}>
-          A simple todo app powered by React Server Components
+      <div style={{paddingTop: 64, paddingBottom: 2}}>
+        <h1 style={{color: colors.text, fontSize: 34, marginTop: 0, marginBottom: 6}}>Todos</h1>
+        <p style={{color: colors.secondary, fontSize: 15, marginTop: 0, marginBottom: 0}}>
+          Powered by React Server Components
         </p>
       </div>
 
-      <div style={card}>
-        <AddTodoForm addTodo={addTodo} />
-      </div>
+      <AddTodoForm addTodo={addTodo} />
 
       {/* Dynamic section — streams in via Suspense, resumed by PPR */}
       <Suspense fallback={<TodoListSkeleton />}>

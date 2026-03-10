@@ -791,9 +791,9 @@ public class UIKitMutationApplier: NSObject {
         if let placeholder = props["placeholder"] as? String {
             textField.placeholder = placeholder
         }
-        if let value = props["value"] as? String {
-            textField.text = value
-        }
+        // Always set text — clear it when no value prop (uncontrolled input)
+        // so recycled views don't retain stale text.
+        textField.text = (props["value"] as? String) ?? ""
         if !(textField is UISearchTextField) {
             textField.borderStyle = .roundedRect
         }
@@ -988,6 +988,8 @@ public class UIKitMutationApplier: NSObject {
                     "_nativeTimestamp": performanceNow(),
                     "_formData": formData
                 ])
+                // Clear all text fields in the form after submit
+                resetFormFields(in: view)
                 return
             }
             formSearch = view.superview
@@ -1050,6 +1052,15 @@ public class UIKitMutationApplier: NSObject {
                 fields[name] = textField.text ?? ""
             }
             collectFormData(from: subview, into: &fields)
+        }
+    }
+
+    func resetFormFields(in view: UIView) {
+        for subview in view.subviews {
+            if let textField = subview as? UITextField {
+                textField.text = ""
+            }
+            resetFormFields(in: subview)
         }
     }
 

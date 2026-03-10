@@ -388,7 +388,9 @@ exports.scheduleMicrotask = function scheduleMicrotask(fn) {
   queueMicrotask(fn);
 };
 
-exports.resetFormInstance = function resetFormInstance() {};
+exports.resetFormInstance = function resetFormInstance(formInstance) {
+  $$resetFormInstance(formInstance._nativeNode);
+};
 
 exports.bindToConsole = function bindToConsole(methodName, args) {
   return Function.prototype.bind.apply(console[methodName], [

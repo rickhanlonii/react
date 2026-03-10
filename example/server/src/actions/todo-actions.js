@@ -7,9 +7,9 @@ if (!globalThis.__todoStore) {
   globalThis.__todoStore = {
     nextId: 6,
     todos: [
-      {id: 1, text: 'Learn React Server Components', completed: true},
+      {id: 1, text: 'Learn Server Components', completed: true},
       {id: 2, text: 'Build with Server Actions', completed: true},
-      {id: 3, text: 'Add Suspense loading states', completed: true},
+      {id: 3, text: 'Add Suspense loading', completed: true},
       {id: 4, text: 'Try Partial Prerendering', completed: false},
       {id: 5, text: 'Ship it!', completed: false},
     ],
@@ -55,11 +55,26 @@ async function deleteTodo(id) {
   return {success: true};
 }
 
-function getTodos() {
+function getTodos(query) {
+  if (query && typeof query === 'string' && query.trim() !== '') {
+    var q = query.trim().toLowerCase();
+    return todos.filter(function(t) {
+      return t.text.toLowerCase().indexOf(q) !== -1;
+    });
+  }
   return todos.slice();
+}
+
+async function searchTodos(previousState, formData) {
+  var query = formData && (typeof formData.get === 'function' ? formData.get('query') : formData.query);
+  if (!query || typeof query !== 'string' || query.trim() === '') {
+    return {todos: getTodos(), query: ''};
+  }
+  return {todos: getTodos(query), query: query.trim()};
 }
 
 exports.addTodo = addTodo;
 exports.toggleTodo = toggleTodo;
 exports.deleteTodo = deleteTodo;
 exports.getTodos = getTodos;
+exports.searchTodos = searchTodos;
