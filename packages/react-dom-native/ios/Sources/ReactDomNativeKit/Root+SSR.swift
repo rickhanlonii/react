@@ -459,19 +459,20 @@ extension Root {
         // Ignore JS instructions — no hydration, no runtime
         coordinator.onJavaScriptReceived = { _ in }
 
-        // Queue boundary reveals
+        // Queue boundary reveals — don't flush yet, we'll flush after the
+        // entire stream is processed to avoid committing partial state.
         coordinator.onBoundaryRevealQueued = { [weak self] id, contentNodes in
-            self?.queueBoundaryReveal(id: id, contentNodes: contentNodes)
+            self?.pendingReveals.append((id: id, contentNodes: contentNodes))
         }
 
         parser.delegate = coordinator
 
-        // Wire boundary reveal view updates
-        coordinator.onViewsNeedUpdate = { [weak self] oldRootChildren, newRootChildren in
-            guard let self = self else { return }
-            self.ssrRevealHasOccurred = true
-            self.renderer.commitTree(newChildren: newRootChildren, label: "Server-Only MPA Reveal")
-        }
+        // Wire boundary reveal view updates.
+        // During MPA reconciliation, reveals update the coordinator's internal
+        // tree (via processReveal) but DON'T commit individually. The single
+        // commit happens after the entire stream + all reveals are processed.
+        // This prevents the flash of Suspense fallbacks.
+        coordinator.onViewsNeedUpdate = { _, _ in }
 
         // Store references
         self.ssrParser = parser
@@ -479,7 +480,11 @@ extension Root {
         self.ssrBoundaryManager = boundaryManager
         self.ssrCoordinator = coordinator
 
-        // Handle root completion — commit via diff pipeline (not full rebuild)
+        // Handle root completion — save shell children but DON'T commit yet.
+        // Reveals arrive after the shell in the same synchronous stream, so we
+        // defer the commit until the entire stream is processed. This prevents
+        // a flash of Suspense fallbacks between shell commit and reveal commits.
+        var shellChildren: [ShadowNodeWrapper]?
         treeBuilder.onRootComplete = { [weak self] rootChildren in
             guard let self = self else { return }
 
@@ -488,19 +493,37 @@ extension Root {
                 return
             }
 
-            // commitTree diffs old vs new — family reuse means minimal mutations
-            self.renderer.commitTree(newChildren: rootChildren, label: "Server-Only MPA Paint")
-
-            print("[ReactDomNativeKit] Server-only MPA reconcile complete (\(rootChildren.count) root children)")
+            shellChildren = rootChildren
             self.ssrShellComplete = true
         }
 
-        // Feed the instruction stream into the parser
+        // Feed the instruction stream into the parser.
+        // This synchronously processes the entire stream: shell → segments → reveals.
         if let data = instructionStream.data(using: .utf8) {
             parser.receive(data: data)
         }
         parser.finish()
         ssrStreamComplete = true
+
+        // Now apply all reveals to the shell tree, then commit once.
+        if let shell = shellChildren {
+            // Apply pending reveals to the coordinator's tree
+            if !pendingReveals.isEmpty {
+                let reveals = pendingReveals
+                pendingReveals.removeAll()
+                for reveal in reveals {
+                    ssrCoordinator?.processReveal(id: reveal.id)
+                }
+                // After reveals, the coordinator has the fully-revealed tree
+                let finalChildren = ssrCoordinator?.currentRootChildren ?? shell
+                self.renderer.commitTree(newChildren: finalChildren, label: "Server-Only MPA Paint")
+                print("[ReactDomNativeKit] Server-only MPA reconcile complete (\(finalChildren.count) root children, \(reveals.count) reveals applied)")
+            } else {
+                // No Suspense boundaries — commit the shell directly
+                self.renderer.commitTree(newChildren: shell, label: "Server-Only MPA Paint")
+                print("[ReactDomNativeKit] Server-only MPA reconcile complete (\(shell.count) root children)")
+            }
+        }
     }
 
     // MARK: - Test Hooks (SSR)
