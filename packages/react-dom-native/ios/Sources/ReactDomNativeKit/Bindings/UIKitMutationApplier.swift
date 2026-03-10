@@ -795,7 +795,7 @@ public class UIKitMutationApplier: NSObject {
         // so recycled views don't retain stale text.
         textField.text = (props["value"] as? String) ?? ""
         if !(textField is UISearchTextField) {
-            textField.borderStyle = .roundedRect
+            textField.borderStyle = .none
         }
     }
 
@@ -1209,7 +1209,22 @@ public class UIKitMutationApplier: NSObject {
         let hasLineHeight = style["lineHeight"] != nil
         let hasLetterSpacing = style["letterSpacing"] != nil
 
-        guard hasDecoration || hasLineHeight || hasLetterSpacing else { return }
+        // If the label has existing attributed text with decoration attributes,
+        // we must rebuild it even when no decoration props are set (to clear stale
+        // strikethrough/underline from recycled views).
+        let hasStaleDecoration: Bool = {
+            guard let attrText = label.attributedText, attrText.length > 0 else { return false }
+            var found = false
+            attrText.enumerateAttributes(in: NSRange(location: 0, length: attrText.length)) { attrs, _, stop in
+                if attrs[.strikethroughStyle] != nil || attrs[.underlineStyle] != nil {
+                    found = true
+                    stop.pointee = true
+                }
+            }
+            return found
+        }()
+
+        guard hasDecoration || hasLineHeight || hasLetterSpacing || hasStaleDecoration else { return }
         guard let text = label.text ?? label.attributedText?.string else { return }
 
         // Start with existing font and color
