@@ -64,6 +64,7 @@ function TodoApp({initialTodos, updateTodos, todoPromises}) {
             id="todo-search"
             type="search"
             name="query"
+            defaultValue={state.query}
             placeholder="Search todos..."
             style={{width: '100%', height: 44, fontSize: 16}}
           />
