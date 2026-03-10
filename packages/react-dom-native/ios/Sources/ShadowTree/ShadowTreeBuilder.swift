@@ -257,6 +257,9 @@ public class ShadowTreeBuilder {
     public func reset() {
         nodeStack.removeAll()
         rootChildren.removeAll()
+        oldTreeStack.removeAll()
+        oldRootChildren = nil
+        oldRootIndex = 0
         // Remove all children from root yoga node
         while YGNodeGetChildCount(rootYogaNode) > 0 {
             YGNodeRemoveChild(rootYogaNode, YGNodeGetChild(rootYogaNode, 0)!)

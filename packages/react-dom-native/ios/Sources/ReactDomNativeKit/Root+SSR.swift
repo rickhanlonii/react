@@ -414,11 +414,11 @@ extension Root {
 
     /// Re-renders the Server Only tree from a new SSR instruction stream.
     /// Called when an MPA form POST returns a fresh instruction stream.
+    /// Instead of tearing down the entire view hierarchy, reconciles against
+    /// the existing tree — reusing UIKit views where element types match.
     internal func reloadFromSSRResponse(_ instructionStream: String) {
-        // Remove all child views
-        for subview in container.subviews {
-            subview.removeFromSuperview()
-        }
+        // Capture old committed tree for reconciliation
+        let oldTree = self.renderer.currentTree
 
         // Reset SSR state
         ssrRevealHasOccurred = false
@@ -432,6 +432,11 @@ extension Root {
             viewportHeight: Float(container.bounds.height > 0 ? container.bounds.height : 844)
         )
 
+        // Set old tree for reconciliation — enables family reuse
+        if !oldTree.isEmpty {
+            treeBuilder.setOldTree(oldTree)
+        }
+
         let boundaryManager = BoundaryManager()
         let parser = InstructionStreamParser()
 
@@ -441,11 +446,10 @@ extension Root {
             rootView: container
         )
 
-        // Register root view for rendering and skip layout in tree builder
-        self.renderer.registerRootView(container)
+        // Skip layout in tree builder — commitTree handles layout
         treeBuilder.performLayoutOnComplete = false
 
-        // Re-wire MPA form submission on the new mutation applier
+        // Re-wire MPA form submission on the mutation applier
         self.renderer.mutationApplier.ssrBaseURL = self.ssrURL
         self.renderer.mutationApplier.onMPAFormResponse = { [weak self] responseText in
             guard let self = self else { return }
@@ -475,7 +479,7 @@ extension Root {
         self.ssrBoundaryManager = boundaryManager
         self.ssrCoordinator = coordinator
 
-        // Handle root completion — paint
+        // Handle root completion — commit via diff pipeline (not full rebuild)
         treeBuilder.onRootComplete = { [weak self] rootChildren in
             guard let self = self else { return }
 
@@ -484,13 +488,14 @@ extension Root {
                 return
             }
 
+            // commitTree diffs old vs new — family reuse means minimal mutations
             self.renderer.commitTree(newChildren: rootChildren, label: "Server-Only MPA Paint")
 
-            print("[ReactDomNativeKit] Server-only MPA re-render complete (\(rootChildren.count) root children)")
+            print("[ReactDomNativeKit] Server-only MPA reconcile complete (\(rootChildren.count) root children)")
             self.ssrShellComplete = true
         }
 
-        // Feed the instruction stream data directly (no HTTP fetch needed)
+        // Feed the instruction stream into the parser
         if let data = instructionStream.data(using: .utf8) {
             parser.receive(data: data)
         }
