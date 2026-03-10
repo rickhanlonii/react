@@ -1,7 +1,6 @@
 'use client';
 
 const React = require('react');
-const {useActionState} = React;
 const TodoAppItem = require('./TodoAppItem');
 
 const colors = {
@@ -9,9 +8,7 @@ const colors = {
   divider: '#e5e5ea',
 };
 
-function TodoAppList({todos, toggleTodo, deleteTodo, addTodo}) {
-  const [addState, addDispatch, isAddPending] = useActionState(addTodo, {error: null});
-
+function TodoAppList({todos, toggleTodo, deleteTodo, dispatch, addError}) {
   if (todos.length === 0) {
     return (
       <div>
@@ -21,16 +18,16 @@ function TodoAppList({todos, toggleTodo, deleteTodo, addTodo}) {
           </p>
         </div>
         <div style={{height: 1, backgroundColor: colors.divider}} />
-        <form action={addDispatch}>
+        <form action={dispatch}>
           <input
             id="todo-add-input"
             name="text"
             placeholder="Add new todo"
-            style={{width: '100%', height: 44}}
+            style={{width: '100%', height: 44, fontSize: 16}}
           />
-          {addState && addState.error ? (
-            <p style={{color: '#ff3b30', fontSize: 13, marginTop: 0, marginBottom: 0}}>
-              {addState.error}
+          {addError ? (
+            <p style={{color: '#ff3b30', fontSize: 13, marginTop: 4, marginBottom: 0}}>
+              {addError}
             </p>
           ) : null}
         </form>
@@ -64,16 +61,16 @@ function TodoAppList({todos, toggleTodo, deleteTodo, addTodo}) {
       })}
       {/* Inline add input */}
       <div style={{height: 1, backgroundColor: colors.divider, marginLeft: 40}} />
-      <form action={addDispatch}>
+      <form action={dispatch}>
         <input
           id="todo-add-input"
           name="text"
           placeholder="Add new todo"
-          style={{width: '100%', height: 44}}
+          style={{width: '100%', height: 44, fontSize: 16}}
         />
-        {addState && addState.error ? (
+        {addError ? (
           <p style={{color: '#ff3b30', fontSize: 13, marginTop: 0, marginBottom: 0}}>
-            {addState.error}
+            {addError}
           </p>
         ) : null}
       </form>

@@ -65,16 +65,28 @@ function getTodos(query) {
   return todos.slice();
 }
 
-async function searchTodos(previousState, formData) {
+async function updateTodos(previousState, formData) {
+  var text = formData && (typeof formData.get === 'function' ? formData.get('text') : formData.text);
   var query = formData && (typeof formData.get === 'function' ? formData.get('query') : formData.query);
-  if (!query || typeof query !== 'string' || query.trim() === '') {
-    return {todos: getTodos(), query: ''};
+
+  // Add mode — text field present
+  if (text != null) {
+    if (typeof text !== 'string' || text.trim() === '') {
+      return {todos: previousState.todos, query: previousState.query, addError: 'Text is required'};
+    }
+    todos.push({id: globalThis.__todoStore.nextId++, text: text.trim(), completed: false});
+    return {todos: getTodos(previousState.query), query: previousState.query, addError: null};
   }
-  return {todos: getTodos(query), query: query.trim()};
+
+  // Search mode — query field present
+  if (!query || typeof query !== 'string' || query.trim() === '') {
+    return {todos: getTodos(), query: '', addError: null};
+  }
+  return {todos: getTodos(query), query: query.trim(), addError: null};
 }
 
 exports.addTodo = addTodo;
 exports.toggleTodo = toggleTodo;
 exports.deleteTodo = deleteTodo;
 exports.getTodos = getTodos;
-exports.searchTodos = searchTodos;
+exports.updateTodos = updateTodos;

@@ -816,18 +816,7 @@ public enum ElementDefaults {
     private static let inputDefaults: [String: Any] = [
         "display": "inline-block",
         "boxSizing": "border-box",
-        "width": 154,
-        "height": 22,
-        "paddingTop": 3,
-        "paddingBottom": 4,
-        "paddingLeft": 4,
-        "paddingRight": 4,
-        "borderWidth": 1,
-        "borderStyle": "solid",
-        "borderColor": "rgba(60, 60, 67, 0.6)",
-        "borderRadius": 2,
-        "fontSize": 11,
-        "backgroundColor": "#FFFFFF"
+        "fontSize": 16,
     ]
 
     private static let textareaDefaults: [String: Any] = [
