@@ -55,16 +55,15 @@ function TodoApp({initialTodos, updateTodos, todoPromises}) {
         <form
           action={dispatch}
           onSubmit={function(e) {
-            var input = e.target.elements.query;
-            var query = input && input.value;
-            addOptimistic({type: 'search', query: query || ''});
+            var formData = e && e._formData;
+            var query = (formData && formData.query) || '';
+            addOptimistic({type: 'search', query: query});
           }}>
           <input type="hidden" name="_action" value="search" />
           <input
             id="todo-search"
             type="search"
             name="query"
-            defaultValue={state.query}
             placeholder="Search todos..."
             style={{width: '100%', height: 44, fontSize: 16}}
           />

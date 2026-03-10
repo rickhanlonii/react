@@ -1084,7 +1084,8 @@ public class UIKitMutationApplier: NSObject {
 
     func resetFormFields(in view: UIView) {
         for subview in view.subviews {
-            if let textField = subview as? UITextField {
+            if let textField = subview as? UITextField,
+               !(textField is UISearchTextField) {
                 textField.text = ""
             }
             resetFormFields(in: subview)
