@@ -368,6 +368,9 @@ public class UIKitMutationApplier: NSObject {
             } else {
                 textField = UITextField()
             }
+            if inputType == "hidden" {
+                textField.isHidden = true
+            }
             applyInputProps(to: textField, props: props)
             if textField is UISearchTextField {
                 // Only set accessibility ID — skip common props so the native
