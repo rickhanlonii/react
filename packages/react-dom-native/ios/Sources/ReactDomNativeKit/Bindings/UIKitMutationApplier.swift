@@ -8,6 +8,16 @@ import ShadowTree
 // the production equivalent of StubMutationApplier in the test harness.
 // ---------------------------------------------------------------------------
 
+/// Element types that are text containers — rendered as UILabels with
+/// inherited text styling (font, color, textDecoration) propagated to
+/// child `#text` nodes. Used in createView, updateView, and UPDATE propagation.
+private let textContainerElements: Set<String> = [
+    "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
+    "b", "i", "u", "s", "del", "ins", "mark", "small", "code", "kbd", "samp",
+    "pre", "th", "td",
+    "cite", "dfn", "var", "sub", "sup", "q", "time", "abbr", "data",
+]
+
 public typealias EventDispatchHandler = (UIView, String, [String: Any]) -> Void
 
 public class UIKitMutationApplier: NSObject {
@@ -197,7 +207,30 @@ public class UIKitMutationApplier: NSObject {
                 updateView(view, elementType: node.family.elementType, props: newProps)
                 // Update text content for #text nodes (family reuse path)
                 if node.family.elementType == "#text", let label = view as? UILabel {
-                    label.text = node.text
+                    if let attrText = label.attributedText, attrText.length > 0 {
+                        // Preserve attributed text properties (decoration, lineHeight, etc.)
+                        let attrs = attrText.attributes(at: 0, effectiveRange: nil)
+                        label.attributedText = NSAttributedString(string: node.text ?? "", attributes: attrs)
+                    } else {
+                        label.text = node.text
+                    }
+                }
+                // When a text container element is updated, re-apply inherited
+                // text styles (font, color, decoration) to #text child labels.
+                // This propagates textDecorationLine changes to child text nodes.
+                if textContainerElements.contains(node.family.elementType) {
+                    for subview in view.subviews {
+                        if let childFamily = viewRegistry.family(for: subview),
+                           childFamily.elementType == "#text",
+                           let childLabel = subview as? UILabel {
+                            applyInheritedTextStyle(
+                                to: childLabel,
+                                parentType: node.family.elementType,
+                                parentProps: newProps,
+                                inheritedColor: inheritedTextColor[ObjectIdentifier(view)]
+                            )
+                        }
+                    }
                 }
                 view.frame = node.layoutFrame
                 // Apply bounds-dependent props (borders, border-radius) now that frame is set
@@ -255,12 +288,18 @@ public class UIKitMutationApplier: NSObject {
         if overflow == "scroll" || overflow == "auto" {
             return elementType + ":scroll"
         }
+        if elementType == "input", let inputType = props["type"] as? String, inputType == "search" {
+            return "input:search"
+        }
         return elementType
     }
 
     private func viewPoolKey(elementType: String, view: UIView) -> String {
         if view is UIScrollView {
             return elementType + ":scroll"
+        }
+        if view is UISearchTextField {
+            return "input:search"
         }
         return elementType
     }
@@ -286,10 +325,7 @@ public class UIKitMutationApplier: NSObject {
             applyCommonProps(to: view, props: props)
             return view
 
-        case "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
-             "b", "i", "u", "s", "del", "ins", "mark", "small", "code", "kbd", "samp",
-             "pre", "th", "td",
-             "cite", "dfn", "var", "sub", "sup", "q", "time", "abbr", "data":
+        case _ where textContainerElements.contains(elementType):
             let label = UILabel()
             label.numberOfLines = 0
             if elementType == "pre" {
@@ -307,10 +343,28 @@ public class UIKitMutationApplier: NSObject {
             return button
 
         case "input":
-            let textField = UITextField()
+            let inputType = props["type"] as? String
+            let textField: UITextField
+            if inputType == "search" {
+                let searchField = UISearchTextField()
+                searchField.returnKeyType = .search
+                textField = searchField
+            } else {
+                textField = UITextField()
+            }
             applyInputProps(to: textField, props: props)
-            applyCommonProps(to: textField, props: props)
+            if textField is UISearchTextField {
+                // Only set accessibility ID — skip common props so the native
+                // search field appearance (background, borders) is preserved.
+                if let id = props["id"] as? String {
+                    textField.accessibilityIdentifier = id
+                    textField.isAccessibilityElement = true
+                }
+            } else {
+                applyCommonProps(to: textField, props: props)
+            }
             textField.addTarget(self, action: #selector(handleTextFieldChanged(_:)), for: .editingChanged)
+            textField.addTarget(self, action: #selector(handleTextFieldReturn(_:)), for: .editingDidEndOnExit)
             return textField
 
         case "img":
@@ -373,10 +427,7 @@ public class UIKitMutationApplier: NSObject {
         applyCommonProps(to: view, props: props)
 
         switch elementType {
-        case "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
-             "b", "i", "u", "s", "del", "ins", "mark", "small", "code", "kbd", "samp",
-             "pre", "th", "td",
-             "cite", "dfn", "var", "sub", "sup", "q", "time", "abbr", "data":
+        case _ where textContainerElements.contains(elementType):
             if let label = view as? UILabel {
                 applyTextProps(to: label, props: props, elementType: elementType)
             }
@@ -499,6 +550,8 @@ public class UIKitMutationApplier: NSObject {
     /// Must be called AFTER view.frame is set, because these operations use
     /// view.bounds to compute sublayer frames and shape paths.
     private func applyBoundsDependentProps(to view: UIView, props: [String: Any]) {
+        // UISearchTextField manages its own border/radius — skip to preserve native appearance
+        if view is UISearchTextField { return }
         if let style = props["style"] as? [String: Any] {
             applyBorderProps(to: view, style: style)
             applyBorderRadius(to: view, style: style)
@@ -741,7 +794,9 @@ public class UIKitMutationApplier: NSObject {
         if let value = props["value"] as? String {
             textField.text = value
         }
-        textField.borderStyle = .roundedRect
+        if !(textField is UISearchTextField) {
+            textField.borderStyle = .roundedRect
+        }
     }
 
     private func applyImageProps(to imageView: UIImageView, props: [String: Any]) {
@@ -914,6 +969,29 @@ public class UIKitMutationApplier: NSObject {
 
     @objc private func handleTextFieldChanged(_ sender: UITextField) {
         dispatchEvent?(sender, "change", ["value": sender.text ?? "", "_nativeTimestamp": performanceNow()])
+    }
+
+    @objc private func handleTextFieldReturn(_ sender: UITextField) {
+        // Try MPA form submit first (works without JS runtime in Server Only mode)
+        if attemptMPAFormSubmit(from: sender) {
+            return
+        }
+
+        // Walk up the view hierarchy looking for a form element
+        var formSearch: UIView? = sender.superview
+        while let view = formSearch {
+            if let family = viewRegistry.family(for: view),
+               family.elementType == "form" {
+                var formData: [String: String] = [:]
+                collectFormData(from: view, into: &formData)
+                dispatchEvent?(view, "submit", [
+                    "_nativeTimestamp": performanceNow(),
+                    "_formData": formData
+                ])
+                return
+            }
+            formSearch = view.superview
+        }
     }
 
     // MARK: - MPA Form Submit (Pre-hydration)
@@ -1121,7 +1199,7 @@ public class UIKitMutationApplier: NSObject {
         let hasLetterSpacing = style["letterSpacing"] != nil
 
         guard hasDecoration || hasLineHeight || hasLetterSpacing else { return }
-        guard let text = label.text else { return }
+        guard let text = label.text ?? label.attributedText?.string else { return }
 
         // Start with existing font and color
         var attributes: [NSAttributedString.Key: Any] = [:]
