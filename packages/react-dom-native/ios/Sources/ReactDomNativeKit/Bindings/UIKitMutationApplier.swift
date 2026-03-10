@@ -26,6 +26,9 @@ public class UIKitMutationApplier: NSObject {
     private let viewPool = ViewPool()
     public var dispatchEvent: EventDispatchHandler?
 
+    /// Debug toggle: when false, skip view pool dequeue/recycle (always create fresh views).
+    public static var viewRecyclingEnabled: Bool = false
+
     /// Called when an MPA form POST receives a response.
     /// The response is a new SSR instruction stream that should replace the current tree.
     var onMPAFormResponse: ((String) -> Void)?
@@ -82,7 +85,8 @@ public class UIKitMutationApplier: NSObject {
                 elemType = node.family.elementType
                 let poolKey = viewPoolKey(elementType: node.family.elementType, props: node.props)
                 let view: UIView
-                if let recycled = viewPool.dequeue(elementType: poolKey) {
+                if UIKitMutationApplier.viewRecyclingEnabled,
+                   let recycled = viewPool.dequeue(elementType: poolKey) {
                     view = recycled
                     updateView(view, elementType: node.family.elementType, props: node.props)
                     if node.family.elementType == "#text", let label = view as? UILabel {
@@ -124,6 +128,11 @@ public class UIKitMutationApplier: NSObject {
                 }
                 if node.family.elementType == "input" {
                     node.family.inputName = node.props["name"] as? String
+                    if let v = node.props["value"] {
+                        node.family.inputValue = "\(v)"
+                    } else {
+                        node.family.inputValue = nil
+                    }
                 }
                 viewRegistry.register(view: view, family: node.family)
 
@@ -134,8 +143,10 @@ public class UIKitMutationApplier: NSObject {
                     inheritedTextAlign.removeValue(forKey: ObjectIdentifier(view))
                     inheritedTextColor.removeValue(forKey: ObjectIdentifier(view))
                     view.removeFromSuperview()
-                    let poolKey = viewPoolKey(elementType: node.family.elementType, view: view)
-                    viewPool.recycle(view: view, elementType: poolKey)
+                    if UIKitMutationApplier.viewRecyclingEnabled {
+                        let poolKey = viewPoolKey(elementType: node.family.elementType, view: view)
+                        viewPool.recycle(view: view, elementType: poolKey)
+                    }
                 }
                 viewRegistry.unregister(family: node.family)
 
@@ -263,6 +274,11 @@ public class UIKitMutationApplier: NSObject {
                 }
                 if node.family.elementType == "input" {
                     node.family.inputName = newProps["name"] as? String
+                    if let v = newProps["value"] {
+                        node.family.inputValue = "\(v)"
+                    } else {
+                        node.family.inputValue = nil
+                    }
                 }
                 applyBackgroundLayerIfNeeded(to: view, props: newProps)
                 if let scrollView = view as? UIScrollView, let contentSize = node.scrollContentSize {
@@ -791,9 +807,12 @@ public class UIKitMutationApplier: NSObject {
         if let placeholder = props["placeholder"] as? String {
             textField.placeholder = placeholder
         }
-        // Always set text — clear it when no value prop (uncontrolled input)
-        // so recycled views don't retain stale text.
-        textField.text = (props["value"] as? String) ?? ""
+        // Only set text when there's an explicit value prop (controlled input).
+        // For uncontrolled inputs (no value prop), preserve user-entered text
+        // so MPA reconciliation doesn't clear the field.
+        if let value = props["value"] as? String {
+            textField.text = value
+        }
         if !(textField is UISearchTextField) {
             textField.borderStyle = .none
         }
@@ -1049,7 +1068,15 @@ public class UIKitMutationApplier: NSObject {
             if let textField = subview as? UITextField,
                let family = viewRegistry.family(for: textField),
                let name = family.inputName, !name.isEmpty {
-                fields[name] = textField.text ?? ""
+                // For hidden inputs, UITextField.text is empty because the user
+                // can't type into them. Use the React value prop stored on the
+                // family instead. For regular text fields, prefer the live text.
+                let text = textField.text ?? ""
+                if text.isEmpty, let propValue = family.inputValue {
+                    fields[name] = propValue
+                } else {
+                    fields[name] = text
+                }
             }
             collectFormData(from: subview, into: &fields)
         }
