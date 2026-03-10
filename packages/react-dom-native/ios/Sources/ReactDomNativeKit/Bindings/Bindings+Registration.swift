@@ -1177,8 +1177,12 @@ extension Bindings {
         // Returns the first child of an SSR node.
         engine.setGlobalFunction("$$getSSRChildOf") { [weak self, weak engine] args in
             guard let self = self, let engine = engine else { return nil }
-            guard let node = self.unwrapNode(args[0]) else { return nil }
-            guard let first = node.children.first else { return nil }
+            guard let node = self.unwrapNode(args[0]) else {
+                return nil
+            }
+            guard let first = node.children.first else {
+                return nil
+            }
             return self.makeSSRNodeRef(first, engine: engine)
         }
 

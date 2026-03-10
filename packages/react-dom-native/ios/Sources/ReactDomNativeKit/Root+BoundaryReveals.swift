@@ -109,8 +109,13 @@ extension Root {
                     )
                 }
 
-                // Notify JS side so React can fire retry callbacks
-                if let engine = rt.engine {
+                // Notify JS side so React can fire retry callbacks.
+                // Skip for server-only mode — there's no hydration, and calling
+                // this would pollute preRevealedBoundaries in the shared JS engine,
+                // causing hydration mismatches if the user switches to hydrated mode.
+                if case .serverOnly = renderMode {
+                    // No-op: server-only doesn't use React runtime
+                } else if let engine = rt.engine {
                     engine.evaluate("globalThis.$$notifyBoundaryRevealed(\(reveal.id))")
                 }
             }
