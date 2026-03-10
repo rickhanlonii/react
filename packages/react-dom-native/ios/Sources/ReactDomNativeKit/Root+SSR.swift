@@ -266,7 +266,9 @@ extension Root {
             delegate: streamDelegate,
             delegateQueue: .main
         )
-        let task = session.dataTask(with: ssrURLObj)
+        var ssrRequest = URLRequest(url: ssrURLObj)
+        setNetworkResourceType("Document", on: &ssrRequest)
+        let task = session.dataTask(with: ssrRequest)
         self.ssrDataTask = task
         task.resume()
     }
@@ -401,7 +403,9 @@ extension Root {
             delegate: streamDelegate,
             delegateQueue: .main
         )
-        let task = session.dataTask(with: ssrURLObj)
+        var ssrRequest = URLRequest(url: ssrURLObj)
+        setNetworkResourceType("Document", on: &ssrRequest)
+        let task = session.dataTask(with: ssrRequest)
         self.ssrDataTask = task
         task.resume()
     }

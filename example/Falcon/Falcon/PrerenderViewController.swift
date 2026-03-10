@@ -41,14 +41,16 @@ class PrerenderViewController: UIViewController {
         guard let url = URL(string: prerenderURL) else { return }
         var request = URLRequest(url: url)
         request.cachePolicy = .reloadIgnoringLocalCacheData
-        URLSession.shared.dataTask(with: request) { [weak self] responseData, _, error in
+        setNetworkResourceType("Document", on: &request)
+        let task = URLSession.shared.dataTask(with: request) { [weak self] responseData, _, error in
             guard let self = self, let responseData = responseData, error == nil else { return }
             DispatchQueue.main.async {
                 let result = Self.parsePrerenderResponse(responseData)
                 Self.saveCachedPrerender(for: self.fixtureName, data: result)
                 self.root = resumeRoot(self.view, data: result, url: resumeURL)
             }
-        }.resume()
+        }
+        task.resume()
     }
 
     /// Stale-while-revalidate: re-fetch /prerender in the background and
@@ -57,7 +59,8 @@ class PrerenderViewController: UIViewController {
         guard let urlObj = URL(string: url) else { return }
         var request = URLRequest(url: urlObj)
         request.cachePolicy = .reloadIgnoringLocalCacheData
-        URLSession.shared.dataTask(with: request) { responseData, _, error in
+        setNetworkResourceType("Document", on: &request)
+        let task = URLSession.shared.dataTask(with: request) { responseData, _, error in
             guard let responseData = responseData, error == nil else { return }
             let fresh = parsePrerenderResponse(responseData)
 
@@ -67,7 +70,8 @@ class PrerenderViewController: UIViewController {
                     saveCachedPrerender(for: fixture, data: fresh)
                 }
             }
-        }.resume()
+        }
+        task.resume()
     }
 
     // MARK: - Prerender Response Parsing

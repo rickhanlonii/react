@@ -126,13 +126,14 @@ function wantsScreenshots(params) {
   return Array.isArray(cats) && cats.indexOf('disabled-by-default-devtools.screenshot') !== -1;
 }
 
-function createTracingDomain(targetId, screenshotCapture) {
+function createTracingDomain(targetId, screenshotCapture, getNetworkRequests, clearNetworkRequests) {
   var pendingTraceResolve = null;
 
   function handle(method, params, ctx) {
     switch (method) {
       case 'start': {
         log('Tracing', 'start — sendToApp=' + (ctx.sendToApp ? 'yes' : 'NO') + ' screenshots=' + wantsScreenshots(params));
+        if (clearNetworkRequests) clearNetworkRequests();
         if (ctx.sendToApp) {
           ctx.sendToApp(JSON.stringify({type: 'start-tracing'}));
         }
@@ -174,7 +175,7 @@ function createTracingDomain(targetId, screenshotCapture) {
             log('Tracing', '  [' + k + '] name=' + e.name + ' cat=' + e.cat + ' ph=' + e.ph + ' ts=' + e.ts + ' pid=' + e.pid + ' tid=' + e.tid + (e.id2 ? ' id2=' + JSON.stringify(e.id2) : ''));
           }
           log('Tracing', '--- End trace events ---');
-          emitTraceEvents(ws, id, events, 'Tracing', targetId, ctx, screenshotCapture, tracingStartTs, tracingStopTs);
+          emitTraceEvents(ws, id, events, 'Tracing', targetId, ctx, screenshotCapture, tracingStartTs, tracingStopTs, getNetworkRequests ? getNetworkRequests() : []);
         });
 
         return null; // Response sent asynchronously
@@ -210,7 +211,7 @@ function createTracingDomain(targetId, screenshotCapture) {
 // NodeTracing domain (alias for Tracing, used by some DevTools versions)
 // ---------------------------------------------------------------------------
 
-function createNodeTracingDomain(targetId, screenshotCapture) {
+function createNodeTracingDomain(targetId, screenshotCapture, getNetworkRequests) {
   var pendingTraceResolve = null;
 
   function handle(method, params, ctx) {
@@ -260,7 +261,7 @@ function createNodeTracingDomain(targetId, screenshotCapture) {
             log('NodeTracing', '  [' + k + '] name=' + e.name + ' cat=' + e.cat + ' ph=' + e.ph + ' ts=' + e.ts + ' pid=' + e.pid + ' tid=' + e.tid + (e.id2 ? ' id2=' + JSON.stringify(e.id2) : ''));
           }
           log('NodeTracing', '--- End trace events ---');
-          emitTraceEvents(ws, id, events, 'NodeTracing', targetId, ctx, screenshotCapture, tracingStartTs, tracingStopTs);
+          emitTraceEvents(ws, id, events, 'NodeTracing', targetId, ctx, screenshotCapture, tracingStartTs, tracingStopTs, getNetworkRequests ? getNetworkRequests() : []);
         });
 
         return null;
@@ -293,7 +294,7 @@ function createNodeTracingDomain(targetId, screenshotCapture) {
 }
 
 // Shared trace event emission logic
-function emitTraceEvents(ws, id, events, domainPrefix, targetId, ctx, screenshotCapture, tracingStartTs, tracingStopTs) {
+function emitTraceEvents(ws, id, events, domainPrefix, targetId, ctx, screenshotCapture, tracingStartTs, tracingStopTs, networkRequests) {
   // Chrome DevTools Performance panel needs metadata events to associate
   // trace data with the correct process. We use TracingStartedInBrowser
   // (not TracingStartedInPage) so DevTools creates a browser+renderer
@@ -406,6 +407,99 @@ function emitTraceEvents(ws, id, events, domainPrefix, targetId, ctx, screenshot
     if (screenshotEvents.length > 0) {
       log(domainPrefix, 'Adding ' + screenshotEvents.length + ' screenshot events to trace');
       events = events.concat(screenshotEvents);
+    }
+  }
+
+  // Merge network request trace events
+  // Chrome DevTools Performance panel shows a "Network" track when it sees
+  // ResourceSendRequest / ResourceReceiveResponse / ResourceFinish events.
+  // Timestamps are in µs (performanceNow * 1000), matching trace event ts.
+  if (networkRequests && networkRequests.length > 0) {
+    var netEvents = [];
+    var tracingStartMs = tracingStartTs / 1000; // µs → ms
+    var tracingStopMs = tracingStopTs / 1000;
+    for (var ni = 0; ni < networkRequests.length; ni++) {
+      var req = networkRequests[ni];
+      // Only include requests that overlap with the trace window
+      if (req.startTime > tracingStopMs) continue;
+      if (req.finished && req.endTime < tracingStartMs) continue;
+
+      var sendTs = req.startTime * 1000; // ms → µs
+      netEvents.push({
+        name: 'ResourceSendRequest',
+        cat: 'devtools.timeline',
+        ph: 'I',
+        ts: sendTs,
+        pid: pid,
+        tid: tid,
+        s: 't',
+        args: {
+          data: {
+            requestId: req.requestId,
+            url: req.url,
+            requestMethod: req.method,
+            priority: 'High',
+            resourceType: req.resourceType,
+            initiator: req.initiatorData,
+            frame: targetId || 'main-frame',
+          },
+        },
+      });
+
+      if (req.responseTime) {
+        var recvTs = req.responseTime * 1000;
+        netEvents.push({
+          name: 'ResourceReceiveResponse',
+          cat: 'devtools.timeline',
+          ph: 'I',
+          ts: recvTs,
+          pid: pid,
+          tid: tid,
+          s: 't',
+          args: {
+            data: {
+              requestId: req.requestId,
+              statusCode: req.statusCode,
+              mimeType: req.mimeType || '',
+              encodedDataLength: req.size || 0,
+              protocol: 'http/1.1',
+              fromCache: false,
+              fromServiceWorker: false,
+              connectionId: 0,
+              connectionReused: false,
+              responseTime: req.responseTime,
+              frame: targetId || 'main-frame',
+            },
+          },
+        });
+      }
+
+      if (req.finished && req.endTime) {
+        var finishTs = req.endTime * 1000;
+        netEvents.push({
+          name: 'ResourceFinish',
+          cat: 'devtools.timeline',
+          ph: 'I',
+          ts: finishTs,
+          pid: pid,
+          tid: tid,
+          s: 't',
+          args: {
+            data: {
+              requestId: req.requestId,
+              didFail: !!req.error,
+              encodedDataLength: req.size || 0,
+              decodedBodyLength: req.size || 0,
+              finishTime: req.endTime / 1000, // seconds
+              frame: targetId || 'main-frame',
+            },
+          },
+        });
+      }
+    }
+    if (netEvents.length > 0) {
+      log(domainPrefix, 'Adding ' + netEvents.length + ' network trace events');
+      events = events.concat(netEvents);
     }
   }
 
@@ -544,7 +638,7 @@ function createRuntimeDomain(sourceMapResolver) {
 // Profiler domain — forwarded to in-app handler for correct timestamps
 // ---------------------------------------------------------------------------
 
-function createProfilerDomain(screenshotCapture) {
+function createProfilerDomain(screenshotCapture, getNetworkRequests) {
   var pendingRequests = new Map();
   var nextReqId = 0;
   var pendingTraceEvents = null; // Store trace events until Profiler.stop response
@@ -655,7 +749,7 @@ function createProfilerDomain(screenshotCapture) {
       if (events.length > 20) log('Profiler', '  ... and ' + (events.length - 20) + ' more');
       log('Profiler', '--- End ---');
 
-      emitTraceEvents(ws, null, events, 'Tracing', ctx.targetId, ctx, screenshotCapture, pendingTracingStartTs, pendingTracingStopTs);
+      emitTraceEvents(ws, null, events, 'Tracing', ctx.targetId, ctx, screenshotCapture, pendingTracingStartTs, pendingTracingStopTs, getNetworkRequests ? getNetworkRequests() : []);
     }
 
     // THEN send the Profiler.stop response
@@ -1189,16 +1283,34 @@ function createLogDomain() {
 // Network domain
 // ---------------------------------------------------------------------------
 
-function createNetworkDomain() {
+function createNetworkDomain(broadcastCDP) {
+  var enabled = false;
+  var requests = []; // Ring buffer of captured requests
+  var requestMap = {}; // requestId -> request object
+  var MAX_REQUESTS = 500;
+  var nextReqId = 0;
+
   function handle(method, params, ctx) {
     log('Network', method);
     switch (method) {
       case 'enable':
+        enabled = true;
         return {};
       case 'disable':
+        enabled = false;
         return {};
+      case 'getResponseBody': {
+        var req = requestMap[params.requestId];
+        if (!req || !req.body) {
+          return {body: '', base64Encoded: false};
+        }
+        return {body: req.body, base64Encoded: req.base64Encoded || false};
+      }
+      case 'getRequests':
+        return {requests: handle.getRequests()};
+      case 'getRequestByReqId':
+        return {request: handle.getRequestByReqId(params.reqId)};
       case 'setCacheDisabled':
-        return {};
       case 'setExtraHTTPHeaders':
         return {};
       default:
@@ -1206,9 +1318,160 @@ function createNetworkDomain() {
     }
   }
 
+  function handleAppMessage(message) {
+    if (message.type === 'network-request-will-be-sent') {
+      var reqId = nextReqId++;
+      var entry = {
+        reqId: reqId,
+        requestId: message.requestId,
+        url: message.url,
+        method: message.method || 'GET',
+        requestHeaders: message.headers || {},
+        requestBody: message.body || null,
+        startTime: message.startTime || Date.now(),
+        initiator: message.initiator || 'parser',
+        initiatorData: message.initiatorData || {type: message.initiator || 'parser'},
+        resourceType: message.resourceType || 'Other',
+        statusCode: 0,
+        responseHeaders: {},
+        mimeType: '',
+        body: null,
+        base64Encoded: false,
+        duration: 0,
+        size: 0,
+        error: null,
+        finished: false,
+      };
+      requests.push(entry);
+      requestMap[message.requestId] = entry;
+
+      // Evict old entries
+      if (requests.length > MAX_REQUESTS) {
+        var removed = requests.shift();
+        delete requestMap[removed.requestId];
+      }
+
+      // Emit CDP event for Chrome DevTools Network tab
+      if (enabled && broadcastCDP) {
+        var timestamp = message.timestamp / 1000; // performanceNow ms → seconds
+        var wallTime = Date.now() / 1000;
+        broadcastCDP({
+          method: 'Network.requestWillBeSent',
+          params: {
+            requestId: message.requestId,
+            loaderId: '',
+            documentURL: '',
+            request: {
+              url: message.url,
+              method: message.method || 'GET',
+              headers: message.headers || {},
+              postData: message.body || undefined,
+            },
+            timestamp: timestamp,
+            wallTime: wallTime,
+            initiator: message.initiatorData || {type: message.initiator || 'parser'},
+            type: message.resourceType || 'Other',
+          },
+        });
+      }
+    }
+
+    if (message.type === 'network-response-received') {
+      var entry = requestMap[message.requestId];
+      if (entry) {
+        entry.statusCode = message.statusCode || 0;
+        entry.responseHeaders = message.headers || {};
+        entry.mimeType = message.mimeType || '';
+        entry.responseTime = message.timestamp || entry.startTime;
+      }
+
+      // Emit CDP event
+      if (enabled && broadcastCDP) {
+        broadcastCDP({
+          method: 'Network.responseReceived',
+          params: {
+            requestId: message.requestId,
+            loaderId: '',
+            timestamp: message.timestamp / 1000,
+            type: (entry && entry.resourceType) || 'Other',
+            response: {
+              url: message.url || '',
+              status: message.statusCode || 0,
+              statusText: '',
+              headers: message.headers || {},
+              mimeType: message.mimeType || '',
+            },
+          },
+        });
+      }
+    }
+
+    if (message.type === 'network-loading-finished') {
+      var entry = requestMap[message.requestId];
+      if (entry) {
+        entry.duration = message.duration || 0;
+        entry.size = message.size || 0;
+        entry.body = message.body || null;
+        entry.base64Encoded = message.base64Encoded || false;
+        entry.finished = true;
+        entry.endTime = message.timestamp || (entry.startTime + (message.duration || 0));
+      }
+
+      // Emit CDP event
+      if (enabled && broadcastCDP) {
+        broadcastCDP({
+          method: 'Network.loadingFinished',
+          params: {
+            requestId: message.requestId,
+            timestamp: message.timestamp / 1000,
+            encodedDataLength: message.size || 0,
+          },
+        });
+      }
+    }
+
+    if (message.type === 'network-loading-failed') {
+      var entry = requestMap[message.requestId];
+      if (entry) {
+        entry.error = message.errorText || 'Unknown error';
+        entry.duration = message.duration || 0;
+        entry.finished = true;
+        entry.endTime = message.timestamp || (entry.startTime + (message.duration || 0));
+      }
+
+      // Emit CDP event
+      if (enabled && broadcastCDP) {
+        broadcastCDP({
+          method: 'Network.loadingFailed',
+          params: {
+            requestId: message.requestId,
+            timestamp: message.timestamp / 1000,
+            type: (entry && entry.resourceType) || 'Other',
+            errorText: message.errorText || 'Unknown error',
+          },
+        });
+      }
+    }
+  }
+
+  // Query interface used by MCP tools via CDP
+  handle.getRequests = function () {
+    return requests;
+  };
+
+  handle.getRequestByReqId = function (reqId) {
+    return requests.find(function (r) { return r.reqId === reqId; }) || null;
+  };
+
+  handle.clearRequests = function () {
+    requests = [];
+    requestMap = {};
+  };
+
   return {
     name: 'Network',
     handle: handle,
+    handleAppMessage: handleAppMessage,
   };
 }
 
@@ -1715,14 +1978,16 @@ function createTarget(targetId, sourceMapResolver) {
     }
   }
 
-  var tracingDomain = createTracingDomain(targetId, screenshotCapture);
-  var nodeTracingDomain = createNodeTracingDomain(targetId, screenshotCapture);
+  var networkDomain = createNetworkDomain(function(msg) { broadcastCDP(msg); });
+  var getNetworkRequests = function() { return networkDomain.handle.getRequests(); };
+  var clearNetworkRequests = function() { networkDomain.handle.clearRequests(); };
+  var tracingDomain = createTracingDomain(targetId, screenshotCapture, getNetworkRequests, clearNetworkRequests);
+  var nodeTracingDomain = createNodeTracingDomain(targetId, screenshotCapture, getNetworkRequests);
   var runtimeDomain = createRuntimeDomain(sourceMapResolver);
-  var profilerDomain = createProfilerDomain(screenshotCapture);
+  var profilerDomain = createProfilerDomain(screenshotCapture, getNetworkRequests);
   var pageDomain = createPageDomain(targetId, function () { return sendToApp; });
   var domDomain = createDOMDomain(function(msg) { broadcastCDP(msg); });
   var logDomain = createLogDomain();
-  var networkDomain = createNetworkDomain();
   var debuggerDomain = createDebuggerDomain(sourceMapResolver);
   var cssDomain = createCSSDomain();
   var overlayDomain = createOverlayDomain();
@@ -1807,6 +2072,7 @@ function createTarget(targetId, sourceMapResolver) {
       if (cssDomain.handleAppMessage) cssDomain.handleAppMessage(message);
       if (overlayDomain.handleAppMessage) overlayDomain.handleAppMessage(message);
       if (pageDomain.handleAppMessage) pageDomain.handleAppMessage(message);
+      if (networkDomain.handleAppMessage) networkDomain.handleAppMessage(message);
 
       if (message.type === 'cdp-event') {
         log('App', 'Broadcasting cdp-event: ' + message.method);

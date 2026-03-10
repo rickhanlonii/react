@@ -747,13 +747,16 @@ public class UIKitMutationApplier: NSObject {
     private func applyImageProps(to imageView: UIImageView, props: [String: Any]) {
         if let src = props["src"] as? String, let url = URL(string: src) {
             // Simple async image loading
-            URLSession.shared.dataTask(with: url) { data, _, _ in
+            var imgRequest = URLRequest(url: url)
+            setNetworkResourceType("Image", on: &imgRequest)
+            let task = URLSession.shared.dataTask(with: imgRequest) { data, _, _ in
                 if let data = data, let image = UIImage(data: data) {
                     DispatchQueue.main.async {
                         imageView.image = image
                     }
                 }
-            }.resume()
+            }
+            task.resume()
         }
         imageView.contentMode = .scaleAspectFit
     }
@@ -1004,7 +1007,8 @@ public class UIKitMutationApplier: NSObject {
         }.joined(separator: "&")
         request.httpBody = body.data(using: .utf8)
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        setNetworkResourceType("Document", on: &request)
+        let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 guard let self = self else { return }
 
@@ -1026,7 +1030,8 @@ public class UIKitMutationApplier: NSObject {
                 // Delegate to the SSR loading path to replace the current tree.
                 self.onMPAFormResponse?(responseText)
             }
-        }.resume()
+        }
+        task.resume()
     }
 
     // MARK: - Text Helpers

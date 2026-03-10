@@ -286,6 +286,7 @@ extension Root {
             delegate: streamDelegate,
             delegateQueue: .main
         )
+        setNetworkResourceType("Document", on: &request)
         let task = session.dataTask(with: request)
         self.resumeDataTask = task
         task.resume()

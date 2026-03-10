@@ -1102,7 +1102,9 @@ public class JSRuntime {
             eng.setProperty(child, "parentNode", headWrapper)
 
             // Fetch the script and evaluate it
-            URLSession.shared.dataTask(with: url) { data, _, error in
+            var scriptRequest = URLRequest(url: url)
+            setNetworkResourceType("Script", on: &scriptRequest)
+            let scriptTask = URLSession.shared.dataTask(with: scriptRequest) { data, _, error in
                 DispatchQueue.main.async { [weak eng] in
                     guard let eng = eng else { return }
 
@@ -1124,7 +1126,8 @@ public class JSRuntime {
                         }
                     }
                 }
-            }.resume()
+            }
+            scriptTask.resume()
 
             return nil
         }

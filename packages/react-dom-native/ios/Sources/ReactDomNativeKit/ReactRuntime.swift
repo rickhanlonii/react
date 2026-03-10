@@ -623,7 +623,8 @@ public class ReactRuntime {
     private func downloadRemoteBundle(from url: URL, completion: @escaping (Result<String, Error>) -> Void) {
         var request = URLRequest(url: url)
         request.cachePolicy = .reloadIgnoringLocalCacheData
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        setNetworkResourceType("Script", on: &request)
+        let task = URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(RootError.downloadFailed(error)))
@@ -638,7 +639,8 @@ public class ReactRuntime {
 
                 completion(.success(source))
             }
-        }.resume()
+        }
+        task.resume()
     }
 
     private func executeBundle(source: String, sourceURL: URL) {
@@ -758,6 +760,12 @@ public class ReactRuntime {
         bindings?.sendInspectorMessage = { [weak client] data in
             client?.send(data)
         }
+
+        // Wire network interceptor to send events via the same WebSocket
+        NetworkInterceptor.sendToProxy = { [weak client] data in
+            client?.send(data)
+        }
+        NetworkInterceptor.register()
 
         // Dev server -> JS: tracing commands forwarded to $$onInspectorMessage
         client.onInspectorMessage = { [weak self, weak bindings] json in

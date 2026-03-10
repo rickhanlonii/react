@@ -1091,6 +1091,8 @@ extension Bindings {
             // Protect callback from GC during async work
             engine.protect(callback)
 
+            setNetworkInitiator("script", on: &request)
+            setNetworkResourceType("Fetch", on: &request)
             let task = URLSession.shared.dataTask(with: request) { data, response, error in
                 DispatchQueue.main.async { [weak engine] in
                     guard let engine = engine else { return }
