@@ -14,7 +14,7 @@ module.exports = {
     // Fantom integration tests
     {
       displayName: 'fantom',
-      runner: '<rootDir>/tools/fantom/src/runner/jest-runner.js',
+      runner: '<rootDir>/packages/fantom/src/runner/jest-runner.js',
       testMatch: [
         '<rootDir>/packages/react-dom-native/src/**/*-itest.js',
         '<rootDir>/tests/integration/**/*-itest.js',

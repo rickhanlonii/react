@@ -12,7 +12,7 @@
     "falcon-devtools": {
       "type": "stdio",
       "command": "node",
-      "args": ["tools/devtools-mcp/build/src/index.js"],
+      "args": ["packages/devtools-mcp/build/src/index.js"],
       "env": {
         "FALCON_PROXY_URL": "http://127.0.0.1:6001"
       }

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(dirname "$0")"
-SWIFT_DIR="$SCRIPT_DIR/../tools/fantom/swift"
+SWIFT_DIR="$SCRIPT_DIR/../packages/fantom/swift"
 BINARY="$SWIFT_DIR/.build/release/FantomTester"
 
 # Also check ShadowTree sources since FantomTester links them
@@ -41,4 +41,4 @@ fi
 cd "$SWIFT_DIR"
 swift build -c release --product FantomTester --disable-sandbox
 
-echo "FantomTester built at: tools/fantom/swift/.build/release/FantomTester"
+echo "FantomTester built at: packages/fantom/swift/.build/release/FantomTester"

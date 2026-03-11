@@ -25,7 +25,7 @@ A React framework that uses HTML elements (`<div>`, `<span>`, `<p>`, etc.) as th
 - `tests/e2e/LayoutCompare/` — **LayoutCompare** — e2e comparison app (runs on "Falcon E2E" simulator)
 - `tests/integration/` — Fantom integration tests (JS ↔ Swift, `*-itest.js`)
 - `tests/e2e/fixtures/` — Layout comparison fixtures (JSX, shared by LayoutCompare and web-example)
-- `tools/fantom/` — Fantom headless test runner (JS + Swift binary)
+- `packages/fantom/` — Fantom headless test runner (JS + Swift binary)
 - `Falcon.xcworkspace` — Workspace containing Falcon demo + ReactDomNativeKit package
 - `scripts/` — Root build/test/dev scripts
 - `docs/` — Plans, research, architecture docs

@@ -9,7 +9,7 @@
  *   - Falcon app running in simulator
  *
  * Usage:
- *   node tools/devtools-mcp/tests/e2e/staggered-loading-test.js
+ *   node packages/devtools-mcp/tests/e2e/staggered-loading-test.js
  */
 
 import { execSync } from 'node:child_process';

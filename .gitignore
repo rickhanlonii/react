@@ -66,5 +66,5 @@ coverage/
 *.xcworkspace/
 
 # DevTools MCP fork
-tools/devtools-mcp/build/
-tools/devtools-mcp/node_modules/
+packages/devtools-mcp/build/
+packages/devtools-mcp/node_modules/
