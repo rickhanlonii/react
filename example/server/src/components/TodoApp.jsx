@@ -19,10 +19,10 @@ const card = {
   paddingRight: 16,
 };
 
-function TodoApp({initialTodos, updateTodos, todoPromises}) {
+function TodoApp({initialTodos, initialQuery, updateTodos, todoPromises}) {
   const [state, dispatch] = useActionState(updateTodos, {
     todos: initialTodos,
-    query: '',
+    query: initialQuery || '',
     addError: null,
   });
 
@@ -64,6 +64,7 @@ function TodoApp({initialTodos, updateTodos, todoPromises}) {
             id="todo-search"
             type="search"
             name="query"
+            defaultValue={state.query}
             placeholder="Search todos..."
             style={{width: '100%', height: 44, fontSize: 16}}
           />

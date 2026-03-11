@@ -1,6 +1,7 @@
 'use client';
 
 const React = require('react');
+const {use} = React;
 const TodoContext = require('./TodoContext');
 
 const colors = {
@@ -14,7 +15,10 @@ const colors = {
   uncheckBorder: '#d1d1d6',
 };
 
-function TodoAppItem({todo}) {
+function TodoAppItem({todo, todoPromise}) {
+  if (todoPromise) {
+    use(todoPromise);
+  }
   var ctx = React.useContext(TodoContext);
   var dispatch = ctx.dispatch;
   var addOptimistic = ctx.addOptimistic;

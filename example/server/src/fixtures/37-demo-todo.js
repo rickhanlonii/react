@@ -41,12 +41,21 @@ function SkeletonRow() {
 
 function TodoListSkeleton() {
   return (
-    <div style={card}>
-      <SkeletonRow />
-      <div style={{height: 1, backgroundColor: colors.divider, marginLeft: 38}} />
-      <SkeletonRow />
-      <div style={{height: 1, backgroundColor: colors.divider, marginLeft: 38}} />
-      <SkeletonRow />
+    <div style={{display: 'flex', flexDirection: 'column', gap: 14}}>
+      <input
+        id="todo-search"
+        type="search"
+        name="query"
+        placeholder="Search todos..."
+        style={{width: '100%', height: 44, fontSize: 16}}
+      />
+      <div style={card}>
+        <SkeletonRow />
+        <div style={{height: 1, backgroundColor: colors.divider, marginLeft: 38}} />
+        <SkeletonRow />
+        <div style={{height: 1, backgroundColor: colors.divider, marginLeft: 38}} />
+        <SkeletonRow />
+      </div>
     </div>
   );
 }
@@ -58,7 +67,15 @@ function delay(ms) {
 async function TodoListSection() {
   // Simulate fetching the todo list from a database
   await delay(500);
-  const todos = getTodos();
+  // Read and clear the search query. In MPA mode, the server action stores
+  // the query on the todo store so the re-render can filter and preserve it.
+  var query = (globalThis.__todoStore && globalThis.__todoStore.query) || '';
+  const todos = getTodos(query);
+  // Clear the query after reading so it doesn't persist across page reloads.
+  // The action sets it fresh before each MPA re-render.
+  if (globalThis.__todoStore) {
+    globalThis.__todoStore.query = '';
+  }
 
   // Create a staggered delay promise per todo for Suspense streaming
   var todoPromises = {};
@@ -69,6 +86,7 @@ async function TodoListSection() {
   return (
     <TodoApp
       initialTodos={todos}
+      initialQuery={query}
       updateTodos={updateTodos}
       todoPromises={todoPromises} />
   );

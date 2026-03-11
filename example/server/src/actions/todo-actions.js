@@ -66,7 +66,6 @@ function getTodos(query) {
 }
 
 async function updateTodos(previousState, formData) {
-  console.log('form data', formData)
   var get = formData && typeof formData.get === 'function'
     ? function(k) { return formData.get(k); }
     : function(k) { return formData && formData[k]; };
@@ -75,6 +74,12 @@ async function updateTodos(previousState, formData) {
   var id = get('_id');
   var text = get('text');
   var query = get('query');
+
+  // Preserve the active search query on the store so MPA re-renders
+  // (which re-run TodoListSection from scratch) keep the filter active.
+  if (previousState && previousState.query) {
+    globalThis.__todoStore.query = previousState.query;
+  }
 
   // Toggle mode
   if (action === 'toggle' && id != null) {
@@ -112,8 +117,10 @@ async function updateTodos(previousState, formData) {
   // Search mode
   if (action === 'search') {
     if (!query || typeof query !== 'string' || query.trim() === '') {
+      globalThis.__todoStore.query = '';
       return {todos: getTodos(), query: '', addError: null};
     }
+    globalThis.__todoStore.query = query.trim();
     return {todos: getTodos(query), query: query.trim(), addError: null};
   }
 

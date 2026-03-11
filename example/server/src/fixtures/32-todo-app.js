@@ -1,7 +1,6 @@
 const React = require('react');
-const {getTodos, addTodo, toggleTodo, deleteTodo} = require('../actions/todo-actions');
-const TodoAppList = require('../components/TodoAppList');
-const AddTodoForm = require('../components/AddTodoForm');
+const {getTodos, updateTodos} = require('../actions/todo-actions');
+const TodoApp = require('../components/TodoApp');
 
 const fixture = {
   title: 'Todo App',
@@ -10,7 +9,7 @@ const fixture = {
   config: {},
 };
 
-function TodoApp() {
+function TodoAppPage() {
   const todos = getTodos();
 
   return (
@@ -21,20 +20,14 @@ function TodoApp() {
           Server Actions demo — add, toggle, delete todos
         </p>
       </div>
-      <div style={{backgroundColor: '#ffffff', borderRadius: 12, padding: 16}}>
-        <AddTodoForm addTodo={addTodo} />
-      </div>
-      <div style={{backgroundColor: '#ffffff', borderRadius: 12, padding: 16}}>
-        <TodoAppList
-          todos={todos}
-          toggleTodo={toggleTodo}
-          deleteTodo={deleteTodo}
-        />
-      </div>
+      <TodoApp
+        initialTodos={todos}
+        updateTodos={updateTodos}
+      />
     </div>
   );
 }
 
-module.exports = TodoApp;
-module.exports.default = TodoApp;
+module.exports = TodoAppPage;
+module.exports.default = TodoAppPage;
 module.exports.fixture = fixture;

@@ -1,15 +1,26 @@
 'use client';
 
 const React = require('react');
+const {Suspense} = React;
 const TodoContext = require('./TodoContext');
 const TodoAppItem = require('./TodoAppItem');
 
 const colors = {
   secondary: '#8e8e93',
   divider: '#e5e5ea',
+  skeleton: '#e5e5ea',
 };
 
-function TodoAppList({todos, addError, children}) {
+function SkeletonRow() {
+  return (
+    <div style={{display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 14, paddingBottom: 14}}>
+      <div style={{width: 26, height: 26, borderRadius: 13, backgroundColor: colors.skeleton}} />
+      <div style={{flex: 1, height: 14, backgroundColor: colors.skeleton, borderRadius: 7}} />
+    </div>
+  );
+}
+
+function TodoAppList({todos, addError, todoPromises}) {
   var ctx = React.useContext(TodoContext);
   var dispatch = ctx.dispatch;
   var addOptimistic = ctx.addOptimistic;
@@ -52,10 +63,13 @@ function TodoAppList({todos, addError, children}) {
 
   return (
     <div>
-      {children ? children : todos.map(function(todo, index) {
+      {todos.map(function(todo, index) {
+        var todoPromise = todoPromises && todoPromises[todo.id];
         return (
           <div key={todo.id}>
-            <TodoAppItem todo={todo} />
+            <Suspense fallback={<SkeletonRow />}>
+              <TodoAppItem todo={todo} todoPromise={todoPromise} />
+            </Suspense>
             {index < todos.length - 1 ? (
               <div
                 style={{

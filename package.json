@@ -29,7 +29,6 @@
     "app:run": "bash scripts/build-op.sh run",
     "app:clean": "bash scripts/build-op.sh clean",
     "app:screenshot": "bash scripts/build-op.sh screenshot",
-    "app:terminate": "bash scripts/build-op.sh terminate",
     "app:tap": "bash scripts/build-op.sh tap",
     "app:swipe": "bash scripts/build-op.sh swipe",
     "app:snapshot-ui": "bash scripts/build-op.sh snapshot-ui",

@@ -109,6 +109,14 @@ private class DebugMenuViewController: UIViewController,
                     ReactRuntime.shared.bindings?.speculativeLayoutEnabled = newValue
                 }
             ),
+            Toggle(
+                title: "View Recycling",
+                subtitle: "Reuse UIViews from a pool instead of creating fresh",
+                isOn: { UIKitMutationApplier.viewRecyclingEnabled },
+                handler: { newValue in
+                    UIKitMutationApplier.viewRecyclingEnabled = newValue
+                }
+            ),
         ]
 
         tableView.dataSource = self

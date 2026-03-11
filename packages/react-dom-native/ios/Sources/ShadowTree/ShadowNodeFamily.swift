@@ -43,6 +43,9 @@ public class ShadowNodeFamily {
     public var formActionData: [String: String]? = nil
     /// The `name` attribute for <input> elements. Set during CREATE/UPDATE.
     public var inputName: String? = nil
+    /// The `value` attribute for <input> elements. Used by collectFormData for
+    /// hidden inputs whose UITextField.text is not user-editable.
+    public var inputValue: String? = nil
 
     public init(elementType: String, surfaceId: Int, instanceHandle: AnyObject?) {
         self.elementType = elementType

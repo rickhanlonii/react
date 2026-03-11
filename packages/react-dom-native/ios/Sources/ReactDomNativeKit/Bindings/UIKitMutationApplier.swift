@@ -815,6 +815,8 @@ public class UIKitMutationApplier: NSObject {
         // so MPA reconciliation doesn't clear the field.
         if let value = props["value"] as? String {
             textField.text = value
+        } else if let defaultValue = props["defaultValue"] as? String {
+            textField.text = defaultValue
         }
         if !(textField is UISearchTextField) {
             textField.borderStyle = .none

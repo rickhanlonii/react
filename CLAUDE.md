@@ -72,7 +72,7 @@ Pick the right tool for what you're investigating:
 
 ## Rules
 
-- **Plans**: ALWAYS write plans to `./docs/plans`. When finished, move to `./docs/plans/complete` and include in your commit.
+- **Plans**: ALWAYS write plans to `./docs/plans`. When finished, move to `./docs/plans/completed` and include in your commit.
 - **Planning only**: If asked to only create a plan, do not explore — just plan.
 - **Commit hygiene**: Commit completed work before ending a session. One concern per set of uncommitted changes.
 - **Build server**: Never start, stop, or restart the build server (`npm run build-server`). It is managed by the user. If it's not running, use fallback commands or ask.
