@@ -11,10 +11,7 @@ Debug the running iOS app by attaching LLDB, setting breakpoints, and inspecting
 
 1. **Build server must be running** — debug operations require persistent LLDB state
 2. **App must be running** — launch with `npm run app:run` if needed
-3. **App must NOT be under Xcode's debugger** — Xcode's debugserver holds an exclusive lock. If the app was launched from Xcode, terminate and relaunch:
-   ```
-   npm run app:terminate && npm run app:run
-   ```
+3. **App must NOT be under Xcode's debugger** — Xcode's debugserver holds an exclusive lock. If the app was launched from Xcode, terminate and relaunch.
 
 ## Workflow
 
@@ -89,7 +86,6 @@ npm run app:debug-detach
 
 ## Troubleshooting
 
-- **"App is being debugged by Xcode"**: `npm run app:terminate && npm run app:run`
 - **"App is not running"**: `npm run app:run`
 - **`po` returns "Could not find type system for language swift"**: The wrong LLDB is being used. The build server should use `xcrun --find lldb` (Xcode's LLDB with Swift support), not the system LLDB.
 - **`frame variable` returns empty**: This is normal at certain Swift frames. Use `po <variable>` instead.
