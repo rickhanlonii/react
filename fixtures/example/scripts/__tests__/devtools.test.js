@@ -44,7 +44,7 @@ describe('watcher', () => {
   it('creates a watcher', () => {
     const watcher = createWatcher({
       exampleDir: ROOT,
-      libraryDir: path.join(ROOT, '../packages/react-dom-native'),
+      libraryDir: path.join(ROOT, '../../packages/react-dom-native'),
       onChange: jest.fn(),
     });
     expect(watcher).toBeDefined();
@@ -55,7 +55,7 @@ describe('watcher', () => {
   it('close does not throw when not started', () => {
     const watcher = createWatcher({
       exampleDir: ROOT,
-      libraryDir: path.join(ROOT, '../packages/react-dom-native'),
+      libraryDir: path.join(ROOT, '../../packages/react-dom-native'),
       onChange: jest.fn(),
     });
     expect(() => watcher.close()).not.toThrow();

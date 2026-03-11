@@ -26,7 +26,7 @@ const UUID_RE = /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/
 // Target configurations — all values are hardcoded, no user input
 const TARGETS = {
   demo: {
-    projectPath: 'example/Falcon/Falcon.xcodeproj',
+    projectPath: 'fixtures/example/Falcon/Falcon.xcodeproj',
     scheme: 'Falcon',
     simulatorId: '61F83D8B-36DF-474F-9AAD-61DC6D60FFED',
     bundleId: 'com.react.Falcon',
@@ -35,7 +35,7 @@ const TARGETS = {
     processName: 'Falcon',
   },
   e2e: {
-    projectPath: 'tests/e2e/LayoutCompare/LayoutCompare/LayoutCompare.xcodeproj',
+    projectPath: 'fixtures/layout/LayoutCompare/LayoutCompare/LayoutCompare.xcodeproj',
     scheme: 'LayoutCompare',
     simulatorId: '50E9E48E-D7F7-4338-9873-3EB801137EE7',
     bundleId: 'com.react.LayoutCompare',
@@ -44,7 +44,7 @@ const TARGETS = {
     processName: 'LayoutCompare',
   },
   standalone: {
-    projectPath: 'Demo/Demo.xcodeproj',
+    projectPath: 'fixtures/Demo/Demo.xcodeproj',
     scheme: 'Demo',
     simulatorId: '079D4CB9-AD9A-4F2A-B8D9-86315BDDEAA4',
     bundleId: 'com.react.Demo',

@@ -41,7 +41,7 @@ Before spawning any teammates, verify you can build and launch both apps. Subage
    ```
    Only start servers that aren't already responding (use the Bash tool's `run_in_background: true` parameter — do NOT use `&`, redirects, `echo`, or any other shell tricks):
    - If E2E server is not responding: `Bash(command: "npm run dev:e2e", run_in_background: true)`
-   - If Flight/SSR servers are not responding: `Bash(command: "cd /Users/rickhanlonii/oss/falcon/example && npm run dev", run_in_background: true)`
+   - If Flight/SSR servers are not responding: `Bash(command: "cd /Users/rickhanlonii/oss/falcon/fixtures/example && npm run dev", run_in_background: true)`
    Wait 5 seconds after starting, then re-run `npm run e2e:check` to confirm they're up.
 2. Build and launch **LayoutCompare** on Falcon E2E:
    ```bash
@@ -50,7 +50,7 @@ Before spawning any teammates, verify you can build and launch both apps. Subage
    If this fails with `sandbox-exec: sandbox_apply: Operation not permitted`, ask the user to build manually.
    Set MCP session defaults for UI inspection tools:
    ```
-   session_set_defaults: projectPath=tests/e2e/LayoutCompare/LayoutCompare/LayoutCompare.xcodeproj, scheme=LayoutCompare, simulatorId=50E9E48E-D7F7-4338-9873-3EB801137EE7, simulatorName=Falcon E2E, bundleId=com.react.LayoutCompare
+   session_set_defaults: projectPath=fixtures/layout/LayoutCompare/LayoutCompare/LayoutCompare.xcodeproj, scheme=LayoutCompare, simulatorId=50E9E48E-D7F7-4338-9873-3EB801137EE7, simulatorName=Falcon E2E, bundleId=com.react.LayoutCompare
    ```
 3. Build and launch **Falcon** on Falcon Demo:
    ```bash
@@ -58,7 +58,7 @@ Before spawning any teammates, verify you can build and launch both apps. Subage
    ```
    Then set MCP session defaults for UI inspection:
    ```
-   session_set_defaults: simulatorId=61F83D8B-36DF-474F-9AAD-61DC6D60FFED, simulatorName=Falcon Demo, projectPath=example/Falcon/Falcon.xcodeproj, scheme=Falcon, bundleId=com.react.Falcon
+   session_set_defaults: simulatorId=61F83D8B-36DF-474F-9AAD-61DC6D60FFED, simulatorName=Falcon Demo, projectPath=fixtures/example/Falcon/Falcon.xcodeproj, scheme=Falcon, bundleId=com.react.Falcon
    ```
 4. Trigger LayoutCompare tests and verify results:
    ```bash

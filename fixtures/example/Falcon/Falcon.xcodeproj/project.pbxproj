@@ -110,7 +110,7 @@
 			mainGroup = FDCCCDF42F3D52A30074C86D;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				FD6561042F46461D0079D926 /* XCLocalSwiftPackageReference "../../packages/react-dom-native/ios" */,
+				FD6561042F46461D0079D926 /* XCLocalSwiftPackageReference "../../../packages/react-dom-native/ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = FDCCCDFE2F3D52A30074C86D /* Products */;
@@ -346,31 +346,31 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		FD6561042F46461D0079D926 /* XCLocalSwiftPackageReference "../../packages/react-dom-native/ios" */ = {
+		FD6561042F46461D0079D926 /* XCLocalSwiftPackageReference "../../../packages/react-dom-native/ios" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = "../../packages/react-dom-native/ios";
+			relativePath = "../../../packages/react-dom-native/ios";
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		FD6561052F46461D0079D926 /* JSEngine */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = FD6561042F46461D0079D926 /* XCLocalSwiftPackageReference "../../packages/react-dom-native/ios" */;
+			package = FD6561042F46461D0079D926 /* XCLocalSwiftPackageReference "../../../packages/react-dom-native/ios" */;
 			productName = JSEngine;
 		};
 		FD6561072F46461D0079D926 /* ReactDomNativeKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = FD6561042F46461D0079D926 /* XCLocalSwiftPackageReference "../../packages/react-dom-native/ios" */;
+			package = FD6561042F46461D0079D926 /* XCLocalSwiftPackageReference "../../../packages/react-dom-native/ios" */;
 			productName = ReactDomNativeKit;
 		};
 		FD6561092F46461D0079D926 /* ShadowTree */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = FD6561042F46461D0079D926 /* XCLocalSwiftPackageReference "../../packages/react-dom-native/ios" */;
+			package = FD6561042F46461D0079D926 /* XCLocalSwiftPackageReference "../../../packages/react-dom-native/ios" */;
 			productName = ShadowTree;
 		};
 		FD65610B2F46461D0079D926 /* Yoga */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = FD6561042F46461D0079D926 /* XCLocalSwiftPackageReference "../../packages/react-dom-native/ios" */;
+			package = FD6561042F46461D0079D926 /* XCLocalSwiftPackageReference "../../../packages/react-dom-native/ios" */;
 			productName = Yoga;
 		};
 /* End XCSwiftPackageProductDependency section */

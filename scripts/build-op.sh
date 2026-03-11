@@ -53,21 +53,21 @@ AXE_PATH="$(cd "$(dirname "$0")/.."; pwd)/node_modules/xcodebuildmcp/bundled/axe
 # Target configs (must match build-server.js)
 case "$TARGET" in
   demo)
-    PROJECT_PATH="example/Falcon/Falcon.xcodeproj"
+    PROJECT_PATH="fixtures/example/Falcon/Falcon.xcodeproj"
     SCHEME="Falcon"
     SIMULATOR_ID="61F83D8B-36DF-474F-9AAD-61DC6D60FFED"
     BUNDLE_ID="com.react.Falcon"
     SCREENSHOT_PATH="/tmp/falcon-screenshot.png"
     ;;
   e2e)
-    PROJECT_PATH="tests/e2e/LayoutCompare/LayoutCompare/LayoutCompare.xcodeproj"
+    PROJECT_PATH="fixtures/layout/LayoutCompare/LayoutCompare/LayoutCompare.xcodeproj"
     SCHEME="LayoutCompare"
     SIMULATOR_ID="50E9E48E-D7F7-4338-9873-3EB801137EE7"
     BUNDLE_ID="com.react.LayoutCompare"
     SCREENSHOT_PATH="/tmp/e2e-screenshot.png"
     ;;
   standalone)
-    PROJECT_PATH="Demo/Demo.xcodeproj"
+    PROJECT_PATH="fixtures/Demo/Demo.xcodeproj"
     SCHEME="Demo"
     SIMULATOR_ID="079D4CB9-AD9A-4F2A-B8D9-86315BDDEAA4"
     BUNDLE_ID="com.react.Demo"
@@ -95,12 +95,12 @@ if [ "$OPERATION" = "test-e2e-swift" ]; then
 
   # Build webpack bundle if needed
   echo "[test-e2e-swift] Building webpack bundle..."
-  cd example && npm run build 2>/dev/null || true
+  cd fixtures/example && npm run build 2>/dev/null || true
   cd ..
 
   # Start Flight server
   echo "[test-e2e-swift] Starting Flight server on port $FLIGHT_PORT..."
-  PORT=$FLIGHT_PORT node --conditions react-server example/server/server.js &
+  PORT=$FLIGHT_PORT node --conditions react-server fixtures/example/server/server.js &
   FLIGHT_PID=$!
 
   echo "[test-e2e-swift] Waiting for Flight server..."
@@ -117,7 +117,7 @@ if [ "$OPERATION" = "test-e2e-swift" ]; then
 
   # Start SSR server
   echo "[test-e2e-swift] Starting SSR server on port $SSR_PORT..."
-  PORT=$SSR_PORT FLIGHT_SERVER="http://localhost:$FLIGHT_PORT" node example/server/ssr-server.js &
+  PORT=$SSR_PORT FLIGHT_SERVER="http://localhost:$FLIGHT_PORT" node fixtures/example/server/ssr-server.js &
   SSR_PID=$!
 
   echo "[test-e2e-swift] Waiting for SSR server..."

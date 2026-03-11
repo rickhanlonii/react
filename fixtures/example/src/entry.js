@@ -14,8 +14,8 @@
 // DevTools polyfills must load BEFORE React so React detects `performance`
 // and `console.timeStamp` during its module initialization.
 if (__DEV__) {
-  require('../../packages/react-dom-native/src/devtools/ReactDevToolsSetup');         // Must be first — installs full DevTools hook
-  require('../../packages/react-dom-native/src/devtools/RemoteObject');              // CDP Runtime $$ helpers ($$evaluateForCDP, etc.)
+  require('../../../packages/react-dom-native/src/devtools/ReactDevToolsSetup');         // Must be first — installs full DevTools hook
+  require('../../../packages/react-dom-native/src/devtools/RemoteObject');              // CDP Runtime $$ helpers ($$evaluateForCDP, etc.)
 }
 
 // ---------------------------------------------------------------------------
@@ -70,7 +70,7 @@ var React = require('react');
 var use = React.use;
 var startTransition = React.startTransition;
 var createElement = React.createElement;
-var renderer = require('../../packages/react-dom-native/client');
+var renderer = require('../../../packages/react-dom-native/client');
 var createRoot = renderer.createRoot;
 var hydrateRoot = renderer.hydrateRoot;
 var ReactFlightClient = require('react-server-dom-webpack/client.browser');

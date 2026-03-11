@@ -18,15 +18,15 @@ A React framework that uses HTML elements (`<div>`, `<span>`, `<p>`, etc.) as th
 - `packages/react-dom-native/` — The library
   - `src/` — JS: renderer (host config), bridge, flight-client, server (SSR), polyfills, devtools, entry point
   - `ios/` — Swift Package: ReactDomNativeKit (shadow tree, Yoga layout, UIKit bindings)
-- `example/` — **Falcon Demo** — full RSC app (Flight + SSR + hydration)
+- `fixtures/example/` — **Falcon Demo** — full RSC app (Flight + SSR + hydration)
   - `Falcon/` — Xcode project (runs on "Falcon Demo" simulator)
   - `server/` — Express RSC server (`server.js` on :6000) + SSR server (`ssr-server.js` on :6001), server components in `src/`
-- `web-example/` — **Web reference app** — Next.js app rendering the same components for visual comparison
-- `tests/e2e/LayoutCompare/` — **LayoutCompare** — e2e comparison app (runs on "Falcon E2E" simulator)
+- `fixtures/web-example/` — **Web reference app** — Next.js app rendering the same components for visual comparison
+- `fixtures/layout/LayoutCompare/` — **LayoutCompare** — e2e comparison app (runs on "Falcon E2E" simulator)
 - `tests/integration/` — Fantom integration tests (JS ↔ Swift, `*-itest.js`)
-- `tests/e2e/fixtures/` — Layout comparison fixtures (JSX, shared by LayoutCompare and web-example)
+- `fixtures/layout/fixtures/` — Layout comparison fixtures (JSX, shared by LayoutCompare and web-example)
 - `packages/fantom/` — Fantom headless test runner (JS + Swift binary)
-- `Falcon.xcworkspace` — Workspace containing Falcon demo + ReactDomNativeKit package
+- `fixtures/Falcon.xcworkspace` — Workspace containing Falcon demo + ReactDomNativeKit package
 - `scripts/` — Root build/test/dev scripts
 - `docs/` — Plans, research, architecture docs
 
@@ -40,7 +40,7 @@ A React framework that uses HTML elements (`<div>`, `<span>`, `<p>`, etc.) as th
 
 ## Development Workflow
 
-Run `cd example && npm run dev` to start esbuild watcher + RSC server on `http://localhost:6000`. The native app auto-reloads via WebSocket on JS changes.
+Run `cd fixtures/example && npm run dev` to start esbuild watcher + RSC server on `http://localhost:6000`. The native app auto-reloads via WebSocket on JS changes.
 
 For UI automation, test commands, and output filtering, see `docs/cli-reference.md`.
 

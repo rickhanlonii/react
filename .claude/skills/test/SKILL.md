@@ -28,7 +28,7 @@ If no arguments provided, check `git diff --name-only HEAD` (or `git diff --name
 3. **Both Swift and JS changed**: run both `npm test` and `npm run test:swift`
 4. **Fantom test files changed** (`tests/integration/**`): also run `npm run test:fantom`
 5. **Bridge files changed** (`src/bridge/` or `ios/Sources/*/Bindings/`): run `npm test`, `npm run test:swift`, AND `npm run test:fantom`
-6. **E2E fixtures changed** (`tests/e2e/**`): run `npm run test:e2e-swift`
+6. **E2E fixtures changed** (`fixtures/layout/**`): run `npm run test:e2e-swift`
 7. **No changes detected**: run `npm test` (JS unit tests as default)
 
 ### Execution

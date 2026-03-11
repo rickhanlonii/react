@@ -48,7 +48,7 @@ npm run app:log-stop
 Configure XcodeBuildMCP for the example app on a SEPARATE simulator from Layout QA (needed for `snapshot_ui`, `tap`, etc.):
 ```
 session_set_defaults:
-  projectPath: example/Falcon/Falcon.xcodeproj
+  projectPath: fixtures/example/Falcon/Falcon.xcodeproj
   scheme: Falcon
   simulatorName: Falcon Demo
   simulatorId: 61F83D8B-36DF-474F-9AAD-61DC6D60FFED
@@ -93,7 +93,7 @@ session_set_defaults:
 Screenshots alone are not enough — you must systematically verify what you see against what the code says should be there.
 
 ### Step 1: Read the Component Source
-Read the server component (`example/server/src/App.js` or the specific component file) and any client components it uses. Build a checklist of every visible element:
+Read the server component (`fixtures/example/server/src/App.js` or the specific component file) and any client components it uses. Build a checklist of every visible element:
 - Element types and text content
 - Suspense boundaries and their expected states (should show loading spinner? should show content?)
 - Interactive elements (buttons, inputs, tabs) and their initial state

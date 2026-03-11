@@ -54,7 +54,7 @@ describe('node-register', function () {
     // this check in a subprocess with the correct flag.
     var script =
       'require("react-server-dom-webpack/node-register")();' +
-      'var a = require("./example/server/src/actions/todo-actions");' +
+      'var a = require("./fixtures/example/server/src/actions/todo-actions");' +
       'var out = {};' +
       'out.addTodoId = a.addTodo["$$id"];' +
       'out.addTodoTypeof = String(a.addTodo["$$typeof"]);' +
@@ -67,7 +67,7 @@ describe('node-register', function () {
       '-e',
       script,
     ], {
-      cwd: path.resolve(__dirname, '../../../'),
+      cwd: path.resolve(__dirname, '../../../../'),
       encoding: 'utf8',
     });
 
@@ -87,7 +87,7 @@ describe('getServerManifest', function () {
       'var url = require("url");' +
       'var fs = require("fs");' +
       'require("react-server-dom-webpack/node-register")();' +
-      'var SERVER_ACTIONS_DIR = path.resolve(__dirname, "example/server/src/actions");' +
+      'var SERVER_ACTIONS_DIR = path.resolve(__dirname, "fixtures/example/server/src/actions");' +
       'function getServerManifest() {' +
       '  var manifest = {};' +
       '  if (!fs.existsSync(SERVER_ACTIONS_DIR)) return manifest;' +
@@ -114,7 +114,7 @@ describe('getServerManifest', function () {
       '-e',
       script,
     ], {
-      cwd: path.resolve(__dirname, '../../../'),
+      cwd: path.resolve(__dirname, '../../../../'),
       encoding: 'utf8',
     });
 
@@ -168,7 +168,7 @@ describe('POST /fixtures/:name endpoint', function () {
     // Get the action ID from a subprocess with --conditions react-server
     var script =
       'require("react-server-dom-webpack/node-register")();' +
-      'var a = require("./example/server/src/actions/todo-actions");' +
+      'var a = require("./fixtures/example/server/src/actions/todo-actions");' +
       'console.log(a.addTodo["$$id"]);';
 
     actionId = execFileSync(process.execPath, [
@@ -177,7 +177,7 @@ describe('POST /fixtures/:name endpoint', function () {
       '-e',
       script,
     ], {
-      cwd: path.resolve(__dirname, '../../../'),
+      cwd: path.resolve(__dirname, '../../../../'),
       encoding: 'utf8',
     }).trim();
 

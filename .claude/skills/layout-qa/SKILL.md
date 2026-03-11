@@ -34,7 +34,7 @@ Then view: `Read /tmp/e2e-screenshot.png`
 Configure XcodeBuildMCP for the LayoutCompare app (needed for `snapshot_ui`, `tap`, etc.):
 ```
 session_set_defaults:
-  projectPath: tests/e2e/LayoutCompare/LayoutCompare/LayoutCompare.xcodeproj
+  projectPath: fixtures/layout/LayoutCompare/LayoutCompare/LayoutCompare.xcodeproj
   scheme: LayoutCompare
   simulatorName: Falcon E2E
   simulatorId: 50E9E48E-D7F7-4338-9873-3EB801137EE7
@@ -92,7 +92,7 @@ Diffs:
 1. path=<path> property=<property> web=<web-value> native=<native-value> delta=<delta>
 2. ...
 
-Fixture source: tests/e2e/fixtures/<fixture-name>.jsx
+Fixture source: fixtures/layout/fixtures/<fixture-name>.jsx
 ```
 
 Note: Fixtures with 0 layout diffs but >0% pixel mismatch should also be flagged. These indicate visual rendering differences (text, borders, colors) that the layout tree comparison doesn't catch.
@@ -108,7 +108,7 @@ Ignore these diffs — they are expected:
 The automated diff only compares layout metrics (x, y, width, height) and a few style properties. It does NOT catch visual issues like missing borders, wrong colors, text styling differences, or rendering glitches. You MUST perform a visual audit for every fixture.
 
 ### Step 1: Read the Fixture Source
-Read `tests/e2e/fixtures/<fixture-name>.jsx` and build a checklist of every visible element and its expected visual properties:
+Read `fixtures/layout/fixtures/<fixture-name>.jsx` and build a checklist of every visible element and its expected visual properties:
 - Element type and text content (e.g., "a `<p>` with text 'Hello World'")
 - Background color and text color
 - Borders (width, color, style, radius)

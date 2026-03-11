@@ -6,7 +6,7 @@ module.exports = {
       displayName: 'unit',
       testMatch: [
         '<rootDir>/packages/react-dom-native/src/**/__tests__/**/*.test.js',
-        '<rootDir>/example/scripts/__tests__/**/*.test.js',
+        '<rootDir>/fixtures/example/scripts/__tests__/**/*.test.js',
       ],
       testPathIgnorePatterns: ['/node_modules/', '/server/'],
       transform: {},
@@ -34,7 +34,7 @@ module.exports = {
     {
       displayName: 'server-actions',
       testMatch: [
-        '<rootDir>/example/server/__tests__/**/*.test.js',
+        '<rootDir>/fixtures/example/server/__tests__/**/*.test.js',
       ],
       testPathIgnorePatterns: ['/node_modules/'],
       transform: {},

@@ -17,19 +17,19 @@ You build real demo features in the example Falcon app to exercise the full reac
 ## File Ownership
 
 You may ONLY edit files in:
-- `example/server/src/` — server components, App.js, new component files
-- `example/server/src/components/` — client components (`'use client'`)
-- `example/entry/` — entry point files
+- `fixtures/example/server/src/` — server components, App.js, new component files
+- `fixtures/example/server/src/components/` — client components (`'use client'`)
+- `fixtures/example/entry/` — entry point files
 
 Do NOT edit the framework package (`packages/react-dom-native/`), test fixtures, or the iOS Xcode project.
 
 ## Example App Architecture
 
-- **RSC server** (`example/server/server.js`): Express server at `localhost:6000`, renders App.js via Flight, serves JS bundle
-- **SSR server** (`example/server/ssr-server.js`): Fizz server at `localhost:6001`, renders to SSR instruction stream
-- **App.js** (`example/server/src/App.js`): Root server component
-- **Client components** (`example/server/src/components/`): Marked with `'use client'`, use hooks (useState, useTransition, etc.)
-- **Entry** (`example/entry/`): Client-side bootstrap, connects to servers
+- **RSC server** (`fixtures/example/server/server.js`): Express server at `localhost:6000`, renders App.js via Flight, serves JS bundle
+- **SSR server** (`fixtures/example/server/ssr-server.js`): Fizz server at `localhost:6001`, renders to SSR instruction stream
+- **App.js** (`fixtures/example/server/src/App.js`): Root server component
+- **Client components** (`fixtures/example/server/src/components/`): Marked with `'use client'`, use hooks (useState, useTransition, etc.)
+- **Entry** (`fixtures/example/entry/`): Client-side bootstrap, connects to servers
 
 ### Server component pattern:
 ```jsx
@@ -142,7 +142,7 @@ Use this exact template — do NOT add extra sections, lists, or history:
 
 Do NOT include in this file:
 - Lists of all features built — that's the log's job
-- Coverage details — check `example/server/src/` directly
+- Coverage details — check `fixtures/example/server/src/` directly
 - Feature descriptions — put in the log entry
 
 ### Log file: `docs/plans/agent-state/demo-builder.log.md`

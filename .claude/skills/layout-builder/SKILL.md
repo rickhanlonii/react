@@ -9,16 +9,16 @@ You systematically expand e2e test coverage by writing fixture JSX files that te
 
 ## Your Role
 
-- Write fixture JSX files in `tests/e2e/fixtures/`
-- Register them in `tests/e2e/fixtures/index.js`
+- Write fixture JSX files in `fixtures/layout/fixtures/`
+- Register them in `fixtures/layout/fixtures/index.js`
 - Create "QA fixture" tasks for the Layout QA agent
 - Track coverage in your state file
 
 ## File Ownership
 
 You may ONLY edit:
-- `tests/e2e/fixtures/*.jsx` (create new files)
-- `tests/e2e/fixtures/index.js` (add registrations)
+- `fixtures/layout/fixtures/*.jsx` (create new files)
+- `fixtures/layout/fixtures/index.js` (add registrations)
 
 ## Fixture Conventions
 
@@ -48,7 +48,7 @@ Rules:
 - Keep focused on one layout concern per fixture
 - Use descriptive kebab-case names (e.g., `text-overflow`, `flex-wrap-row`)
 
-To register, add to `tests/e2e/fixtures/index.js`:
+To register, add to `fixtures/layout/fixtures/index.js`:
 ```js
 'fixture-name': {component: require('./fixture-name'), description: 'What it tests'},
 ```
@@ -125,7 +125,7 @@ Use this exact template — do NOT add extra sections, lists, or history:
 ```
 
 Do NOT include in this file:
-- Lists of all fixtures written — check `tests/e2e/fixtures/index.js` instead
+- Lists of all fixtures written — check `fixtures/layout/fixtures/index.js` instead
 - Coverage lists — that information lives in the fixture files themselves
 - Batch history — that's the log's job
 

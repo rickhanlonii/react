@@ -28,7 +28,7 @@ Compares layout output between react-dom (WKWebView) and react-dom-native (UIKit
 Set XcodeBuildMCP session defaults for the LayoutCompare app:
 ```
 session_set_defaults:
-  projectPath: tests/e2e/LayoutCompare/LayoutCompare/LayoutCompare.xcodeproj
+  projectPath: fixtures/layout/LayoutCompare/LayoutCompare/LayoutCompare.xcodeproj
   scheme: LayoutCompare
   simulatorName: Falcon E2E
   simulatorId: 50E9E48E-D7F7-4338-9873-3EB801137EE7
@@ -116,7 +116,7 @@ Each `pixelDiff` has: `mismatchedPixels`, `totalPixels`, `percentage`. This comp
 
 ## Workflow: Add Fixture
 
-1. Create a new JSX file in `tests/e2e/fixtures/`:
+1. Create a new JSX file in `fixtures/layout/fixtures/`:
    ```jsx
    var React = require('react');
    module.exports = function FixtureName() {
@@ -131,14 +131,14 @@ Each `pixelDiff` has: `mismatchedPixels`, `totalPixels`, `percentage`. This comp
    - Keep fixtures focused on one layout concern
    - Use numeric values for dimensions (width, height, margin, padding)
 
-2. Register in `tests/e2e/fixtures/index.js`:
+2. Register in `fixtures/layout/fixtures/index.js`:
    ```js
    'fixture-name': { component: require('./fixture-name'), description: 'What it tests' },
    ```
 
 3. The dev server auto-rebuilds. Wait 2-3s, then check results via HTTP.
 
-4. If dev server is not running: `node tests/e2e/scripts/build.js`, then rebuild the app (`npm run app:run -- e2e`)
+4. If dev server is not running: `node fixtures/layout/scripts/build.js`, then rebuild the app (`npm run app:run -- e2e`)
 
 ## Workflow: Fix Layout Issues
 
@@ -170,7 +170,7 @@ When diffs are found, the fix is usually in one of these files:
 ## Project Structure
 
 ```
-tests/e2e/
+fixtures/layout/
   fixtures/           # Shared React component fixtures (JSX)
     index.js           # Fixture registry
     div-basic.jsx      # Basic div with dimensions
