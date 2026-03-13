@@ -17,7 +17,7 @@ module.exports = {
       runner: '<rootDir>/packages/fantom/src/runner/jest-runner.js',
       testMatch: [
         '<rootDir>/packages/react-dom-native/src/**/*-itest.js',
-        '<rootDir>/tests/integration/**/*-itest.js',
+        '<rootDir>/packages/react-dom-native/integration-tests/**/*-itest.js',
       ],
       testPathIgnorePatterns: ['/node_modules/', '/server/'],
     },

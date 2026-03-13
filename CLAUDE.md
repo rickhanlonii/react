@@ -1,6 +1,6 @@
 # react-dom-native
 
-A React framework that uses HTML elements (`<div>`, `<span>`, `<p>`, etc.) as the API surface, mapping them to native iOS views (UIKit) via Yoga layout.
+A React streaming server rendered mobile React framework.
 
 ## Architecture
 
@@ -15,20 +15,20 @@ A React framework that uses HTML elements (`<div>`, `<span>`, `<p>`, etc.) as th
 
 ## Project Structure
 
-- `packages/react-dom-native/` — The library
-  - `src/` — JS: renderer (host config), bridge, flight-client, server (SSR), polyfills, devtools, entry point
-  - `ios/` — Swift Package: ReactDomNativeKit (shadow tree, Yoga layout, UIKit bindings)
-- `fixtures/example/` — **Falcon Demo** — full RSC app (Flight + SSR + hydration)
-  - `Falcon/` — Xcode project (runs on "Falcon Demo" simulator)
-  - `server/` — Express RSC server (`server.js` on :6000) + SSR server (`ssr-server.js` on :6001), server components in `src/`
-- `fixtures/web-example/` — **Web reference app** — Next.js app rendering the same components for visual comparison
-- `fixtures/layout/LayoutCompare/` — **LayoutCompare** — e2e comparison app (runs on "Falcon E2E" simulator)
-- `tests/integration/` — Fantom integration tests (JS ↔ Swift, `*-itest.js`)
-- `fixtures/layout/fixtures/` — Layout comparison fixtures (JSX, shared by LayoutCompare and web-example)
-- `packages/fantom/` — Fantom headless test runner (JS + Swift binary)
-- `fixtures/Falcon.xcworkspace` — Workspace containing Falcon demo + ReactDomNativeKit package
-- `scripts/` — Root build/test/dev scripts
-- `docs/` — Plans, research, architecture docs
+- `packages
+  - `react-dom-native`: The core library
+    - `src/`: JS: renderer (host config), bridge, flight-client, server (SSR), polyfills, devtools, entry point
+    - `ios/`: Swift Package: ReactDomNativeKit (shadow tree, Yoga layout, UIKit bindings)
+  - `fantom`: Fantom headless test runner (JS + Swift binary)
+  - `devtools-mcp`: Fork of `chrome-devtools-mcp` for `react-dom-native`
+- `fixtures`: Test fixtures and demos
+  - `example`:  **Falcon Demo** — full RSC app (Flight + SSR + hydration)
+  - `web-example`: **Web reference app** — Next.js app rendering the same components for visual comparison
+  - `layout`: **LayoutCompare** — e2e comparison app (runs on "Falcon E2E" simulator)
+- `packages/react-dom-native/integration-tests/`: Fantom integration tests (JS ↔ Swift, `*-itest.js`)
+- `fixtures/Falcon.xcworkspace`: Workspace containing Falcon demo + ReactDomNativeKit package
+- `scripts/`: Root build/test/dev scripts
+- `docs/`: Plans, research, architecture docs
 
 ## Skills
 
