@@ -1,9 +1,0 @@
-schemaVersion: 1
-enabledWorkflows:
-  - session-management
-  - simulator
-  - ui-automation
-  - debugging
-  - logging
-  - device
-# No sessionDefaults — each skill sets its own project/scheme/simulator
