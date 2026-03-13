@@ -5,7 +5,7 @@ var path = require('path');
 var fs = require('fs');
 
 var E2E_ROOT = path.resolve(__dirname, '..');
-var RESOURCES_DIR = path.resolve(E2E_ROOT, 'LayoutCompare/LayoutCompare/LayoutCompare/Resources');
+var RESOURCES_DIR = path.resolve(E2E_ROOT, 'LayoutCompare/LayoutCompare/Resources');
 
 // Ensure output directory exists
 if (!fs.existsSync(RESOURCES_DIR)) {

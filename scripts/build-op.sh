@@ -60,7 +60,7 @@ case "$TARGET" in
     SCREENSHOT_PATH="/tmp/falcon-screenshot.png"
     ;;
   e2e)
-    PROJECT_PATH="fixtures/layout/LayoutCompare/LayoutCompare/LayoutCompare.xcodeproj"
+    PROJECT_PATH="fixtures/layout/LayoutCompare/LayoutCompare.xcodeproj"
     SCHEME="LayoutCompare"
     SIMULATOR_ID="50E9E48E-D7F7-4338-9873-3EB801137EE7"
     BUNDLE_ID="com.react.LayoutCompare"

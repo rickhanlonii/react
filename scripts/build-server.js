@@ -35,7 +35,7 @@ const TARGETS = {
     processName: 'Falcon',
   },
   e2e: {
-    projectPath: 'fixtures/layout/LayoutCompare/LayoutCompare/LayoutCompare.xcodeproj',
+    projectPath: 'fixtures/layout/LayoutCompare/LayoutCompare.xcodeproj',
     scheme: 'LayoutCompare',
     simulatorId: '50E9E48E-D7F7-4338-9873-3EB801137EE7',
     bundleId: 'com.react.LayoutCompare',

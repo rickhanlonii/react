@@ -28,7 +28,7 @@ Compares layout output between react-dom (WKWebView) and react-dom-native (UIKit
 Set XcodeBuildMCP session defaults for the LayoutCompare app:
 ```
 session_set_defaults:
-  projectPath: fixtures/layout/LayoutCompare/LayoutCompare/LayoutCompare.xcodeproj
+  projectPath: fixtures/layout/LayoutCompare/LayoutCompare.xcodeproj
   scheme: LayoutCompare
   simulatorName: Falcon E2E
   simulatorId: 50E9E48E-D7F7-4338-9873-3EB801137EE7
