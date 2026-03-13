@@ -51,6 +51,12 @@ packages/react-dom-native/ios/Sources/ReactDomNativeKit/Resources/bundle.js.map
 # Claude Code local settings
 .claude/settings.local.json
 
+# MCP server config (personal)
+.mcp.json
+
+# Xcode Build MCP plugin
+.xcodebuildmcp/
+
 # Test coverage
 coverage/
 
