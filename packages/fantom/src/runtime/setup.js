@@ -194,6 +194,84 @@ function expect(actual) {
   return matchers;
 }
 
+// Polyfill performance.now for JSC (needed by React scheduler and Flight client).
+if (typeof globalThis.performance === 'undefined') {
+  globalThis.performance = {};
+}
+if (typeof globalThis.performance.now !== 'function') {
+  var _perfStart = Date.now();
+  globalThis.performance.now = function () { return Date.now() - _perfStart; };
+}
+
+// Polyfill TextEncoder/TextDecoder for JSC (needed by Flight client).
+if (typeof globalThis.TextEncoder === 'undefined') {
+  globalThis.TextEncoder = function () {};
+  globalThis.TextEncoder.prototype.encode = function (str) {
+    var arr = [];
+    for (var i = 0; i < str.length; i++) {
+      var c = str.charCodeAt(i);
+      if (c < 0x80) {
+        arr.push(c);
+      } else if (c < 0x800) {
+        arr.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f));
+      } else {
+        arr.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
+      }
+    }
+    return new Uint8Array(arr);
+  };
+}
+
+if (typeof globalThis.TextDecoder === 'undefined') {
+  globalThis.TextDecoder = function () {};
+  globalThis.TextDecoder.prototype.decode = function (bytes) {
+    if (!bytes) return '';
+    var str = '';
+    for (var i = 0; i < bytes.length; i++) {
+      str += String.fromCharCode(bytes[i]);
+    }
+    return str;
+  };
+}
+
+// Minimal ReadableStream polyfill for JSC (needed by Flight client).
+if (typeof globalThis.ReadableStream === 'undefined') {
+  globalThis.ReadableStream = function (source) {
+    this._source = source;
+  };
+  globalThis.ReadableStream.prototype.getReader = function () {
+    var chunks = [];
+    var closed = false;
+    var controller = {
+      enqueue: function (chunk) { chunks.push(chunk); },
+      close: function () { closed = true; },
+      error: function (e) { closed = true; },
+    };
+    this._source.start(controller);
+    var index = 0;
+    return {
+      read: function () {
+        if (index < chunks.length) {
+          return Promise.resolve({value: chunks[index++], done: false});
+        }
+        return Promise.resolve({value: undefined, done: true});
+      },
+      cancel: function () {},
+      releaseLock: function () {},
+    };
+  };
+}
+
+// Shim __webpack_require__ for react-server-dom-webpack/client.browser.
+// The module accesses __webpack_require__.u at load time. In tests, actual
+// client module resolution is never exercised, so a no-op shim suffices.
+if (typeof globalThis.__webpack_require__ === 'undefined') {
+  globalThis.__webpack_require__ = function (id) {
+    throw new Error('__webpack_require__ called in test — module ' + id + ' not available');
+  };
+  globalThis.__webpack_require__.u = function () { return ''; };
+}
+
 // Polyfill timer and scheduling APIs for JSC (not part of ECMAScript,
 // but needed by the React reconciler's scheduler).
 //

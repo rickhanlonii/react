@@ -2,7 +2,6 @@
 
 var renderer = require('react-dom-native/client');
 var React = require('react');
-var ReactFlightClient = require('react-server-dom-webpack/client.browser');
 
 /**
  * Creates a root and renders into it within the test harness.
@@ -215,31 +214,67 @@ function encodeProps(props) {
 
 /**
  * Parses a complete Flight payload string and returns the root React element.
- * Uses react-server-dom-webpack/client.browser's createFromReadableStream.
+ * Decodes the Flight wire format directly without needing ReadableStream or
+ * the webpack Flight client (which requires async stream processing that
+ * JSC can't drain synchronously).
  *
- * @param {string} payload - Complete Flight wire format string
+ * @param {string} payload - Complete Flight wire format string (e.g. "0:[...]\n")
  * @returns {*} The resolved root value (typically a React element tree)
  */
 function createFromFlight(payload) {
-  var encoder = new TextEncoder();
-  var stream = new ReadableStream({
-    start: function(controller) {
-      controller.enqueue(encoder.encode(payload));
-      controller.close();
+  // Flight format: "chunkId:jsonValue\n" per row
+  var lines = payload.split('\n');
+  var chunks = {};
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    if (!line) continue;
+    var colonIdx = line.indexOf(':');
+    if (colonIdx === -1) continue;
+    var id = line.substring(0, colonIdx);
+    var value = line.substring(colonIdx + 1);
+    chunks[id] = JSON.parse(value, flightReviver.bind(null, chunks));
+  }
+  // Root chunk is always "0"
+  return chunks['0'];
+}
+
+/**
+ * JSON reviver for Flight wire format.
+ * Converts ["$", type, key, props] tuples back to React elements and
+ * resolves $-prefixed string references.
+ */
+function flightReviver(chunks, key, value) {
+  if (typeof value === 'string') {
+    // Escaped $ prefix ($$foo -> $foo)
+    if (value.length > 1 && value[0] === '$' && value[1] === '$') {
+      return value.substring(1);
     }
-  });
-  var result = ReactFlightClient.createFromReadableStream(stream);
-  // Flush microtask queue so the stream is consumed and the thenable resolves
-  $$flushWork();
-  if (result.status === 'fulfilled') {
-    return result.value;
+    // Symbol reference ($Sreact.fragment etc.)
+    if (value.length > 2 && value[0] === '$' && value[1] === 'S') {
+      return Symbol.for(value.substring(2));
+    }
+    // Chunk reference ($Lchunkid -> lazy reference, not needed for sync tests)
+    return value;
   }
-  if (result.status === 'rejected') {
-    throw result.reason;
+
+  // React element tuple: ["$", type, key, props]
+  if (Array.isArray(value) && value.length === 4 && value[0] === '$') {
+    var type = value[1];
+    // Resolve symbol-typed elements (e.g. fragments)
+    if (typeof type === 'string' && type.length > 2 && type[0] === '$' && type[1] === 'S') {
+      type = Symbol.for(type.substring(2));
+    }
+    return {
+      $$typeof: Symbol.for('react.transitional.element'),
+      type: type,
+      key: value[2],
+      props: value[3],
+      ref: null,
+      _owner: null,
+    };
   }
-  throw new Error(
-    'createFromFlight: root chunk still pending after processing complete payload',
-  );
+
+  return value;
 }
 
 module.exports = {

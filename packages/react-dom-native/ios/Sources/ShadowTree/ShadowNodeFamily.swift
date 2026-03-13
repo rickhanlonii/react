@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(UIKit)
 import UIKit
+#endif
 
 // ---------------------------------------------------------------------------
 // ShadowNodeFamily
@@ -24,9 +26,15 @@ public class ShadowNodeFamily {
     /// this family is alive.
     public var instanceHandle: AnyObject?
 
+    #if canImport(UIKit)
     /// Direct view reference — avoids ViewRegistry hash lookups during
     /// syncAllFrames and mutation application. Set/cleared by ViewRegistry.
     public weak var view: UIView? = nil
+
+    /// Direct layer reference for CALayer-backed nodes (no UIView).
+    /// Set/cleared by ViewRegistry.
+    public weak var layer: CALayer? = nil
+    #endif
 
     /// Whether the element has a click event handler (onClick prop).
     /// Updated during CREATE/UPDATE mutations from the canary value in props.
