@@ -35,8 +35,9 @@ A React framework that uses HTML elements (`<div>`, `<span>`, `<p>`, etc.) as th
 - **Building/running apps**: ALWAYS use `/build demo` or `/build e2e`. Do NOT manually start dev servers or run `build_run_sim` without it.
 - **Running tests**: Use `/test` to automatically run the right test suite based on what changed.
 - **Reference repos**: Use `/reference` for sibling repo info and key React source files.
-- **Adding a new HTML element**: Use `/add-element` for the lockstep checklist.
 - **E2E layout comparison**: Use `/e2e` for LayoutCompare workflows.
+- **Native debugging**: Use `/debug` for LLDB attach, breakpoints, and Swift inspection.
+- **Performance profiling**: Use `/trace` to capture and analyze performance traces.
 
 ## Development Workflow
 
