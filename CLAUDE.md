@@ -22,11 +22,11 @@ A React streaming server rendered mobile React framework.
   - `fantom`: Fantom headless test runner (JS + Swift binary)
   - `devtools-mcp`: Fork of `chrome-devtools-mcp` for `react-dom-native`
 - `fixtures`: Test fixtures and demos
-  - `example`:  **Falcon Demo** — full RSC app (Flight + SSR + hydration)
+  - `Falcon.xcworkspace`: Workspace containing all xcode fixture projects.
+  - `Demo`:  **Todo App Demo** — Standalone demo TODO app.
+  - `example`:  **Falcon Demo** — Demo of multiple fixtures.
+  - `layout`: **LayoutCompare** — e2e layout comparison app.
   - `web-example`: **Web reference app** — Next.js app rendering the same components for visual comparison
-  - `layout`: **LayoutCompare** — e2e comparison app (runs on "Falcon E2E" simulator)
-- `packages/react-dom-native/integration-tests/`: Fantom integration tests (JS ↔ Swift, `*-itest.js`)
-- `fixtures/Falcon.xcworkspace`: Workspace containing Falcon demo + ReactDomNativeKit package
 - `scripts/`: Root build/test/dev scripts
 - `docs/`: Plans, research, architecture docs
 
@@ -41,7 +41,7 @@ A React streaming server rendered mobile React framework.
 
 ## Development Workflow
 
-Run `cd fixtures/example && npm run dev` to start esbuild watcher + RSC server on `http://localhost:6000`. The native app auto-reloads via WebSocket on JS changes.
+Run `npm run dev` to start esbuild watcher + RSC server on `http://localhost:6000`. The native app auto-reloads via WebSocket on JS changes.
 
 For UI automation, test commands, and output filtering, see `docs/cli-reference.md`.
 
