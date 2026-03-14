@@ -80,7 +80,7 @@ describe('Layout frames', function () {
     var root = Fantom.createRoot();
     Fantom.runTask(function () {
       root.render(
-        <div style={{width: 100, height: 100, borderWidth: 5}}>
+        <div style={{width: 100, height: 100, borderWidth: 5, borderStyle: 'solid'}}>
           <div />
         </div>,
       );

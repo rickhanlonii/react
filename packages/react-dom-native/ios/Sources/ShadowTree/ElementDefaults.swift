@@ -338,11 +338,12 @@ public enum ElementDefaults {
            userStyle["marginVertical"] == nil,
            let userFontSize = userStyle["fontSize"],
            let fontSize = toDouble(userFontSize) {
+            let margin = (fontSize * multiplier * 100).rounded() / 100
             if userStyle["marginTop"] == nil {
-                merged["marginTop"] = fontSize * multiplier
+                merged["marginTop"] = margin
             }
             if userStyle["marginBottom"] == nil {
-                merged["marginBottom"] = fontSize * multiplier
+                merged["marginBottom"] = margin
             }
         }
 
@@ -460,7 +461,7 @@ public enum ElementDefaults {
         }
 
         var updated = childStyle
-        let newMargin = expectedFontSize * multiplier
+        let newMargin = (expectedFontSize * multiplier * 100).rounded() / 100
         updated["marginTop"] = newMargin
         updated["marginBottom"] = newMargin
         updated["fontSize"] = expectedFontSize
@@ -674,8 +675,8 @@ public enum ElementDefaults {
         "flexWrap": "wrap",
         "fontSize": 24,
         "fontWeight": "bold",
-        "marginTop": 19.91,
-        "marginBottom": 19.91
+        "marginTop": 19.92,
+        "marginBottom": 19.92
     ]
 
     private static let h3Defaults: [String: Any] = [
@@ -704,8 +705,8 @@ public enum ElementDefaults {
         "flexWrap": "wrap",
         "fontSize": 13.28,
         "fontWeight": "bold",
-        "marginTop": 22.17,
-        "marginBottom": 22.17
+        "marginTop": 22.18,
+        "marginBottom": 22.18
     ]
 
     private static let h6Defaults: [String: Any] = [
@@ -714,8 +715,8 @@ public enum ElementDefaults {
         "flexWrap": "wrap",
         "fontSize": 10.72,
         "fontWeight": "bold",
-        "marginTop": 24.97,
-        "marginBottom": 24.97
+        "marginTop": 24.98,
+        "marginBottom": 24.98
     ]
 
     private static let spanDefaults: [String: Any] = [

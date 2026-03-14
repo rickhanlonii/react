@@ -311,6 +311,24 @@ class TesterBridge {
 
             return engine.wrapNativeObject(node)
         }
+
+        // $$createTextNodeReuse(text, surfaceId, instanceHandle, prevNode) -> node
+        // Reuses the family from a previous text node so the Differentiator
+        // generates UPDATE instead of DELETE+CREATE+INSERT+REMOVE.
+        engine.setGlobalFunction("$$createTextNodeReuse") { [weak self, weak engine] args in
+            guard let self = self, let engine = engine else { return nil }
+
+            let text = engine.toString(args[0]) ?? ""
+            let prevNode = self.unwrapNode(args[3])
+
+            let node = ShadowNodeWrapper(
+                props: ["text": text], children: [], family: prevNode!.family, text: text
+            )
+
+            YogaTextMeasure.setupMeasureFunc(on: node)
+
+            return engine.wrapNativeObject(node)
+        }
     }
 
     // MARK: - Clone Operations
