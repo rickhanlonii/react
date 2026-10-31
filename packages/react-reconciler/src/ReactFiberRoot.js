@@ -37,6 +37,7 @@ import {
   enableGestureTransition,
   enableDefaultTransitionIndicator,
 } from 'shared/ReactFeatureFlags';
+import type {StoreRecord, StoreState} from './ReactFiberStore';
 import {initializeUpdateQueue} from './ReactFiberClassUpdateQueue';
 import {LegacyRoot, ConcurrentRoot} from './ReactRootTags';
 import {createCache, retainCache} from './ReactFiberCacheComponent';
@@ -45,6 +46,9 @@ export type RootState = {
   element: any,
   isDehydrated: boolean,
   cache: Cache,
+  // The states of the stores this render processed. When the HostRoot
+  // commits, they become the committed states.
+  storeStates: Map<StoreRecord<any, any>, StoreState<any, any>> | null,
 };
 
 function FiberRootNode(
@@ -70,8 +74,6 @@ function FiberRootNode(
   this.context = null;
   this.pendingStoreRecords = null;
   this.unsubscribedStoreRecords = null;
-  this.storeRenderSeq = 0;
-  this.storeRenderLanes = NoLanes;
   this.pendingContext = null;
   this.next = null;
   this.callbackNode = null;
@@ -231,6 +233,7 @@ export function createFiberRoot(
     element: initialChildren,
     isDehydrated: hydrate,
     cache: initialCache,
+    storeStates: null,
   };
   uninitializedFiber.memoizedState = initialState;
 

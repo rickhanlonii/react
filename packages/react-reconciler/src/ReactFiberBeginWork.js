@@ -122,7 +122,10 @@ import {
   enableViewTransition,
   enableStore,
 } from 'shared/ReactFeatureFlags';
-import {takeStoreReadsOfSuspendedTree} from './ReactFiberStore';
+import {
+  takeStoreReadsOfSuspendedTree,
+  processStoreRecords,
+} from './ReactFiberStore';
 import shallowEqual from 'shared/shallowEqual';
 import getComponentNameFromFiber from 'react-reconciler/src/getComponentNameFromFiber';
 import getComponentNameFromType from 'shared/getComponentNameFromType';
@@ -1919,8 +1922,31 @@ function updateHostRoot(
   cloneUpdateQueue(current, workInProgress);
   processUpdateQueue(workInProgress, nextProps, null, renderLanes);
 
-  const nextState: RootState = workInProgress.memoizedState;
+  let nextState: RootState = workInProgress.memoizedState;
   const root: FiberRoot = workInProgress.stateNode;
+  if (enableStore) {
+    // The HostRoot owns the state of every store on this root. Process the
+    // store updates for this render, like the root's own updates above.
+    const processed = processStoreRecords(root, renderLanes);
+    const storeStates = processed === null ? null : processed.states;
+    if (nextState.storeStates !== storeStates) {
+      nextState = workInProgress.memoizedState = {
+        element: nextState.element,
+        isDehydrated: nextState.isDehydrated,
+        cache: nextState.cache,
+        storeStates,
+      };
+    }
+    if (processed !== null && processed.skippedLanes !== NoLanes) {
+      // Keep the lanes of the store updates that weren't processed, so the
+      // root renders them later.
+      workInProgress.lanes = mergeLanes(
+        workInProgress.lanes,
+        processed.skippedLanes,
+      );
+      markSkippedUpdateLanes(processed.skippedLanes);
+    }
+  }
   pushRootTransition(workInProgress, root, renderLanes);
 
   if (enableTransitionTracing) {
@@ -1952,6 +1978,7 @@ function updateHostRoot(
       element: nextChildren,
       isDehydrated: false,
       cache: nextState.cache,
+      storeStates: nextState.storeStates,
     };
     const updateQueue: UpdateQueue<RootState> =
       workInProgress.updateQueue as any;

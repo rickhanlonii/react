@@ -157,8 +157,7 @@ import {
 } from './ReactWorkTags';
 import {ConcurrentRoot, LegacyRoot} from './ReactRootTags';
 import {
-  getCurrentStoreSeq,
-  commitStoreRecords,
+  commitStoreStates,
   flushStoreSubscriptions,
   resetStoreReadsOfSuspendedTree,
 } from './ReactFiberStore';
@@ -2357,12 +2356,6 @@ function prepareFreshStack(root: FiberRoot, lanes: Lanes): Fiber {
   finishQueueingConcurrentUpdates();
 
   if (enableStore) {
-    // Store updates dispatched after this point are not visible to this
-    // render, the same way concurrent updates to useState are not.
-    root.storeRenderSeq = getCurrentStoreSeq();
-    // Every store read in this render uses the entangled lanes, and the
-    // commit applies the same ones.
-    root.storeRenderLanes = entangledRenderLanes;
     resetStoreReadsOfSuspendedTree();
   }
 
@@ -3849,7 +3842,7 @@ function commitRoot(
   );
 
   if (enableStore) {
-    commitStoreRecords(root);
+    commitStoreStates(root, finishedWork);
   }
 
   // Reset this before firing side effects so we can detect recursive updates.

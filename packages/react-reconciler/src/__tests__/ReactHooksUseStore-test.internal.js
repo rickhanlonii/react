@@ -1142,19 +1142,22 @@ describe('ReactHooks', () => {
       return null;
     }
 
-    await act(() => {
-      ReactTestRenderer.create(<App />, {unstable_isConcurrent: true});
-    });
+    let error;
+    try {
+      await act(() => {
+        ReactTestRenderer.create(<App />, {unstable_isConcurrent: true});
+      });
+    } catch (e) {
+      error = e;
+    }
     // store-semantics: store updates during render warn and are rendered after
-    // the current render.
-    assertConsoleErrorDev([
-      storeUpdateInRenderWarning('App'),
-      'Context can only be read while React is rendering. ' +
-        'In classes, you can read it in the render method or getDerivedStateFromProps. ' +
-        'In function components, you can read it directly in the function body, ' +
-        'but not inside Hooks like useReducer() or useMemo().\n' +
-        '    in App (at **)',
-    ]);
+    // the current render. A store's reducer isn't part of any component, so
+    // it runs without a dispatcher, and reading context throws. App, which
+    // reads the store, throws the error.
+    expect(error.message).toBe(
+      "Cannot read properties of null (reading 'readContext')",
+    );
+    assertConsoleErrorDev([storeUpdateInRenderWarning('App')]);
   });
 
   // Edge case.
@@ -1181,27 +1184,28 @@ describe('ReactHooks', () => {
       }
     }
 
-    await act(() => {
-      ReactTestRenderer.create(
-        <>
-          <Fn />
-          <Cls />
-        </>,
-        {unstable_isConcurrent: true},
-      );
-    });
+    let error;
+    try {
+      await act(() => {
+        ReactTestRenderer.create(
+          <>
+            <Fn />
+            <Cls />
+          </>,
+          {unstable_isConcurrent: true},
+        );
+      });
+    } catch (e) {
+      error = e;
+    }
     // store-semantics: store updates during render warn and are rendered after
-    // the current render. They aren't computed eagerly, so the updater reads
-    // context when Fn renders the update, and the warning is attributed to Fn
-    // rather than to Cls, which called store.update.
-    assertConsoleErrorDev([
-      storeUpdateInRenderWarning('Cls'),
-      'Context can only be read while React is rendering. ' +
-        'In classes, you can read it in the render method or getDerivedStateFromProps. ' +
-        'In function components, you can read it directly in the function body, ' +
-        'but not inside Hooks like useReducer() or useMemo().\n' +
-        '    in Fn (at **)',
-    ]);
+    // the current render. They aren't computed eagerly. The updater runs when
+    // the root processes the update, without a dispatcher, so reading context
+    // throws, and Fn, which reads the store, throws the error.
+    expect(error.message).toBe(
+      "Cannot read properties of null (reading 'readContext')",
+    );
+    assertConsoleErrorDev([storeUpdateInRenderWarning('Cls')]);
   });
 
   // @gate enableStore
@@ -1222,41 +1226,41 @@ describe('ReactHooks', () => {
       return value;
     }
 
-    // store-semantics: a render phase store update isn't processed in the
-    // current render, so the reducer runs when App renders the update, under
-    // the nested Hooks dispatcher like useReducer's. Its useRef call takes App's
-    // first Hook slot, which is what the hook order warning and the "Rendered
-    // more hooks" error report. useReducer's render phase re-render throws
-    // "Update hook called on initial render" instead. React recovers by
-    // rendering the root synchronously, and reports that error as the cause.
-    await expect(async () => {
+    let error;
+    try {
       await act(() => {
         ReactTestRenderer.create(<App />, {unstable_isConcurrent: true});
       });
-    }).rejects.toMatchObject({
-      message:
-        'There was an error during concurrent rendering but React was able ' +
-        'to recover by instead synchronously rendering the entire root.',
-      cause: {
-        message: 'Rendered more hooks than during the previous render.',
-      },
-    });
+    } catch (e) {
+      error = e;
+    }
+    // store-semantics: a store's reducer isn't part of any component, so it
+    // runs without a dispatcher, like useReducer's eager state outside of
+    // render. Calling a Hook in it is an invalid Hook call and throws, and
+    // App, which reads the store, throws the error. The Hook call can't touch
+    // App's Hooks.
+    expect(error.message).toBe(
+      "Cannot read properties of null (reading 'useRef')",
+    );
+    const invalidHookCallWarning =
+      'Invalid hook call. Hooks can only be called inside of the body of a ' +
+      'function component. This could happen for one of the following ' +
+      'reasons:\n' +
+      '1. You might have mismatching versions of React and the renderer ' +
+      '(such as React DOM)\n' +
+      '2. You might be breaking the Rules of Hooks\n' +
+      '3. You might have more than one copy of React in the same app\n' +
+      'See https://react.dev/link/invalid-hook-call for tips about how to ' +
+      'debug and fix this problem.';
+    // The root processes the update, and runs the reducer, each time it
+    // renders: the concurrent render, the sync retry, and after the error
+    // unwinds to the root.
     assertConsoleErrorDev([
       storeUpdateInRenderWarning('App'),
-      'Do not call Hooks inside useEffect(...), useMemo(...), or other built-in Hooks. ' +
-        'You can only call Hooks at the top level of your React function. ' +
-        'For more information, see https://react.dev/link/rules-of-hooks\n' +
-        '    in App (at **)',
-      'React has detected a change in the order of Hooks called by App. ' +
-        'This will lead to bugs and errors if not fixed. For more information, ' +
-        'read the Rules of Hooks: https://react.dev/link/rules-of-hooks\n' +
-        '\n' +
-        '   Previous render            Next render\n' +
-        '   ------------------------------------------------------\n' +
-        '1. useState                   useRef\n' +
-        '   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n' +
-        '\n' +
-        '    in App (at **)',
+      invalidHookCallWarning,
+      invalidHookCallWarning,
+      invalidHookCallWarning,
+      invalidHookCallWarning,
     ]);
   });
 

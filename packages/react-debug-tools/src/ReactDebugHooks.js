@@ -188,7 +188,7 @@ function readStore<T>(store: ReactStore<T>): T {
       const records = store._records;
       for (let i = 0; i < records.length; i++) {
         if (records[i].root === root) {
-          return records[i].baseState;
+          return records[i].committed.memoizedState;
         }
       }
     }

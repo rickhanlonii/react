@@ -238,8 +238,6 @@ type BaseFiberRootProperties = {
   // read in the render uses.
   pendingStoreRecords: Array<StoreRecord<any, any>> | null,
   unsubscribedStoreRecords: Array<StoreRecord<any, any>> | null,
-  storeRenderSeq: number,
-  storeRenderLanes: Lanes,
   pendingContext: Object | null,
 
   // Used to create a linked list that represent all the roots that have

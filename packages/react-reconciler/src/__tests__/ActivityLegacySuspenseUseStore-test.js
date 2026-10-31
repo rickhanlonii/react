@@ -439,13 +439,12 @@ describe('Activity Suspense', () => {
         setText('B');
       });
     });
-    assertLog([
-      // The high priority render suspends again
-      'Suspend! [B0]',
-      // There's still pending work in another lane, so we should attempt
-      // that, too.
-      'Suspend! [B1]',
-    ]);
+    // store-semantics: the HostRoot owns the stores, so the transition's
+    // update to stepStore commits at the root before the hidden tree renders.
+    // The hidden tree then reads the committed value, B1, and never renders
+    // B0, which was never visible. useState renders B0 first because its
+    // updates are deferred with the hidden tree.
+    assertLog(['Suspend! [B1]', 'Suspend! [B1]']);
     expect(root).toMatchRenderedOutput(<span hidden={true}>A0</span>);
 
     // Resolve the data and finish rendering

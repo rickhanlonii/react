@@ -168,6 +168,18 @@ export function enqueueConcurrentHookUpdateAndEagerlyBailout<S, A>(
   }
 }
 
+// A store update is scheduled on the HostRoot, which owns the state of the
+// store on its root. Like other updates, it's added to the store's queue when
+// the next render starts.
+export function enqueueConcurrentStoreUpdate(
+  hostRoot: Fiber,
+  queue: ConcurrentQueue,
+  update: ConcurrentUpdate,
+  lane: Lane,
+): void {
+  enqueueUpdate(hostRoot, queue, update, lane);
+}
+
 export function enqueueConcurrentClassUpdate<State>(
   fiber: Fiber,
   queue: ClassQueue<State>,

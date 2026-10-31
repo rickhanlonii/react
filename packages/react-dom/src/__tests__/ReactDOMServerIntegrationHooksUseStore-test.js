@@ -1042,63 +1042,29 @@ describe('ReactDOMServerHooks', () => {
       },
     );
 
-    // The bad markup mode stops after the first render, before it creates a
-    // store.
-    gated(
-      (flags, name) =>
-        flags.enableStore || name.includes('on top of bad server markup'),
-      () => {
-        itRenders(
-          'with a warning inside useMemo and useReducer',
-          async render => {
-            const Context = React.createContext(42);
+    // store-semantics: this copy doesn't read a store, so it isn't gated.
+    itRenders('with a warning inside useMemo and useReducer', async render => {
+      const Context = React.createContext(42);
 
-            function ReadInMemo(props) {
-              const count = React.useMemo(() => readContext(Context), []);
-              return <Text text={count} />;
-            }
+      function ReadInMemo(props) {
+        const count = React.useMemo(() => readContext(Context), []);
+        return <Text text={count} />;
+      }
 
-            function ReadInReducer({countStore}) {
-              const count = use(countStore);
-              if (count !== 42) {
-                countStore.update();
-              }
-              return <Text text={count} />;
-            }
+      const domNode1 = await render(
+        <ReadInMemo />,
+        render === clientRenderOnBadMarkup
+          ? // On hydration mismatch we retry and therefore log the warning again.
+            2
+          : 1,
+      );
+      expect(domNode1.textContent).toEqual('42');
 
-            const domNode1 = await render(
-              <ReadInMemo />,
-              render === clientRenderOnBadMarkup
-                ? // On hydration mismatch we retry and therefore log the warning again.
-                  2
-                : 1,
-            );
-            expect(domNode1.textContent).toEqual('42');
-
-            // store-semantics: store updates during render warn and are
-            // rendered after the current render. That's one more warning on
-            // the client.
-            const domNode2 = await renderInstances(
-              render,
-              () => (
-                <ReadInReducer
-                  countStore={createStore(undefined, () =>
-                    readContext(Context),
-                  )}
-                />
-              ),
-              1,
-              2,
-            );
-            // store-semantics: the server renders the value the store was
-            // created with, and doesn't render the render phase update.
-            expect(domNode2.textContent).toEqual(
-              isServerRender(render) ? '' : '42',
-            );
-          },
-        );
-      },
-    );
+      // store-semantics: no useReducer half. A store's reducer isn't
+      // part of any component, so it can't read context: which
+      // provider's value would a shared store see? It runs without a
+      // dispatcher, and reading context throws.
+    });
   });
 
   // @gate enableStore

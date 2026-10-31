@@ -168,9 +168,10 @@ import {callComponentInDEV} from './ReactFiberCallUserSpace';
 import {scheduleGesture} from './ReactFiberGestureScheduler';
 import {
   getStoreRecord,
-  readStoreRecord,
+  getStoreStateForRender,
+  readStoreState,
   getSkippedStoreLanes,
-  didReadStoreUpdateInLane,
+  doubleInvokeStoreReducerDEV,
   subscribeToStoreReads,
 } from './ReactFiberStore';
 
@@ -1203,35 +1204,39 @@ function useStore<T>(store: ReactStore<T>): T {
       'Expected a work-in-progress root. This is a bug in React. Please file an issue.',
     );
   }
-  // Every component in a render reads the store with the same lanes, the
-  // entangled lanes of the root, so they all read the same value. These are
-  // also the lanes the commit applies.
-  const lanes = root.storeRenderLanes;
-  const renderSeq = root.storeRenderSeq;
-  let prevDispatcher = null;
-  if (__DEV__) {
+  // The HostRoot of the tree that's rendering owns the state of the store,
+  // which it computed for this render's lanes. So every component in the
+  // render reads the same value, without running the reducer again.
+  const hostRoot = root.current.alternate;
+  if (hostRoot === null) {
+    throw new Error(
+      'Expected a work-in-progress root. This is a bug in React. Please file an issue.',
+    );
+  }
+  const record = getStoreRecord(store, root);
+  const state = getStoreStateForRender(record, hostRoot);
+  if (__DEV__ && shouldDoubleInvokeUserFnsInHooksDEV) {
     // The reducer of a store can't use Hooks or read context, the same as
     // the reducer of useReducer.
-    prevDispatcher = ReactSharedInternals.H;
+    const prevDispatcher = ReactSharedInternals.H;
     ReactSharedInternals.H = InvalidNestedHooksDispatcherOnUpdateInDEV;
-  }
-  let record;
-  let value;
-  try {
-    record = getStoreRecord(store, root);
-    value = readStoreRecord(
-      record,
-      lanes,
-      renderSeq,
-      shouldDoubleInvokeUserFnsInHooksDEV,
-    );
-  } finally {
-    if (__DEV__) {
+    try {
+      doubleInvokeStoreReducerDEV(record, state);
+    } finally {
       ReactSharedInternals.H = prevDispatcher;
     }
   }
+  // Throws if a reducer threw, like every other component that reads the
+  // store in this render.
+  let value = readStoreState(state);
 
-  const skippedLanes = getSkippedStoreLanes(record);
+  // Use the lanes of the root, not of this subtree: a revealed Activity
+  // renders with its base lanes, but the store's value is the root's.
+  const skippedLanes = getSkippedStoreLanes(
+    record,
+    state,
+    getWorkInProgressRootRenderLanes(),
+  );
   if (skippedLanes !== NoLanes) {
     // Some updates to the store were skipped because they don't have
     // sufficient priority. This component needs to render again when they
@@ -1287,7 +1292,7 @@ function useStore<T>(store: ReactStore<T>): T {
       if (
         previousIndex !== -1 &&
         !is(value, previousReads[previousIndex + 1]) &&
-        didReadStoreUpdateInLane(record, entangledActionLane, lanes, renderSeq)
+        state.didReadEntangledAction
       ) {
         const entangledActionThenable = peekEntangledActionThenable();
         if (entangledActionThenable !== null) {

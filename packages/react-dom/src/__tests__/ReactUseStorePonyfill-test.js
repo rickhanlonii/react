@@ -22,7 +22,7 @@
 // - `store._listeners.length` -> `store._records.length`, the number of roots
 //   that read the store. A record is dropped in the commit that unmounts its
 //   last reader (DCP-11).
-// - `store.getCommittedState()` -> `store._records[0].baseState`.
+// - `store.getCommittedState()` -> `store._records[0].committed.memoizedState`.
 // - `createStoreFromSource` -> no equivalent: v1 doesn't wrap external
 //   sources. The Redux and Relay use cases keep a React store next to the
 //   external state and dispatch every action to both.
@@ -1214,7 +1214,7 @@ describe('ReactUseStorePonyfill', () => {
       expect(container.innerHTML).toBe('<div>4</div>');
 
       // store.getCommittedState()
-      expect(store._records[0].baseState).toBe(4);
+      expect(store._records[0].committed.memoizedState).toBe(4);
 
       await act(async () => {
         rerender(
