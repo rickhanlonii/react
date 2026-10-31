@@ -33,6 +33,8 @@ export const {
   enableScrollEndPolyfill,
   enableInternalInstanceMap,
   enableViewTransitionParentEnterExit,
+  enableStore,
+  enableSameElementBailout,
 } = dynamicFeatureFlags;
 
 // On WWW, __EXPERIMENTAL__ is used for a new modern build.

@@ -58,6 +58,7 @@ import {
   enableThrottledScheduling,
   enableViewTransition,
   enableGestureTransition,
+  enableStore,
   enableDefaultTransitionIndicator,
 } from 'shared/ReactFeatureFlags';
 import {resetOwnerStackLimit} from 'shared/ReactOwnerStackReset';
@@ -155,6 +156,12 @@ import {
   HostSingleton,
 } from './ReactWorkTags';
 import {ConcurrentRoot, LegacyRoot} from './ReactRootTags';
+import {
+  getCurrentStoreSeq,
+  commitStoreRecords,
+  flushStoreSubscriptions,
+  resetStoreReadsOfSuspendedTree,
+} from './ReactFiberStore';
 import type {Flags} from './ReactFiberFlags';
 import {
   NoFlags,
@@ -864,6 +871,63 @@ export function requestUpdateLane(fiber: Fiber): Lane {
     clearUseWarnings();
   }
   return eventPriorityToLane(priority);
+}
+
+export function isStoreUpdateDuringRender(root: FiberRoot): boolean {
+  return (
+    (executionContext & RenderContext) !== NoContext &&
+    root === workInProgressRoot
+  );
+}
+
+let didWarnAboutStoreUpdateInRender: Set<string>;
+if (__DEV__) {
+  didWarnAboutStoreUpdateInRender = new Set();
+}
+export function warnAboutStoreUpdateInRenderDEV(): void {
+  if (__DEV__) {
+    if (ReactCurrentDebugFiberIsRenderingInDEV) {
+      const renderingComponentName =
+        (workInProgress && getComponentNameFromFiber(workInProgress)) ||
+        'Unknown';
+      if (!didWarnAboutStoreUpdateInRender.has(renderingComponentName)) {
+        didWarnAboutStoreUpdateInRender.add(renderingComponentName);
+        console.error(
+          'Cannot update a store while rendering a component (`%s`). ' +
+            'Updating a store is a side effect, so it should happen in an event ' +
+            'handler or an effect. The update will be rendered after the ' +
+            'current render. To locate the bad store.update() call inside ' +
+            '`%s`, follow the stack trace as described in ' +
+            'https://react.dev/link/setstate-in-render',
+          renderingComponentName,
+          renderingComponentName,
+        );
+      }
+    }
+  }
+}
+
+// A fork of requestUpdateLane for store updates, which aren't associated with
+// a particular fiber.
+export function requestStoreUpdateLane(root: FiberRoot): Lane {
+  if (!disableLegacyMode && root.tag === LegacyRoot) {
+    return SyncLane as Lane;
+  } else if (
+    (executionContext & RenderContext) !== NoContext &&
+    workInProgressRootRenderLanes !== NoLanes
+  ) {
+    // This is a render phase update. These are not supported, but we treat
+    // them the same way as setState in render.
+    return pickArbitraryLane(workInProgressRootRenderLanes);
+  }
+
+  const transition = requestCurrentTransition();
+  if (transition !== null) {
+    // store.update() already threw if this is a gesture transition.
+    return requestTransitionLane(transition);
+  }
+
+  return eventPriorityToLane(resolveUpdatePriority());
 }
 
 function requestRetryLane(fiber: Fiber) {
@@ -2291,6 +2355,16 @@ function prepareFreshStack(root: FiberRoot, lanes: Lanes): Fiber {
   entangledRenderLanes = getEntangledLanes(root, lanes);
 
   finishQueueingConcurrentUpdates();
+
+  if (enableStore) {
+    // Store updates dispatched after this point are not visible to this
+    // render, the same way concurrent updates to useState are not.
+    root.storeRenderSeq = getCurrentStoreSeq();
+    // Every store read in this render uses the entangled lanes, and the
+    // commit applies the same ones.
+    root.storeRenderLanes = entangledRenderLanes;
+    resetStoreReadsOfSuspendedTree();
+  }
 
   if (__DEV__) {
     resetOwnerStackLimit();
@@ -3774,6 +3848,10 @@ function commitRoot(
     suspendedRetryLanes,
   );
 
+  if (enableStore) {
+    commitStoreRecords(root);
+  }
+
   // Reset this before firing side effects so we can detect recursive updates.
   didIncludeCommitPhaseUpdate = false;
 
@@ -4059,6 +4137,12 @@ function flushMutationEffects(): void {
   // work is current during componentDidMount/Update.
   root.current = finishedWork;
   pendingEffectsStatus = PENDING_LAYOUT_PHASE;
+
+  if (enableStore) {
+    // Readers and boundaries subscribed and unsubscribed during the mutation
+    // phase.
+    flushStoreSubscriptions(root);
+  }
 }
 
 function flushLayoutEffects(): void {

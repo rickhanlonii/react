@@ -46,7 +46,9 @@ import {NoMode, ConcurrentMode} from './ReactTypeOfMode';
 import {
   enableUpdaterTracking,
   disableLegacyMode,
+  enableStore,
 } from 'shared/ReactFeatureFlags';
+import {collectStoreReadsOfSuspendedTree} from './ReactFiberStore';
 import {createCapturedValueAtFiber} from './ReactCapturedValue';
 import {
   enqueueCapturedUpdate,
@@ -467,6 +469,9 @@ function throwException(
             if (isSuspenseyResource) {
               suspenseBoundary.flags |= ScheduleRetry;
             } else {
+              if (enableStore && suspenseBoundary.tag === SuspenseComponent) {
+                collectStoreReadsOfSuspendedTree(sourceFiber, suspenseBoundary);
+              }
               const retryQueue: RetryQueue | null =
                 suspenseBoundary.updateQueue as any;
               if (retryQueue === null) {

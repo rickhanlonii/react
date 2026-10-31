@@ -1,0 +1,96 @@
+{
+  "packages/react-client/src/__tests__/ReactFlight-test.js": {
+    "ReactFlight > should error if useContext is called()": {
+      "reason": "context-only-api",
+      "note": "Asserts that ReactServer.useContext doesn't exist in the react-server build. Stores are read with use(), which the server build has; the store error for a Server Component is covered by the use() cases in the copy."
+    }
+  },
+  "packages/react-server-dom-webpack/src/__tests__/ReactFlightDOM-test.js": {
+    "ReactFlightDOM > does not throw when accessing a Context.Provider from client exports": {
+      "reason": "context-only-api",
+      "note": "Accessing .Provider on a client reference proxy to a context. Stores have no Provider."
+    },
+    "ReactFlightDOM > can render a client Context.Provider from a server component": {
+      "reason": "server-component",
+      "note": "A Server Component provides the value that a client component reads. A Server Component can't read or set a store, and a store has no Provider to render, so there's no way for the server to choose the value per subtree."
+    }
+  },
+  "packages/react/src/__tests__/ReactContextValidator-test.js": {
+    "ReactContextValidator > should pass next context to lifecycles on update": {
+      "reason": "class-reader",
+      "note": "A class with static contextType reads this.context and nextContext in its lifecycles. Stores can't be read from class components."
+    },
+    "ReactContextValidator > should re-render PureComponents when context Provider updates": {
+      "reason": "class-reader",
+      "note": "A PureComponent with static contextType re-renders when the Provider updates. Stores can't be read from class components; the function-component version of this propagation is covered by ReactContextPropagationUseStoreContext (memo HOC)."
+    },
+    "ReactContextValidator > should warn if both contextType and contextTypes are defined": {
+      "reason": "context-only-api",
+      "note": "Warning about a class defining both contextType and contextTypes."
+    },
+    "ReactContextValidator > should warn if an invalid contextType is defined": {
+      "reason": "context-only-api",
+      "note": "Warning about an invalid static contextType."
+    },
+    "ReactContextValidator > should not warn when class contextType is null": {
+      "reason": "context-only-api",
+      "note": "contextType validation."
+    },
+    "ReactContextValidator > should warn when class contextType is undefined": {
+      "reason": "context-only-api",
+      "note": "contextType validation."
+    },
+    "ReactContextValidator > should warn when class contextType is an object": {
+      "reason": "context-only-api",
+      "note": "contextType validation."
+    },
+    "ReactContextValidator > should warn when class contextType is a primitive": {
+      "reason": "context-only-api",
+      "note": "contextType validation."
+    },
+    "ReactContextValidator > should warn if you define contextType on a function component": {
+      "reason": "context-only-api",
+      "note": "Warning about contextType on a function component."
+    }
+  },
+  "packages/react/src/__tests__/ReactElementValidator-test.internal.js": {
+    "ReactElementValidator > gives a helpful error when passing invalid types": {
+      "reason": "context-only-api",
+      "note": "Uses createContext().Consumer as an example of a valid element type. A store isn't an element type."
+    }
+  },
+  "packages/react-is/src/__tests__/ReactIs-test.js": {
+    "ReactIs > identifies valid element types": {
+      "reason": "context-only-api",
+      "note": "Checks that Context.Provider and Context.Consumer are valid element types. A store isn't an element type, and react-is has no store type."
+    },
+    "ReactIs > should identify context consumers": {
+      "reason": "context-only-api",
+      "note": "react-is identification of Context.Consumer."
+    },
+    "ReactIs > should identify context providers": {
+      "reason": "context-only-api",
+      "note": "react-is identification of Context.Provider."
+    },
+    "ReactIs > should identify elements": {
+      "reason": "context-only-api",
+      "note": "Checks that <Context.Provider> and <Context.Consumer> are elements. Stores aren't rendered as elements."
+    }
+  },
+  "packages/react-devtools-facade/src/__tests__/DevToolsFacade-test.js": {
+    "react-devtools-facade > getComponentTree > includes Context Provider in the tree": {
+      "reason": "context-only-api",
+      "note": "Asserts the Context.Provider node in the component tree. Stores have no Provider fiber."
+    }
+  },
+  "packages/react-devtools-shared/src/__tests__/inspectedElement-test.js": {
+    "InspectedElement > should have hasLegacyContext flag set to either \"true\" or \"false\" depending on which context API is used.": {
+      "reason": "context-only-api",
+      "note": "Tests the inspector's legacy vs modern context flag for Consumer, contextType and legacy contextTypes readers. A store read isn't context, and it shows up as a hook (covered by the 'only use context' copies)."
+    },
+    "InspectedElement > should properly handle when components filters are updated": {
+      "reason": "not-context",
+      "note": "The only context read is DevTools' own TreeDispatcherContext/TreeStateContext, used to drive the frontend."
+    }
+  }
+}

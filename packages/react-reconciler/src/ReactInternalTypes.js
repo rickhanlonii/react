@@ -41,6 +41,7 @@ import type {ConcurrentUpdate} from './ReactFiberConcurrentUpdates';
 import type {ComponentStackNode} from 'react-server/src/ReactFizzComponentStack';
 import type {ThenableState} from './ReactFiberThenable';
 import type {ScheduledGesture} from './ReactFiberGestureScheduler';
+import type {StoreRecord} from './ReactFiberStore';
 
 // Unwind Circular: moved from ReactFiberHooks.old
 export type HookType =
@@ -231,6 +232,14 @@ type BaseFiberRootProperties = {
   cancelPendingCommit: null | (() => void),
   // Top context object, used by renderSubtreeIntoContainer
   context: Object | null,
+  // The records of the stores read by this root that have pending updates,
+  // and the ones that may have no readers. And the value of the store update
+  // sequence and the entangled lanes of the current render, which every store
+  // read in the render uses.
+  pendingStoreRecords: Array<StoreRecord<any, any>> | null,
+  unsubscribedStoreRecords: Array<StoreRecord<any, any>> | null,
+  storeRenderSeq: number,
+  storeRenderLanes: Lanes,
   pendingContext: Object | null,
 
   // Used to create a linked list that represent all the roots that have

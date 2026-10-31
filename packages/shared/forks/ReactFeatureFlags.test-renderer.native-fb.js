@@ -66,6 +66,8 @@ export const enableHydrationChangeEvent = false;
 export const enableDefaultTransitionIndicator = true;
 export const ownerStackLimit = 1e4;
 export const enableOptimisticKey = false;
+export const enableStore: boolean = false;
+export const enableSameElementBailout: boolean = false;
 
 export const eprh_enableUseKeyedStateCompilerLint: boolean = false;
 export const eprh_enableVerboseNoSetStateInEffectCompilerLint: boolean = false;

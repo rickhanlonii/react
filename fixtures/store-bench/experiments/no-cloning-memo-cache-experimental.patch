@@ -1,0 +1,14 @@
+--- a/packages/shared/ReactFeatureFlags.js	2026-10-30 17:48:42
++++ b/packages/shared/ReactFeatureFlags.js	2026-10-30 21:02:35
+@@ -136,8 +136,9 @@
+ 
+ export const enableCPUSuspense = __EXPERIMENTAL__;
+ 
+-// Test this at Meta before enabling.
+-export const enableNoCloningMemoCache: boolean = false;
++// Test this at Meta before enabling. On in experimental, where every reader of
++// a changed store re-renders and the compiler's cache is cloned each time.
++export const enableNoCloningMemoCache: boolean = __EXPERIMENTAL__;
+ 
+ // Test in www before enabling in open source.
+ // Enables DOM-server to stream its instruction set as data-attributes

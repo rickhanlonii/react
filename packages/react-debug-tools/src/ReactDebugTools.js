@@ -12,6 +12,7 @@ import {
   inspectHooksWithoutDefaultDispatcher,
   inspectHooksOfFiber,
   inspectHooksOfFiberWithoutDefaultDispatcher,
+  getStoreKeyOfHooksNode,
 } from './ReactDebugHooks';
 
 export {
@@ -19,4 +20,5 @@ export {
   inspectHooksWithoutDefaultDispatcher,
   inspectHooksOfFiber,
   inspectHooksOfFiberWithoutDefaultDispatcher,
+  getStoreKeyOfHooksNode,
 };

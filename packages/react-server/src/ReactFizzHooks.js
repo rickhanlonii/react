@@ -16,6 +16,7 @@ import type {
   Usable,
   ReactRecoverable,
   ReactCustomFormAction,
+  ReactStore,
   Awaited,
 } from 'shared/ReactTypes';
 
@@ -45,7 +46,9 @@ import {
   REACT_CONTEXT_TYPE,
   REACT_RECOVERABLE_TYPE,
   REACT_MEMO_CACHE_SENTINEL,
+  REACT_STORE_TYPE,
 } from 'shared/ReactSymbols';
+import {enableStore} from 'shared/ReactFeatureFlags';
 import {checkAttributeStringCoercion} from 'shared/CheckStringCoercion';
 import {getFormState} from './ReactFizzServer';
 
@@ -832,6 +835,21 @@ function use<T>(usable: Usable<T>): T {
     } else if (usable.$$typeof === REACT_CONTEXT_TYPE) {
       const context: ReactContext<T> = usable as any;
       return readContext(context);
+    } else if (enableStore && usable.$$typeof === REACT_STORE_TYPE) {
+      // Stores can only be read while rendering a function component, like
+      // on the client.
+      resolveCurrentlyRenderingComponent();
+      // $FlowFixMe[constant-condition]
+      if (!supportsClientAPIs) {
+        // A store is client state, which can't be used in a component that
+        // will never be hydrated.
+        clientHookNotSupported();
+      }
+      // The server renders the value the store was created with, which is
+      // also what the client hydrates with. Updates to the store are not
+      // rendered on the server.
+      const store: ReactStore<T> = usable as any;
+      return store._initial;
     }
   }
 

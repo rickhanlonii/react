@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>use(store): a concurrent store built into React</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel-2: #1e222b;
+    --text: #e6e8ee;
+    --muted: #9aa3b2;
+    --accent: #58c4dc;
+    --accent-2: #a78bfa;
+    --good: #4ade80;
+    --bad: #f87171;
+    --warn: #fbbf24;
+    --border: #2a2f3a;
+    --code-bg: #12151b;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+  header.hero {
+    padding: 88px 0 56px;
+    background:
+      radial-gradient(1200px 400px at 20% -10%, rgba(88,196,220,.18), transparent 60%),
+      radial-gradient(900px 400px at 90% 0%, rgba(167,139,250,.14), transparent 60%);
+    border-bottom: 1px solid var(--border);
+  }
+  .eyebrow { color: var(--accent); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; font-size: 13px; }
+  h1 { font-size: 52px; line-height: 1.08; margin: 12px 0 18px; letter-spacing: -0.02em; }
+  h1 code { font-size: inherit; background: none; padding: 0; color: var(--accent); }
+  .lede { font-size: 20px; color: var(--muted); max-width: 760px; }
+  .hero-code { margin-top: 32px; max-width: 760px; }
+  nav.toc {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(15,17,21,.85); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+  }
+  nav.toc .wrap { display: flex; gap: 20px; overflow-x: auto; padding-top: 12px; padding-bottom: 12px; font-size: 14px; white-space: nowrap; }
+  nav.toc a { color: var(--muted); }
+  nav.toc a:hover { color: var(--text); }
+  section { padding: 64px 0 8px; }
+  h2 { font-size: 32px; letter-spacing: -0.01em; margin: 0 0 8px; }
+  h3 { font-size: 20px; margin: 32px 0 8px; }
+  .sub { color: var(--muted); margin: 0 0 28px; font-size: 18px; }
+  p { margin: 0 0 16px; }
+  code {
+    font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    background: var(--panel-2); padding: 2px 6px; border-radius: 6px;
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px 20px; overflow-x: auto; margin: 0 0 20px;
+  }
+  pre code { background: none; padding: 0; font-size: 14px; line-height: 1.6; }
+  .k { color: #c792ea; } .f { color: #82aaff; } .s { color: #c3e88d; } .c { color: #697098; font-style: italic; } .n { color: #f78c6c; }
+  .grid { display: grid; gap: 20px; }
+  .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  @media (max-width: 820px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } h1 { font-size: 38px; } }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 22px;
+  }
+  .card h4 { margin: 0 0 8px; font-size: 17px; }
+  .card p:last-child { margin-bottom: 0; }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; margin-right: 6px; }
+  .pill.good { background: rgba(74,222,128,.14); color: var(--good); }
+  .pill.bad { background: rgba(248,113,113,.14); color: var(--bad); }
+  .pill.warn { background: rgba(251,191,36,.14); color: var(--warn); }
+  .pill.info { background: rgba(88,196,220,.14); color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; margin: 0 0 24px; font-size: 15px; }
+  th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; }
+  td:first-child { color: var(--text); font-weight: 600; }
+  .yes { color: var(--good); font-weight: 600; }
+  .no { color: var(--bad); font-weight: 600; }
+  .meh { color: var(--warn); font-weight: 600; }
+  .stat { text-align: center; }
+  .stat .num { font-size: 40px; font-weight: 700; color: var(--accent); letter-spacing: -0.02em; }
+  .stat .lbl { color: var(--muted); font-size: 14px; }
+  .callout {
+    border-left: 3px solid var(--accent); background: var(--panel); padding: 16px 20px;
+    border-radius: 0 var(--radius) var(--radius) 0; margin: 0 0 20px;
+  }
+  .callout.purple { border-color: var(--accent-2); }
+  .callout.warn { border-color: var(--warn); }
+  figure { margin: 0 0 24px; }
+  figcaption { color: var(--muted); font-size: 14px; margin-top: 8px; }
+  svg text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+  /* Playground */
+  .pg { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; }
+  .pg-controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+  .pg button {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    padding: 9px 14px; border-radius: 8px; font: inherit; font-size: 14px; cursor: pointer;
+  }
+  .pg button:hover { border-color: var(--accent); }
+  .pg button.t { border-color: rgba(167,139,250,.5); }
+  .pg button.s { border-color: rgba(88,196,220,.5); }
+  .pg button.r { border-color: rgba(74,222,128,.5); }
+  .pg-views { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; margin-bottom: 18px; }
+  @media (max-width: 820px) { .pg-views { grid-template-columns: 1fr; } }
+  .pg-view { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .pg-view .lbl { color: var(--muted); font-size: 13px; }
+  .pg-view .val { font-size: 34px; font-weight: 700; }
+  .pg-queue { display: flex; gap: 8px; flex-wrap: wrap; min-height: 40px; align-items: center; }
+  .upd { font: 13px ui-monospace, Menlo, monospace; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); }
+  .upd.t { background: rgba(167,139,250,.14); border-color: rgba(167,139,250,.45); }
+  .upd.s { background: rgba(88,196,220,.14); border-color: rgba(88,196,220,.45); }
+  .upd.nl { background: rgba(74,222,128,.12); border-color: rgba(74,222,128,.45); }
+  .pg-log { font: 13px/1.6 ui-monospace, Menlo, monospace; color: var(--muted); max-height: 160px; overflow-y: auto; margin-top: 14px; }
+  .pg-log div:first-child { color: var(--text); }
+  footer { border-top: 1px solid var(--border); margin-top: 72px; padding: 32px 0 64px; color: var(--muted); font-size: 14px; }
+  .check li { list-style: none; position: relative; padding-left: 26px; margin-bottom: 8px; }
+  .check li::before { content: "✓"; position: absolute; left: 0; color: var(--good); font-weight: 700; }
+  ul.check { padding-left: 0; }
+  .x li { list-style: none; position: relative; padding-left: 26px; margin-bottom: 8px; }
+  .x li::before { content: "✗"; position: absolute; left: 0; color: var(--bad); font-weight: 700; }
+  ul.x { padding-left: 0; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">React RFC · enableStore · branch rh/use-store</div>
+    <h1><code>use(store)</code>: global state that understands concurrency</h1>
+    <p class="lede">
+      A store you create once and read anywhere, conditionally, with <code>use()</code>.
+      It follows the same rules as <code>useState</code>, including transitions,
+      rebasing, Suspense, Activity and hydration. It only re-renders the
+      components that read it.
+    </p>
+    <div class="hero-code">
+<pre><code><span class="k">import</span> {use, unstable_createStore <span class="k">as</span> createStore, startTransition} <span class="k">from</span> <span class="s">'react'</span>;
+
+<span class="k">const</span> cart = <span class="f">createStore</span>([]);
+
+<span class="k">function</span> <span class="f">CartBadge</span>() {
+  <span class="k">return</span> &lt;Badge count={<span class="f">use</span>(cart).length} /&gt;;   <span class="c">// re-renders only when the cart changes</span>
+}
+
+<span class="k">function</span> <span class="f">addToCart</span>(item) {
+  cart.<span class="f">update</span>(items =&gt; [...items, item]);         <span class="c">// urgent, like setState</span>
+}
+
+<span class="f">startTransition</span>(() =&gt; cart.<span class="f">update</span>(<span class="f">loadSavedCart</span>)); <span class="c">// or a transition, no tearing</span></code></pre>
+    </div>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="wrap">
+    <a href="#problem">The problem</a>
+    <a href="#api">API</a>
+    <a href="#context">vs Context</a>
+    <a href="#alternatives">vs everything else</a>
+    <a href="#how">How it works</a>
+    <a href="#playground">Playground</a>
+    <a href="#examples">Use cases</a>
+    <a href="#semantics">Semantics</a>
+    <a href="#evidence">Evidence</a>
+    <a href="#ship">Shipping</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+<!-- ============================================================ -->
+<section id="problem">
+  <h2>The problem we've had for years</h2>
+  <p class="sub">State that no single component owns has no good answer in concurrent React.</p>
+
+  <div class="grid grid-3">
+    <div class="card">
+      <h4><span class="pill bad">slow</span> Context + useReducer</h4>
+      <p>Correct with transitions, but every consumer re-renders on every change. Teams split providers, build workarounds, or avoid context altogether. Compiled context selectors were tried in production and came back inconclusive (#322).</p>
+    </div>
+    <div class="card">
+      <h4><span class="pill bad">de-opts</span> useSyncExternalStore</h4>
+      <p>Fast and tear-free, but a store update can never be a transition. Updates inside <code>startTransition</code> render synchronously and show Suspense fallbacks. That rules out the features we built concurrency for.</p>
+    </div>
+    <div class="card">
+      <h4><span class="pill bad">fragile</span> Userland concurrent stores</h4>
+      <p>Jordan's prototype (#387) and Justin's ponyfill get close, but they need React internals (<code>__CLIENT_INTERNALS…T</code>), a layout-effect "fixup" that renders twice, and the assumption that every transition is entangled.</p>
+    </div>
+  </div>
+
+  <div class="callout" style="margin-top:24px">
+    <strong>What the ecosystem has told us:</strong> "We've repeatedly gotten asked 'when will React-Redux be concurrent compatible?', and our answer has always been 'when the React team gives us the primitive we need.'" (Mark Erikson, on facebook/react#35449)
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="api">
+  <h2>The API: three things</h2>
+  <p class="sub">Shaped like <code>useState</code>, but shared, and read with <code>use()</code>.</p>
+
+<pre><code><span class="c">// 1. Create it anywhere: module scope, a parent component, a context value.</span>
+<span class="k">const</span> count = <span class="f">createStore</span>(<span class="n">0</span>);
+<span class="k">const</span> todos = <span class="f">createStore</span>(initialTodos, todosReducer);   <span class="c">// optional fixed reducer</span>
+
+<span class="c">// 2. Update it anywhere: events, effects, async actions, outside React.</span>
+count.<span class="f">update</span>(<span class="n">1</span>);                <span class="c">// a value</span>
+count.<span class="f">update</span>(c =&gt; c + <span class="n">1</span>);       <span class="c">// or an updater, like setState</span>
+todos.<span class="f">update</span>({type: <span class="s">'add'</span>, text});  <span class="c">// or an action, with a reducer</span>
+
+<span class="c">// 3. Read it while rendering. Conditionally, in loops, nested in other use() calls.</span>
+<span class="k">const</span> value = <span class="f">use</span>(count);</code></pre>
+
+  <div class="grid grid-2">
+    <div class="card">
+      <h4>Why <code>use()</code> and not <code>useStore()</code></h4>
+      <p><code>use</code> takes no hook slot. You can read a store inside an <code>if</code>, a <code>for</code> loop, or right after an early return, like <code>use(context)</code>. Seb's original <code>use</code> post (#52) listed stores as one of the reasons <code>use</code> exists: <code>use&lt;T&gt;(Context&lt;T&gt; | Promise&lt;T&gt; | Store&lt;T&gt;)</code>.</p>
+    </div>
+    <div class="card">
+      <h4>Why no selectors</h4>
+      <p>Selectors don't compose with custom Hooks and move logic out of components (#155, #296). Instead: re-render only actual readers, bail out when the value is unchanged, use <strong>granular stores</strong> (a store per entity, or stores of stores), and let the compiler memoize everything downstream of the read.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="context">
+  <h2>How it differs from Context</h2>
+  <p class="sub">Context passes values <em>down the tree</em>. A store is a value that <em>lives outside the tree</em> that any component can read.</p>
+
+  <table>
+    <thead>
+      <tr><th></th><th>Context</th><th>use(store)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Where the value comes from</td><td>The nearest Provider above the component</td><td>The store object you pass to <code>use()</code></td></tr>
+      <tr><td>Who re-renders on change</td><td>Every consumer under the provider whose value changed, plus the provider's re-render</td><td>Only components that read <em>that</em> store</td></tr>
+      <tr><td>What triggers an update</td><td>The Provider's parent re-rendering with a new <code>value</code></td><td><code>store.update()</code> from anywhere: events, effects, outside React</td></tr>
+      <tr><td>Cost of an update</td><td>A tree walk from the provider to find consumers (lazy propagation helps, but it's still a walk)</td><td>O(number of readers). No tree walk; readers are scheduled directly.</td></tr>
+      <tr><td>Granularity</td><td>One value per provider. Splitting means more providers.</td><td>As many stores as you want, including stores of stores</td></tr>
+      <tr><td>Multiple values</td><td>Shadowing: different subtrees can see different values</td><td>One value per store, shared by every reader</td></tr>
+      <tr><td>Transitions and rebasing</td><td class="yes">Yes, through the parent's state</td><td class="yes">Yes, built in</td></tr>
+      <tr><td>Conditional reads</td><td class="yes">Yes, with <code>use(Context)</code></td><td class="yes">Yes</td></tr>
+      <tr><td>Lifetime</td><td>Tied to the provider's component state</td><td>Tied to the store object, so it survives remounts</td></tr>
+    </tbody>
+  </table>
+
+  <div class="grid grid-2">
+    <figure class="card">
+      <svg viewBox="0 0 420 230" width="100%" role="img" aria-label="Context update re-renders the provider subtree">
+        <rect x="160" y="10" width="100" height="32" rx="8" fill="#1e222b" stroke="#f87171"/>
+        <text x="210" y="31" fill="#e6e8ee" font-size="13" text-anchor="middle">Provider ✱</text>
+        <line x1="210" y1="42" x2="90" y2="80" stroke="#2a2f3a"/><line x1="210" y1="42" x2="210" y2="80" stroke="#2a2f3a"/><line x1="210" y1="42" x2="330" y2="80" stroke="#2a2f3a"/>
+        <rect x="40" y="80" width="100" height="30" rx="8" fill="#1e222b" stroke="#f87171"/><text x="90" y="100" fill="#e6e8ee" font-size="12" text-anchor="middle">Sidebar ↻</text>
+        <rect x="160" y="80" width="100" height="30" rx="8" fill="#1e222b" stroke="#f87171"/><text x="210" y="100" fill="#e6e8ee" font-size="12" text-anchor="middle">Feed ↻</text>
+        <rect x="280" y="80" width="100" height="30" rx="8" fill="#1e222b" stroke="#f87171"/><text x="330" y="100" fill="#e6e8ee" font-size="12" text-anchor="middle">Header ↻</text>
+        <line x1="210" y1="110" x2="150" y2="150" stroke="#2a2f3a"/><line x1="210" y1="110" x2="270" y2="150" stroke="#2a2f3a"/>
+        <rect x="100" y="150" width="100" height="30" rx="8" fill="#1e222b" stroke="#f87171"/><text x="150" y="170" fill="#e6e8ee" font-size="12" text-anchor="middle">Story ↻</text>
+        <rect x="220" y="150" width="100" height="30" rx="8" fill="#1e222b" stroke="#f87171"/><text x="270" y="170" fill="#e6e8ee" font-size="12" text-anchor="middle">Story ↻</text>
+        <text x="210" y="215" fill="#9aa3b2" font-size="12" text-anchor="middle">Without memoization, the provider's subtree re-renders</text>
+      </svg>
+      <figcaption>Context: a new provider value re-renders the provider and walks its subtree to find consumers. Without the compiler, children re-render too.</figcaption>
+    </figure>
+    <figure class="card">
+      <svg viewBox="0 0 420 230" width="100%" role="img" aria-label="Store update re-renders only readers">
+        <rect x="160" y="10" width="100" height="32" rx="8" fill="#1e222b" stroke="#2a2f3a"/>
+        <text x="210" y="31" fill="#9aa3b2" font-size="13" text-anchor="middle">App</text>
+        <line x1="210" y1="42" x2="90" y2="80" stroke="#2a2f3a"/><line x1="210" y1="42" x2="210" y2="80" stroke="#2a2f3a"/><line x1="210" y1="42" x2="330" y2="80" stroke="#2a2f3a"/>
+        <rect x="40" y="80" width="100" height="30" rx="8" fill="#1e222b" stroke="#2a2f3a"/><text x="90" y="100" fill="#9aa3b2" font-size="12" text-anchor="middle">Sidebar</text>
+        <rect x="160" y="80" width="100" height="30" rx="8" fill="#1e222b" stroke="#2a2f3a"/><text x="210" y="100" fill="#9aa3b2" font-size="12" text-anchor="middle">Feed</text>
+        <rect x="280" y="80" width="100" height="30" rx="8" fill="#1e222b" stroke="#4ade80"/><text x="330" y="100" fill="#e6e8ee" font-size="12" text-anchor="middle">Header ↻</text>
+        <line x1="210" y1="110" x2="150" y2="150" stroke="#2a2f3a"/><line x1="210" y1="110" x2="270" y2="150" stroke="#2a2f3a"/>
+        <rect x="100" y="150" width="100" height="30" rx="8" fill="#1e222b" stroke="#2a2f3a"/><text x="150" y="170" fill="#9aa3b2" font-size="12" text-anchor="middle">Story</text>
+        <rect x="220" y="150" width="100" height="30" rx="8" fill="#1e222b" stroke="#4ade80"/><text x="270" y="170" fill="#e6e8ee" font-size="12" text-anchor="middle">Story ↻</text>
+        <g><rect x="300" y="190" width="110" height="28" rx="8" fill="rgba(88,196,220,.12)" stroke="#58c4dc"/><text x="355" y="208" fill="#58c4dc" font-size="12" text-anchor="middle">store.update()</text></g>
+        <path d="M330 190 L330 112" stroke="#58c4dc" stroke-dasharray="4 3" fill="none"/>
+        <path d="M320 190 L285 182" stroke="#58c4dc" stroke-dasharray="4 3" fill="none"/>
+      </svg>
+      <figcaption>Store: an update schedules only the components that read the store, directly. No tree walk, and nothing else in the tree renders.</figcaption>
+    </figure>
+  </div>
+
+  <div class="callout purple">
+    <strong>They compose.</strong> Use context for <em>which</em> value a subtree should see (dependency injection), and a store for <em>a value that changes</em>. Putting a store in context gives you a scoped store with store-level performance:
+<pre style="margin:12px 0 0"><code><span class="k">const</span> session = <span class="f">use</span>(<span class="f">use</span>(SessionStoreContext));   <span class="c">// the context provides the store; use() reads its value</span></code></pre>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="alternatives">
+  <h2>Compared with everything else</h2>
+  <p class="sub">It's the only option that gets every row right.</p>
+  <table>
+    <thead>
+      <tr><th></th><th>Context + useReducer</th><th>useSyncExternalStore</th><th>Userland concurrent store</th><th>use(store)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Re-renders only readers</td><td class="no">No</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+      <tr><td>Updates can be transitions</td><td class="yes">Yes</td><td class="no">No (de-opts to sync)</td><td class="meh">Mostly</td><td class="yes">Yes</td></tr>
+      <tr><td>No tearing when mounting mid-transition</td><td class="yes">Yes</td><td class="yes">Yes (sync)</td><td class="meh">With a 2nd render</td><td class="yes">Yes, single render</td></tr>
+      <tr><td>Rebasing (sync update over a pending transition)</td><td class="yes">Yes</td><td class="no">N/A</td><td class="meh">Approximated</td><td class="yes">Exactly like useState</td></tr>
+      <tr><td>Conditional reads</td><td class="yes">Yes</td><td class="no">No (Hook)</td><td class="no">No (Hook)</td><td class="yes">Yes</td></tr>
+      <tr><td>Suspense and Activity work</td><td class="yes">Yes</td><td class="meh">Fallbacks on update</td><td class="meh">Edge cases</td><td class="yes">Yes</td></tr>
+      <tr><td>Hydration without extra API</td><td class="yes">Yes</td><td class="no">Needs getServerSnapshot</td><td class="meh">Varies</td><td class="yes">Yes</td></tr>
+      <tr><td>Uses no React internals</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="no">No</td><td class="yes">It <em>is</em> React</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============================================================ -->
+<section id="how">
+  <h2>How it works</h2>
+  <p class="sub">The trick: it's the <code>useReducer</code> update queue, moved from each component to each root.</p>
+
+  <figure class="card">
+    <svg viewBox="0 0 960 300" width="100%" role="img" aria-label="Architecture">
+      <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#58c4dc"/></marker></defs>
+      <rect x="20" y="110" width="170" height="80" rx="12" fill="#1e222b" stroke="#58c4dc"/>
+      <text x="105" y="140" fill="#e6e8ee" font-size="15" text-anchor="middle" font-weight="600">store</text>
+      <text x="105" y="162" fill="#9aa3b2" font-size="12" text-anchor="middle">reducer · initial value</text>
+      <text x="105" y="178" fill="#9aa3b2" font-size="12" text-anchor="middle">latest value · records</text>
+      <line x1="190" y1="135" x2="300" y2="70" stroke="#58c4dc" marker-end="url(#ar)"/>
+      <line x1="190" y1="165" x2="300" y2="230" stroke="#58c4dc" marker-end="url(#ar)"/>
+      <text x="245" y="88" fill="#9aa3b2" font-size="12">update(action)</text>
+
+      <rect x="300" y="20" width="330" height="110" rx="12" fill="#171a21" stroke="#2a2f3a"/>
+      <text x="320" y="44" fill="#e6e8ee" font-size="14" font-weight="600">Record for root A</text>
+      <text x="320" y="66" fill="#9aa3b2" font-size="12">base state</text>
+      <rect x="400" y="54" width="70" height="20" rx="5" fill="rgba(167,139,250,.14)" stroke="#a78bfa"/><text x="435" y="68" fill="#e6e8ee" font-size="11" text-anchor="middle">T · +1 · #4</text>
+      <rect x="476" y="54" width="70" height="20" rx="5" fill="rgba(88,196,220,.14)" stroke="#58c4dc"/><text x="511" y="68" fill="#e6e8ee" font-size="11" text-anchor="middle">Sync · ×2 · #5</text>
+      <text x="320" y="96" fill="#9aa3b2" font-size="12">queue of {lane, action, seq}, one per root</text>
+      <text x="320" y="116" fill="#9aa3b2" font-size="12">readers: Set&lt;Fiber&gt; (subscribed at commit)</text>
+
+      <rect x="300" y="170" width="330" height="110" rx="12" fill="#171a21" stroke="#2a2f3a"/>
+      <text x="320" y="194" fill="#e6e8ee" font-size="14" font-weight="600">Record for root B</text>
+      <text x="320" y="216" fill="#9aa3b2" font-size="12">each root rebases and commits on its own schedule</text>
+      <text x="320" y="236" fill="#9aa3b2" font-size="12">created on first read, dropped when unused</text>
+      <text x="320" y="256" fill="#9aa3b2" font-size="12">(so the store never keeps a root alive)</text>
+
+      <line x1="630" y1="75" x2="720" y2="75" stroke="#58c4dc" marker-end="url(#ar)"/>
+      <rect x="720" y="20" width="220" height="110" rx="12" fill="#1e222b" stroke="#4ade80"/>
+      <text x="830" y="46" fill="#e6e8ee" font-size="14" text-anchor="middle" font-weight="600">use(store) in render</text>
+      <text x="830" y="70" fill="#9aa3b2" font-size="12" text-anchor="middle">apply updates in render lanes,</text>
+      <text x="830" y="88" fill="#9aa3b2" font-size="12" text-anchor="middle">skip the rest (rebasing)</text>
+      <text x="830" y="106" fill="#9aa3b2" font-size="12" text-anchor="middle">skipped lanes → fiber.lanes</text>
+      <line x1="630" y1="225" x2="720" y2="225" stroke="#58c4dc" marker-end="url(#ar)"/>
+      <rect x="720" y="170" width="220" height="110" rx="12" fill="#1e222b" stroke="#fbbf24"/>
+      <text x="830" y="196" fill="#e6e8ee" font-size="14" text-anchor="middle" font-weight="600">commitRoot</text>
+      <text x="830" y="220" fill="#9aa3b2" font-size="12" text-anchor="middle">fold committed lanes into</text>
+      <text x="830" y="238" fill="#9aa3b2" font-size="12" text-anchor="middle">the base state (like useReducer)</text>
+      <text x="830" y="256" fill="#9aa3b2" font-size="12" text-anchor="middle">reuse the render's result</text>
+    </svg>
+    <figcaption>One store, one record per root that reads it. Each record is a lane-tagged update queue with exactly the skip and rebase rules of <code>updateReducerImpl</code>, run once per root and cached per render, instead of once per component.</figcaption>
+  </figure>
+
+  <div class="grid grid-2">
+    <div class="card">
+      <h4>1 · Updates</h4>
+      <p><code>store.update(action)</code> asks each root's record for a lane, the same way <code>setState</code> does: transition, discrete, or default. It appends <code>{lane, action, seq}</code> and schedules only the subscribed readers. If nothing is pending and the value doesn't change, it bails out without rendering.</p>
+    </div>
+    <div class="card">
+      <h4>2 · Reads</h4>
+      <p><code>use(store)</code> applies the updates included in the render's lanes and skips the rest, the same as useState. If it skipped any, it merges their lanes into the fiber, so <strong>a component that mounts mid-transition re-renders with that transition</strong>. There's no fixup render or effect.</p>
+    </div>
+    <div class="card">
+      <h4>3 · No tearing, ever</h4>
+      <p>Every update gets a monotonic <code>seq</code>. A render records the seq when it starts and ignores anything newer. That's how React already hides concurrent <code>setState</code> calls from an in-progress render, so two components in one render can never see different versions. There's no consistency check and no sync de-opt.</p>
+    </div>
+    <div class="card">
+      <h4>4 · Commit</h4>
+      <p>At commit, each record folds the lanes that just committed into its base state. Updates that were skipped stay in the queue, and later updates stay too as NoLane clones, so the next render rebases them in order. That's the <code>useReducer</code> algorithm, and the reducer doesn't run again when the render already computed the result.</p>
+    </div>
+    <div class="card">
+      <h4>5 · Subscriptions without a hook slot</h4>
+      <p><code>use(store)</code> pushes an internal insertion effect onto the fiber's effect list. That gives us cleanup on unmount and conditional reads for free. Hidden Activity trees stay subscribed, so they update in the background at offscreen priority.</p>
+    </div>
+    <div class="card">
+      <h4>6 · Server and hydration</h4>
+      <p>The value a store was <em>created</em> with is its server snapshot. Fizz renders it and the client hydrates with it, so there's never a mismatch. Readers then catch up to the latest value, the same model as <code>getServerSnapshot</code> but with no extra API.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="playground">
+  <h2>Playground: rebasing, exactly like useState</h2>
+  <p class="sub">This runs the same queue algorithm as <code>ReactFiberStore.js</code>: read with lanes, skip, rebase, fold on commit.</p>
+
+  <div class="pg">
+    <div class="pg-controls">
+      <button class="t" data-act="t-inc">startTransition: +1</button>
+      <button class="t" data-act="t-dbl">startTransition: ×2</button>
+      <button class="s" data-act="s-inc">sync: +1</button>
+      <button class="s" data-act="s-dbl">sync: ×2</button>
+      <button class="r" data-act="commit-sync">render + commit sync lane</button>
+      <button class="r" data-act="commit-t">render + commit transition</button>
+      <button data-act="reset">reset</button>
+    </div>
+    <div class="pg-views">
+      <div class="pg-view"><div class="lbl">On screen (committed)</div><div class="val" id="pg-committed">2</div></div>
+      <div class="pg-view"><div class="lbl">A sync render would show</div><div class="val" id="pg-sync">2</div></div>
+      <div class="pg-view"><div class="lbl">The transition render will show</div><div class="val" id="pg-trans">2</div></div>
+    </div>
+    <div class="lbl" style="color:var(--muted);font-size:13px;margin-bottom:6px">Base state <strong id="pg-base">2</strong> · queue:</div>
+    <div class="pg-queue" id="pg-queue"></div>
+    <div class="pg-log" id="pg-log"></div>
+  </div>
+  <p style="margin-top:14px;color:var(--muted);font-size:15px">Try this: <em>transition +1</em>, <em>sync ×2</em>, <em>commit sync</em> (shows 4: the sync update applied to what's on screen), then <em>commit transition</em> (shows 6: (2+1)×2, in dispatch order). That's the RCP #362 example, and it's what <code>useState</code> does.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="examples">
+  <h2>Use cases</h2>
+  <p class="sub">Things that are awkward or impossible today, and are a few lines with stores.</p>
+
+  <h3>App-wide state without the provider tax</h3>
+<pre><code><span class="k">export const</span> theme = <span class="f">createStore</span>(<span class="s">'light'</span>);
+
+<span class="k">function</span> <span class="f">ThemeToggle</span>() {
+  <span class="k">const</span> current = <span class="f">use</span>(theme);
+  <span class="k">return</span> &lt;button onClick={() =&gt; theme.<span class="f">update</span>(t =&gt; (t === <span class="s">'light'</span> ? <span class="s">'dark'</span> : <span class="s">'light'</span>))}&gt;{current}&lt;/button&gt;;
+}
+<span class="c">// No Provider. Only ThemeToggle and other readers re-render.</span></code></pre>
+
+  <h3>Fine-grained lists with stores of stores</h3>
+<pre><code><span class="k">const</span> todos = <span class="f">createStore</span>([]);   <span class="c">// a store holding stores</span>
+
+<span class="k">function</span> <span class="f">TodoList</span>() {
+  <span class="k">return</span> <span class="f">use</span>(todos).<span class="f">map</span>((todo, i) =&gt; &lt;Todo key={i} todo={todo} /&gt;);
+}
+<span class="k">function</span> <span class="f">Todo</span>({todo}) {
+  <span class="k">const</span> {text, done} = <span class="f">use</span>(todo);
+  <span class="k">return</span> &lt;li onClick={() =&gt; todo.<span class="f">update</span>(t =&gt; ({...t, done: !t.done}))}&gt;{text}&lt;/li&gt;;
+}
+<span class="c">// Toggling one todo re-renders one &lt;Todo&gt;, not the list. No selectors, no memo.</span></code></pre>
+
+  <h3>Navigation as a transition, from outside React</h3>
+<pre><code><span class="k">const</span> route = <span class="f">createStore</span>(<span class="s">'/'</span>);
+
+<span class="c">// A router can update the store from a popstate listener...</span>
+window.<span class="f">addEventListener</span>(<span class="s">'popstate'</span>, () =&gt;
+  <span class="f">startTransition</span>(() =&gt; route.<span class="f">update</span>(location.pathname)),
+);
+
+<span class="k">function</span> <span class="f">Router</span>() {
+  <span class="k">const</span> path = <span class="f">use</span>(route);
+  <span class="k">return</span> &lt;Suspense fallback={&lt;Spinner /&gt;}&gt;{<span class="f">matchRoute</span>(path)}&lt;/Suspense&gt;;
+}
+<span class="c">// ...and the old page stays on screen while the new one suspends, with no</span>
+<span class="c">// fallback flash. useSyncExternalStore can't do this: it de-opts to sync.</span></code></pre>
+
+  <h3>Conditional and dynamic reads</h3>
+<pre><code><span class="k">function</span> <span class="f">Dashboard</span>({widgets, user}) {
+  <span class="k">if</span> (!user) <span class="k">return</span> &lt;Login /&gt;;                 <span class="c">// early return before reading: fine</span>
+  <span class="k">let</span> unread = <span class="n">0</span>;
+  <span class="k">for</span> (<span class="k">const</span> w <span class="k">of</span> widgets) unread += <span class="f">use</span>(w.unreadStore);   <span class="c">// loops: fine</span>
+  <span class="k">return</span> &lt;Header unread={unread} /&gt;;
+}
+<span class="c">// Subscriptions follow whatever the last render read. Stores that are no longer read are unsubscribed at commit.</span></code></pre>
+
+  <h3>Async actions and forms batch correctly</h3>
+<pre><code><span class="k">const</span> cart = <span class="f">createStore</span>([]);
+
+<span class="k">async function</span> <span class="f">checkout</span>(formData) {        <span class="c">// &lt;form action={checkout}&gt;</span>
+  cart.<span class="f">update</span>(items =&gt; items.<span class="f">map</span>(markPending));
+  <span class="k">await</span> <span class="f">submitOrder</span>(formData);
+  <span class="f">startTransition</span>(() =&gt; cart.<span class="f">update</span>([]));
+}
+<span class="c">// Updates before and after the await commit together when the action finishes,</span>
+<span class="c">// exactly like setState inside an action. (Verified side by side in the copies.)</span></code></pre>
+
+  <h3>Readers that mount mid-transition don't tear</h3>
+<pre><code><span class="f">startTransition</span>(<span class="k">async</span> () =&gt; {
+  filter.<span class="f">update</span>(<span class="s">'done'</span>);
+  <span class="k">await</span> <span class="f">slowSearch</span>();
+});
+<span class="c">// While that's pending, a sync update reveals a new &lt;FilterLabel&gt; that reads `filter`.</span>
+<span class="c">// It mounts showing the OLD filter, matching every other reader on screen,</span>
+<span class="c">// and switches to 'done' in the same commit as everyone else when the transition lands.</span></code></pre>
+
+  <h3>SSR that just works</h3>
+<pre><code><span class="c">// Shared module. The same code runs on the server and in the browser.</span>
+<span class="k">export const</span> prefs = <span class="f">createStore</span>(window.__PREFS__ ?? defaultPrefs);
+
+<span class="c">// The server renders the initial value. The client hydrates with the same value, so</span>
+<span class="c">// there's no mismatch. If prefs changed before a boundary hydrated, it hydrates</span>
+<span class="c">// first and then re-renders. No getServerSnapshot.</span></code></pre>
+
+  <h3>A foundation libraries can build on</h3>
+<pre><code><span class="c">// The kind of thing Redux/Zustand/Jotai could ship on top: concurrency-safe, no internals.</span>
+<span class="k">export function</span> <span class="f">createSlice</span>(initial, reducers) {
+  <span class="k">const</span> store = <span class="f">createStore</span>(initial, (state, {type, payload}) =&gt; reducers[type](state, payload));
+  <span class="k">const</span> actions = Object.<span class="f">fromEntries</span>(
+    Object.<span class="f">keys</span>(reducers).<span class="f">map</span>(type =&gt; [type, payload =&gt; store.<span class="f">update</span>({type, payload})]),
+  );
+  <span class="k">return</span> [store, actions];
+}</code></pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="semantics">
+  <h2>Semantics: what you get, and what's different</h2>
+  <p class="sub">The default is "behaves like useState". The differences are deliberate, and each one is pinned by tests.</p>
+
+  <div class="grid grid-2">
+    <div class="card">
+      <h4><span class="pill good">same as useState</span></h4>
+      <ul class="check">
+        <li>Batching with other updates in the same event</li>
+        <li>Transitions, entanglement, rebasing order</li>
+        <li>Async actions: suspends until the action finishes</li>
+        <li>flushSync, useDeferredValue, Suspense, Activity</li>
+        <li>Eager state: an idle store computes the next state at dispatch</li>
+        <li>StrictMode double-invokes reducers</li>
+        <li>"Not wrapped in act()" warnings</li>
+        <li>Reducer errors throw during render, where error boundaries catch them</li>
+        <li>Controlled inputs stay in sync</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4><span class="pill info">different, on purpose</span></h4>
+      <ul class="check">
+        <li><strong>Survives remounts.</strong> It's not component state.</li>
+        <li><strong>Shared</strong> by every component and root that reads it.</li>
+        <li><strong>Updating during render warns</strong> ("Cannot update a store while rendering…"), because a store is shared, so it's a side effect. The update renders after the current render.</li>
+        <li><strong>No "unmounted component" warnings</strong>: an update isn't tied to a component.</li>
+        <li><strong>The server renders the initial value</strong>, and clients catch up after hydration.</li>
+        <li><strong>The reducer is fixed at creation</strong> (it can't close over props), which is what lets every root replay updates.</li>
+        <li><strong>Bails out at dispatch</strong> when nothing is pending and the value doesn't change, so it renders less than useState.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="evidence">
+  <h2>Evidence</h2>
+  <p class="sub">We didn't write a few tests. We re-ran the React test suite with stores.</p>
+
+  <div class="grid grid-3">
+    <div class="card stat"><div class="num">138/138</div><div class="lbl">test files that use state now have a <code>use(store)</code> copy</div></div>
+    <div class="card stat"><div class="num">3,230</div><div class="lbl">test cases translated or mirrored (21 skips, each with a reason)</div></div>
+    <div class="card stat"><div class="num">4</div><div class="lbl">channels green: experimental, stable, www-modern on/off</div></div>
+    <div class="card stat"><div class="num">~10.3k</div><div class="lbl">full-repo tests pass on each channel (2 unrelated Node 25 failures)</div></div>
+    <div class="card stat"><div class="num">17</div><div class="lbl">store bugs found by porting real tests, all fixed or decided before shipping</div></div>
+    <div class="card stat"><div class="num">0</div><div class="lbl">weakened assertions. Every behavior change is annotated <code>store-semantics</code></div></div>
+  </div>
+
+  <h3>What porting the suite found (and fixed)</h3>
+  <table>
+    <thead><tr><th>Found by</th><th>Bug</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr><td>Transitions</td><td>Reads used raw lanes, not entangled lanes, so an intermediate state could commit</td><td>Read with the hook's <code>renderLanes</code>, like useState</td></tr>
+      <tr><td>Suspense, Hooks</td><td>An urgent update and a transition on the same store got entangled</td><td>Only transition lanes are entangled</td></tr>
+      <tr><td>Transitions</td><td>The commit folded different lanes than the reads used, so an update could be reverted</td><td>The commit uses the render's entangled lanes</td></tr>
+      <tr><td>Fizz, hydration</td><td>A store update before a dehydrated reader hydrated caused a mismatch</td><td>The initial value is the server snapshot</td></tr>
+      <tr><td>DOM inputs</td><td>False "hasn't mounted yet" warning when catching up inside a new parent</td><td>Catch-up runs after the mutation phase</td></tr>
+      <tr><td>Hooks</td><td>The reducer ran more often than useReducer</td><td>Lazy head, reused eager state, reused commit</td></tr>
+      <tr><td>React pkg</td><td>StrictMode didn't double-invoke reducers</td><td>Same extra call as useReducer</td></tr>
+      <tr><td>DevTools</td><td>The profiler couldn't attribute a render to a store; the inspector hid store-only hooks</td><td>Store hooks show as <code>Store</code> and are tracked as stateful</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <strong>Every decision has a paper trail.</strong> <code>docs/use-store/DECISIONS.md</code> records each design change with the tests that pin it. <code>node scripts/store-parity/check.js</code> verifies the parity claim mechanically.
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="ship">
+  <h2>Why ship it</h2>
+  <div class="grid grid-2">
+    <div class="card">
+      <h4>It closes the oldest gap in concurrent React</h4>
+      <p>Transitions, Suspense, Activity and View Transitions only work as well as the state that feeds them. Today, the moment state lives outside a component, you choose between fast (uSES) and concurrent (context). This removes that choice.</p>
+    </div>
+    <div class="card">
+      <h4>It's small and reuses proven machinery</h4>
+      <p>Under 900 lines in the reconciler, comments included: one new module plus small hooks into the hooks file and work loop. The core is the <code>useReducer</code> queue algorithm, the concurrent-update seq model, and insertion effects. Nothing here is a new scheduling concept, and with <code>enableStore</code> off none of the new code runs.</p>
+    </div>
+    <div class="card">
+      <h4>It unblocks the ecosystem</h4>
+      <p>Libraries can get concurrent compatibility by building on a primitive instead of reverse-engineering internals. It also gives userland ponyfills a target to converge on.</p>
+    </div>
+    <div class="card">
+      <h4>It makes the compiler story true</h4>
+      <p>"No selectors, the compiler will handle it" was missing the primitive that makes reads fine-grained. With per-store subscriptions, granular stores, and compiler memoization downstream of <code>use()</code>, it now has one.</p>
+    </div>
+  </div>
+
+  <h3>Proposed rollout</h3>
+  <ol>
+    <li><strong>Land behind <code>enableStore</code></strong>: <code>__EXPERIMENTAL__</code> in OSS, <code>__VARIANT__</code> in www. It's already wired up that way.</li>
+    <li><strong>Dogfood in www</strong> on a store-heavy surface (a Recoil or context-selector replacement), and measure renders and interaction latency against context and uSES.</li>
+    <li><strong>Publish the RCP update</strong> with these semantics, then ship to experimental for library authors (Redux, Zustand, Jotai, TanStack, Relay).</li>
+    <li><strong>Follow-ups</strong>: optimistic stores (with #416), DevTools store editing and hook names, external-source interop and observables (#403).</li>
+  </ol>
+
+  <h3>Honest open questions</h3>
+  <ul class="x">
+    <li>Cross-root consistency isn't guaranteed: a new root starts from the latest value (Seb's position in #403). React Native's multi-surface direction (one root plus portals) avoids this.</li>
+    <li>"Derive state during render" doesn't carry over to stores. It warns, by design.</li>
+    <li><strong>Performance is measured on synthetic benchmarks, not yet on a real app.</strong> See <a href="benchmark-report.html">benchmark-report.html</a>. With the compiler, use(store) matched or beat the faster of Redux and Zustand in every configuration of the main benchmark, and won three of the Redux team's own four benchmarks. Where it doesn't win:
+      <ul>
+        <li>rows that select only one or two values, where a few cheap selectors beat re-running each row (selection is 1.3–1.4× slower than Zustand);</li>
+        <li>partially compiled apps;</li>
+        <li>expensive derived data shared by many components, which needs a shared cache.</li>
+      </ul>
+      The selection result also relies on a separate reconciler optimization (<code>enableSameElementBailout</code>). Real-world numbers still need the www experiment.</li>
+    <li><strong>Shared derived data needs an answer.</strong> A cache keyed on store snapshots is correct and fast (<a href="research/shared-derived-data.md">spike</a>). Computing derived values in updates tears under transitions.</li>
+  </ul>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    Implementation: <code>packages/react/src/ReactStore.js</code>, <code>packages/react-reconciler/src/ReactFiberStore.js</code>, and <code>useStore</code> in <code>ReactFiberHooks.js</code>.
+    Specs: <code>ReactUseStore-test.js</code>, <code>ReactDOMStore-test.js</code>. Design: <code>docs/use-store/</code>.
+    Prior art: RCP #362 (use(Store)), #387 (userland prototype), facebook/react#33215 (skeleton), facebook/react#35449 (useStore RFC), react-concurrent-store.
+  </div>
+</footer>
+
+<script>
+// A plain JS model of the per-root record in ReactFiberStore.js.
+// Lanes: 'S' (sync) and 'T' (transition). Updates: {lane, op, seq}.
+(function () {
+  const ops = {
+    inc: s => s + 1,
+    dbl: s => s * 2,
+  };
+  const label = {inc: '+1', dbl: '×2'};
+  let record, seq, log;
+
+  function reset() {
+    record = {baseState: 2, queue: []};
+    seq = 0;
+    log = ['Store created with 2.'];
+    render();
+  }
+
+  // readStoreRecord: apply included updates, skip the rest, keep rebasing.
+  function read(lanes) {
+    let state = record.baseState;
+    for (const u of record.queue) {
+      if (u.lane === 'N' || lanes.includes(u.lane)) state = ops[u.op](state);
+    }
+    return state;
+  }
+
+  // commitStoreRecord: fold the committed lanes into the base state.
+  function commit(lanes) {
+    let state = record.baseState;
+    let newBase = null;
+    const remaining = [];
+    for (const u of record.queue) {
+      const included = u.lane === 'N' || lanes.includes(u.lane);
+      if (!included) {
+        if (newBase === null) newBase = state;
+        remaining.push(u);
+      } else {
+        if (newBase !== null) remaining.push({...u, lane: 'N'});
+        state = ops[u.op](state);
+      }
+    }
+    record.baseState = newBase === null ? state : newBase;
+    record.queue = remaining;
+  }
+
+  let committed = 2;
+
+  function dispatch(lane, op) {
+    record.queue.push({lane, op, seq: ++seq});
+    log.unshift(`#${seq} ${lane === 'T' ? 'startTransition' : 'sync'} update ${label[op]}`);
+    render();
+  }
+
+  function renderAndCommit(lanes, name) {
+    const pending = record.queue.some(u => u.lane !== 'N' && lanes.includes(u.lane));
+    if (!pending) {
+      log.unshift(`Nothing pending in the ${name} lane.`);
+      render();
+      return;
+    }
+    committed = read(lanes);
+    commit(lanes);
+    log.unshift(`Rendered ${name} lane → commit shows ${committed}`);
+    render();
+  }
+
+  function render() {
+    const hasT = record.queue.some(u => u.lane === 'T');
+    document.getElementById('pg-committed').textContent = committed;
+    document.getElementById('pg-sync').textContent = read(['S']);
+    document.getElementById('pg-trans').textContent = hasT ? read(['S', 'T']) : read(['S']);
+    document.getElementById('pg-base').textContent = record.baseState;
+    const q = document.getElementById('pg-queue');
+    q.innerHTML = record.queue.length === 0
+      ? '<span style="color:var(--muted);font-size:13px">empty</span>'
+      : record.queue.map(u => {
+          const cls = u.lane === 'T' ? 't' : u.lane === 'S' ? 's' : 'nl';
+          const lane = u.lane === 'N' ? 'NoLane (rebase)' : u.lane === 'T' ? 'Transition' : 'Sync';
+          return `<span class="upd ${cls}">#${u.seq} ${lane} ${label[u.op]}</span>`;
+        }).join('');
+    document.getElementById('pg-log').innerHTML = log.slice(0, 12).map(l => `<div>${l}</div>`).join('');
+  }
+
+  document.querySelector('.pg-controls').addEventListener('click', e => {
+    const act = e.target.getAttribute('data-act');
+    if (!act) return;
+    if (act === 'reset') { committed = 2; reset(); return; }
+    if (act === 't-inc') dispatch('T', 'inc');
+    if (act === 't-dbl') dispatch('T', 'dbl');
+    if (act === 's-inc') dispatch('S', 'inc');
+    if (act === 's-dbl') dispatch('S', 'dbl');
+    if (act === 'commit-sync') renderAndCommit(['S'], 'sync');
+    if (act === 'commit-t') renderAndCommit(['S', 'T'], 'transition');
+  });
+
+  reset();
+})();
+</script>
+</body>
+</html>

@@ -359,6 +359,7 @@ function tryHydrateSuspense(
       treeContext: getSuspendedTreeContext(),
       retryLane: OffscreenLane,
       hydrationErrors: null,
+      storeReads: null,
     };
     fiber.memoizedState = suspenseState;
     // Store the dehydrated fragment as a child fiber.

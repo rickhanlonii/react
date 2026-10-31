@@ -1,0 +1,33 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * @flow
+ */
+
+const {unstable_createStore: createStore, use, useDebugValue} = require('react');
+
+const bazStore = createStore(true);
+
+function Component(props) {
+  const foo = useCustomHookOne();
+  // This cae is ignored;
+  // the meaning of a tuple assignment for a custom hook is unclear.
+  const [bar] = useCustomHookTwo();
+  return `${foo}-${bar}`;
+}
+
+function useCustomHookOne() {
+  // DebugValue hook should not appear in log.
+  useDebugValue('example');
+  return true;
+}
+
+function useCustomHookTwo() {
+  const baz = use(bazStore);
+  return [baz, bazStore.update];
+}
+
+module.exports = {Component};

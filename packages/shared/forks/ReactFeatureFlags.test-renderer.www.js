@@ -77,6 +77,8 @@ export const enableHydrationChangeEvent: boolean = false;
 export const enableDefaultTransitionIndicator: boolean = true;
 
 export const ownerStackLimit = 1e4;
+export const enableStore: boolean = false;
+export const enableSameElementBailout: boolean = false;
 
 export const enableInternalInstanceMap: boolean = false;
 

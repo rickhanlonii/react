@@ -11,6 +11,7 @@ import type {Fiber} from 'react-reconciler/src/ReactInternalTypes';
 import type {HooksNode, HooksTree} from 'react-debug-tools/src/ReactDebugHooks';
 import type {WorkTagMap} from '../../types';
 
+import {getStoreKeyOfHooksNode} from 'react-debug-tools';
 import {getFiberFlags} from './DevToolsFiberInspection';
 import is from 'shared/objectIs';
 
@@ -47,9 +48,10 @@ export function didStatefulHookChange(
   prev: HooksNode,
   next: HooksNode,
 ): boolean {
-  // Detect the shape of useState() / useReducer() / useTransition() / useSyncExternalStore() / useActionState()
+  // Detect the shape of useState() / useReducer() / useTransition() / useSyncExternalStore() / useActionState() / use(store)
   const isStatefulHook =
     prev.isStateEditable === true ||
+    prev.name === 'Store' ||
     prev.name === 'SyncExternalStore' ||
     prev.name === 'Transition' ||
     prev.name === 'ActionState' ||
@@ -63,6 +65,26 @@ export function didStatefulHookChange(
   return false;
 }
 
+// The leaves of a hooks tree in order. These are the positions the frontend
+// shows as "Hook N changed".
+function flattenHooks(tree: HooksTree, leaves: Array<HooksNode>): void {
+  for (let i = 0; i < tree.length; i++) {
+    const node = tree[i];
+    if (node.subHooks.length > 0) {
+      flattenHooks(node.subHooks, leaves);
+    } else {
+      leaves.push(node);
+    }
+  }
+}
+
+// Returns the positions of the hooks in nextHooks that changed since prevHooks.
+//
+// Hooks that take a slot in the list of Hooks keep their id across renders, so
+// they're matched by id. use(store) takes no slot and can be called
+// conditionally, so a store read is matched with the read of the same store in
+// the previous render (the first read with the first read, and so on). A read
+// that only happens in one of the two renders isn't a change.
 export function getChangedHooksIndices(
   prevHooks: HooksTree | null,
   nextHooks: HooksTree | null,
@@ -71,28 +93,53 @@ export function getChangedHooksIndices(
     return null;
   }
 
-  const indices: Array<number> = [];
-  let index = 0;
+  const prevLeaves: Array<HooksNode> = [];
+  const nextLeaves: Array<HooksNode> = [];
+  flattenHooks(prevHooks, prevLeaves);
+  flattenHooks(nextHooks, nextLeaves);
 
-  function traverse(prevTree: HooksTree, nextTree: HooksTree): void {
-    for (let i = 0; i < prevTree.length; i++) {
-      const prevHook = prevTree[i];
-      const nextHook = nextTree[i];
-
-      if (prevHook.subHooks.length > 0 && nextHook.subHooks.length > 0) {
-        traverse(prevHook.subHooks, nextHook.subHooks);
-        continue;
+  const prevHooksByID: Map<number, HooksNode> = new Map();
+  const prevStoreReads: Map<mixed, Array<HooksNode>> = new Map();
+  for (let i = 0; i < prevLeaves.length; i++) {
+    const prevHook = prevLeaves[i];
+    if (prevHook.id !== null) {
+      prevHooksByID.set(prevHook.id, prevHook);
+    } else {
+      const storeKey = getStoreKeyOfHooksNode(prevHook);
+      if (storeKey !== null) {
+        const reads = prevStoreReads.get(storeKey);
+        if (reads === undefined) {
+          prevStoreReads.set(storeKey, [prevHook]);
+        } else {
+          reads.push(prevHook);
+        }
       }
-
-      if (didStatefulHookChange(prevHook, nextHook)) {
-        indices.push(index);
-      }
-
-      index++;
     }
   }
 
-  traverse(prevHooks, nextHooks);
+  const indices: Array<number> = [];
+  const nextStoreReadCounts: Map<mixed, number> = new Map();
+  for (let i = 0; i < nextLeaves.length; i++) {
+    const nextHook = nextLeaves[i];
+    let prevHook;
+    if (nextHook.id !== null) {
+      prevHook = prevHooksByID.get(nextHook.id);
+    } else {
+      const storeKey = getStoreKeyOfHooksNode(nextHook);
+      if (storeKey !== null) {
+        const count = nextStoreReadCounts.get(storeKey) || 0;
+        nextStoreReadCounts.set(storeKey, count + 1);
+        const reads = prevStoreReads.get(storeKey);
+        prevHook = reads === undefined ? undefined : reads[count];
+      }
+    }
+    // Hooks without a match (Context, DebugValue, a store that wasn't read
+    // before) can't have changed state.
+    if (prevHook !== undefined && didStatefulHookChange(prevHook, nextHook)) {
+      indices.push(i);
+    }
+  }
+
   return indices;
 }
 

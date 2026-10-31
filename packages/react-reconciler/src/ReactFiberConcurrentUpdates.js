@@ -53,13 +53,16 @@ export function finishQueueingConcurrentUpdates(): void {
 
   concurrentlyUpdatedLanes = NoLanes;
 
+  let lastParent: Fiber | null = null;
+  let lastLane: Lane = NoLane;
+
   let i = 0;
   while (i < endIndex) {
     const fiber: Fiber = concurrentQueues[i];
     concurrentQueues[i++] = null;
     const queue: ConcurrentQueue = concurrentQueues[i];
     concurrentQueues[i++] = null;
-    const update: ConcurrentUpdate = concurrentQueues[i];
+    const update: ConcurrentUpdate | null = concurrentQueues[i];
     concurrentQueues[i++] = null;
     const lane: Lane = concurrentQueues[i];
     concurrentQueues[i++] = null;
@@ -78,7 +81,22 @@ export function finishQueueingConcurrentUpdates(): void {
     }
 
     if (lane !== NoLane) {
-      markUpdateLaneFromFiberToRoot(fiber, update, lane);
+      if (update === null && fiber.return === lastParent && lane === lastLane) {
+        // Siblings often update together, like the items of a list that read
+        // the same store. The first one marked the path to the root, and an
+        // entry without an update doesn't need markHiddenUpdate. Mark the
+        // fiber itself again, since a render that was in progress when it was
+        // queued may have reset its lanes.
+        fiber.lanes = mergeLanes(fiber.lanes, lane);
+        const alternate = fiber.alternate;
+        if (alternate !== null) {
+          alternate.lanes = mergeLanes(alternate.lanes, lane);
+        }
+      } else {
+        markUpdateLaneFromFiberToRoot(fiber, update, lane);
+        lastParent = fiber.return;
+        lastLane = lane;
+      }
     }
   }
 }
@@ -168,6 +186,17 @@ export function enqueueConcurrentRenderForLane(
 ): FiberRoot | null {
   enqueueUpdate(fiber, null, null, lane);
   return getRootForUpdatedFiber(fiber);
+}
+
+// Like enqueueConcurrentRenderForLane, for callers that already know the fiber
+// is mounted on a root that has the lane pending. Store updates use this to
+// mark every component that reads the store without walking to the root from
+// each one. The walk happens when the next render starts.
+export function enqueueConcurrentRenderForLaneOnMountedFiber(
+  fiber: Fiber,
+  lane: Lane,
+): void {
+  enqueueUpdate(fiber, null, null, lane);
 }
 
 // Calling this function outside this module should only be done for backwards

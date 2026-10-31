@@ -1,0 +1,132 @@
+{
+  "packages/react-dom/src/__tests__/ReactDOMFizzServer-test.js": {
+    "ReactDOMFizzServer > should resume the context from where it left off": {
+      "reason": "no-subtree-scoping",
+      "note": "An inner Provider gives a suspended subtree its own value while readers outside it read the default, and the server has to restore that Provider when it resumes the subtree. Stores are global; there is no per-subtree value to resume. The reader of the second context is also a contextType class."
+    },
+    "ReactDOMFizzServer > should recover the outer context when an error happens inside a provider": {
+      "reason": "no-subtree-scoping",
+      "note": "Asserts that the outer Provider values are restored after a nested Provider throws. Stores are global, so there is no shadowed value to restore."
+    },
+    "ReactDOMFizzServer > context as node": {
+      "reason": "context-only-api",
+      "note": "Renders a Context object as a node, which renders its value. A store is not a renderable node: renderToString(store) throws \"Objects are not valid as a React child\"."
+    },
+    "ReactDOMFizzServer > recursive Usable as node": {
+      "reason": "context-only-api",
+      "note": "Renders a promise that resolves to a Context as a node. A store is not a renderable node (see \"context as node\")."
+    }
+  },
+  "packages/react-dom/src/__tests__/ReactDOMFizzServerNode-test.js": {
+    "ReactDOMFizzServerNode > should be able to get context value when calls renderToPipeableStream twice at the same time": {
+      "reason": "server-subtree-value",
+      "note": "Two concurrent requests render the same component under Providers with different values. A store has one value for every request (the server renders store._initial), so per-request values need per-request stores, which the same component tree can't pick without context."
+    }
+  },
+  "packages/react-dom/src/__tests__/ReactDOMServerIntegrationClassContextType-test.js": {
+    "ReactDOMServerIntegration > class contextType > class child with context": {
+      "reason": "class-reader",
+      "note": "The reader is a class with static contextType. Stores can't be read from class components, and the whole file tests class contextType."
+    },
+    "ReactDOMServerIntegration > class contextType > class child without context": {
+      "reason": "class-reader",
+      "note": "The reader is a class with static contextType. Stores can't be read from class components, and the whole file tests class contextType. This case asserts that a class without contextType doesn't get this.context."
+    },
+    "ReactDOMServerIntegration > class contextType > class child with wrong context": {
+      "reason": "class-reader",
+      "note": "The reader is a class with static contextType. Stores can't be read from class components, and the whole file tests class contextType."
+    },
+    "ReactDOMServerIntegration > class contextType > with context passed through to a grandchild": {
+      "reason": "class-reader",
+      "note": "The reader is a class with static contextType. Stores can't be read from class components, and the whole file tests class contextType."
+    },
+    "ReactDOMServerIntegration > class contextType > a child context overriding a parent context": {
+      "reason": "class-reader",
+      "note": "The reader is a class with static contextType. Stores can't be read from class components, and the whole file tests class contextType. It also tests nearest-Provider resolution (no-subtree-scoping)."
+    },
+    "ReactDOMServerIntegration > class contextType > multiple contexts": {
+      "reason": "class-reader",
+      "note": "The reader is a class with static contextType. Stores can't be read from class components, and the whole file tests class contextType."
+    },
+    "ReactDOMServerIntegration > class contextType > nested context unwinding": {
+      "reason": "class-reader",
+      "note": "The reader is a class with static contextType. Stores can't be read from class components, and the whole file tests class contextType. It also tests restoring outer Provider values (no-subtree-scoping)."
+    }
+  },
+  "packages/react-dom/src/__tests__/ReactDOMServerIntegrationHooks-test.js": {
+    "ReactDOMServerHooks > readContext > can read the same context multiple times in the same function": {
+      "reason": "context-only-api",
+      "note": "Uses the internal dispatcher.readContext with changedBits arguments. The observable behavior (reading the same value several times in one component) is translated in \"can use the same context multiple times in the same function\"."
+    }
+  },
+  "packages/react-dom/src/__tests__/ReactDOMServerIntegrationLegacyContextDisabled-test.internal.js": {
+    "ReactDOMServerIntegrationLegacyContextDisabled > modern context": {
+      "reason": "class-reader",
+      "note": "Checks that modern context still works when legacy context is disabled, including a static contextType class whose lifecycles must not receive nextContext. Stores can't be read from class components, and they don't interact with disableLegacyContext."
+    }
+  },
+  "packages/react-dom/src/__tests__/ReactDOMServerIntegrationNewContext-test.js": {
+    "ReactDOMServerIntegration > context > a child context overriding a parent context": {
+      "reason": "no-subtree-scoping",
+      "note": "Asserts that the nearest Provider wins over an outer one. Stores are global."
+    },
+    "ReactDOMServerIntegration > context > readContext() in different components": {
+      "reason": "context-only-api",
+      "note": "Reads through the internal dispatcher.readContext under nested Providers, including from a class. readContext is a context internal, classes can't read stores, and the value comes from nearest-Provider resolution."
+    },
+    "ReactDOMServerIntegration > context > nested context unwinding": {
+      "reason": "no-subtree-scoping",
+      "note": "Asserts that each reader sees its nearest Provider and that outer values are restored after nested Providers. Stores are global."
+    },
+    "ReactDOMServerIntegration > context > should treat Context as Context.Provider": {
+      "reason": "context-only-api",
+      "note": "Asserts that Context.Provider === Context and that <Context value> provides (with nested overrides)."
+    }
+  },
+  "packages/react-dom/src/__tests__/ReactLegacyContextDisabled-test.internal.js": {
+    "ReactLegacyContextDisabled > renders a tree with modern context": {
+      "reason": "class-reader",
+      "note": "Checks modern context with legacy context disabled, including a static contextType class whose lifecycles receive nextContext on updates. Stores can't be read from class components, and they don't interact with disableLegacyContext."
+    }
+  },
+  "packages/react-dom/src/__tests__/ReactServerRendering-test.js": {
+    "ReactDOMServer > renderToStaticMarkup > renders with new context API": {
+      "reason": "no-subtree-scoping",
+      "note": "Readers resolve the nearest of several nested Providers ([2, 1, 3, 1]). Stores are global."
+    },
+    "ReactDOMServer > renderToStaticMarkup > renders with dispatcher.readContext mechanism": {
+      "reason": "no-subtree-scoping",
+      "note": "Same nested Provider resolution as \"renders with new context API\", read through the internal dispatcher.readContext."
+    },
+    "ReactDOMServer > renderToStaticMarkup > renders context API, reentrancy": {
+      "reason": "no-subtree-scoping",
+      "note": "A reentrant renderToStaticMarkup inside a render must not corrupt the outer render's Provider stack; the values come from nested Provider resolution. A store has no server-side stack, and stores are global."
+    },
+    "ReactDOMServer > should warn if an invalid contextType is defined": {
+      "reason": "context-only-api",
+      "note": "Warning for an invalid static contextType."
+    },
+    "ReactDOMServer > should not warn when class contextType is null": {
+      "reason": "context-only-api",
+      "note": "static contextType API behavior."
+    },
+    "ReactDOMServer > should warn when class contextType is undefined": {
+      "reason": "context-only-api",
+      "note": "Warning for an invalid static contextType."
+    },
+    "ReactDOMServer > should warn when class contextType is an object": {
+      "reason": "context-only-api",
+      "note": "Warning for an invalid static contextType."
+    },
+    "ReactDOMServer > should warn when class contextType is a primitive": {
+      "reason": "context-only-api",
+      "note": "Warning for an invalid static contextType."
+    }
+  },
+  "packages/react-server/src/__tests__/ReactServer-test.js": {
+    "ReactServer > has Owner Stacks in DEV when aborted": {
+      "reason": "no-client-apis",
+      "note": "Renders with ReactNoopServer. In the jest setup, react-server is shimmed with the noop config object, which has no supportsClientAPIs field, so Fizz uses its renderToHTML dispatcher: useState throws \"Cannot use state or effect Hooks in renderToHTML...\" there, and so does use(store), by design (DECISIONS: stores throw where nothing is hydrated). The built fork (ReactFizzConfig.custom.js) sets supportsClientAPIs = true, so this is a jest-only gap; passing supportsClientAPIs: true in ReactNoopServer's config would make the case translatable."
+    }
+  }
+}

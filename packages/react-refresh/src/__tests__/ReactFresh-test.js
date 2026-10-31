@@ -464,6 +464,64 @@ describe('ReactFresh', () => {
     }
   });
 
+  it('updates a child whose parent returns a memoized element', async () => {
+    if (__DEV__) {
+      let element = null;
+      let setParent;
+      await render(() => {
+        function Child() {
+          const [val, setVal] = React.useState(0);
+          return (
+            <p style={{color: 'blue'}} onClick={() => setVal(val + 1)}>
+              {val}
+            </p>
+          );
+        }
+        $RefreshReg$(Child, 'Child');
+
+        // Returns the same element on every render, like the React Compiler.
+        function Parent() {
+          const [, _setParent] = React.useState(0);
+          setParent = _setParent;
+          if (element === null) {
+            element = <Child />;
+          }
+          return element;
+        }
+        $RefreshReg$(Parent, 'Parent');
+        return Parent;
+      });
+
+      const el = container.firstChild;
+      await act(() => {
+        el.dispatchEvent(new MouseEvent('click', {bubbles: true}));
+      });
+      expect(el.textContent).toBe('1');
+
+      // The cached element still points to the old Child.
+      await patch(() => {
+        function Child() {
+          const [val, setVal] = React.useState(0);
+          return (
+            <p style={{color: 'red'}} onClick={() => setVal(val + 1)}>
+              {val}
+            </p>
+          );
+        }
+        $RefreshReg$(Child, 'Child');
+      });
+      expect(container.firstChild).toBe(el);
+      expect(el.textContent).toBe('1');
+      expect(el.style.color).toBe('red');
+
+      // Re-rendering the parent keeps the new implementation.
+      await act(() => setParent(1));
+      expect(container.firstChild).toBe(el);
+      expect(el.textContent).toBe('1');
+      expect(el.style.color).toBe('red');
+    }
+  });
+
   it('can update forwardRef render function in isolation', async () => {
     if (__DEV__) {
       await render(() => {

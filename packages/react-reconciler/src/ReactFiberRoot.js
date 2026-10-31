@@ -68,6 +68,10 @@ function FiberRootNode(
   this.timeoutHandle = noTimeout;
   this.cancelPendingCommit = null;
   this.context = null;
+  this.pendingStoreRecords = null;
+  this.unsubscribedStoreRecords = null;
+  this.storeRenderSeq = 0;
+  this.storeRenderLanes = NoLanes;
   this.pendingContext = null;
   this.next = null;
   this.callbackNode = null;

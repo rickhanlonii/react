@@ -372,6 +372,17 @@ function releaseHostResource(
   }
 }
 
+// Reading a store with use() doesn't use a slot in the list of Hooks or add a
+// context dependency, so check the stores the component read separately.
+function readsStore(fiber: Fiber): boolean {
+  const updateQueue: any = fiber.updateQueue;
+  return (
+    updateQueue != null &&
+    updateQueue.storeReads != null &&
+    updateQueue.storeReads.length > 0
+  );
+}
+
 export function attach(
   hook: DevToolsHook,
   rendererID: number,
@@ -6074,7 +6085,7 @@ export function attach(
       (tag === FunctionComponent ||
         tag === SimpleMemoComponent ||
         tag === ForwardRef) &&
-      (!!memoizedState || !!dependencies);
+      (!!memoizedState || !!dependencies || readsStore(fiber));
 
     // TODO Show custom UI for Cache like we do for Suspense
     // For now, just hide state data entirely since it's not meant to be inspected.

@@ -109,6 +109,7 @@ import {
 } from './ReactFiberFlags';
 import {
   disableLegacyContext,
+  enableSameElementBailout,
   disableLegacyContextForFunctionComponents,
   enableProfilerCommitHooks,
   enableProfilerTimer,
@@ -119,7 +120,9 @@ import {
   enableCPUSuspense,
   disableLegacyMode,
   enableViewTransition,
+  enableStore,
 } from 'shared/ReactFeatureFlags';
+import {takeStoreReadsOfSuspendedTree} from './ReactFiberStore';
 import shallowEqual from 'shared/shallowEqual';
 import getComponentNameFromFiber from 'react-reconciler/src/getComponentNameFromFiber';
 import getComponentNameFromType from 'shared/getComponentNameFromType';
@@ -129,6 +132,7 @@ import {
   REACT_FORWARD_REF_TYPE,
   REACT_MEMO_TYPE,
   REACT_CONTEXT_TYPE,
+  REACT_ELEMENT_TYPE,
 } from 'shared/ReactSymbols';
 import {REACT_RECOVERABLE_DIGEST} from 'shared/ReactRecoverable';
 import {setCurrentFiber} from './ReactCurrentFiber';
@@ -471,6 +475,13 @@ function updateForwardRef(
 
   // React DevTools reads this flag.
   workInProgress.flags |= PerformedWork;
+  if (
+    enableSameElementBailout &&
+    current !== null &&
+    isUnchangedOnlyChild(current, nextChildren)
+  ) {
+    return bailoutOnUnchangedChild(current, workInProgress, renderLanes);
+  }
   reconcileChildren(current, workInProgress, nextChildren, renderLanes);
   return workInProgress.child;
 }
@@ -1554,8 +1565,74 @@ function updateFunctionComponent(
 
   // React DevTools reads this flag.
   workInProgress.flags |= PerformedWork;
+  if (
+    enableSameElementBailout &&
+    current !== null &&
+    isUnchangedOnlyChild(current, nextChildren)
+  ) {
+    return bailoutOnUnchangedChild(current, workInProgress, renderLanes);
+  }
   reconcileChildren(current, workInProgress, nextChildren, renderLanes);
   return workInProgress.child;
+}
+
+// Whether a component that just rendered returned an element that would
+// update its only child with the props the child already has, e.g. an element
+// from the React Compiler's memo cache. The child would bail out in beginWork.
+// This is common when a component re-renders because of a store or context
+// value it only uses to compute a memoized element.
+function isUnchangedOnlyChild(current: Fiber, element: any): boolean {
+  const child = current.child;
+  if (
+    child === null ||
+    child.sibling !== null ||
+    typeof element !== 'object' ||
+    element === null ||
+    element.$$typeof !== REACT_ELEMENT_TYPE ||
+    child.memoizedProps !== element.props ||
+    child.elementType !== element.type ||
+    child.key !== element.key ||
+    getIsHydrating() ||
+    // The child's beginWork re-renders on a legacy context change.
+    hasLegacyContextChanged()
+  ) {
+    return false;
+  }
+  if (__DEV__ && resolveTypeForHotReloading(child.type) !== child.type) {
+    // Fast Refresh swapped the implementation. Reconcile so the child picks
+    // it up.
+    return false;
+  }
+  switch (child.tag) {
+    // With the same props, these bail out in beginWork without side effects
+    // unless they or their children have work, which bailoutOnChildren still
+    // visits. The rest (Profiler, Suspense, Offscreen, ...) do bookkeeping
+    // even when they bail out, so they take the normal path.
+    case FunctionComponent:
+    case ForwardRef:
+    case MemoComponent:
+    case SimpleMemoComponent:
+    case ClassComponent:
+    case HostComponent:
+      return true;
+    default:
+      return false;
+  }
+}
+
+// Skips reconciling the child of a component that just rendered. Unlike
+// bailoutOnAlreadyFinishedWork, this keeps the dependencies and the profiler
+// timing of the render.
+function bailoutOnUnchangedChild(
+  current: Fiber,
+  workInProgress: Fiber,
+  renderLanes: Lanes,
+): Fiber | null {
+  const child: Fiber = current.child as any;
+  // If the child isn't visited, mark its lanes as skipped, like its own
+  // bailout would.
+  markSkippedUpdateLanes(removeLanes(child.lanes, renderLanes));
+  return bailoutOnChildren(current, workInProgress, renderLanes);
 }
 
 export function replayFunctionComponent(
@@ -2285,7 +2362,36 @@ const SUSPENDED_MARKER: SuspenseState = {
   treeContext: null,
   retryLane: NoLane,
   hydrationErrors: null,
+  storeReads: null,
 };
+
+function getSuspendedState(
+  current: Fiber | null,
+  workInProgress: Fiber,
+): SuspenseState {
+  if (enableStore) {
+    // The primary children are thrown away, so they won't subscribe to the
+    // stores they read before they suspended. The boundary subscribes to
+    // them instead, so a store update retries it.
+    const storeReads = takeStoreReadsOfSuspendedTree(workInProgress);
+    if (storeReads !== null) {
+      return {
+        dehydrated: null,
+        treeContext: null,
+        retryLane: NoLane,
+        hydrationErrors: null,
+        storeReads,
+      };
+    }
+    const prevState: SuspenseState | null =
+      current === null ? null : current.memoizedState;
+    if (prevState !== null && prevState.storeReads !== null) {
+      // Still showing the fallback. Keep the subscriptions.
+      return prevState;
+    }
+  }
+  return SUSPENDED_MARKER;
+}
 
 function mountSuspenseOffscreenState(renderLanes: Lanes): OffscreenState {
   return {
@@ -2472,7 +2578,7 @@ function updateSuspenseComponent(
         didPrimaryChildrenDefer,
         renderLanes,
       );
-      workInProgress.memoizedState = SUSPENDED_MARKER;
+      workInProgress.memoizedState = getSuspendedState(current, workInProgress);
       if (enableTransitionTracing) {
         const currentTransitions = getPendingTransitions();
         if (currentTransitions !== null) {
@@ -2613,7 +2719,7 @@ function updateSuspenseComponent(
         didPrimaryChildrenDefer,
         renderLanes,
       );
-      workInProgress.memoizedState = SUSPENDED_MARKER;
+      workInProgress.memoizedState = getSuspendedState(current, workInProgress);
       return bailoutOffscreenComponent(current.child, primaryChildFragment);
     } else {
       if (
@@ -3206,7 +3312,7 @@ function updateDehydratedSuspenseComponent(
         didPrimaryChildrenDefer,
         renderLanes,
       );
-      workInProgress.memoizedState = SUSPENDED_MARKER;
+      workInProgress.memoizedState = getSuspendedState(current, workInProgress);
       return bailoutOffscreenComponent(null, primaryChildFragment);
     }
   }
@@ -3836,6 +3942,14 @@ function bailoutOnAlreadyFinishedWork(
 
   markSkippedUpdateLanes(workInProgress.lanes);
 
+  return bailoutOnChildren(current, workInProgress, renderLanes);
+}
+
+function bailoutOnChildren(
+  current: Fiber | null,
+  workInProgress: Fiber,
+  renderLanes: Lanes,
+): Fiber | null {
   // Check if the children have any pending work.
   if (!includesSomeLane(renderLanes, workInProgress.childLanes)) {
     // The children don't have any work either. We can skip them.
