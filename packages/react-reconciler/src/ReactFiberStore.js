@@ -103,10 +103,10 @@ export type StoreState<T, A> = {
   // The components that threw the error in this render. If none of the error
   // boundaries that caught it commits, the commit reports it.
   errorFibers: Array<Fiber> | null,
-  // The updates that were applied, so a component in Strict Mode can run
-  // the reducer an extra time.
-  appliedUpdatesDEV: Array<mixed> | null,
-  didDoubleInvokeReducerDEV: boolean,
+  // DEV only: the updates that were applied, so a component in Strict Mode
+  // can run the reducer an extra time.
+  appliedUpdatesDEV?: Array<mixed> | null,
+  didDoubleInvokeReducerDEV?: boolean,
 };
 
 // The states of the stores a HostRoot processed in a render. The version
@@ -177,7 +177,7 @@ let suspendedBoundary: Fiber | null = null;
 let suspendedBoundaryStoreReads: Array<StoreRecord<any, any>> | null = null;
 
 function createStoreState<T, A>(state: T): StoreState<T, A> {
-  return {
+  const storeState: StoreState<T, A> = {
     baseState: state,
     baseQueue: null,
     memoizedState: state,
@@ -186,9 +186,12 @@ function createStoreState<T, A>(state: T): StoreState<T, A> {
     error: NO_ERROR,
     errorUpdate: null,
     errorFibers: null,
-    appliedUpdatesDEV: null,
-    didDoubleInvokeReducerDEV: false,
   };
+  if (__DEV__) {
+    storeState.appliedUpdatesDEV = null;
+    storeState.didDoubleInvokeReducerDEV = false;
+  }
+  return storeState;
 }
 
 export function getStoreRecord<T, A>(
@@ -693,7 +696,7 @@ export function doubleInvokeStoreReducerDEV(
 ): void {
   if (__DEV__) {
     const applied = state.appliedUpdatesDEV;
-    if (applied === null || state.didDoubleInvokeReducerDEV) {
+    if (applied == null || state.didDoubleInvokeReducerDEV) {
       return;
     }
     state.didDoubleInvokeReducerDEV = true;
