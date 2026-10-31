@@ -1919,6 +1919,13 @@ function updateHostRoot(
   const nextProps = workInProgress.pendingProps;
   const prevState: RootState = workInProgress.memoizedState;
   const prevChildren = prevState.element;
+  // If this HostRoot already began in this render, for example before an
+  // error unwound to the root, these are the states it processed then.
+  // Otherwise they're the current HostRoot's.
+  const prevStoreStates =
+    enableStore && prevState.storeStates !== current.memoizedState.storeStates
+      ? prevState.storeStates
+      : null;
   cloneUpdateQueue(current, workInProgress);
   processUpdateQueue(workInProgress, nextProps, null, renderLanes);
 
@@ -1927,8 +1934,7 @@ function updateHostRoot(
   if (enableStore) {
     // The HostRoot owns the state of every store on this root. Process the
     // store updates for this render, like the root's own updates above.
-    const processed = processStoreRecords(root, renderLanes);
-    const storeStates = processed === null ? null : processed.states;
+    const storeStates = processStoreRecords(root, renderLanes, prevStoreStates);
     if (nextState.storeStates !== storeStates) {
       nextState = workInProgress.memoizedState = {
         element: nextState.element,
@@ -1937,14 +1943,14 @@ function updateHostRoot(
         storeStates,
       };
     }
-    if (processed !== null && processed.skippedLanes !== NoLanes) {
+    if (storeStates !== null && storeStates.skippedLanes !== NoLanes) {
       // Keep the lanes of the store updates that weren't processed, so the
       // root renders them later.
       workInProgress.lanes = mergeLanes(
         workInProgress.lanes,
-        processed.skippedLanes,
+        storeStates.skippedLanes,
       );
-      markSkippedUpdateLanes(processed.skippedLanes);
+      markSkippedUpdateLanes(storeStates.skippedLanes);
     }
   }
   pushRootTransition(workInProgress, root, renderLanes);
@@ -1983,8 +1989,17 @@ function updateHostRoot(
     const updateQueue: UpdateQueue<RootState> =
       workInProgress.updateQueue as any;
     // `baseState` can always be the last state because the root doesn't
-    // have reducer functions so it doesn't need rebasing.
-    updateQueue.baseState = overrideState;
+    // have reducer functions so it doesn't need rebasing. The store states
+    // belong to this render, so they're left out of it.
+    updateQueue.baseState =
+      enableStore && overrideState.storeStates !== null
+        ? {
+            element: overrideState.element,
+            isDehydrated: overrideState.isDehydrated,
+            cache: overrideState.cache,
+            storeStates: null,
+          }
+        : overrideState;
     workInProgress.memoizedState = overrideState;
 
     if (workInProgress.flags & ForceClientRender) {

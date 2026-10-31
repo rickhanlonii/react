@@ -159,7 +159,8 @@ import {ConcurrentRoot, LegacyRoot} from './ReactRootTags';
 import {
   commitStoreStates,
   flushStoreSubscriptions,
-  resetStoreReadsOfSuspendedTree,
+  prepareStoresForRender,
+  flushStoreErrors,
 } from './ReactFiberStore';
 import type {Flags} from './ReactFiberFlags';
 import {
@@ -2356,7 +2357,7 @@ function prepareFreshStack(root: FiberRoot, lanes: Lanes): Fiber {
   finishQueueingConcurrentUpdates();
 
   if (enableStore) {
-    resetStoreReadsOfSuspendedTree();
+    prepareStoresForRender(entangledRenderLanes);
   }
 
   if (__DEV__) {
@@ -4218,6 +4219,11 @@ function flushLayoutEffects(): void {
       setCurrentUpdatePriority(previousPriority);
       ReactSharedInternals.T = prevTransition;
     }
+  }
+
+  if (enableStore) {
+    // Report the reducer errors that no error boundary logged.
+    flushStoreErrors();
   }
 
   const completedRenderEndTime = pendingEffectsRenderEndTime;

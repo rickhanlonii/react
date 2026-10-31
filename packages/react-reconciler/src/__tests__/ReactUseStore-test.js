@@ -2609,4 +2609,732 @@ describe('ReactUseStore', () => {
     assertLog(['Caught: Oops', 'Caught: Oops']);
     expect(root).toMatchRenderedOutput('Caught: Oops');
   });
+
+  // Found by a correctness review of the HostRoot redesign (DCP-17) and held
+  // transition updates (DCP-18).
+  describe('reducer errors and held updates', () => {
+    beforeEach(() => {
+      jest.resetModules();
+      // reportError is read when React loads.
+      global.reportError = error => {
+        Scheduler.log('reportError: ' + error.message);
+      };
+
+      React = require('react');
+      ReactNoop = require('react-noop-renderer');
+      Scheduler = require('scheduler');
+      act = require('internal-test-utils').act;
+      use = React.use;
+      useState = React.useState;
+      startTransition = React.startTransition;
+      Activity = React.Activity;
+      createStore = React.unstable_createStore;
+
+      const InternalTestUtils = require('internal-test-utils');
+      assertLog = InternalTestUtils.assertLog;
+      waitFor = InternalTestUtils.waitFor;
+    });
+
+    afterEach(() => {
+      global.reportError = originalReportError;
+    });
+
+    // React is reloaded for every test, so the class is created lazily.
+    let ErrorBoundaryClass = null;
+    let ErrorBoundaryReact = null;
+    function ErrorBoundary(props) {
+      if (ErrorBoundaryReact !== React) {
+        ErrorBoundaryReact = React;
+        ErrorBoundaryClass = class extends React.Component {
+          state = {error: null};
+          static getDerivedStateFromError(error) {
+            return {error};
+          }
+          render() {
+            if (this.state.error !== null) {
+              return <Text text={'Caught: ' + this.state.error.message} />;
+            }
+            return this.props.children;
+          }
+        };
+      }
+      return <ErrorBoundaryClass {...props} />;
+    }
+
+    function throwingReducer(state, action) {
+      if (action === 'throw') {
+        throw new Error('Oops');
+      }
+      return action;
+    }
+
+    // Finding 1 (high): the committed state keeps the reducer error after the
+    // commit dropped the update, so any later read of it throws again.
+    // @gate enableStore
+    it('does not throw a dropped reducer error again when a hidden reader is revealed', async () => {
+      const store = createStore(0, throwingReducer);
+
+      function Reader() {
+        return <Text text={'Reader: ' + use(store)} />;
+      }
+
+      let setMode;
+      function App() {
+        const [mode, _setMode] = useState('hidden');
+        setMode = _setMode;
+        return (
+          <ErrorBoundary>
+            <Activity mode={mode}>
+              <Reader />
+            </Activity>
+          </ErrorBoundary>
+        );
+      }
+
+      const root = ReactNoop.createRoot();
+      await act(() => {
+        root.render(<App />);
+      });
+      assertLog(['Reader: 0']);
+
+      // The only reader is hidden, so the commit applies the update before
+      // any component reads it. The error is reported and the update dropped
+      // (DCP-14).
+      await act(() => {
+        store.update('throw');
+      });
+      assertLog(['reportError: Oops']);
+
+      // Revealing the reader without any new update renders the committed
+      // value. The error was already handled.
+      await act(() => {
+        setMode('visible');
+      });
+      assertLog(['Reader: 0']);
+      expect(root).toMatchRenderedOutput('Reader: 0');
+    });
+
+    // Finding 2 (medium): didRenderError is set on the shared update by a
+    // render that is thrown away, so the commit that applies the update with
+    // no reader doesn't report the error.
+    // @gate enableStore
+    it('reports a reducer error once when the only render that threw it was thrown away', async () => {
+      const store = createStore(0, throwingReducer);
+
+      function Reader() {
+        return <Text text={'Reader: ' + use(store)} />;
+      }
+
+      let setShow;
+      function App() {
+        const [show, _setShow] = useState(true);
+        setShow = _setShow;
+        return (
+          <>
+            <ErrorBoundary>
+              {show ? <Reader /> : <Text text="None" />}
+            </ErrorBoundary>
+            <Text text="Sibling" />
+          </>
+        );
+      }
+
+      const root = ReactNoop.createRoot();
+      await act(() => {
+        root.render(<App />);
+      });
+      assertLog(['Reader: 0', 'Sibling']);
+
+      await act(async () => {
+        startTransition(() => {
+          store.update('throw');
+        });
+        // The transition render reaches the reader, which throws.
+        await waitFor(['Caught: Oops']);
+        // An urgent update unmounts the reader, which throws the transition
+        // render away.
+        ReactNoop.flushSync(() => setShow(false));
+        assertLog(['None', 'Sibling']);
+      });
+      // The transition commits without any component throwing the error, so
+      // the commit reports it.
+      assertLog(['reportError: Oops']);
+    });
+
+    // Finding 3 (medium): a held transition update whose reducer throws is
+    // applied to _head by getStoreHead, which skips errors silently. Before
+    // DCP-18 the update threw inside startTransition, which reports it.
+    // @gate enableStore
+    it('reports a reducer error from a held transition update', async () => {
+      const store = createStore(0, throwingReducer);
+
+      function Reader() {
+        return <Text text={'Reader: ' + use(store)} />;
+      }
+
+      const root = ReactNoop.createRoot();
+      await act(() => {
+        root.render(<Text text="Nothing" />);
+      });
+      assertLog(['Nothing']);
+
+      // No root reads the store, so the update is held.
+      await act(() => {
+        startTransition(() => {
+          store.update('throw');
+        });
+      });
+      await act(() => {
+        root.render(<Reader />);
+      });
+      // The error surfaces somewhere: it's not silently dropped.
+      assertLog(['reportError: Oops', 'Reader: 0']);
+    });
+
+    // Finding 4 (medium): held updates handed to a record get their lanes only
+    // on the work-in-progress HostRoot. If that render is thrown away and the
+    // lane isn't pending on the root (the pending async action's lane), nothing
+    // ever renders it: the record, the root and _headQueue are retained, and
+    // the next reader renders a stale value first.
+    // @gate enableStore
+    it('does not lose a held update handed to a record in a render that was thrown away', async () => {
+      const store = createStore(1);
+
+      function Reader() {
+        return <Text text={'Reader: ' + use(store)} />;
+      }
+
+      let setShow;
+      function App() {
+        const [show, _setShow] = useState(false);
+        setShow = _setShow;
+        return show ? (
+          <>
+            <Reader />
+            <Text text="After" />
+          </>
+        ) : (
+          <Text text="Nothing" />
+        );
+      }
+
+      const root = ReactNoop.createRoot();
+      await act(() => {
+        root.render(<App />);
+      });
+      assertLog(['Nothing']);
+
+      // Nothing reads the store, so the action's update is held.
+      let resolve;
+      await act(() => {
+        startTransition(async () => {
+          store.update(2);
+          await new Promise(r => (resolve = r));
+        });
+      });
+
+      await act(async () => {
+        // A time sliced render mounts the first reader, which creates the
+        // root's record and hands it the held update.
+        ReactNoop.idleUpdates(() => setShow(true));
+        await waitFor(['Reader: 1']);
+        // Throw that render away. The reader never mounts.
+        ReactNoop.flushSync(() => setShow(false));
+      });
+      assertLog([]);
+
+      // The action finishes. Its update is done, and nothing reads the store.
+      await act(() => resolve());
+      expect(store._records.length).toBe(0);
+      expect(store._headQueue).toBe(null);
+
+      // A reader that mounts now renders the update right away.
+      await act(() => {
+        ReactNoop.flushSync(() => setShow(true));
+      });
+      assertLog(['Reader: 2', 'After']);
+      expect(root).toMatchRenderedOutput('Reader: 2After');
+    });
+
+    // Finding 5 (low): dispatchUnreadStoreUpdate claims the event's transition
+    // lane, but nothing schedules the microtask that resets it. A later,
+    // unrelated transition reuses the lane, so the held update looks pending
+    // on the root again.
+    // @gate enableStore
+    it('a held update whose transition is done stays visible when a later transition starts', async () => {
+      const store = createStore(1);
+
+      function Reader() {
+        return <Text text={'Reader: ' + use(store)} />;
+      }
+
+      let setShow, setTab;
+      function App() {
+        const [show, _setShow] = useState(false);
+        const [tab, _setTab] = useState('a');
+        setShow = _setShow;
+        setTab = _setTab;
+        return (
+          <>
+            <Text text={'Tab: ' + tab} />
+            {show ? <Reader /> : null}
+          </>
+        );
+      }
+
+      const root = ReactNoop.createRoot();
+      await act(() => {
+        root.render(<App />);
+      });
+      assertLog(['Tab: a']);
+
+      // A transition that only updates a store nothing reads. It has nothing
+      // to render, so it's done.
+      await act(() => {
+        startTransition(() => {
+          store.update(2);
+        });
+      });
+
+      await act(() => {
+        // A later, unrelated transition.
+        startTransition(() => {
+          setTab('b');
+        });
+        // A reader that mounts urgently shows the update of the transition
+        // that's done, and not the pending tab.
+        ReactNoop.flushSync(() => setShow(true));
+        assertLog(['Tab: a', 'Reader: 2']);
+      });
+      assertLog(['Tab: b', 'Reader: 2']);
+    });
+
+    // Finding 6 (low): RootState.storeStates is only replaced when updateHostRoot
+    // runs. When the HostRoot bails out, the current map is carried forward, so
+    // the root retains records that were dropped, and their stores and values.
+    // @gate enableStore
+    it('does not retain a store that no component on the root reads anymore', async () => {
+      const store = createStore(1);
+
+      function Reader() {
+        return <Text text={'Reader: ' + use(store)} />;
+      }
+
+      let setShow;
+      function App() {
+        const [show, _setShow] = useState(true);
+        setShow = _setShow;
+        return show ? <Reader /> : <Text text="Nothing" />;
+      }
+
+      const root = ReactNoop.createRoot();
+      await act(() => {
+        root.render(<App />);
+      });
+      assertLog(['Reader: 1']);
+      const fiberRoot = store._records[0].root;
+
+      await act(() => {
+        store.update(2);
+      });
+      assertLog(['Reader: 2']);
+
+      await act(() => {
+        setShow(false);
+      });
+      assertLog(['Nothing']);
+      // The record was dropped, and the committed HostRoot doesn't hold it.
+      expect(store._records.length).toBe(0);
+      const states = fiberRoot.current.memoizedState.storeStates;
+      const retained =
+        states === null
+          ? []
+          : Array.from(states.map.keys()).filter(
+              record => record.store === store,
+            );
+      expect(retained.length).toBe(0);
+    });
+  });
+
+  // Found by the second review pass of DCP-17 and DCP-18.
+  describe('reducer error reporting and retention', () => {
+    beforeEach(() => {
+      jest.resetModules();
+      // reportError is read when React loads.
+      global.reportError = error => {
+        Scheduler.log('reportError: ' + error.message);
+      };
+
+      React = require('react');
+      ReactNoop = require('react-noop-renderer');
+      Scheduler = require('scheduler');
+      act = require('internal-test-utils').act;
+      use = React.use;
+      useState = React.useState;
+      startTransition = React.startTransition;
+      Suspense = React.Suspense;
+      createStore = React.unstable_createStore;
+
+      const InternalTestUtils = require('internal-test-utils');
+      assertLog = InternalTestUtils.assertLog;
+    });
+
+    afterEach(() => {
+      global.reportError = originalReportError;
+    });
+
+    // React is reloaded for every test, so the class is created lazily.
+    let ErrorBoundaryClass = null;
+    let ErrorBoundaryReact = null;
+    function ErrorBoundary(props) {
+      if (ErrorBoundaryReact !== React) {
+        ErrorBoundaryReact = React;
+        ErrorBoundaryClass = class extends React.Component {
+          state = {error: null};
+          static getDerivedStateFromError(error) {
+            return {error};
+          }
+          render() {
+            if (this.state.error !== null) {
+              return <Text text={'Caught: ' + this.state.error.message} />;
+            }
+            return this.props.children;
+          }
+        };
+      }
+      return <ErrorBoundaryClass {...props} />;
+    }
+
+    function throwingReducer(state, action) {
+      if (action === 'throw') {
+        throw new Error('Oops');
+      }
+      return action;
+    }
+
+    // Finding A (medium-low): didRenderError is set when a reader throws, even if
+    // the error boundary that caught it is thrown away with suspended content.
+    // The commit then drops the update without reporting it, and clears the
+    // error, so the retry doesn't throw either. The error never surfaces.
+    // @gate enableStore
+    it('reports a reducer error whose only reader threw inside content that suspended on mount', async () => {
+      const store = createStore(0, throwingReducer);
+      const never = new Promise(() => {});
+
+      function Reader() {
+        return <Text text={'Reader: ' + use(store)} />;
+      }
+      function Suspender() {
+        Scheduler.log('Suspend');
+        use(never);
+        return null;
+      }
+
+      let setShow;
+      function App() {
+        const [show, _setShow] = useState(false);
+        setShow = _setShow;
+        return (
+          <>
+            <React.Activity mode="hidden">
+              <Reader />
+            </React.Activity>
+            {show ? (
+              <Suspense fallback={<Text text="Loading" />}>
+                <ErrorBoundary>
+                  <Reader />
+                </ErrorBoundary>
+                <Suspender />
+              </Suspense>
+            ) : null}
+          </>
+        );
+      }
+
+      const root = ReactNoop.createRoot();
+      await act(() => {
+        root.render(<App />);
+      });
+      assertLog(['Reader: 0']);
+
+      // The update throws in the reader that mounts inside the boundary, and the
+      // boundary shows its fallback, throwing that reader and its error
+      // boundary away. The hidden reader renders later, from the committed
+      // state.
+      await act(() => {
+        store.update('throw');
+        setShow(true);
+      });
+      const log = Scheduler.unstable_clearLog();
+      expect(root).toMatchRenderedOutput('Loading');
+      expect(log.filter(entry => entry === 'reportError: Oops')).toEqual([
+        'reportError: Oops',
+      ]);
+    });
+
+    // Finding B (low): getStoreRecord settles held updates, and folds _headQueue,
+    // while a component is rendering, with its dispatcher installed. A reducer
+    // that calls a Hook reads the reader's context instead of throwing, unlike
+    // processStoreRecords, which runs reducers without a dispatcher (DCP-17).
+    // @gate enableStore
+    it('runs the reducer of a held update without the dispatcher of the reader that settles it', async () => {
+      const Ctx = React.createContext('default');
+      const store = createStore(0, (state, action) => {
+        if (action === 'ctx') {
+          return React.useContext(Ctx);
+        }
+        return action;
+      });
+
+      function Reader() {
+        return <Text text={'Reader: ' + use(store)} />;
+      }
+
+      const root = ReactNoop.createRoot();
+      await act(() => {
+        root.render(<Text text="Nothing" />);
+      });
+      assertLog(['Nothing']);
+
+      await act(() => {
+        startTransition(() => {
+          store.update('ctx');
+        });
+      });
+      // Without a dispatcher, the Hook call logs an invalid hook call error and
+      // throws, the same as when the HostRoot processes the update.
+      const consoleError = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+      try {
+        await act(() => {
+          root.render(
+            <Ctx.Provider value="leaked">
+              <Reader />
+            </Ctx.Provider>,
+          );
+        });
+      } finally {
+        consoleError.mockRestore();
+      }
+      assertLog([
+        "reportError: Cannot read properties of null (reading 'useContext')",
+        'Reader: 0',
+      ]);
+    });
+
+    // Finding C (low, introduced by the lastStates cache): a record caches the
+    // last HostRoot states map it was read from. That map holds the states of
+    // other records, so a record whose readers don't render again keeps
+    // dropped records, their stores and their values alive.
+    // @gate enableStore
+    it('a cached states map does not retain a record that was dropped', async () => {
+      const storeA = createStore('a');
+      const storeB = createStore('b');
+
+      function ReaderA() {
+        return <Text text={'A: ' + use(storeA)} />;
+      }
+      function ReaderB() {
+        return <Text text={'B: ' + use(storeB)} />;
+      }
+
+      let setShowB;
+      function App() {
+        const [showB, _setShowB] = useState(true);
+        setShowB = _setShowB;
+        return (
+          <>
+            <ReaderA />
+            {showB ? <ReaderB /> : null}
+          </>
+        );
+      }
+
+      const root = ReactNoop.createRoot();
+      await act(() => {
+        root.render(<App />);
+      });
+      assertLog(['A: a', 'B: b']);
+      const recordA = storeA._records[0];
+      const recordB = storeB._records[0];
+      const fiberRoot = recordA.root;
+
+      await act(() => {
+        storeA.update('a1');
+        storeB.update('b1');
+      });
+      assertLog(['A: a1', 'B: b1']);
+
+      await act(() => {
+        storeB.update('b2');
+      });
+      assertLog(['B: b2']);
+
+      await act(() => {
+        setShowB(false);
+      });
+      assertLog(['A: a1']);
+      expect(storeB._records.length).toBe(0);
+
+      // Neither the committed HostRoot nor A's record references the dropped
+      // record. A's record remembers its last lookup by version, not by map.
+      const states = fiberRoot.current.memoizedState.storeStates;
+      expect(states !== null && states.map.has(recordB)).toBe(false);
+      expect(
+        Object.values(recordA).some(
+          value => value instanceof Map && value.has(recordB),
+        ),
+      ).toBe(false);
+    });
+  });
+
+  // Found by the third review pass of DCP-17 and DCP-18.
+  describe('reducer errors passed to an outer boundary', () => {
+    beforeEach(() => {
+      jest.resetModules();
+      global.reportError = error => {
+        Scheduler.log('reportError: ' + error.message);
+      };
+
+      React = require('react');
+      ReactNoop = require('react-noop-renderer');
+      Scheduler = require('scheduler');
+      act = require('internal-test-utils').act;
+      use = React.use;
+      createStore = React.unstable_createStore;
+
+      const InternalTestUtils = require('internal-test-utils');
+      assertLog = InternalTestUtils.assertLog;
+    });
+
+    afterEach(() => {
+      global.reportError = originalReportError;
+    });
+
+    function createTestRoot() {
+      return ReactNoop.createRoot({
+        onCaughtError(error) {
+          Scheduler.log('onCaughtError: ' + error.message);
+        },
+        onUncaughtError(error) {
+          Scheduler.log('onUncaughtError: ' + error.message);
+        },
+      });
+    }
+
+    let classes = null;
+    let classesReact = null;
+    function getClasses() {
+      if (classesReact !== React) {
+        classesReact = React;
+        class ErrorBoundaryClass extends React.Component {
+          state = {error: null};
+          static getDerivedStateFromError(error) {
+            return {error};
+          }
+          render() {
+            if (this.state.error !== null) {
+              if (this.props.rethrow) {
+                throw this.state.error;
+              }
+              if (this.props.fallback) {
+                return this.props.fallback;
+              }
+              return (
+                <Text
+                  text={
+                    (this.props.name || 'Caught') +
+                    ': ' +
+                    this.state.error.message
+                  }
+                />
+              );
+            }
+            return this.props.children;
+          }
+        }
+        classes = {ErrorBoundary: ErrorBoundaryClass};
+      }
+      return classes;
+    }
+    function ErrorBoundary(props) {
+      const C = getClasses().ErrorBoundary;
+      return <C {...props} />;
+    }
+
+    function throwingReducer(state, action) {
+      if (action === 'throw') {
+        throw new Error('Oops');
+      }
+      return action;
+    }
+
+    function errorLog(log) {
+      return log.filter(
+        e =>
+          e.startsWith('reportError') ||
+          e.startsWith('onCaughtError') ||
+          e.startsWith('onUncaughtError'),
+      );
+    }
+
+    // Finding D (medium): didCommitErrorBoundary only checks the nearest error
+    // boundary of each reader that threw. When that boundary passes the error
+    // up (it throws while rendering its error state, so React skips it as
+    // already captured and the next boundary catches), the outer boundary
+    // commits and logs the error with onCaughtError, but the nearest boundary
+    // isn't in the finished tree, so the commit reports the error again.
+    // @gate enableStore
+    it('reports a reducer error once when the boundary that caught it rethrows to an outer boundary', async () => {
+      const store = createStore(0, throwingReducer);
+      function Reader() {
+        return <Text text={'Reader: ' + use(store)} />;
+      }
+      const root = createTestRoot();
+      await act(() => {
+        root.render(
+          <ErrorBoundary name="Outer">
+            <ErrorBoundary rethrow={true}>
+              <Reader />
+            </ErrorBoundary>
+          </ErrorBoundary>,
+        );
+      });
+      assertLog(['Reader: 0']);
+      await act(() => {
+        store.update('throw');
+      });
+      const log = Scheduler.unstable_clearLog();
+      expect(root).toMatchRenderedOutput('Outer: Oops');
+      expect(errorLog(log)).toEqual(['onCaughtError: Oops']);
+    });
+
+    // Same cause: the inner boundary's error UI reads the store, throws the same
+    // error, and the outer boundary catches it.
+    // @gate enableStore
+    it('reports a reducer error once when the error UI of the boundary that caught it throws it again', async () => {
+      const store = createStore(0, throwingReducer);
+      function Reader() {
+        return <Text text={'Reader: ' + use(store)} />;
+      }
+      const root = createTestRoot();
+      await act(() => {
+        root.render(
+          <ErrorBoundary name="Outer">
+            <ErrorBoundary fallback={<Reader />}>
+              <Reader />
+            </ErrorBoundary>
+          </ErrorBoundary>,
+        );
+      });
+      assertLog(['Reader: 0']);
+      await act(() => {
+        store.update('throw');
+      });
+      const log = Scheduler.unstable_clearLog();
+      expect(root).toMatchRenderedOutput('Outer: Oops');
+      expect(errorLog(log)).toEqual(['onCaughtError: Oops']);
+    });
+  });
 });

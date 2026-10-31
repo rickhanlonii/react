@@ -12,7 +12,16 @@ export const suites = {
   'derived-selectors': {
     n: [0],
     apps: 'src/redux-suite/derived-selectors/apps',
-    variants: [redux, store, {name: 'store-derived', deps: []}, zustand],
+    // store-memo shares derived data across readers with a userland
+    // weakMemo (shared-memo.js), the recommended pattern for selector-like
+    // derived data.
+    variants: [
+      redux,
+      store,
+      {name: 'store-derived', deps: []},
+      {name: 'store-memo', deps: []},
+      zustand,
+    ],
     scenarios: ['mixed', 'score', 'comment', 'role'],
   },
   // Ways to share derived data between use(store) readers, next to the
@@ -104,6 +113,8 @@ export const suites = {
 function sweepVariants() {
   const libraries = [
     {name: 'store', deps: []},
+    // Selection through a weakMemo'd store per row (sweep-store-keyed.jsx).
+    {name: 'store-keyed', deps: []},
     {name: 'redux', deps: ['@reduxjs/toolkit', 'react-redux']},
     {name: 'zustand', deps: ['zustand']},
   ];

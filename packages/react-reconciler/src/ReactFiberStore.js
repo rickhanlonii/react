@@ -25,12 +25,14 @@ import {
   removeLanes,
   intersectLanes,
   markRootEntangled,
-  getEntangledLanes,
+  pickArbitraryLane,
 } from './ReactFiberLane';
 import {
   FunctionComponent,
   ForwardRef,
   SimpleMemoComponent,
+  ClassComponent,
+  HostRoot,
 } from './ReactWorkTags';
 import {
   enqueueConcurrentRenderForLane,
@@ -44,11 +46,13 @@ import {
   isStoreUpdateDuringRender,
   warnAboutStoreUpdateInRenderDEV,
   throwIfInfiniteUpdateLoopDetected,
-  getWorkInProgressRootRenderLanes,
   markSkippedUpdateLanes,
 } from './ReactFiberWorkLoop';
 import {requestCurrentTransition} from './ReactFiberTransition';
-import {requestTransitionLane} from './ReactFiberRootScheduler';
+import {
+  requestTransitionLane,
+  ensureScheduleIsScheduled,
+} from './ReactFiberRootScheduler';
 import {peekEntangledActionLane} from './ReactFiberAsyncAction';
 import {markStateUpdateScheduled} from './ReactFiberDevToolsHook';
 import ReactSharedInternals from 'shared/ReactSharedInternals';
@@ -74,11 +78,6 @@ type StoreUpdate<A> = {
   // The state the eager state was computed from. The eager state can only be
   // used when the update is applied to this exact state.
   eagerBaseState: mixed,
-  // Whether a component threw the error the reducer threw for this update.
-  // If none did, the commit reports it. This is on the update, not the
-  // state, because the HostRoot can process the update more than once in a
-  // render, for example after an error unwinds to the root.
-  didRenderError: boolean,
   // A circular list, like the update queue of a Hook.
   next: StoreUpdate<A>,
 };
@@ -101,11 +100,33 @@ export type StoreState<T, A> = {
   // store throws. The update that threw isn't applied.
   error: mixed,
   errorUpdate: StoreUpdate<A> | null,
+  // The components that threw the error in this render. If none of the error
+  // boundaries that caught it commits, the commit reports it.
+  errorFibers: Array<Fiber> | null,
   // The updates that were applied, so a component in Strict Mode can run
   // the reducer an extra time.
   appliedUpdatesDEV: Array<mixed> | null,
   didDoubleInvokeReducerDEV: boolean,
 };
+
+// The states of the stores a HostRoot processed in a render. The version
+// identifies them without holding on to them, so a record can remember the
+// last state it looked up.
+export type StoreStates = {
+  version: number,
+  map: Map<StoreRecord<any, any>, StoreState<any, any>>,
+  // The lanes of the updates the HostRoot skipped, which stay on it.
+  skippedLanes: Lanes,
+};
+
+let storeStatesVersion: number = 0;
+
+function createStoreStates(
+  map: Map<StoreRecord<any, any>, StoreState<any, any>>,
+  skippedLanes: Lanes,
+): StoreStates {
+  return {version: ++storeStatesVersion, map, skippedLanes};
+}
 
 export type StoreRecord<T, A> = {
   store: ReactStore<T, A>,
@@ -131,6 +152,12 @@ export type StoreRecord<T, A> = {
   mayBeUnsubscribed: boolean,
   // Whether this record is in root.pendingStoreRecords.
   isPending: boolean,
+  // The last state looked up in a HostRoot's states, so every reader in a
+  // render after the first doesn't search them again. Keyed by the version
+  // of the states, which is different for every render that processes
+  // stores.
+  lastVersion: number,
+  lastState: StoreState<T, A> | null,
   // Used to check whether the component that's rendering already read this
   // store, without searching its list of reads.
   readEpoch: number,
@@ -158,6 +185,7 @@ function createStoreState<T, A>(state: T): StoreState<T, A> {
     didReadEntangledAction: false,
     error: NO_ERROR,
     errorUpdate: null,
+    errorFibers: null,
     appliedUpdatesDEV: null,
     didDoubleInvokeReducerDEV: false,
   };
@@ -176,19 +204,31 @@ export function getStoreRecord<T, A>(
   }
   // This is the first time this root reads the store. The root has nothing
   // to be consistent with yet, so start from the latest value, except for
-  // transitions that haven't finished.
-  settlePendingTransitionUpdates(store, root);
+  // transitions that haven't finished. Computing it can run the reducer,
+  // which isn't part of the component that's reading, so it runs without a
+  // dispatcher.
+  const prevDispatcher = ReactSharedInternals.H;
+  ReactSharedInternals.H = null;
+  let head;
+  try {
+    settlePendingTransitionUpdates(store, root);
+    head = getStoreHead(store);
+  } finally {
+    ReactSharedInternals.H = prevDispatcher;
+  }
   const record: StoreRecord<T, A> = {
     store,
     root,
     pending: null,
     lanes: NoLanes,
     transitionLanes: NoLanes,
-    committed: createStoreState(getStoreHead(store)),
+    committed: createStoreState(head),
     readers: new Set(),
     isRemoved: false,
     mayBeUnsubscribed: true,
     isPending: false,
+    lastVersion: -1,
+    lastState: null,
     readEpoch: -1,
     dispatch: dispatchStoreUpdate,
   };
@@ -211,7 +251,6 @@ export function getStoreRecord<T, A>(
         hasEagerState: false,
         eagerState: null,
         eagerBaseState: null,
-        didRenderError: false,
         next: null as any,
       };
       if (last === null) {
@@ -235,6 +274,30 @@ export function getStoreRecord<T, A>(
       root.pendingStoreRecords = [record];
     } else {
       pending.push(record);
+    }
+    // Schedule the lanes on the HostRoot, like dispatching the updates to it
+    // would have, so the HostRoot processes them even if this render is
+    // thrown away or nothing reads the store. Most are already pending on the
+    // root, except the pending async action's.
+    const hostRoot = root.current;
+    let transitionLanes = NoLanes;
+    let lanes = record.lanes;
+    while (lanes !== NoLanes) {
+      const lane = pickArbitraryLane(lanes);
+      lanes = removeLanes(lanes, lane);
+      enqueueConcurrentRenderForLane(hostRoot, lane);
+      if ((root.pendingLanes & lane) === NoLanes) {
+        scheduleUpdateOnFiber(root, hostRoot, lane);
+      }
+      if (isTransitionLane(lane)) {
+        transitionLanes = mergeLanes(transitionLanes, lane);
+      }
+    }
+    if (transitionLanes !== NoLanes) {
+      // Like the update queue of useState, entangle the transitions that
+      // update the same store so they commit together.
+      record.transitionLanes = transitionLanes;
+      markRootEntangled(root, transitionLanes);
     }
   }
   // Nothing has subscribed to the record yet. If nothing does by the time
@@ -261,7 +324,13 @@ function dispatchUnreadStoreUpdate<T, A>(
   if (transition === null && pending === null) {
     return false;
   }
-  const lane = transition === null ? NoLane : requestTransitionLane(transition);
+  let lane = NoLane;
+  if (transition !== null) {
+    lane = requestTransitionLane(transition);
+    // Like any other transition update, reset the event's transition lane
+    // once the event is over, so a later transition gets its own.
+    ensureScheduleIsScheduled();
+  }
   if (pending === null) {
     store._pendingTransitionUpdates = [action, lane];
     storesWithPendingTransitionUpdates.add(store);
@@ -301,14 +370,18 @@ function settlePendingTransitionUpdates(
   if (i === 0) {
     return;
   }
-  let headQueue = store._headQueue;
+  // Apply them now, instead of when the latest value is next needed, so a
+  // reducer error is reported, like it would be if no update were held.
+  const reducer = store._reducer;
+  let head = getStoreHead(store);
   for (let j = 0; j < i; j += 2) {
-    if (headQueue === null) {
-      headQueue = store._headQueue = [pending[j]];
-    } else {
-      headQueue.push(pending[j]);
+    try {
+      head = reducer(head, pending[j]);
+    } catch (error) {
+      reportGlobalError(error);
     }
   }
+  store._head = head;
   if (i === pending.length) {
     store._pendingTransitionUpdates = null;
     storesWithPendingTransitionUpdates.delete(store);
@@ -360,10 +433,10 @@ function getStoreQueueLanes(last: StoreUpdate<any> | null): Lanes {
 export function processStoreRecords(
   root: FiberRoot,
   renderLanes: Lanes,
-): {
-  states: Map<StoreRecord<any, any>, StoreState<any, any>>,
-  skippedLanes: Lanes,
-} | null {
+  // The states this HostRoot processed earlier in the same render, if it's
+  // beginning again, for example after an error unwound to the root.
+  prevStates: StoreStates | null,
+): StoreStates | null {
   const pending = root.pendingStoreRecords;
   if (pending === null) {
     return null;
@@ -379,13 +452,23 @@ export function processStoreRecords(
     for (let i = 0; i < pending.length; i++) {
       const record = pending[i];
       const state = processStoreRecord(record, renderLanes);
+      if (prevStates !== null && state.errorUpdate !== null) {
+        const prevState = prevStates.map.get(record);
+        if (
+          prevState !== undefined &&
+          prevState.errorUpdate === state.errorUpdate
+        ) {
+          // Components may already have thrown this error in this render.
+          state.errorFibers = prevState.errorFibers;
+        }
+      }
       states.set(record, state);
       skippedLanes = mergeLanes(skippedLanes, state.skippedLanes);
     }
   } finally {
     ReactSharedInternals.H = prevDispatcher;
   }
-  return {states, skippedLanes};
+  return createStoreStates(states, skippedLanes);
 }
 
 function processStoreRecord<T, A>(
@@ -429,7 +512,6 @@ function processStoreRecord<T, A>(
         hasEagerState: update.hasEagerState,
         eagerState: update.eagerState,
         eagerBaseState: update.eagerBaseState,
-        didRenderError: false,
         next: null as any,
       };
       if (newBaseQueueLast === null) {
@@ -470,7 +552,6 @@ function processStoreRecord<T, A>(
             hasEagerState: update.hasEagerState,
             eagerState: update.eagerState,
             eagerBaseState: update.eagerBaseState,
-            didRenderError: false,
             next: null as any,
           };
           newBaseQueueLast = newBaseQueueLast.next = clone;
@@ -508,25 +589,37 @@ export function getStoreStateForRender<T, A>(
   record: StoreRecord<T, A>,
   hostRoot: Fiber,
 ): StoreState<T, A> {
+  if (!record.isPending) {
+    // No updates that haven't committed, so the HostRoot didn't process the
+    // record, or processed it into the committed state. This is the common
+    // case: most stores a render reads weren't updated.
+    return record.committed;
+  }
   const rootState: RootState = hostRoot.memoizedState;
-  let states = rootState.storeStates;
-  if (states !== null) {
-    const state = states.get(record);
+  const storeStates = rootState.storeStates;
+  if (storeStates === null) {
+    if (record.committed.baseQueue === null) {
+      return record.committed;
+    }
+  } else {
+    if (record.lastVersion === storeStates.version) {
+      return record.lastState as any;
+    }
+    let state = storeStates.map.get(record);
+    if (state === undefined && record.committed.baseQueue === null) {
+      // Not processed by this render, and nothing to process.
+      state = record.committed;
+    }
     if (state !== undefined) {
+      record.lastVersion = storeStates.version;
+      record.lastState = state;
       return state;
     }
-  }
-  if (record.committed.baseQueue === null) {
-    return record.committed;
   }
   // The HostRoot didn't process this record, because it was created after
   // the HostRoot began, with updates from transitions that were pending.
   // Process it now, for the root's lanes, and keep the state on the HostRoot.
-  const root = record.root;
-  const renderLanes = getEntangledLanes(
-    root,
-    getWorkInProgressRootRenderLanes(),
-  );
+  const renderLanes = storeRenderLanes;
   const prevDispatcher = ReactSharedInternals.H;
   ReactSharedInternals.H = null;
   let state;
@@ -536,19 +629,25 @@ export function getStoreStateForRender<T, A>(
     ReactSharedInternals.H = prevDispatcher;
   }
   const current = hostRoot.alternate;
+  let nextStoreStates = storeStates;
   if (
-    states === null ||
-    (current !== null && current.memoizedState.storeStates === states)
+    nextStoreStates === null ||
+    (current !== null && current.memoizedState.storeStates === nextStoreStates)
   ) {
-    states = new Map(states);
+    nextStoreStates = createStoreStates(
+      nextStoreStates === null ? new Map() : new Map(nextStoreStates.map),
+      NoLanes,
+    );
     hostRoot.memoizedState = {
       element: rootState.element,
       isDehydrated: rootState.isDehydrated,
       cache: rootState.cache,
-      storeStates: states,
+      storeStates: nextStoreStates,
     };
   }
-  states.set(record, state);
+  nextStoreStates.map.set(record, state);
+  record.lastVersion = nextStoreStates.version;
+  record.lastState = state;
   if (state.skippedLanes !== NoLanes) {
     // Keep the lanes on the HostRoot, so the root renders them later.
     hostRoot.lanes = mergeLanes(hostRoot.lanes, state.skippedLanes);
@@ -557,12 +656,16 @@ export function getStoreStateForRender<T, A>(
   return state;
 }
 
-export function readStoreState<T>(state: StoreState<T, any>): T {
-  const errorUpdate = state.errorUpdate;
-  if (errorUpdate !== null) {
-    // The commit drops the update that threw, since an error boundary
-    // handled the error.
-    errorUpdate.didRenderError = true;
+export function readStoreState<T>(state: StoreState<T, any>, fiber: Fiber): T {
+  if (state.errorUpdate !== null) {
+    // The commit drops the update that threw. If the error boundary that
+    // catches it commits, it reports the error; otherwise the commit does.
+    const errorFibers = state.errorFibers;
+    if (errorFibers === null) {
+      state.errorFibers = [fiber];
+    } else {
+      errorFibers.push(fiber);
+    }
     throw state.error;
   }
   return state.memoizedState;
@@ -629,7 +732,6 @@ function dispatchStoreUpdate<T, A>(record: StoreRecord<T, A>, action: A): void {
     hasEagerState: false,
     eagerState: null,
     eagerBaseState: null,
-    didRenderError: false,
     next: null as any,
   };
   if (!isRenderPhaseUpdate && !hasPendingStoreUpdates(record)) {
@@ -846,6 +948,16 @@ export function resetStoreReadsOfSuspendedTree(): void {
   suspendedBoundaryStoreReads = null;
 }
 
+// The entangled lanes of the root that's rendering, which the HostRoot
+// processes stores with. A store first read after the HostRoot began is
+// processed with the same lanes.
+let storeRenderLanes: Lanes = NoLanes;
+
+export function prepareStoresForRender(entangledRenderLanes: Lanes): void {
+  storeRenderLanes = entangledRenderLanes;
+  resetStoreReadsOfSuspendedTree();
+}
+
 // Called when a Suspense boundary commits. It subscribes to the stores its
 // fallback is waiting on, and unsubscribes once its primary children commit.
 export function commitSuspenseStoreReads(
@@ -876,10 +988,59 @@ export function unsubscribeSuspenseStoreReadsOnDeletion(fiber: Fiber): void {
 
 function removeStoreRecord(record: StoreRecord<any, any>): void {
   record.isRemoved = true;
+  // Called after the mutation phase, so the committed HostRoot's states are
+  // the only ones that can still reference the record.
+  const rootState: RootState = record.root.current.memoizedState;
+  const storeStates = rootState.storeStates;
+  if (storeStates !== null) {
+    storeStates.map.delete(record);
+  }
+  record.lastVersion = -1;
+  record.lastState = null;
   const records = record.store._records;
   const index = records.indexOf(record);
   if (index !== -1) {
     records.splice(index, 1);
+  }
+}
+
+// The finished HostRoot of the commit that's committing store states.
+let committingFinishedWork: Fiber | null = null;
+
+function commitStoreState(
+  state: StoreState<any, any>,
+  record: StoreRecord<any, any>,
+): void {
+  if (record.committed === state) {
+    // Already committed, by an earlier commit of the same HostRoot state.
+    return;
+  }
+  record.committed = state;
+  if (state.errorUpdate !== null) {
+    if (
+      !didCommitErrorBoundary(state.errorFibers, committingFinishedWork as any)
+    ) {
+      // No component threw the error, or the error boundaries that
+      // caught it were thrown away, for example because the content
+      // around them suspended on mount. Report it after the layout phase,
+      // unless React logs it there, for example because a boundary that
+      // caught it passed it to an outer one.
+      if (pendingStoreErrors === null) {
+        pendingStoreErrors = [state.error];
+      } else {
+        pendingStoreErrors.push(state.error);
+      }
+    }
+    // The committed state no longer has an error, so later renders that
+    // read it don't throw again.
+    state.error = NO_ERROR;
+    state.errorUpdate = null;
+    state.errorFibers = null;
+  }
+  if (__DEV__) {
+    // A component that reads the committed state in a later render
+    // doesn't run the reducer again in Strict Mode, like useReducer.
+    state.appliedUpdatesDEV = null;
   }
 }
 
@@ -894,21 +1055,11 @@ export function commitStoreStates(root: FiberRoot, finishedWork: Fiber): void {
     );
   }
   const rootState: RootState = finishedWork.memoizedState;
-  const states = rootState.storeStates;
-  if (states !== null) {
-    states.forEach((state, record) => {
-      if (record.committed === state) {
-        // Already committed, by an earlier commit of the same HostRoot state.
-        return;
-      }
-      record.committed = state;
-      const errorUpdate = state.errorUpdate;
-      if (errorUpdate !== null && !errorUpdate.didRenderError) {
-        // No component threw the error, so report it.
-        errorUpdate.didRenderError = true;
-        reportGlobalError(state.error);
-      }
-    });
+  const storeStates = rootState.storeStates;
+  if (storeStates !== null) {
+    committingFinishedWork = finishedWork;
+    storeStates.map.forEach(commitStoreState);
+    committingFinishedWork = null;
   }
   const pending = root.pendingStoreRecords;
   if (pending === null) {
@@ -938,6 +1089,95 @@ export function commitStoreStates(root: FiberRoot, finishedWork: Fiber): void {
   if (writeIndex === 0) {
     root.pendingStoreRecords = null;
   }
+}
+
+// Reducer errors that no committed error boundary will log. The update that
+// threw is dropped, so if React doesn't log the error while committing, it's
+// reported after the layout phase.
+let pendingStoreErrors: Array<mixed> | null = null;
+const loggedErrors: Set<mixed> = new Set();
+
+// Called when React logs an error that a boundary or the root caught.
+export function markErrorLoggedForStores(error: mixed): void {
+  if (pendingStoreErrors !== null) {
+    loggedErrors.add(error);
+  }
+}
+
+// Called after the layout phase of a commit.
+export function flushStoreErrors(): void {
+  const errors = pendingStoreErrors;
+  if (errors === null) {
+    return;
+  }
+  pendingStoreErrors = null;
+  const unlogged = [];
+  for (let i = 0; i < errors.length; i++) {
+    if (!loggedErrors.has(errors[i])) {
+      unlogged.push(errors[i]);
+    }
+  }
+  // Clear the logged errors before reporting: an error handler can start
+  // another commit, which uses them too.
+  loggedErrors.clear();
+  for (let i = 0; i < unlogged.length; i++) {
+    reportGlobalError(unlogged[i]);
+  }
+}
+
+// Whether the error boundary that caught the error of any of these fibers is
+// part of the tree that's committing. The root reports errors that no
+// boundary catches.
+function didCommitErrorBoundary(
+  errorFibers: Array<Fiber> | null,
+  finishedWork: Fiber,
+): boolean {
+  if (errorFibers === null) {
+    return false;
+  }
+  for (let i = 0; i < errorFibers.length; i++) {
+    let boundary = errorFibers[i].return;
+    while (boundary !== null && !isErrorBoundary(boundary)) {
+      boundary = boundary.return;
+    }
+    if (boundary !== null && isInFinishedTree(boundary, finishedWork)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function isErrorBoundary(fiber: Fiber): boolean {
+  if (fiber.tag === HostRoot) {
+    return true;
+  }
+  if (fiber.tag === ClassComponent) {
+    const instance = fiber.stateNode;
+    return (
+      typeof fiber.type.getDerivedStateFromError === 'function' ||
+      (instance !== null && typeof instance.componentDidCatch === 'function')
+    );
+  }
+  return false;
+}
+
+function isInFinishedTree(fiber: Fiber, finishedWork: Fiber): boolean {
+  let node = fiber;
+  while (node !== finishedWork) {
+    const parent = node.return;
+    if (parent === null) {
+      return false;
+    }
+    let child = parent.child;
+    while (child !== null && child !== node) {
+      child = child.sibling;
+    }
+    if (child === null) {
+      return false;
+    }
+    node = parent;
+  }
+  return true;
 }
 
 // Called after the mutation phase of a commit, when the components and

@@ -1228,7 +1228,7 @@ function useStore<T>(store: ReactStore<T>): T {
   }
   // Throws if a reducer threw, like every other component that reads the
   // store in this render.
-  let value = readStoreState(state);
+  let value = readStoreState(state, fiber);
 
   // Use the lanes of the root, not of this subtree: a revealed Activity
   // renders with its base lanes, but the store's value is the root's.

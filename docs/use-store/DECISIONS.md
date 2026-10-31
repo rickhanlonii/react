@@ -274,3 +274,30 @@ Append-only. Each entry records a design change (DCP) or a notable decision, why
 ## Fix: StrictMode subtrees under a newly mounted non-strict parent (2026-10-31; not store specific)
 
 - `doubleInvokeEffectsInDEVIfNecessary` skipped the subtree of a newly placed fiber that isn't in StrictMode, and its descendants carry no `PlacementDEV`, so a `<StrictMode>` inside never double invoked its effects. Same for a newly visible Offscreen. It now walks such a subtree for StrictMode boundaries (`doubleInvokeEffectsInStrictSubtreesDEV`). This fixes the "TODO: this is currently broken" case in `ReactStrictMode-test.internal.js`.
+
+## DCP-19: Reducer errors are reported unless a committed error boundary logs them (2026-10-31; amends DCP-14)
+
+Found by three review passes of DCP-17/18. Pinned in ReactUseStore-test.js ("reducer errors and held updates", "reducer error reporting and retention", "reducer errors passed to an outer boundary").
+
+- **The update that threw is dropped when the state commits,** so the committed state is cleared of the error. Later renders that read it, like a hidden reader that's revealed, don't throw it again.
+- **The readers that threw are recorded on the per-render state** (`errorFibers`), not on the update: a render that's thrown away mustn't suppress the report. When the HostRoot begins again in the same render (after an error unwinds to the root), the new state inherits them.
+- **At commit,** the error counts as handled if the nearest error boundary of a reader that threw (a class with `getDerivedStateFromError`/`componentDidCatch`, or the HostRoot) is in the finished tree. A boundary in a hidden Activity counts: React logs the error when it's revealed.
+- **Otherwise it's reported after the layout phase,** unless React logged it during the layout phase (`logCaughtError`/`logUncaughtError` call `markErrorLoggedForStores`). That covers a boundary that caught it and passed it to an outer boundary, which React logs. It also catches the case the linkage misses: a boundary inside content that suspended on mount, which is thrown away, so no one would ever log the error.
+- **Held transition updates (DCP-18) are applied eagerly when they settle,** and a reducer error is reported, like an update with no records that isn't held. An urgent update held behind a transition can't throw synchronously, so its error is reported the same way.
+
+## DCP-20: Held updates are scheduled and entangled when a root takes them over (2026-10-31; amends DCP-18)
+
+- **Scheduling:** when the first record takes over held updates, each lane is enqueued on the HostRoot through the concurrent queue. Lanes that aren't pending on the root (the pending async action's) go through `scheduleUpdateOnFiber`, so they survive a render that's thrown away. Transition lanes are entangled, like `useState`.
+- **The event's transition lane is reset** at the end of the event (`ensureScheduleIsScheduled`), so a later transition doesn't reuse the lane of a held update whose transition is done.
+- **Settling and creating a record run reducers without a dispatcher,** like the HostRoot.
+
+## Performance notes for DCP-17 (2026-10-31)
+
+- **Fast path:** a record without pending updates returns `record.committed` without looking at the HostRoot's states. Most stores a render reads weren't updated, so this removed a `Map.get` per read.
+- **Memo:** `RootState.storeStates` is `{version, map, skippedLanes}`. A record remembers its last lookup by version (`lastVersion`/`lastState`), hits and misses alike, so it holds no reference to a map and can't retain dropped records.
+- **Allocations:** no result wrapper from `processStoreRecords`, and no closure per commit.
+- **Measured** (react-builds/final vs react-builds/hostroot5, store variant with the compiler, 7 interleaved rounds): every cell within ±2%. Entity, selection, structure and details-inline at N=1k/10k come out 0.92–1.016.
+- **Known limits of DCP-19,** from the fourth review pass:
+  - logged errors are matched by identity, so two stores throwing the same object (a shared sentinel or a string) in one commit, where a boundary logs one, report once;
+  - a boundary that caught the error in a hidden Activity counts as handled, but React logs it only when it's revealed, so if the hidden tree is deleted first, it's never logged. This needs a store update processed in an Offscreen-lane render, which in practice means a render-phase update.
+- **`flushStoreErrors` clears the logged set before reporting,** because an error handler can start a nested commit.
