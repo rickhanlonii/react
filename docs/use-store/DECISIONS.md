@@ -246,3 +246,31 @@ Append-only. Each entry records a design change (DCP) or a notable decision, why
     That's extra work, not wrong output, but it's observable. With cloning, the committed cache is untouched, so returning to the committed inputs reuses the committed values.
   - **Purity assumptions leak further.** If a memoized computation reads something mutable, its result from a discarded render can survive into later renders. With cloning, discarded writes disappear.
   - This is what "Test this at Meta before enabling" is protecting against. Given that it has no measured benefit for stores, there's no store-related reason to enable it.
+
+## DCP-17: The HostRoot owns the state of every store on its root (2026-10-31; supersedes the record-local state of DCP-1, DCP-9 and DCP-13)
+
+- **Why:** the record kept its own render model next to the fiber tree: a global seq for the render's cut, `root.storeRenderLanes`, a read cache, and a commit that recomputed the base state. Its lanes lived only on reader fibers (or on HostRoot with no update object behind them), so a commit could drop them: the only reader deleted before a transition rendered (#3a), or HostRoot rendering a different lane first (#3b). And it assumed one work-in-progress tree per root.
+- **Model:** a record is split like a Hook.
+  - **The record is the shared part,** like `hook.queue`: pending updates, `lanes`, `transitionLanes`, readers, `dispatch`.
+  - **A `StoreState` is the state in one version of the tree,** like a Hook object: `baseState`, `baseQueue`, `memoizedState`, the skipped lanes, the reducer error, and whether it read the pending async action.
+  - **The HostRoot owns the states:** `RootState.storeStates` holds the states its render processed, and `record.committed` is the state of the committed tree.
+- **Updates go through the concurrent queue onto the HostRoot,** with a real update object, so a render that's in progress never sees them (no seq) and the HostRoot holds their lanes.
+- **`updateHostRoot` processes the pending records for the render's lanes,** the same way `updateReducerImpl` does, and keeps the skipped lanes on the HostRoot, like `processUpdateQueue`. Readers look up the state; a record the HostRoot didn't process uses `record.committed`, with every pending lane skipped. A record created after the HostRoot began is processed when it's first read (`getStoreStateForRender`).
+- **Commit is a pointer swap:** `record.committed = state`. Then `record.lanes` is recomputed from the queues, plus updates dispatched during the render.
+- **Reducers run without a dispatcher,** like eager state outside render. A reducer isn't part of any component, so calling a Hook or reading context in it throws, and the readers throw the error. (Before, it ran in the reader's render, read the reader's context, and a Hook call took the reader's first Hook slot.)
+- **Reducer errors** are flagged on the update that threw (`didRenderError`), not on the state, because the HostRoot can process an update more than once in a render, for example after an error unwinds to the root.
+- **StrictMode:** the reducer runs once, at the HostRoot. A reader in StrictMode replays the applied updates once per state in DEV (`doubleInvokeStoreReducerDEV`).
+- **Observable differences, pinned by `store-semantics:` notes:** a hidden Activity reader renders the root's committed value directly, because a transition commits at the root before the hidden tree renders (ActivitySuspenseUseStore); and on error paths the reducer runs once per HostRoot begin.
+- **Still single-tree:** `useStore` finds the work-in-progress HostRoot through `root.current.alternate`. With several work-in-progress trees, it comes from the render's context instead; nothing else depends on there being one.
+
+## DCP-18: Transition updates to a store no root reads are held until the transition is done (2026-10-31)
+
+- **Bug:** with no records, `store.update()` applied the update right away, so a reader that mounted in an urgent render while the transition (or its async action) was pending saw it early. Found by the react-concurrent-store port.
+- **Fix:** the renderer installs `ReactSharedInternals.U`. With no records, an update in a transition is held on the store as `(action, lane)` (`_pendingTransitionUpdates`). An urgent update that comes after a held one is held too, with `NoLane`, so it's rebased on top, like useReducer.
+- **The first root that reads the store** gets the held updates in its record's queue, as if they'd been dispatched to it. An update is still pending if its lane is the pending async action's, or pending on that root. Updates whose transitions are done are applied to the latest value first.
+- **Held updates are released** at every commit, and when a root starts reading the store.
+- **Limits:** with several roots, "done" is judged on the committing root, so a transition that's still pending on another root can be applied there early. That matches the existing rule that a root that starts reading a store starts from the latest value. With several renderers, the last one to load installs `U`.
+
+## Fix: StrictMode subtrees under a newly mounted non-strict parent (2026-10-31; not store specific)
+
+- `doubleInvokeEffectsInDEVIfNecessary` skipped the subtree of a newly placed fiber that isn't in StrictMode, and its descendants carry no `PlacementDEV`, so a `<StrictMode>` inside never double invoked its effects. Same for a newly visible Offscreen. It now walks such a subtree for StrictMode boundaries (`doubleInvokeEffectsInStrictSubtreesDEV`). This fixes the "TODO: this is currently broken" case in `ReactStrictMode-test.internal.js`.

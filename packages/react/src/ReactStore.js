@@ -45,9 +45,18 @@ function updateStore<T, A>(this: ReactStore<T, A>, action: A): void {
   }
   const records = this._records;
   if (records.length === 0) {
-    // No root reads the store, so apply the update right away. There's no
-    // render to throw a reducer error in, so it throws here, and the update
-    // isn't applied.
+    // No root reads the store. If this update is part of a transition, the
+    // renderer holds on to it until the transition is done, so a component
+    // that starts reading the store before then doesn't see it early.
+    const dispatchUnreadStoreUpdate = (ReactSharedInternals as any).U;
+    if (
+      dispatchUnreadStoreUpdate != null &&
+      dispatchUnreadStoreUpdate(this, action)
+    ) {
+      return;
+    }
+    // Otherwise apply the update right away. There's no render to throw a
+    // reducer error in, so it throws here, and the update isn't applied.
     this._head = this._reducer(getStoreHead(this), action);
     return;
   }
@@ -117,6 +126,7 @@ export function createStore<T, A>(
     _initial: initialValue,
     // Updates that haven't been applied to _head yet.
     _headQueue: null,
+    _pendingTransitionUpdates: null,
     // One record per root that reads the store. Each renderer creates its
     // records, and dispatches to them through record.dispatch.
     _records: [],

@@ -14,7 +14,7 @@ import type {FunctionComponentUpdateQueue} from './ReactFiberHooks';
 import type {SuspenseState} from './ReactFiberSuspenseComponent';
 import type {RootState} from './ReactFiberRoot';
 
-import {enableSchedulingProfiler} from 'shared/ReactFeatureFlags';
+import {enableSchedulingProfiler, enableStore} from 'shared/ReactFeatureFlags';
 import {
   NoLane,
   NoLanes,
@@ -25,6 +25,7 @@ import {
   removeLanes,
   intersectLanes,
   markRootEntangled,
+  getEntangledLanes,
 } from './ReactFiberLane';
 import {
   FunctionComponent,
@@ -43,7 +44,11 @@ import {
   isStoreUpdateDuringRender,
   warnAboutStoreUpdateInRenderDEV,
   throwIfInfiniteUpdateLoopDetected,
+  getWorkInProgressRootRenderLanes,
+  markSkippedUpdateLanes,
 } from './ReactFiberWorkLoop';
+import {requestCurrentTransition} from './ReactFiberTransition';
+import {requestTransitionLane} from './ReactFiberRootScheduler';
 import {peekEntangledActionLane} from './ReactFiberAsyncAction';
 import {markStateUpdateScheduled} from './ReactFiberDevToolsHook';
 import ReactSharedInternals from 'shared/ReactSharedInternals';
@@ -170,7 +175,9 @@ export function getStoreRecord<T, A>(
     }
   }
   // This is the first time this root reads the store. The root has nothing
-  // to be consistent with yet, so start from the latest value.
+  // to be consistent with yet, so start from the latest value, except for
+  // transitions that haven't finished.
+  settlePendingTransitionUpdates(store, root);
   const record: StoreRecord<T, A> = {
     store,
     root,
@@ -186,10 +193,128 @@ export function getStoreRecord<T, A>(
     dispatch: dispatchStoreUpdate,
   };
   records.push(record);
+  const pendingTransitionUpdates = store._pendingTransitionUpdates;
+  if (pendingTransitionUpdates !== null) {
+    // Updates from transitions that are still pending. Add them to this
+    // root's queue, as if they had been dispatched to it, so they're
+    // rebased like any other update. They're part of the latest value now.
+    store._pendingTransitionUpdates = null;
+    storesWithPendingTransitionUpdates.delete(store);
+    let last: StoreUpdate<A> | null = null;
+    let headQueue = store._headQueue;
+    for (let i = 0; i < pendingTransitionUpdates.length; i += 2) {
+      const action: A = pendingTransitionUpdates[i] as any;
+      const lane: Lane = pendingTransitionUpdates[i + 1] as any;
+      const update: StoreUpdate<A> = {
+        lane,
+        action,
+        hasEagerState: false,
+        eagerState: null,
+        eagerBaseState: null,
+        didRenderError: false,
+        next: null as any,
+      };
+      if (last === null) {
+        update.next = update;
+      } else {
+        update.next = last.next;
+        last.next = update;
+      }
+      last = update;
+      record.lanes = mergeLanes(record.lanes, lane);
+      if (headQueue === null) {
+        headQueue = store._headQueue = [action];
+      } else {
+        headQueue.push(action);
+      }
+    }
+    record.committed.baseQueue = last;
+    record.isPending = true;
+    const pending = root.pendingStoreRecords;
+    if (pending === null) {
+      root.pendingStoreRecords = [record];
+    } else {
+      pending.push(record);
+    }
+  }
   // Nothing has subscribed to the record yet. If nothing does by the time
   // this root commits, the record is dropped.
   addUnsubscribedStoreRecord(root, record);
   return record;
+}
+
+// The stores that hold on to updates from pending transitions, because no
+// root read them when they were dispatched.
+const storesWithPendingTransitionUpdates: Set<ReactStore<any, any>> = new Set();
+
+// Called when a store that no root reads is updated. An update that's part
+// of a transition is held until the transition is done, so that a component
+// that starts reading the store before then, in a render that doesn't
+// include the transition, doesn't see it. Like useReducer, an update that
+// comes after one that's held is held too, so they apply in order.
+function dispatchUnreadStoreUpdate<T, A>(
+  store: ReactStore<T, A>,
+  action: A,
+): boolean {
+  const transition = requestCurrentTransition();
+  const pending = store._pendingTransitionUpdates;
+  if (transition === null && pending === null) {
+    return false;
+  }
+  const lane = transition === null ? NoLane : requestTransitionLane(transition);
+  if (pending === null) {
+    store._pendingTransitionUpdates = [action, lane];
+    storesWithPendingTransitionUpdates.add(store);
+  } else {
+    pending.push(action, lane);
+  }
+  return true;
+}
+
+if (enableStore) {
+  ReactSharedInternals.U = dispatchUnreadStoreUpdate as any;
+}
+
+// Applies the held updates whose transitions are done to the latest value of
+// the store. A transition is done unless it's the pending async action, or
+// it's still pending on the given root.
+function settlePendingTransitionUpdates(
+  store: ReactStore<any, any>,
+  root: FiberRoot | null,
+): void {
+  const pending = store._pendingTransitionUpdates;
+  if (pending === null) {
+    return;
+  }
+  const entangledActionLane = peekEntangledActionLane();
+  let i = 0;
+  for (; i < pending.length; i += 2) {
+    const lane: Lane = pending[i + 1] as any;
+    if (
+      lane !== NoLane &&
+      (lane === entangledActionLane ||
+        (root !== null && (root.pendingLanes & lane) !== NoLanes))
+    ) {
+      break;
+    }
+  }
+  if (i === 0) {
+    return;
+  }
+  let headQueue = store._headQueue;
+  for (let j = 0; j < i; j += 2) {
+    if (headQueue === null) {
+      headQueue = store._headQueue = [pending[j]];
+    } else {
+      headQueue.push(pending[j]);
+    }
+  }
+  if (i === pending.length) {
+    store._pendingTransitionUpdates = null;
+    storesWithPendingTransitionUpdates.delete(store);
+  } else {
+    pending.splice(0, i);
+  }
 }
 
 function addUnsubscribedStoreRecord(
@@ -384,14 +509,52 @@ export function getStoreStateForRender<T, A>(
   hostRoot: Fiber,
 ): StoreState<T, A> {
   const rootState: RootState = hostRoot.memoizedState;
-  const states = rootState.storeStates;
+  let states = rootState.storeStates;
   if (states !== null) {
     const state = states.get(record);
     if (state !== undefined) {
       return state;
     }
   }
-  return record.committed;
+  if (record.committed.baseQueue === null) {
+    return record.committed;
+  }
+  // The HostRoot didn't process this record, because it was created after
+  // the HostRoot began, with updates from transitions that were pending.
+  // Process it now, for the root's lanes, and keep the state on the HostRoot.
+  const root = record.root;
+  const renderLanes = getEntangledLanes(
+    root,
+    getWorkInProgressRootRenderLanes(),
+  );
+  const prevDispatcher = ReactSharedInternals.H;
+  ReactSharedInternals.H = null;
+  let state;
+  try {
+    state = processStoreRecord(record, renderLanes);
+  } finally {
+    ReactSharedInternals.H = prevDispatcher;
+  }
+  const current = hostRoot.alternate;
+  if (
+    states === null ||
+    (current !== null && current.memoizedState.storeStates === states)
+  ) {
+    states = new Map(states);
+    hostRoot.memoizedState = {
+      element: rootState.element,
+      isDehydrated: rootState.isDehydrated,
+      cache: rootState.cache,
+      storeStates: states,
+    };
+  }
+  states.set(record, state);
+  if (state.skippedLanes !== NoLanes) {
+    // Keep the lanes on the HostRoot, so the root renders them later.
+    hostRoot.lanes = mergeLanes(hostRoot.lanes, state.skippedLanes);
+    markSkippedUpdateLanes(state.skippedLanes);
+  }
+  return state;
 }
 
 export function readStoreState<T>(state: StoreState<T, any>): T {
@@ -724,6 +887,12 @@ function removeStoreRecord(record: StoreRecord<any, any>): void {
 // HostRoot computed become the committed states, like the Hooks of the
 // finished tree become current. Nothing is computed again.
 export function commitStoreStates(root: FiberRoot, finishedWork: Fiber): void {
+  if (storesWithPendingTransitionUpdates.size > 0) {
+    // Apply the held updates of transitions that this commit finished.
+    storesWithPendingTransitionUpdates.forEach(store =>
+      settlePendingTransitionUpdates(store, root),
+    );
+  }
   const rootState: RootState = finishedWork.memoizedState;
   const states = rootState.storeStates;
   if (states !== null) {

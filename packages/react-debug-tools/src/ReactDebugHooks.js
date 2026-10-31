@@ -127,6 +127,7 @@ function getPrimitiveStackCache(): Map<string, Array<any>> {
           _head: null,
           _initial: null,
           _headQueue: null,
+          _pendingTransitionUpdates: null,
           _records: [],
           update() {},
         } as any);

@@ -1216,10 +1216,10 @@ function useStore<T>(store: ReactStore<T>): T {
   const record = getStoreRecord(store, root);
   const state = getStoreStateForRender(record, hostRoot);
   if (__DEV__ && shouldDoubleInvokeUserFnsInHooksDEV) {
-    // The reducer of a store can't use Hooks or read context, the same as
-    // the reducer of useReducer.
+    // A reducer isn't part of any component, so it runs without a
+    // dispatcher, the same as when the HostRoot ran it.
     const prevDispatcher = ReactSharedInternals.H;
-    ReactSharedInternals.H = InvalidNestedHooksDispatcherOnUpdateInDEV;
+    ReactSharedInternals.H = null;
     try {
       doubleInvokeStoreReducerDEV(record, state);
     } finally {
@@ -1292,6 +1292,9 @@ function useStore<T>(store: ReactStore<T>): T {
       if (
         previousIndex !== -1 &&
         !is(value, previousReads[previousIndex + 1]) &&
+        // The committed state wasn't processed by this render, so it can't
+        // include an update from the pending action that this render applied.
+        state !== record.committed &&
         state.didReadEntangledAction
       ) {
         const entangledActionThenable = peekEntangledActionThenable();

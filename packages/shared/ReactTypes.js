@@ -76,6 +76,9 @@ export type ReactStore<T, A = mixed> = {
   _head: T,
   _initial: T,
   _headQueue: Array<A> | null,
+  // Transition updates dispatched while no root read the store, as pairs of
+  // action and lane, owned by the renderer.
+  _pendingTransitionUpdates: Array<mixed> | null,
   // The per-root records of this store, owned by the renderer.
   _records: Array<any>,
   update: (action: A) => void,

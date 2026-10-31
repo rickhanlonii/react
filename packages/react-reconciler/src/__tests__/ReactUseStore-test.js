@@ -2355,4 +2355,258 @@ describe('ReactUseStore', () => {
     });
     assertLog(['Tab: b', 'Reader: 2']);
   });
+
+  // Found by the port of the react-concurrent-store tests
+  // (ReactUseStorePonyfill-test.js, "Does not miss sync updates triggered in
+  // useEffect or useLayoutEffect during a long-running transition").
+  // @gate enableStore
+  it('a reader that mounts urgently does not see a transition update to a store no root read yet', async () => {
+    const store = createStore(1);
+
+    function Reader() {
+      return <Text text={'Reader: ' + use(store)} />;
+    }
+
+    let setShow;
+    function App() {
+      const [show, _setShow] = useState(false);
+      setShow = _setShow;
+      return show ? <Reader /> : <Text text="Nothing" />;
+    }
+
+    const root = ReactNoop.createRoot();
+    await act(() => {
+      root.render(<App />);
+    });
+    assertLog(['Nothing']);
+    expect(store._records.length).toBe(0);
+
+    // Nothing reads the store yet, so no root has a copy of it.
+    let resolve;
+    await act(() => {
+      startTransition(async () => {
+        store.update(n => n * 2);
+        await new Promise(r => (resolve = r));
+      });
+    });
+
+    // Mount the first reader in an urgent update while the action is
+    // pending. Like useReducer, it shouldn't see the transition's update.
+    await act(() => {
+      ReactNoop.flushSync(() => setShow(true));
+    });
+    assertLog(['Reader: 1']);
+    expect(root).toMatchRenderedOutput('Reader: 1');
+
+    await act(() => resolve());
+    assertLog(['Reader: 2']);
+    expect(root).toMatchRenderedOutput('Reader: 2');
+  });
+
+  // @gate enableStore
+  it('a reader that mounts in the same transition sees a held update', async () => {
+    const store = createStore(1);
+
+    function Reader() {
+      return <Text text={'Reader: ' + use(store)} />;
+    }
+
+    let setShow;
+    function App() {
+      const [show, _setShow] = useState(false);
+      setShow = _setShow;
+      return show ? <Reader /> : <Text text="Nothing" />;
+    }
+
+    const root = ReactNoop.createRoot();
+    await act(() => {
+      root.render(<App />);
+    });
+    assertLog(['Nothing']);
+
+    await act(() => {
+      startTransition(() => {
+        store.update(2);
+        setShow(true);
+      });
+    });
+    assertLog(['Reader: 2']);
+    expect(root).toMatchRenderedOutput('Reader: 2');
+    expect(store._pendingTransitionUpdates).toBe(null);
+  });
+
+  // @gate enableStore
+  it('a held update is applied once its transition commits on the root', async () => {
+    const store = createStore(1);
+
+    function Reader() {
+      return <Text text={'Reader: ' + use(store)} />;
+    }
+
+    let setShow, setTab;
+    function App() {
+      const [show, _setShow] = useState(false);
+      const [tab, _setTab] = useState('a');
+      setShow = _setShow;
+      setTab = _setTab;
+      return (
+        <>
+          <Text text={'Tab: ' + tab} />
+          {show ? <Reader /> : null}
+        </>
+      );
+    }
+
+    const root = ReactNoop.createRoot();
+    await act(() => {
+      root.render(<App />);
+    });
+    assertLog(['Tab: a']);
+
+    await act(async () => {
+      startTransition(() => {
+        store.update(2);
+        setTab('b');
+      });
+      // The transition is pending. A reader that mounts in an urgent render
+      // doesn't see its update, like the tab.
+      ReactNoop.flushSync(() => setShow(true));
+      assertLog(['Tab: a', 'Reader: 1']);
+      expect(root).toMatchRenderedOutput('Tab: aReader: 1');
+    });
+    // Then the transition renders both.
+    assertLog(['Tab: b', 'Reader: 2']);
+    expect(root).toMatchRenderedOutput('Tab: bReader: 2');
+    expect(store._pendingTransitionUpdates).toBe(null);
+    expect(store._headQueue).toBe(null);
+  });
+
+  // @gate enableStore
+  it('a held update whose transition had nothing else to render is visible right away', async () => {
+    const store = createStore(1);
+
+    function Reader() {
+      return <Text text={'Reader: ' + use(store)} />;
+    }
+
+    const root = ReactNoop.createRoot();
+    await act(() => {
+      root.render(<Text text="Nothing" />);
+    });
+    assertLog(['Nothing']);
+
+    // No root reads the store, and the transition updates nothing else, so
+    // it's done as soon as it's dispatched.
+    await act(() => {
+      startTransition(() => {
+        store.update(2);
+      });
+    });
+    await act(() => {
+      ReactNoop.flushSync(() => root.render(<Reader />));
+    });
+    assertLog(['Reader: 2']);
+    expect(root).toMatchRenderedOutput('Reader: 2');
+  });
+
+  // @gate enableStore
+  it('an urgent update behind a held update is rebased on top of it', async () => {
+    const store = createStore('', (state, action) => state + action);
+
+    function Reader() {
+      return <Text text={'Reader: ' + use(store)} />;
+    }
+
+    let setShow;
+    function App() {
+      const [show, _setShow] = useState(false);
+      setShow = _setShow;
+      return show ? <Reader /> : <Text text="Nothing" />;
+    }
+
+    const root = ReactNoop.createRoot();
+    await act(() => {
+      root.render(<App />);
+    });
+    assertLog(['Nothing']);
+
+    let resolve;
+    await act(() => {
+      startTransition(async () => {
+        store.update('A');
+        await new Promise(r => (resolve = r));
+      });
+    });
+    // An urgent update while the transition's update is held.
+    store.update('B');
+
+    await act(() => {
+      ReactNoop.flushSync(() => setShow(true));
+    });
+    // The urgent update is visible, without the transition's.
+    assertLog(['Reader: B']);
+    expect(root).toMatchRenderedOutput('Reader: B');
+
+    await act(() => resolve());
+    // Then the transition's update renders, with the urgent one rebased on
+    // top, in the order they were dispatched.
+    assertLog(['Reader: AB']);
+    expect(root).toMatchRenderedOutput('Reader: AB');
+  });
+
+  // @gate enableStore
+  it('a reducer error in a held update throws in the reader that renders it', async () => {
+    const store = createStore(0, (state, action) => {
+      if (action === 'throw') {
+        throw new Error('Oops');
+      }
+      return action;
+    });
+
+    class ErrorBoundary extends React.Component {
+      state = {error: null};
+      static getDerivedStateFromError(error) {
+        return {error};
+      }
+      render() {
+        if (this.state.error !== null) {
+          return <Text text={'Caught: ' + this.state.error.message} />;
+        }
+        return this.props.children;
+      }
+    }
+
+    function Reader() {
+      return <Text text={'Reader: ' + use(store)} />;
+    }
+
+    let setShow;
+    function App() {
+      const [show, _setShow] = useState(false);
+      setShow = _setShow;
+      return show ? (
+        <ErrorBoundary>
+          <Reader />
+        </ErrorBoundary>
+      ) : (
+        <Text text="Nothing" />
+      );
+    }
+
+    const root = ReactNoop.createRoot();
+    await act(() => {
+      root.render(<App />);
+    });
+    assertLog(['Nothing']);
+
+    // A held update throws when it renders, not when it's dispatched.
+    await act(() => {
+      startTransition(() => {
+        store.update('throw');
+        setShow(true);
+      });
+    });
+    assertLog(['Caught: Oops', 'Caught: Oops']);
+    expect(root).toMatchRenderedOutput('Caught: Oops');
+  });
 });

@@ -1030,4 +1030,71 @@ describe('StrictEffectsMode', () => {
       'Child dep create',
     ]);
   });
+
+  it('double invokes effects in a StrictMode subtree whose non-strict parent mounts in the same commit', async () => {
+    const log = [];
+    function Child() {
+      React.useEffect(() => {
+        log.push('useEffect mount');
+        return () => log.push('useEffect unmount');
+      });
+      React.useLayoutEffect(() => {
+        log.push('useLayoutEffect mount');
+        return () => log.push('useLayoutEffect unmount');
+      });
+      return 'child';
+    }
+    function Parent() {
+      return (
+        <React.StrictMode>
+          <Child />
+        </React.StrictMode>
+      );
+    }
+
+    await act(() => {
+      ReactNoop.renderToRootWithID(<Parent />, 'root');
+    });
+
+    if (__DEV__) {
+      expect(log).toEqual([
+        'useLayoutEffect mount',
+        'useEffect mount',
+        'useLayoutEffect unmount',
+        'useEffect unmount',
+        'useLayoutEffect mount',
+        'useEffect mount',
+      ]);
+    } else {
+      expect(log).toEqual(['useLayoutEffect mount', 'useEffect mount']);
+    }
+
+    // The same when the non-strict parent mounts in an update.
+    log.length = 0;
+    await act(() => {
+      ReactNoop.renderToRootWithID(
+        <>
+          <Parent />
+          <Parent />
+        </>,
+        'root',
+      );
+    });
+    if (__DEV__) {
+      expect(log).toEqual([
+        // The first Parent updates, and the second one mounts.
+        'useLayoutEffect unmount',
+        'useLayoutEffect mount',
+        'useLayoutEffect mount',
+        'useEffect unmount',
+        'useEffect mount',
+        'useEffect mount',
+        // The second Parent's StrictMode subtree double invokes its effects.
+        'useLayoutEffect unmount',
+        'useEffect unmount',
+        'useLayoutEffect mount',
+        'useEffect mount',
+      ]);
+    }
+  });
 });

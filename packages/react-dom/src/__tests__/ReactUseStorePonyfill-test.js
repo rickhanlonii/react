@@ -36,8 +36,6 @@
 // - GAP: the ponyfill has an API that use(store) doesn't, by design.
 // - DIFFERS: use(store) behaves differently, and the test asserts our
 //   behavior. The comment explains both.
-// - BUG?: the test asserts our behavior, which looks wrong. The comment gives
-//   the expected behavior.
 //
 // Where use(store) differs from the ponyfill:
 //
@@ -86,14 +84,12 @@
 //   changes. They assert that instead, and that structural sharing still
 //   keeps the identity of the values the children receive.
 //
-// The possible bug (BUG?), in "Does not miss sync updates triggered in
-// useEffect or useLayoutEffect during a long-running transition": when no
-// root reads a store yet, store.update() applies the action right away
-// (ReactStore.js), including inside a transition. A reader that then mounts
-// in an urgent render starts from the latest value, so it sees the
-// transition's update before the transition's async action finishes. A
-// useReducer in context would still show the old state. DCP-11 only
-// prevents this when a root already has the update in its queue.
+// "Does not miss sync updates triggered in useEffect or useLayoutEffect during
+// a long-running transition" found a bug, since fixed: a transition update to
+// a store no root read yet was applied right away, so a reader that mounted
+// in an urgent render saw it early. The renderer now holds such updates until
+// their transition is done (TODOCorrectnessUseStore #6, now in
+// ReactUseStore-test.js).
 
 'use strict';
 
@@ -1283,30 +1279,19 @@ describe('ReactUseStorePonyfill', () => {
         );
       });
 
-      // BUG?: this asserts our behavior, which may be a bug. When the
-      // transition dispatched DOUBLE, no root read the store, so there was no
-      // root to queue the update in with a transition lane. A store with no records applies an update right away
-      // (ReactStore.js), and a root that starts reading a store starts from
-      // its head (DESIGN.md, #403). So DOUBLE is already in the value the
-      // first render reads, even though the async action that dispatched it
-      // is still pending, and the INCREMENT applies on top of it: 4, then 5.
-      // The ponyfill tracks a committed value per store, without roots, so
-      // it shows 4, fixes up to the committed value plus INCREMENT (2 + 1 =
-      // 3), and only shows DOUBLE when the action finishes. Both end at
-      // ((2 * 2) + 1 + 1 + 1 + 1) = 8, because the updates are applied in
-      // dispatch order either way.
-      // A reader that mounts in an urgent render sees a transition update
-      // before the transition finishes. DCP-11 prevents exactly that when the
-      // store had a record with the update queued ("a reader that mounts after
-      // the last reader unmounted does not see a pending transition early"),
-      // but not when the store had no record when the update was dispatched.
+      // DIFFERS: when the transition dispatched DOUBLE, no root read the
+      // store, so the renderer held the update with the action's lane. The
+      // first reader mounts in an urgent render, so it reads 2 without DOUBLE,
+      // and INCREMENT applies on top: 2, then 3. DOUBLE renders when the action
+      // finishes, rebased under every INCREMENT. The ponyfill renders 4 first,
+      // then fixes up to 3 in a layout effect.
       assertLog([
-        {testid: 'count', count: 4},
-        {testid: 'count', count: 5},
+        {testid: 'count', count: 2},
+        {testid: 'count', count: 3}, // Re-render triggered by the increment
       ]);
 
       // Check that we mount correctly
-      expect(container.innerHTML).toBe('<div>5</div>');
+      expect(container.innerHTML).toBe('<div>3</div>');
 
       await act(async () => {
         rerender(
@@ -1318,16 +1303,16 @@ describe('ReactUseStorePonyfill', () => {
         );
       });
 
-      // BUG?: see above. DOUBLE is already applied.
+      // DIFFERS: see above. DOUBLE is still held.
       assertLog([
-        {testid: 'count', count: 5},
-        {testid: 'otherCount', count: 5},
-        {testid: 'count', count: 6}, // Re-render triggered by increment on mount
-        {testid: 'otherCount', count: 6}, // Re-render triggered by increment on mount
+        {testid: 'count', count: 3},
+        {testid: 'otherCount', count: 3},
+        {testid: 'count', count: 4}, // Re-render triggered by the increment
+        {testid: 'otherCount', count: 4}, // Re-render triggered by the increment
       ]);
 
       // Check that we mount correctly
-      expect(container.innerHTML).toBe('<div>6</div><div>6</div>');
+      expect(container.innerHTML).toBe('<div>4</div><div>4</div>');
 
       await act(async () => {
         rerender(
@@ -1338,14 +1323,14 @@ describe('ReactUseStorePonyfill', () => {
         );
       });
 
-      // BUG?: see above. DOUBLE is already applied.
+      // DIFFERS: see above. DOUBLE is still held.
       assertLog([
-        {testid: 'count', count: 6},
-        {testid: 'count', count: 7}, // Re-render triggered by increment on layout
+        {testid: 'count', count: 4},
+        {testid: 'count', count: 5}, // Re-render triggered by the increment
       ]);
 
       // Check that we mount correctly
-      expect(container.innerHTML).toBe('<div>7</div>');
+      expect(container.innerHTML).toBe('<div>5</div>');
 
       await act(async () => {
         rerender(
@@ -1356,23 +1341,25 @@ describe('ReactUseStorePonyfill', () => {
           </StoreProvider>,
         );
       });
-      // BUG?: see above. DOUBLE is already applied.
+      // DIFFERS: see above. DOUBLE is still held.
       assertLog([
-        {testid: 'count', count: 7},
-        {testid: 'otherCount', count: 7},
-        {testid: 'count', count: 8}, // Re-render triggered by increment on layout
-        {testid: 'otherCount', count: 8}, // Re-render triggered by increment on layout
+        {testid: 'count', count: 5},
+        {testid: 'otherCount', count: 5},
+        {testid: 'count', count: 6}, // Re-render triggered by the increment
+        {testid: 'otherCount', count: 6}, // Re-render triggered by the increment
       ]);
-      expect(container.innerHTML).toBe('<div>8</div><div>8</div>');
+      expect(container.innerHTML).toBe('<div>6</div><div>6</div>');
 
       // Not technically part of the test, but just for completeness, let's
       // confirm we get the right thing when the transition completes.
       await act(async () => {
         resolve();
       });
-      // BUG?: nothing re-renders, because DOUBLE was applied when it was
-      // dispatched. The final value is the same.
-      assertLog([]);
+      // DOUBLE renders now, rebased: (2 * 2) + 1 + 1 + 1 + 1 = 8.
+      assertLog([
+        {testid: 'count', count: 8},
+        {testid: 'otherCount', count: 8},
+      ]);
       expect(container.innerHTML).toBe('<div>8</div><div>8</div>');
       await act(() => unmount());
       expect(store._records.length).toBe(0);
