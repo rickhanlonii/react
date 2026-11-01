@@ -2,13 +2,35 @@
 
 Built 2026-11-01 from `rh/use-store`, which is unchanged and keeps the full history. Each branch is one commit on top of the one before it. Review them in order. The bottom of the stack is `main` (a703ca64f9).
 
-| # | Branch | PR title |
-|---|---|---|
-| 1 | `rh/store-1-same-element-bailout` | Skip reconciling a child when a function component returns the same element |
-| 2 | `rh/store-2-core` | Add experimental use(store) |
-| 3 | `rh/store-3-server` | use(store): server rendering and hydration |
-| 4 | `rh/store-4-devtools` | use(store): DevTools support, and report hook ids in "Why did this render?" |
-| 5 | `rh/store-5-tests` | use(store): Fast Refresh and ESLint tests |
+| # | Branch | Commit | PR title |
+|---|---|---|---|
+| 1 | `rh/store-1-same-element-bailout` | `6743fc72b2` | Skip reconciling a child when a function component returns the same element |
+| 2 | `rh/store-2-core` | `412baada1c` | Add experimental use(store) |
+| 3 | `rh/store-3-server` | `c67631e384` | use(store): server rendering and hydration |
+| 4 | `rh/store-4-devtools` | `24ef413447` | use(store): DevTools support, and report hook ids in "Why did this render?" |
+| 5 | `rh/store-5-tests` | `a11c4942b7` | use(store): Fast Refresh and ESLint tests |
+
+The top of the stack's `packages/` is byte-identical to `rh/use-store` at `9e5cf4076a`, which also carries the local docs.
+
+## Verification
+
+- **Layer 1:** the react-reconciler and react-refresh suites pass on experimental, www-modern (variant true and false), stable and xplat. Flow dom-node and dom-fb pass.
+- **Layer 2:** the full suite passes on experimental, www-modern (variant true and false), stable and xplat. Flow dom-node, dom-fb, fabric, test, noop, markup and custom pass.
+- **Layer 3:** react-dom, react-server, react-client, react-markup and react-server-dom-webpack pass on experimental, www-modern (variant true and false), stable and `--prod`. Flow dom-node, dom-fb and markup pass.
+- **Layer 4:** `yarn test --build --project devtools -r=experimental --ci` passes (44 suites, 611 passed) on a fresh build. react-debug-tools passes on experimental, www, stable and `--prod`. Flow dom-node passes.
+- **Layer 5:** react-refresh passes on experimental, www and stable. The eslint-plugin suite passes (5,150 tests).
+- **Compiler fixtures:** `yarn snap -p 'use-operator-*'` passes 6 of 6, with `NODE_OPTIONS=--no-deprecation` on Node 25.
+- **Known failures on main as well, not caused by this stack:**
+  - B-2, three Node 25 Flight tests (`ReactFlightDOMEdge` ×2, `ReactFlightAsyncDebugInfo`).
+  - `ReactServer › has Owner Stacks in DEV when aborted` under `--prod`.
+- **Prettier and eslint** pass on every layer's files.
+
+## Performance
+
+An interleaved A/B, 4 rounds, N=1000, no CPU throttle multiplier. Variants: `store` and `store-single`, each with and without the compiler. Scenarios: entity, selection, filter, details-inline, details-component and structure. A is `react-builds/head` (`e31a6640`, before the PR-readiness changes). B is `react-builds/stack` (a fresh build of this work). Raw output: `docs/use-store/data/ab-prhead-vs-stack-20261101.txt` on `rh/use-store`.
+- **Every B/A ratio is between 0.94 and 1.03,** and the per-round spreads overlap in every config, so the changes are at parity.
+- **The most consistent drift is `selection` (store, with and without the compiler, +1.8%).** That's the scenario with the most readers per update, so it may be the cost of removing the sibling fast path (`rh/sibling-lane-fast-path`). It's within noise at 4 rounds.
+- **The full benchmark report re-runs are still on hold** until you approve the implementation.
 
 Not in the stack (each is one commit on `main`):
 - `rh/store-compiler-fixtures`: "[compiler] Add use(store) fixtures".
