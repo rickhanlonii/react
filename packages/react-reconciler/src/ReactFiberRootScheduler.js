@@ -21,6 +21,7 @@ import {
   enableYieldingBeforePassive,
   enableGestureTransition,
   enableDefaultTransitionIndicator,
+  enableStore,
 } from 'shared/ReactFeatureFlags';
 import {
   NoLane,
@@ -83,6 +84,7 @@ import {
 } from './ReactProfilerTimer';
 import {peekEntangledActionLane} from './ReactFiberAsyncAction';
 
+import {finishHeldStoreUpdatesOfEvent} from './ReactFiberStore';
 import noop from 'shared/noop';
 import reportGlobalError from 'shared/reportGlobalError';
 
@@ -341,6 +343,18 @@ function processRootScheduleInMicrotask() {
   }
 
   if (currentEventTransitionLane !== NoLane) {
+    if (enableStore) {
+      // Store updates that this event's transition held are done if the
+      // transition has nothing else to render.
+      let isTransitionPending = false;
+      let scheduledRoot = firstScheduledRoot;
+      while (scheduledRoot !== null && !isTransitionPending) {
+        isTransitionPending =
+          (scheduledRoot.pendingLanes & currentEventTransitionLane) !== NoLanes;
+        scheduledRoot = scheduledRoot.next;
+      }
+      finishHeldStoreUpdatesOfEvent(isTransitionPending);
+    }
     // Reset Event Transition Lane so that we allocate a new one next time.
     currentEventTransitionLane = NoLane;
     startDefaultTransitionIndicatorIfNeeded();

@@ -51,7 +51,7 @@ function updateStore<T, A>(this: ReactStore<T, A>, action: A): void {
     const dispatchUnreadStoreUpdate = (ReactSharedInternals as any).U;
     if (
       dispatchUnreadStoreUpdate != null &&
-      dispatchUnreadStoreUpdate(this, action)
+      dispatchUnreadStoreUpdate(this, {action})
     ) {
       return;
     }
@@ -64,19 +64,22 @@ function updateStore<T, A>(this: ReactStore<T, A>, action: A): void {
   // can render the update with the right priority and rebase it on top of
   // other pending updates. The latest value is only computed when something
   // needs it, so the reducer runs as often as it would for useReducer.
-  const headQueue = this._headQueue;
+  let headQueue = this._headQueue;
   if (headQueue === null) {
-    this._headQueue = [action];
+    headQueue = this._headQueue = [action];
   } else {
     headQueue.push(action);
   }
+  // Dispatching can render synchronously, which can update the store again,
+  // so remember where this action is.
+  const headIndex = headQueue.length - 1;
   if (records.length === 1) {
     try {
       records[0].dispatch(records[0], action);
     } catch (error) {
       // The root rejected the update before queueing it, for example because
       // of an infinite update loop. Don't apply it to the latest value either.
-      removeLastHeadAction(this);
+      removeHeadAction(this, headQueue, headIndex);
       throw error;
     }
   } else {
@@ -86,7 +89,7 @@ function updateStore<T, A>(this: ReactStore<T, A>, action: A): void {
     try {
       snapshot[0].dispatch(snapshot[0], action);
     } catch (error) {
-      removeLastHeadAction(this);
+      removeHeadAction(this, headQueue, headIndex);
       throw error;
     }
     for (let i = 1; i < snapshot.length; i++) {
@@ -95,13 +98,18 @@ function updateStore<T, A>(this: ReactStore<T, A>, action: A): void {
   }
 }
 
-function removeLastHeadAction<T, A>(store: ReactStore<T, A>): void {
-  const headQueue = store._headQueue;
-  if (headQueue !== null) {
-    headQueue.pop();
-    if (headQueue.length === 0) {
-      store._headQueue = null;
-    }
+function removeHeadAction<T, A>(
+  store: ReactStore<T, A>,
+  headQueue: Array<A>,
+  index: number,
+): void {
+  if (store._headQueue !== headQueue) {
+    // The queue, with this action, was already applied to the latest value.
+    return;
+  }
+  headQueue.splice(index, 1);
+  if (headQueue.length === 0) {
+    store._headQueue = null;
   }
 }
 

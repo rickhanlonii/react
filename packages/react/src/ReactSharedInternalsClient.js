@@ -13,6 +13,7 @@ import type {Transition} from './ReactStartTransition';
 import type {
   GestureProvider,
   GestureOptions,
+  HeldStoreUpdate,
   ReactStore,
 } from 'shared/ReactTypes';
 
@@ -31,9 +32,15 @@ export type SharedStateClient = {
   T: null | Transition, // ReactCurrentBatchConfig for Transitions
   S: null | onStartTransitionFinish,
   G: null | onStartGestureTransitionFinish,
-  // Dispatches an update to a store that no root reads. Returns whether the
-  // renderer holds on to it, because it's part of a pending transition.
-  U: null | ((store: ReactStore<any, any>, action: mixed) => boolean),
+  // Dispatches an update to a store that no root reads. Returns whether a
+  // renderer holds on to it, because it's part of a pending transition. Each
+  // renderer chains to the one that was loaded before it.
+  U:
+    | null
+    | ((
+        store: ReactStore<any, any>,
+        update: HeldStoreUpdate<mixed>,
+      ) => boolean),
 
   // DEV-only
 

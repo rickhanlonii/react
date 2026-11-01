@@ -17,6 +17,7 @@ import {
   enableComponentPerformanceTrack,
   enableFlightWeakThenables,
   enableFlightObjectReferences,
+  enableStore,
 } from 'shared/ReactFeatureFlags';
 
 import {
@@ -139,6 +140,7 @@ import {
   REACT_MEMO_TYPE,
   ASYNC_ITERATOR,
   REACT_OPTIMISTIC_KEY,
+  REACT_STORE_TYPE,
 } from 'shared/ReactSymbols';
 
 import {
@@ -3959,6 +3961,16 @@ function renderModelDestructive(
             '- A compiler tries to "inline" JSX instead of using the runtime.',
         );
       }
+    }
+
+    if (enableStore && (value as any).$$typeof === REACT_STORE_TYPE) {
+      // A store is client state, so it can't be serialized. The client needs
+      // to create it so that updates reach the components that read it.
+      throw new Error(
+        "Stores can't be passed from a Server Component to a Client Component. " +
+          'Create the store in a Client Component module instead.' +
+          describeObjectForErrorMessage(parent, parentPropertyName),
+      );
     }
 
     if (isClientReference(value)) {

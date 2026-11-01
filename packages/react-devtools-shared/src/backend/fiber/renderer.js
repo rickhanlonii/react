@@ -131,7 +131,7 @@ import {
 import {
   didFiberRender,
   getContextChanged,
-  getChangedHooksIndices,
+  getChangedHooks,
   getChangedKeys,
 } from './shared/DevToolsFiberChangeDetection';
 import {getInternalReactConstants} from './shared/DevToolsFiberInternalReactConstants';
@@ -1333,18 +1333,26 @@ export function attach(
         } else {
           const prevHooks = inspectHooks(prevFiber);
           const nextHooks = inspectHooks(nextFiber);
-          const indices = getChangedHooksIndices(prevHooks, nextHooks);
+          const changedHooks = getChangedHooks(prevHooks, nextHooks);
           const data: ChangeDescription = {
             context: getContextChanged(prevFiber, nextFiber),
-            didHooksChange: indices !== null && indices.length > 0,
+            didHooksChange:
+              changedHooks !== null &&
+              (changedHooks.hooks.length > 0 ||
+                changedHooks.storeReads.length > 0),
             isFirstMount: false,
             props: getChangedKeys(
               prevFiber.memoizedProps,
               nextFiber.memoizedProps,
             ),
             state: null,
-            hooks: indices,
+            hooks: changedHooks === null ? null : changedHooks.hooks,
           };
+          // Only add store reads when one changed, so descriptions of
+          // components that don't read stores keep their shape.
+          if (changedHooks !== null && changedHooks.storeReads.length > 0) {
+            data.storeReads = changedHooks.storeReads;
+          }
           // Only traverse the hooks list once, depending on what info we're returning.
           return data;
         }

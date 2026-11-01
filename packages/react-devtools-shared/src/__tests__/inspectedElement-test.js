@@ -3312,10 +3312,10 @@ describe('InspectedElement', () => {
   });
 
   describe('use(store)', () => {
-    // A component whose only hook is use(store) still has inspectable hooks
-    // (B-17). It has a reactVersion pragma rather than a gate pragma, so
-    // DevTools regression runs against older versions of React skip it. A gate
-    // pragma would override the reactVersion one.
+    // A component whose only hook is use(store) still has inspectable hooks.
+    // It has a reactVersion pragma rather than a gate pragma, so DevTools
+    // regression runs against older versions of React skip it. A gate pragma
+    // would override the reactVersion one.
     // @reactVersion >= 19.3
     it('should inspect the currently selected element (createRoot)', async () => {
       const countStore = React.unstable_createStore(1);
@@ -3329,8 +3329,8 @@ describe('InspectedElement', () => {
       });
 
       const inspectedElement = await inspectElementAtIndex(0);
-      // store-semantics: use(store) shows up as a 'Store' hook. It doesn't take a
-      // hook slot (id: null), and store values aren't editable in DevTools.
+      // use(store) shows up as a 'Store' hook. It doesn't take a hook slot
+      // (id: null), and store values aren't editable in DevTools.
       expect(inspectedElement).toMatchInlineSnapshot(`
         {
           "context": null,

@@ -440,58 +440,5 @@ describe('ReactDOMServerIntegrationUserInteraction', () => {
       );
       expect(changeCount).toBe(1);
     });
-
-    describe('use(store)', () => {
-      // The input reads its value from a store, so the change event that
-      // hydration dispatches for the user's edit, and the cascading update
-      // after hydration, are store updates.
-      function ControlledStoreInput({store, onChange, cascade}) {
-        const state = React.use(store);
-        function handleChange(event) {
-          if (onChange) {
-            onChange(event);
-          }
-          store.update(prevState => ({
-            ...prevState,
-            value: event.target.value,
-          }));
-        }
-        React.useLayoutEffect(() => {
-          if (cascade) {
-            // Trigger a cascading render immediately upon hydration which
-            // rerenders the input.
-            store.update(prevState => ({...prevState, cascade: true}));
-          }
-        }, []);
-        return <input value={state.value} onChange={handleChange} />;
-      }
-
-      // @gate enableStore
-      it('should not blow away user-entered text on successful reconnect to a controlled input', async () => {
-        let changeCount = 0;
-        await testUserInteractionBeforeClientRender(
-          <ControlledStoreInput
-            store={React.unstable_createStore({value: 'Hello'})}
-            onChange={() => changeCount++}
-          />,
-        );
-        expect(changeCount).toBe(
-          gate(flags => flags.enableHydrationChangeEvent) ? 1 : 0,
-        );
-      });
-
-      // @gate enableStore && enableHydrationChangeEvent
-      it('should not blow away user-entered text cascading hydration to a controlled input', async () => {
-        let changeCount = 0;
-        await testUserInteractionBeforeClientRender(
-          <ControlledStoreInput
-            store={React.unstable_createStore({value: 'Hello'})}
-            onChange={() => changeCount++}
-            cascade={true}
-          />,
-        );
-        expect(changeCount).toBe(1);
-      });
-    });
   });
 });

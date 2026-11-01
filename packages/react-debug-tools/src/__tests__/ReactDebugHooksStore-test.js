@@ -19,16 +19,22 @@ let assertLog;
 let startTransition;
 let createStore;
 
-function normalizeSourceLoc(tree) {
-  tree.forEach(node => {
-    if (node.hookSource) {
-      node.hookSource.fileName = '**';
-      node.hookSource.lineNumber = 0;
-      node.hookSource.columnNumber = 0;
+// The fields these tests check. A store read takes no hook slot, so a Store
+// node has no id, and the ids of the hooks after it don't shift.
+function summarize(tree) {
+  return tree.map(node => {
+    const summary = {name: node.name, id: node.id, value: node.value};
+    if (node.subHooks.length > 0) {
+      summary.subHooks = summarize(node.subHooks);
     }
-    normalizeSourceLoc(node.subHooks);
+    return summary;
   });
-  return tree;
+}
+
+function inspect(renderer, type) {
+  return ReactDebugTools.inspectHooksOfFiber(
+    renderer.root.findByType(type)._currentFiber(),
+  );
 }
 
 describe('ReactDebugHooks stores', () => {
@@ -64,9 +70,7 @@ describe('ReactDebugHooks stores', () => {
         unstable_isConcurrent: true,
       });
     });
-    const tree = ReactDebugTools.inspectHooksOfFiber(
-      renderer.root.findByType(Foo)._currentFiber(),
-    );
+    const tree = inspect(renderer, Foo);
     expect(tree.map(node => [node.name, node.value])).toEqual([
       ['State', 0],
       ['Store', 'a'],
@@ -84,9 +88,7 @@ describe('ReactDebugHooks stores', () => {
     expect(keys[4]).toBe(keys[1]);
 
     // A second inspection gives new nodes with the same keys.
-    const nextTree = ReactDebugTools.inspectHooksOfFiber(
-      renderer.root.findByType(Foo)._currentFiber(),
-    );
+    const nextTree = inspect(renderer, Foo);
     expect(nextTree[1]).not.toBe(tree[1]);
     expect(ReactDebugTools.getStoreKeyOfHooksNode(nextTree[1])).toBe(keys[1]);
 
@@ -136,1033 +138,213 @@ describe('ReactDebugHooks stores', () => {
       // Inspect while the transition is pending. Foo didn't read the store
       // when it rendered, so it reads it during inspection.
       readStore = true;
-      const tree = ReactDebugTools.inspectHooksOfFiber(
-        renderer.root.findByType(Foo)._currentFiber(),
-      );
+      const tree = inspect(renderer, Foo);
       assertLog([]);
       expect(tree.map(node => [node.name, node.value])).toEqual([['Store', 0]]);
     });
   });
 
-  // Cases folded in from the cleanup of the use(store) test copies (see each case's source comment).
-  describe('folded copies', () => {
-    beforeEach(() => {
-      jest.resetModules();
-      React = require('react');
-      ReactDebugTools = require('react-debug-tools');
-      createStore = React.unstable_createStore;
-    });
-
-    // @gate enableStore
-    it('should inspect a simple useState hook', () => {
-      const store = createStore('hello world');
-      function Foo(props) {
-        const state = React.use(store);
-        return <div>{state}</div>;
-      }
-      const tree = ReactDebugTools.inspectHooks(Foo, {});
-      expect(normalizeSourceLoc(tree)).toMatchInlineSnapshot(`
-        [
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": null,
-            "isStateEditable": false,
-            "name": "Store",
-            "subHooks": [],
-            "value": "hello world",
-          },
-        ]
-      `);
-    });
-
-    // @gate enableStore
-    it('should inspect a tree of multiple hooks', () => {
-      function effect() {}
-      // Each call to useCustom has its own state, so each one gets its own store.
-      const helloStore = createStore('hello');
-      const worldStore = createStore('world');
-      function useCustom(store) {
-        const state = React.use(store);
-        React.useEffect(effect);
-        return state;
-      }
-      function Foo(props) {
-        const value1 = useCustom(helloStore);
-        const value2 = useCustom(worldStore);
-        return (
-          <div>
-            {value1} {value2}
-          </div>
-        );
-      }
-      const tree = ReactDebugTools.inspectHooks(Foo, {});
-      expect(normalizeSourceLoc(tree)).toMatchInlineSnapshot(`
-        [
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": null,
-            "isStateEditable": false,
-            "name": "Custom",
-            "subHooks": [
-              {
-                "debugInfo": null,
-                "hookSource": {
-                  "columnNumber": 0,
-                  "fileName": "**",
-                  "functionName": "useCustom",
-                  "lineNumber": 0,
-                },
-                "id": null,
-                "isStateEditable": false,
-                "name": "Store",
-                "subHooks": [],
-                "value": "hello",
-              },
-              {
-                "debugInfo": null,
-                "hookSource": {
-                  "columnNumber": 0,
-                  "fileName": "**",
-                  "functionName": "useCustom",
-                  "lineNumber": 0,
-                },
-                "id": 0,
-                "isStateEditable": false,
-                "name": "Effect",
-                "subHooks": [],
-                "value": [Function],
-              },
-            ],
-            "value": undefined,
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": null,
-            "isStateEditable": false,
-            "name": "Custom",
-            "subHooks": [
-              {
-                "debugInfo": null,
-                "hookSource": {
-                  "columnNumber": 0,
-                  "fileName": "**",
-                  "functionName": "useCustom",
-                  "lineNumber": 0,
-                },
-                "id": null,
-                "isStateEditable": false,
-                "name": "Store",
-                "subHooks": [],
-                "value": "world",
-              },
-              {
-                "debugInfo": null,
-                "hookSource": {
-                  "columnNumber": 0,
-                  "fileName": "**",
-                  "functionName": "useCustom",
-                  "lineNumber": 0,
-                },
-                "id": 1,
-                "isStateEditable": false,
-                "name": "Effect",
-                "subHooks": [],
-                "value": [Function],
-              },
-            ],
-            "value": undefined,
-          },
-        ]
-      `);
+  // @gate enableStore
+  it('a store read is a Store node under the custom Hook that read it', () => {
+    function effect() {}
+    const helloStore = createStore('hello');
+    const worldStore = createStore('world');
+    function useCustom(store) {
+      const state = React.use(store);
+      React.useEffect(effect);
+      return state;
+    }
+    function Foo() {
+      return [useCustom(helloStore), useCustom(worldStore)].join(' ');
+    }
+    const tree = ReactDebugTools.inspectHooks(Foo, {});
+    expect(summarize(tree)).toEqual([
+      {
+        name: 'Custom',
+        id: null,
+        value: undefined,
+        subHooks: [
+          {name: 'Store', id: null, value: 'hello'},
+          {name: 'Effect', id: 0, value: effect},
+        ],
+      },
+      {
+        name: 'Custom',
+        id: null,
+        value: undefined,
+        subHooks: [
+          {name: 'Store', id: null, value: 'world'},
+          {name: 'Effect', id: 1, value: effect},
+        ],
+      },
+    ]);
+    expect(tree[0].subHooks[0]).toEqual({
+      id: null,
+      isStateEditable: false,
+      name: 'Store',
+      value: 'hello',
+      debugInfo: null,
+      subHooks: [],
+      hookSource: expect.objectContaining({functionName: 'useCustom'}),
     });
   });
 
-  describe('ReactHooksInspectionIntegration', () => {
-    beforeEach(() => {
-      jest.resetModules();
-      React = require('react');
-      ReactTestRenderer = require('react-test-renderer');
-      ({act} = require('internal-test-utils'));
-      ReactDebugTools = require('react-debug-tools');
-      createStore = React.unstable_createStore;
+  // @gate enableStore
+  it('Store nodes show the committed value and take no hook id', async () => {
+    function effect() {}
+    const stateStore = createStore('a');
+    const reducerStore = createStore('b', (s, a) => a.value);
+    function Foo() {
+      const state1 = React.use(stateStore);
+      const state2 = React.use(reducerStore);
+      React.useRef('c');
+      React.useLayoutEffect(effect);
+      React.useEffect(effect);
+      React.useMemo(() => state1 + state2, [state1]);
+      return state1 + state2;
+    }
+    let renderer;
+    await act(() => {
+      renderer = ReactTestRenderer.create(<Foo />, {
+        unstable_isConcurrent: true,
+      });
     });
+    expect(summarize(inspect(renderer, Foo))).toEqual([
+      {name: 'Store', id: null, value: 'a'},
+      {name: 'Store', id: null, value: 'b'},
+      {name: 'Ref', id: 0, value: 'c'},
+      {name: 'LayoutEffect', id: 1, value: effect},
+      {name: 'Effect', id: 2, value: effect},
+      {name: 'Memo', id: 3, value: 'ab'},
+    ]);
 
-    // @gate enableStore
-    it('should inspect the current state of useState hooks', async () => {
-      const store1 = createStore('hello');
-      const store2 = createStore('world');
-      function Foo(props) {
-        const state1 = React.use(store1);
-        const state2 = React.use(store2);
-        return (
-          <div onMouseDown={store1.update} onMouseUp={store2.update}>
-            {state1} {state2}
-          </div>
-        );
-      }
-      let renderer;
-      await act(() => {
-        renderer = ReactTestRenderer.create(<Foo prop="prop" />, {
-          unstable_isConcurrent: true,
-        });
-      });
-
-      let childFiber = renderer.root.findByType(Foo)._currentFiber();
-      let tree = ReactDebugTools.inspectHooksOfFiber(childFiber);
-      expect(normalizeSourceLoc(tree)).toMatchInlineSnapshot(`
-        [
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": null,
-            "isStateEditable": false,
-            "name": "Store",
-            "subHooks": [],
-            "value": "hello",
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": null,
-            "isStateEditable": false,
-            "name": "Store",
-            "subHooks": [],
-            "value": "world",
-          },
-        ]
-      `);
-
-      const {onMouseDown: setStateA, onMouseUp: setStateB} =
-        renderer.root.findByType('div').props;
-
-      await act(() => setStateA('Hi'));
-
-      childFiber = renderer.root.findByType(Foo)._currentFiber();
-      tree = ReactDebugTools.inspectHooksOfFiber(childFiber);
-
-      expect(normalizeSourceLoc(tree)).toMatchInlineSnapshot(`
-        [
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": null,
-            "isStateEditable": false,
-            "name": "Store",
-            "subHooks": [],
-            "value": "Hi",
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": null,
-            "isStateEditable": false,
-            "name": "Store",
-            "subHooks": [],
-            "value": "world",
-          },
-        ]
-      `);
-
-      await act(() => setStateB('world!'));
-
-      childFiber = renderer.root.findByType(Foo)._currentFiber();
-      tree = ReactDebugTools.inspectHooksOfFiber(childFiber);
-
-      expect(normalizeSourceLoc(tree)).toMatchInlineSnapshot(`
-        [
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": null,
-            "isStateEditable": false,
-            "name": "Store",
-            "subHooks": [],
-            "value": "Hi",
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": null,
-            "isStateEditable": false,
-            "name": "Store",
-            "subHooks": [],
-            "value": "world!",
-          },
-        ]
-      `);
+    await act(() => {
+      stateStore.update('A');
+      reducerStore.update({value: 'B'});
     });
-
-    // @gate enableStore
-    it('should inspect the current state of all stateful hooks', async () => {
-      const outsideRef = React.createRef();
-      function effect() {}
-      const stateStore = createStore('a');
-      const setState = stateStore.update;
-      const reducerStore = createStore('b', (s, a) => a.value);
-      const dispatch = reducerStore.update;
-      function Foo(props) {
-        const state1 = React.use(stateStore);
-        const state2 = React.use(reducerStore);
-        const ref = React.useRef('c');
-
-        React.useLayoutEffect(effect);
-        React.useEffect(effect);
-
-        React.useImperativeHandle(outsideRef, () => {
-          // Return a function so that jest treats them as non-equal.
-          return function Instance() {};
-        }, []);
-
-        React.useMemo(() => state1 + state2, [state1]);
-
-        function update() {
-          setState('A');
-          dispatch({value: 'B'});
-          ref.current = 'C';
-        }
-        const memoizedUpdate = React.useCallback(update, []);
-        return (
-          <div onClick={memoizedUpdate}>
-            {state1} {state2}
-          </div>
-        );
-      }
-      let renderer;
-      await act(() => {
-        renderer = ReactTestRenderer.create(<Foo prop="prop" />, {
-          unstable_isConcurrent: true,
-        });
-      });
-
-      let childFiber = renderer.root.findByType(Foo)._currentFiber();
-
-      const {onClick: updateStates} = renderer.root.findByType('div').props;
-
-      let tree = ReactDebugTools.inspectHooksOfFiber(childFiber);
-      expect(normalizeSourceLoc(tree)).toMatchInlineSnapshot(`
-        [
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": null,
-            "isStateEditable": false,
-            "name": "Store",
-            "subHooks": [],
-            "value": "a",
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": null,
-            "isStateEditable": false,
-            "name": "Store",
-            "subHooks": [],
-            "value": "b",
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 0,
-            "isStateEditable": false,
-            "name": "Ref",
-            "subHooks": [],
-            "value": "c",
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 1,
-            "isStateEditable": false,
-            "name": "LayoutEffect",
-            "subHooks": [],
-            "value": [Function],
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 2,
-            "isStateEditable": false,
-            "name": "Effect",
-            "subHooks": [],
-            "value": [Function],
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 3,
-            "isStateEditable": false,
-            "name": "ImperativeHandle",
-            "subHooks": [],
-            "value": [Function],
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 4,
-            "isStateEditable": false,
-            "name": "Memo",
-            "subHooks": [],
-            "value": "ab",
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 5,
-            "isStateEditable": false,
-            "name": "Callback",
-            "subHooks": [],
-            "value": [Function],
-          },
-        ]
-      `);
-
-      await act(() => {
-        updateStates();
-      });
-
-      childFiber = renderer.root.findByType(Foo)._currentFiber();
-      tree = ReactDebugTools.inspectHooksOfFiber(childFiber);
-
-      expect(normalizeSourceLoc(tree)).toMatchInlineSnapshot(`
-        [
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": null,
-            "isStateEditable": false,
-            "name": "Store",
-            "subHooks": [],
-            "value": "A",
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": null,
-            "isStateEditable": false,
-            "name": "Store",
-            "subHooks": [],
-            "value": "B",
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 0,
-            "isStateEditable": false,
-            "name": "Ref",
-            "subHooks": [],
-            "value": "C",
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 1,
-            "isStateEditable": false,
-            "name": "LayoutEffect",
-            "subHooks": [],
-            "value": [Function],
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 2,
-            "isStateEditable": false,
-            "name": "Effect",
-            "subHooks": [],
-            "value": [Function],
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 3,
-            "isStateEditable": false,
-            "name": "ImperativeHandle",
-            "subHooks": [],
-            "value": [Function],
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 4,
-            "isStateEditable": false,
-            "name": "Memo",
-            "subHooks": [],
-            "value": "AB",
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 5,
-            "isStateEditable": false,
-            "name": "Callback",
-            "subHooks": [],
-            "value": [Function],
-          },
-        ]
-      `);
-    });
-
-    // The transition suspends, so the store holds the new value while the
-    // committed render, and the inspected Store node, still show the old one.
-    // @gate enableStore
-    it('should update isPending returned from useTransition', async () => {
-      const IndefiniteSuspender = React.lazy(() => new Promise(() => {}));
-      let startFooTransition;
-      const showStore = createStore(false);
-      const setShow = showStore.update;
-      function Foo(props) {
-        const show = React.use(showStore);
-        const [isPending, _startTransition] = React.useTransition();
-        React.useMemo(() => 'hello', []);
-        React.useMemo(() => 'not used', []);
-
-        // Otherwise we capture the version from the react-debug-tools dispatcher.
-        if (startFooTransition === undefined) {
-          startFooTransition = () => {
-            _startTransition(() => {
-              setShow(true);
-            });
-          };
-        }
-
-        return (
-          <React.Suspense fallback="Loading">
-            {isPending ? 'Pending' : null}
-            {show ? <IndefiniteSuspender /> : null}
-          </React.Suspense>
-        );
-      }
-      const renderer = await act(() => {
-        return ReactTestRenderer.create(<Foo />, {unstable_isConcurrent: true});
-      });
-      expect(renderer).toMatchRenderedOutput(null);
-      let childFiber = renderer.root.findByType(Foo)._currentFiber();
-      let tree = ReactDebugTools.inspectHooksOfFiber(childFiber);
-      expect(normalizeSourceLoc(tree)).toMatchInlineSnapshot(`
-        [
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": null,
-            "isStateEditable": false,
-            "name": "Store",
-            "subHooks": [],
-            "value": false,
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 0,
-            "isStateEditable": false,
-            "name": "Transition",
-            "subHooks": [],
-            "value": false,
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 1,
-            "isStateEditable": false,
-            "name": "Memo",
-            "subHooks": [],
-            "value": "hello",
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 2,
-            "isStateEditable": false,
-            "name": "Memo",
-            "subHooks": [],
-            "value": "not used",
-          },
-        ]
-      `);
-
-      await act(() => {
-        startFooTransition();
-      });
-
-      expect(renderer).toMatchRenderedOutput('Pending');
-
-      childFiber = renderer.root.findByType(Foo)._currentFiber();
-      tree = ReactDebugTools.inspectHooksOfFiber(childFiber);
-      expect(normalizeSourceLoc(tree)).toMatchInlineSnapshot(`
-        [
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": null,
-            "isStateEditable": false,
-            "name": "Store",
-            "subHooks": [],
-            "value": false,
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 0,
-            "isStateEditable": false,
-            "name": "Transition",
-            "subHooks": [],
-            "value": true,
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 1,
-            "isStateEditable": false,
-            "name": "Memo",
-            "subHooks": [],
-            "value": "hello",
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 2,
-            "isStateEditable": false,
-            "name": "Memo",
-            "subHooks": [],
-            "value": "not used",
-          },
-        ]
-      `);
-    });
-
-    // The store is read only during the pending deferred render, so the Store
-    // node appears and disappears between inspections.
-    // @gate enableStore
-    it('should return the deferred value', async () => {
-      let unsuspend;
-      function Lazy() {
-        return 'Lazy';
-      }
-      const Suspender = React.lazy(
-        () =>
-          new Promise(resolve => {
-            unsuspend = () => resolve({default: Lazy});
-          }),
-      );
-      // The Provider's value is the store's initial value.
-      const store = createStore('provided');
-      let setShow;
-      function Foo(props) {
-        const [show, _setShow] = React.useState(false);
-        const deferredShow = React.useDeferredValue(show);
-        const isPending = show !== deferredShow;
-        const contextDisplay = isPending ? React.use(store) : '<none>';
-        React.useMemo(() => 'hello', []);
-        React.useMemo(() => 'not used', []);
-
-        // Otherwise we capture the version from the react-debug-tools dispatcher.
-        if (setShow === undefined) {
-          setShow = _setShow;
-        }
-
-        return (
-          <React.Suspense fallback="Loading">
-            Context: {contextDisplay},{' '}
-            {isPending ? 'Pending' : 'Nothing Pending'}
-            {deferredShow ? [', ', <Suspender key="suspender" />] : null}
-          </React.Suspense>
-        );
-      }
-      const renderer = await act(() => {
-        return ReactTestRenderer.create(<Foo />, {unstable_isConcurrent: true});
-      });
-      let childFiber = renderer.root.findByType(Foo)._currentFiber();
-      let tree = ReactDebugTools.inspectHooksOfFiber(childFiber);
-      expect(renderer).toMatchRenderedOutput(
-        'Context: <none>, Nothing Pending',
-      );
-      expect(normalizeSourceLoc(tree)).toMatchInlineSnapshot(`
-        [
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 0,
-            "isStateEditable": true,
-            "name": "State",
-            "subHooks": [],
-            "value": false,
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 1,
-            "isStateEditable": false,
-            "name": "DeferredValue",
-            "subHooks": [],
-            "value": false,
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 2,
-            "isStateEditable": false,
-            "name": "Memo",
-            "subHooks": [],
-            "value": "hello",
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 3,
-            "isStateEditable": false,
-            "name": "Memo",
-            "subHooks": [],
-            "value": "not used",
-          },
-        ]
-      `);
-
-      await act(() => {
-        setShow(true);
-      });
-
-      expect(renderer).toMatchRenderedOutput('Context: provided, Pending');
-      childFiber = renderer.root.findByType(Foo)._currentFiber();
-      tree = ReactDebugTools.inspectHooksOfFiber(childFiber);
-      // store-semantics: a store read shows up as a hook named "Store", the way
-      // a context read is named after the context ("Context" by default).
-      expect(normalizeSourceLoc(tree)).toMatchInlineSnapshot(`
-        [
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 0,
-            "isStateEditable": true,
-            "name": "State",
-            "subHooks": [],
-            "value": true,
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 1,
-            "isStateEditable": false,
-            "name": "DeferredValue",
-            "subHooks": [],
-            "value": false,
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": null,
-            "isStateEditable": false,
-            "name": "Store",
-            "subHooks": [],
-            "value": "provided",
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 2,
-            "isStateEditable": false,
-            "name": "Memo",
-            "subHooks": [],
-            "value": "hello",
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 3,
-            "isStateEditable": false,
-            "name": "Memo",
-            "subHooks": [],
-            "value": "not used",
-          },
-        ]
-      `);
-
-      await act(() => {
-        unsuspend();
-      });
-
-      expect(renderer).toMatchRenderedOutput(
-        'Context: <none>, Nothing Pending, Lazy',
-      );
-      childFiber = renderer.root.findByType(Foo)._currentFiber();
-      tree = ReactDebugTools.inspectHooksOfFiber(childFiber);
-      expect(normalizeSourceLoc(tree)).toMatchInlineSnapshot(`
-        [
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 0,
-            "isStateEditable": true,
-            "name": "State",
-            "subHooks": [],
-            "value": true,
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 1,
-            "isStateEditable": false,
-            "name": "DeferredValue",
-            "subHooks": [],
-            "value": true,
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 2,
-            "isStateEditable": false,
-            "name": "Memo",
-            "subHooks": [],
-            "value": "hello",
-          },
-          {
-            "debugInfo": null,
-            "hookSource": {
-              "columnNumber": 0,
-              "fileName": "**",
-              "functionName": "Foo",
-              "lineNumber": 0,
-            },
-            "id": 3,
-            "isStateEditable": false,
-            "name": "Memo",
-            "subHooks": [],
-            "value": "not used",
-          },
-        ]
-      `);
-    });
+    expect(summarize(inspect(renderer, Foo))).toEqual([
+      {name: 'Store', id: null, value: 'A'},
+      {name: 'Store', id: null, value: 'B'},
+      {name: 'Ref', id: 0, value: 'c'},
+      {name: 'LayoutEffect', id: 1, value: effect},
+      {name: 'Effect', id: 2, value: effect},
+      {name: 'Memo', id: 3, value: 'AB'},
+    ]);
   });
 
-  describe('React hooks DevTools integration', () => {
+  // The transition suspends, so the store holds the new value while the
+  // committed render, and the inspected Store node, still show the old one.
+  // @gate enableStore
+  it('a Store node shows the committed value while a transition that updated the store is suspended', async () => {
+    const IndefiniteSuspender = React.lazy(() => new Promise(() => {}));
+    let startFooTransition;
+    const showStore = createStore(false);
+    function Foo() {
+      const show = React.use(showStore);
+      const [isPending, _startTransition] = React.useTransition();
+
+      // Otherwise we capture the version from the react-debug-tools dispatcher.
+      if (startFooTransition === undefined) {
+        startFooTransition = () => {
+          _startTransition(() => {
+            showStore.update(true);
+          });
+        };
+      }
+
+      return (
+        <React.Suspense fallback="Loading">
+          {isPending ? 'Pending' : null}
+          {show ? <IndefiniteSuspender /> : null}
+        </React.Suspense>
+      );
+    }
+    const renderer = await act(() => {
+      return ReactTestRenderer.create(<Foo />, {unstable_isConcurrent: true});
+    });
+    expect(renderer).toMatchRenderedOutput(null);
+    expect(summarize(inspect(renderer, Foo))).toEqual([
+      {name: 'Store', id: null, value: false},
+      {name: 'Transition', id: 0, value: false},
+    ]);
+
+    await act(() => {
+      startFooTransition();
+    });
+    expect(renderer).toMatchRenderedOutput('Pending');
+    expect(summarize(inspect(renderer, Foo))).toEqual([
+      {name: 'Store', id: null, value: false},
+      {name: 'Transition', id: 0, value: true},
+    ]);
+  });
+
+  // The store is read only during the pending deferred render, so the Store
+  // node appears and disappears between inspections.
+  // @gate enableStore
+  it('a Store node appears only in renders that read the store', async () => {
+    let unsuspend;
+    function Lazy() {
+      return 'Lazy';
+    }
+    const Suspender = React.lazy(
+      () =>
+        new Promise(resolve => {
+          unsuspend = () => resolve({default: Lazy});
+        }),
+    );
+    const store = createStore('stored');
+    let setShow;
+    function Foo() {
+      const [show, _setShow] = React.useState(false);
+      const deferredShow = React.useDeferredValue(show);
+      const isPending = show !== deferredShow;
+      const storeDisplay = isPending ? React.use(store) : '<none>';
+
+      // Otherwise we capture the version from the react-debug-tools dispatcher.
+      if (setShow === undefined) {
+        setShow = _setShow;
+      }
+
+      return (
+        <React.Suspense fallback="Loading">
+          Store: {storeDisplay}, {isPending ? 'Pending' : 'Nothing Pending'}
+          {deferredShow ? [', ', <Suspender key="suspender" />] : null}
+        </React.Suspense>
+      );
+    }
+    const renderer = await act(() => {
+      return ReactTestRenderer.create(<Foo />, {unstable_isConcurrent: true});
+    });
+    expect(renderer).toMatchRenderedOutput('Store: <none>, Nothing Pending');
+    expect(summarize(inspect(renderer, Foo))).toEqual([
+      {name: 'State', id: 0, value: false},
+      {name: 'DeferredValue', id: 1, value: false},
+    ]);
+
+    await act(() => {
+      setShow(true);
+    });
+    expect(renderer).toMatchRenderedOutput('Store: stored, Pending');
+    expect(summarize(inspect(renderer, Foo))).toEqual([
+      {name: 'State', id: 0, value: true},
+      {name: 'DeferredValue', id: 1, value: false},
+      {name: 'Store', id: null, value: 'stored'},
+    ]);
+
+    await act(() => {
+      unsuspend();
+    });
+    expect(renderer).toMatchRenderedOutput(
+      'Store: <none>, Nothing Pending, Lazy',
+    );
+    expect(summarize(inspect(renderer, Foo))).toEqual([
+      {name: 'State', id: 0, value: true},
+      {name: 'DeferredValue', id: 1, value: true},
+    ]);
+  });
+
+  describe('with DevTools injected', () => {
     let overrideHookState;
-
-    global.IS_REACT_ACT_ENVIRONMENT = true;
 
     beforeEach(() => {
       global.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
@@ -1175,29 +357,26 @@ describe('ReactDebugHooks stores', () => {
       };
 
       jest.resetModules();
-
       React = require('react');
       ReactDebugTools = require('react-debug-tools');
       ReactTestRenderer = require('react-test-renderer');
       createStore = React.unstable_createStore;
-
       act = require('internal-test-utils').act;
+    });
+
+    afterEach(() => {
+      delete global.__REACT_DEVTOOLS_GLOBAL_HOOK__;
     });
 
     // A store read doesn't take a hook slot, so overriding the useState after
     // it targets the right hook.
-    // This test case is based on an open source bug report:
-    // https://github.com/facebookincubator/redux-react-hook/issues/34#issuecomment-466693787
     // @gate enableStore
-    it('should handle interleaved stateful hooks (e.g. useState) and non-stateful hooks (e.g. useContext)', async () => {
+    it('overriding the state of a Hook after a store read targets that Hook', async () => {
       const store = createStore(1);
 
-      let setStateFn;
       function useCustomHook() {
-        const context = React.use(store);
-        const [state, setState] = React.useState({count: context});
-        React.useDebugValue(state.count);
-        setStateFn = setState;
+        const initial = React.use(store);
+        const [state] = React.useState({count: initial});
         return state.count;
       }
 
@@ -1212,30 +391,27 @@ describe('ReactDebugHooks stores', () => {
           unstable_isConcurrent: true,
         });
       });
-      expect(renderer.toJSON()).toEqual({
-        type: 'div',
-        props: {},
-        children: ['count:', '1'],
-      });
+      expect(renderer).toMatchRenderedOutput(<div>count:1</div>);
 
       const fiber = renderer.root.findByType(MyComponent)._currentFiber();
       const tree = ReactDebugTools.inspectHooksOfFiber(fiber);
+      expect(summarize(tree)).toEqual([
+        {
+          name: 'CustomHook',
+          id: null,
+          value: undefined,
+          subHooks: [
+            {name: 'Store', id: null, value: 1},
+            {name: 'State', id: 0, value: {count: 1}},
+          ],
+        },
+      ]);
       const stateHook = tree[0].subHooks[1];
       expect(stateHook.isStateEditable).toBe(true);
 
       if (__DEV__) {
         await act(() => overrideHookState(fiber, stateHook.id, ['count'], 10));
-        expect(renderer.toJSON()).toEqual({
-          type: 'div',
-          props: {},
-          children: ['count:', '10'],
-        });
-        await act(() => setStateFn(state => ({count: state.count + 1})));
-        expect(renderer.toJSON()).toEqual({
-          type: 'div',
-          props: {},
-          children: ['count:', '11'],
-        });
+        expect(renderer).toMatchRenderedOutput(<div>count:10</div>);
       }
     });
   });

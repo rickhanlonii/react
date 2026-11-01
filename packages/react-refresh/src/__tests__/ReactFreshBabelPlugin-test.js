@@ -566,7 +566,7 @@ describe('ReactFreshBabelPlugin', () => {
     // The store version of "generates signatures for function declarations
     // calling hooks".
     it('leaves use(store) out of signatures', () => {
-      // store-semantics: use(store) doesn't match the Hook naming convention
+      // use(store) doesn't match the Hook naming convention
       // (use[A-Z]), so the plugin leaves it out of the signature.
       expect(
         transform(`

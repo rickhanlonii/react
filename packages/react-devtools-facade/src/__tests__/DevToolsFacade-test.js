@@ -2479,9 +2479,9 @@ describe('react-devtools-facade', () => {
       // Full structural assertion: every hook node, in order, with its id
       // (sequential per primitive hook; custom hooks are null), name, normalized
       // value (the Effect's create fn becomes '[fn]'), and subHooks.
-      // store-semantics: use(store) is reported as a "Store" hook with the value
-      // the component rendered. It doesn't take a hook slot, so its id is null
-      // and the following primitive hooks are numbered without it.
+      // use(store) is reported as a "Store" hook with the value the component
+      // rendered. It doesn't take a hook slot, so its id is null and the
+      // following primitive hooks are numbered without it.
       expect(info.hooks).toEqual([
         {id: null, name: 'Store', value: 7, subHooks: []},
         {id: 0, name: 'Effect', value: '[fn]', subHooks: []},

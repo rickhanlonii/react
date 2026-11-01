@@ -11004,5 +11004,59 @@ Unfortunately that previous paragraph wasn't quite long enough so I'll continue 
         );
       },
     );
+
+    // @gate enableStore
+    it('warns once if a store was updated before the server render', async () => {
+      const store = createStore('initial');
+      function Reader() {
+        return use(store);
+      }
+      function App() {
+        return (
+          <div>
+            <span>
+              <Reader />
+            </span>
+            <span>
+              <Reader />
+            </span>
+          </div>
+        );
+      }
+
+      store.update('server data');
+
+      await act(() => {
+        const {pipe} = renderToPipeableStream(<App />);
+        pipe(writable);
+      });
+      assertConsoleErrorDev([
+        'A store was updated before this server render. The server renders ' +
+          "a store's initial value, so the update isn't included. Create the " +
+          'store with the server data, or pass a per-request store through ' +
+          'context.\n' +
+          '    in App (at **)',
+      ]);
+      expect(getVisibleChildren(container)).toEqual(
+        <div>
+          <span>initial</span>
+          <span>initial</span>
+        </div>,
+      );
+    });
+
+    // @gate enableStore
+    it('does not warn if a store was not updated before the server render', async () => {
+      const store = createStore('initial');
+      function App() {
+        return <div>{use(store)}</div>;
+      }
+
+      await act(() => {
+        const {pipe} = renderToPipeableStream(<App />);
+        pipe(writable);
+      });
+      expect(getVisibleChildren(container)).toEqual(<div>initial</div>);
+    });
   });
 });

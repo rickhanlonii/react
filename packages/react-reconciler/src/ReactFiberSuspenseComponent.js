@@ -41,10 +41,10 @@ export type SuspenseState = {
   retryLane: Lane,
   // Stashed Errors that happened while attempting to hydrate this boundary.
   hydrationErrors: Array<CapturedValue<mixed>> | null,
-  // The stores read by the primary children that suspended, while the
-  // fallback is showing. The boundary subscribes to them, so a store update
-  // retries it.
-  storeReads: Array<StoreRecord<any, any>> | null,
+  // enableStore only: the stores read by the primary children that
+  // suspended, while the fallback is showing. The boundary subscribes to
+  // them, so a store update retries it.
+  storeReads?: Array<StoreRecord<any, any>> | null,
 };
 
 export type SuspenseListRenderState = {

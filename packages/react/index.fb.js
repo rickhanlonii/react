@@ -85,7 +85,7 @@ if (__DEV__) {
   captureOwnerStack = captureOwnerStackImpl;
 }
 
-let unstable_createStore: typeof createStore;
+let unstable_createStore: ?typeof createStore;
 if (enableStore) {
   unstable_createStore = createStore;
 }

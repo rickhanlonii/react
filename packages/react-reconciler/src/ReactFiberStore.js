@@ -7,7 +7,7 @@
  * @flow
  */
 
-import type {ReactStore} from 'shared/ReactTypes';
+import type {HeldStoreUpdate, ReactStore} from 'shared/ReactTypes';
 import type {Fiber, FiberRoot} from './ReactInternalTypes';
 import type {Lane, Lanes} from './ReactFiberLane';
 import type {FunctionComponentUpdateQueue} from './ReactFiberHooks';
@@ -38,7 +38,7 @@ import {
   enqueueConcurrentRenderForLane,
   enqueueConcurrentRenderForLaneOnMountedFiber,
   enqueueConcurrentStoreUpdate,
-  getConcurrentlyUpdatedLanes,
+  getConcurrentQueuesEpoch,
 } from './ReactFiberConcurrentUpdates';
 import {
   requestStoreUpdateLane,
@@ -53,7 +53,10 @@ import {
   requestTransitionLane,
   ensureScheduleIsScheduled,
 } from './ReactFiberRootScheduler';
-import {peekEntangledActionLane} from './ReactFiberAsyncAction';
+import {
+  peekEntangledActionLane,
+  peekEntangledActionThenable,
+} from './ReactFiberAsyncAction';
 import {markStateUpdateScheduled} from './ReactFiberDevToolsHook';
 import ReactSharedInternals from 'shared/ReactSharedInternals';
 import is from 'shared/objectIs';
@@ -161,6 +164,17 @@ export type StoreRecord<T, A> = {
   // Used to check whether the component that's rendering already read this
   // store, without searching its list of reads.
   readEpoch: number,
+  // The lanes of the updates dispatched to this record since the concurrent
+  // queue was last drained, at enqueuedEpoch. They aren't in pending yet,
+  // and the readers are already scheduled in them.
+  enqueuedLanes: Lanes,
+  enqueuedEpoch: number,
+  // The reader those updates were attributed to, for DevTools.
+  scheduledFiber: Fiber | null,
+  // Whether the committed state's queue has held updates that no render has
+  // processed yet. The committed state doesn't include the ones that aren't
+  // part of a transition, so the HostRoot always processes the record.
+  hasUnprocessedHeldUpdates: boolean,
   dispatch: (record: StoreRecord<T, A>, action: A) => void,
 };
 
@@ -169,6 +183,10 @@ const NO_ERROR: any = {};
 // Hydrated readers that rendered an out of date value. They render again
 // after the mutation phase.
 let staleHydratedReaders: Array<Fiber> | null = null;
+
+// Whether any component has read a store yet, so an app without stores
+// skips the work of tracking them.
+let didReadStores: boolean = false;
 
 // The stores read by the primary children of a Suspense boundary that
 // suspended during the current render. The boundary subscribes to them if it
@@ -210,6 +228,7 @@ export function getStoreRecord<T, A>(
   // transitions that haven't finished. Computing it can run the reducer,
   // which isn't part of the component that's reading, so it runs without a
   // dispatcher.
+  didReadStores = true;
   const prevDispatcher = ReactSharedInternals.H;
   ReactSharedInternals.H = null;
   let head;
@@ -233,6 +252,10 @@ export function getStoreRecord<T, A>(
     lastVersion: -1,
     lastState: null,
     readEpoch: -1,
+    enqueuedLanes: NoLanes,
+    enqueuedEpoch: -1,
+    scheduledFiber: null,
+    hasUnprocessedHeldUpdates: false,
     dispatch: dispatchStoreUpdate,
   };
   records.push(record);
@@ -245,9 +268,10 @@ export function getStoreRecord<T, A>(
     storesWithPendingTransitionUpdates.delete(store);
     let last: StoreUpdate<A> | null = null;
     let headQueue = store._headQueue;
-    for (let i = 0; i < pendingTransitionUpdates.length; i += 2) {
-      const action: A = pendingTransitionUpdates[i] as any;
-      const lane: Lane = pendingTransitionUpdates[i + 1] as any;
+    for (let i = 0; i < pendingTransitionUpdates.length; i++) {
+      const heldUpdate = pendingTransitionUpdates[i];
+      const action = heldUpdate.action;
+      const lane = getHeldStoreUpdateLane(heldUpdate);
       const update: StoreUpdate<A> = {
         lane,
         action,
@@ -271,6 +295,7 @@ export function getStoreRecord<T, A>(
       }
     }
     record.committed.baseQueue = last;
+    record.hasUnprocessedHeldUpdates = true;
     record.isPending = true;
     const pending = root.pendingStoreRecords;
     if (pending === null) {
@@ -313,6 +338,27 @@ export function getStoreRecord<T, A>(
 // root read them when they were dispatched.
 const storesWithPendingTransitionUpdates: Set<ReactStore<any, any>> = new Set();
 
+// The held updates are shared by every renderer on the page, but each
+// renderer assigns its own lanes, so each one keeps its lane for them here.
+// An update that isn't part of a transition, or whose transition is done,
+// has NoLane.
+const heldStoreUpdateLanes: WeakMap<HeldStoreUpdate<any>, Lane> = new WeakMap();
+
+// The held updates dispatched in the current event's transition.
+let heldStoreUpdatesOfEvent: Array<HeldStoreUpdate<any>> | null = null;
+
+function getHeldStoreUpdateLane(update: HeldStoreUpdate<any>): Lane {
+  const lane = heldStoreUpdateLanes.get(update);
+  // A renderer that was loaded after the update was held has no lane for it,
+  // because none of its transitions include it.
+  return lane === undefined ? NoLane : lane;
+}
+
+let prevDispatchUnreadStoreUpdate:
+  | null
+  | ((store: ReactStore<any, any>, update: HeldStoreUpdate<any>) => boolean) =
+  null;
+
 // Called when a store that no root reads is updated. An update that's part
 // of a transition is held until the transition is done, so that a component
 // that starts reading the store before then, in a render that doesn't
@@ -320,31 +366,69 @@ const storesWithPendingTransitionUpdates: Set<ReactStore<any, any>> = new Set();
 // comes after one that's held is held too, so they apply in order.
 function dispatchUnreadStoreUpdate<T, A>(
   store: ReactStore<T, A>,
-  action: A,
+  update: HeldStoreUpdate<A>,
 ): boolean {
   const transition = requestCurrentTransition();
   const pending = store._pendingTransitionUpdates;
-  if (transition === null && pending === null) {
-    return false;
-  }
-  let lane = NoLane;
-  if (transition !== null) {
-    lane = requestTransitionLane(transition);
-    // Like any other transition update, reset the event's transition lane
-    // once the event is over, so a later transition gets its own.
-    ensureScheduleIsScheduled();
-  }
-  if (pending === null) {
-    store._pendingTransitionUpdates = [action, lane];
+  const isHeld = transition !== null || pending !== null;
+  if (isHeld) {
+    let lane = NoLane;
+    if (transition !== null) {
+      lane = requestTransitionLane(transition);
+      // Like any other transition update, reset the event's transition lane
+      // once the event is over, so a later transition gets its own.
+      ensureScheduleIsScheduled();
+      if (heldStoreUpdatesOfEvent === null) {
+        heldStoreUpdatesOfEvent = [update];
+      } else {
+        heldStoreUpdatesOfEvent.push(update);
+      }
+    }
+    heldStoreUpdateLanes.set(update, lane);
+    // The first renderer that holds the update adds it to the store.
+    if (pending === null) {
+      store._pendingTransitionUpdates = [update];
+    } else if (pending[pending.length - 1] !== update) {
+      pending.push(update);
+    }
     storesWithPendingTransitionUpdates.add(store);
-  } else {
-    pending.push(action, lane);
   }
-  return true;
+  // Every renderer on the page makes the same decision, since they share
+  // the transition and the store, but each one needs its own lane for the
+  // update. So pass it on to the renderer that was loaded before this one.
+  const prev = prevDispatchUnreadStoreUpdate;
+  const isHeldByEarlierRenderer = prev != null && prev(store, update);
+  return isHeld || isHeldByEarlierRenderer;
 }
 
 if (enableStore) {
+  prevDispatchUnreadStoreUpdate = ReactSharedInternals.U;
   ReactSharedInternals.U = dispatchUnreadStoreUpdate as any;
+}
+
+// Called at the end of an event that dispatched transition updates. If no
+// root has the event's transition lane pending, the transition had nothing
+// else to render, so the updates it held are done. Clear their lane, so a
+// later transition that's assigned the same lane doesn't hold them back.
+export function finishHeldStoreUpdatesOfEvent(
+  isTransitionPending: boolean,
+): void {
+  const updates = heldStoreUpdatesOfEvent;
+  if (updates === null) {
+    return;
+  }
+  heldStoreUpdatesOfEvent = null;
+  if (isTransitionPending) {
+    return;
+  }
+  const entangledActionLane = peekEntangledActionLane();
+  for (let i = 0; i < updates.length; i++) {
+    const update = updates[i];
+    const lane = heldStoreUpdateLanes.get(update);
+    if (lane !== undefined && lane !== entangledActionLane) {
+      heldStoreUpdateLanes.set(update, NoLane);
+    }
+  }
 }
 
 // Applies the held updates whose transitions are done to the latest value of
@@ -356,12 +440,14 @@ function settlePendingTransitionUpdates(
 ): void {
   const pending = store._pendingTransitionUpdates;
   if (pending === null) {
+    // Another renderer applied them, or a root took them over.
+    storesWithPendingTransitionUpdates.delete(store);
     return;
   }
   const entangledActionLane = peekEntangledActionLane();
   let i = 0;
-  for (; i < pending.length; i += 2) {
-    const lane: Lane = pending[i + 1] as any;
+  for (; i < pending.length; i++) {
+    const lane = getHeldStoreUpdateLane(pending[i]);
     if (
       lane !== NoLane &&
       (lane === entangledActionLane ||
@@ -374,12 +460,14 @@ function settlePendingTransitionUpdates(
     return;
   }
   // Apply them now, instead of when the latest value is next needed, so a
-  // reducer error is reported, like it would be if no update were held.
+  // reducer error is reported, like it would be if no update were held. They
+  // are removed from the store, so they're applied once, even if several
+  // renderers held them.
   const reducer = store._reducer;
   let head = getStoreHead(store);
-  for (let j = 0; j < i; j += 2) {
+  for (let j = 0; j < i; j++) {
     try {
-      head = reducer(head, pending[j]);
+      head = reducer(head, pending[j].action);
     } catch (error) {
       reportGlobalError(error);
     }
@@ -414,6 +502,28 @@ function hasPendingStoreUpdates(record: StoreRecord<any, any>): boolean {
   );
 }
 
+// Whether the state of the record in a render with these lanes is its
+// committed state, so the HostRoot doesn't have to process it: it has no new
+// updates, and none of the updates in its queue are in the render's lanes.
+// The committed state already includes the updates in the queue that every
+// render applies, the ones with NoLane.
+function canUseCommittedStoreState(
+  record: StoreRecord<any, any>,
+  renderLanes: Lanes,
+): boolean {
+  if (record.pending !== null) {
+    return false;
+  }
+  if (record.committed.baseQueue === null) {
+    return true;
+  }
+  // The record's lanes include the lanes of every update in its queue.
+  return (
+    !record.hasUnprocessedHeldUpdates &&
+    (record.lanes & renderLanes) === NoLanes
+  );
+}
+
 function getStoreQueueLanes(last: StoreUpdate<any> | null): Lanes {
   let lanes = NoLanes;
   if (last !== null) {
@@ -424,6 +534,32 @@ function getStoreQueueLanes(last: StoreUpdate<any> | null): Lanes {
     } while (update !== last);
   }
   return lanes;
+}
+
+// Called after the HostRoot processes its stores. A reader that renders an
+// update from a pending async action suspends until the action is done, like
+// a component that reads state the action updated. A store that no component
+// is subscribed to has no reader to suspend, so the HostRoot suspends instead.
+// Otherwise this render would commit the update before the action is done, and
+// a reader that mounts before then would show it early.
+export function suspendIfUnreadStoreReadFromEntangledAsyncAction(
+  storeStates: ?StoreStates,
+): void {
+  if (storeStates == null) {
+    return;
+  }
+  let shouldSuspend = false;
+  storeStates.map.forEach((state, record) => {
+    if (state.didReadEntangledAction && record.readers.size === 0) {
+      shouldSuspend = true;
+    }
+  });
+  if (shouldSuspend) {
+    const entangledActionThenable = peekEntangledActionThenable();
+    if (entangledActionThenable !== null) {
+      throw entangledActionThenable;
+    }
+  }
 }
 
 // Called when the HostRoot begins work. Computes the state of every store
@@ -438,7 +574,7 @@ export function processStoreRecords(
   renderLanes: Lanes,
   // The states this HostRoot processed earlier in the same render, if it's
   // beginning again, for example after an error unwound to the root.
-  prevStates: StoreStates | null,
+  prevStates: ?StoreStates,
 ): StoreStates | null {
   const pending = root.pendingStoreRecords;
   if (pending === null) {
@@ -454,8 +590,14 @@ export function processStoreRecords(
   try {
     for (let i = 0; i < pending.length; i++) {
       const record = pending[i];
+      if (canUseCommittedStoreState(record, renderLanes)) {
+        // Every update to the store is skipped. The lanes stay on the
+        // HostRoot, so the root renders them later.
+        skippedLanes = mergeLanes(skippedLanes, record.lanes);
+        continue;
+      }
       const state = processStoreRecord(record, renderLanes);
-      if (prevStates !== null && state.errorUpdate !== null) {
+      if (prevStates != null && state.errorUpdate !== null) {
         const prevState = prevStates.map.get(record);
         if (
           prevState !== undefined &&
@@ -600,8 +742,8 @@ export function getStoreStateForRender<T, A>(
   }
   const rootState: RootState = hostRoot.memoizedState;
   const storeStates = rootState.storeStates;
-  if (storeStates === null) {
-    if (record.committed.baseQueue === null) {
+  if (storeStates == null) {
+    if (canUseCommittedStoreState(record, storeRenderLanes)) {
       return record.committed;
     }
   } else {
@@ -609,8 +751,12 @@ export function getStoreStateForRender<T, A>(
       return record.lastState as any;
     }
     let state = storeStates.map.get(record);
-    if (state === undefined && record.committed.baseQueue === null) {
-      // Not processed by this render, and nothing to process.
+    if (
+      state === undefined &&
+      canUseCommittedStoreState(record, storeRenderLanes)
+    ) {
+      // Not processed by this render, because none of its updates are in
+      // the render's lanes.
       state = record.committed;
     }
     if (state !== undefined) {
@@ -634,11 +780,11 @@ export function getStoreStateForRender<T, A>(
   const current = hostRoot.alternate;
   let nextStoreStates = storeStates;
   if (
-    nextStoreStates === null ||
+    nextStoreStates == null ||
     (current !== null && current.memoizedState.storeStates === nextStoreStates)
   ) {
     nextStoreStates = createStoreStates(
-      nextStoreStates === null ? new Map() : new Map(nextStoreStates.map),
+      nextStoreStates == null ? new Map() : new Map(nextStoreStates.map),
       NoLanes,
     );
     hostRoot.memoizedState = {
@@ -773,24 +919,37 @@ function dispatchStoreUpdate<T, A>(record: StoreRecord<T, A>, action: A): void {
   // so a render that's already in progress doesn't see it.
   const hostRoot = root.current;
   enqueueConcurrentStoreUpdate(hostRoot, record as any, update as any, lane);
-  // Schedule every component that reads the store. Readers subscribe when
-  // they commit and unsubscribe when they're deleted, so they're always
-  // mounted on this root. The concurrent queue walks to the root from each
-  // one when the next render starts.
-  let scheduledFiber = hostRoot;
-  record.readers.forEach(fiber => {
-    enqueueConcurrentRenderForLaneOnMountedFiber(fiber, lane);
-    if (enableSchedulingProfiler) {
-      markStateUpdateScheduled(fiber, lane);
-    }
-    scheduledFiber = fiber;
-  });
+  const epoch = getConcurrentQueuesEpoch();
+  if (record.enqueuedEpoch !== epoch) {
+    record.enqueuedEpoch = epoch;
+    record.enqueuedLanes = NoLanes;
+  }
+  if (!isSubsetOfLanes(record.enqueuedLanes, lane)) {
+    record.enqueuedLanes = mergeLanes(record.enqueuedLanes, lane);
+    // Schedule every component that reads the store. Readers subscribe when
+    // they commit and unsubscribe when they're deleted, so they're always
+    // mounted on this root. The concurrent queue walks to the root from each
+    // one when the next render starts. If an earlier update already
+    // scheduled them in this lane and is still in the queue, there's nothing
+    // to add: a reader that subscribed since is scheduled in every pending
+    // lane when it subscribes.
+    let scheduledFiber = null;
+    record.readers.forEach(fiber => {
+      enqueueConcurrentRenderForLaneOnMountedFiber(fiber, lane);
+      if (enableSchedulingProfiler) {
+        markStateUpdateScheduled(fiber, lane);
+      }
+      scheduledFiber = fiber;
+    });
+    record.scheduledFiber = scheduledFiber;
+  }
   // Attribute the update to a reader, if there is one, for DevTools and act
   // warnings. A render phase update is attributed to the root, like an
   // update to another component.
+  const scheduledFiber = record.scheduledFiber;
   scheduleUpdateOnFiber(
     root,
-    isRenderPhaseUpdate ? hostRoot : scheduledFiber,
+    isRenderPhaseUpdate || scheduledFiber === null ? hostRoot : scheduledFiber,
     lane,
   );
 
@@ -837,6 +996,13 @@ function unsubscribeFromStores(
     if (alternate !== null) {
       readers.delete(alternate);
     }
+    if (
+      record.scheduledFiber !== null &&
+      (record.scheduledFiber === fiber || record.scheduledFiber === alternate)
+    ) {
+      // Don't keep the deleted fiber alive.
+      record.scheduledFiber = null;
+    }
     if (readers.size === 0 && !record.mayBeUnsubscribed) {
       // Check whether the record can be dropped when this root commits.
       record.mayBeUnsubscribed = true;
@@ -882,7 +1048,7 @@ export function unsubscribeFromStoresOnDeletion(fiber: Fiber): void {
     return;
   }
   const inst = updateQueue.storeInst;
-  if (inst !== null) {
+  if (inst != null) {
     const destroy = inst.destroy;
     if (destroy !== undefined) {
       inst.destroy = undefined;
@@ -901,6 +1067,9 @@ export function collectStoreReadsOfSuspendedTree(
   sourceFiber: Fiber,
   boundary: Fiber,
 ): void {
+  if (!didReadStores) {
+    return;
+  }
   let records =
     suspendedBoundary === boundary ? suspendedBoundaryStoreReads : null;
   let fiber: Fiber | null = sourceFiber;
@@ -913,7 +1082,7 @@ export function collectStoreReadsOfSuspendedTree(
       const updateQueue: FunctionComponentUpdateQueue | null =
         fiber.updateQueue as any;
       const reads = updateQueue === null ? null : updateQueue.storeReads;
-      if (reads !== null) {
+      if (reads != null) {
         for (let i = 0; i < reads.length; i += 2) {
           const record: StoreRecord<any, any> = reads[i] as any;
           if (records === null) {
@@ -973,10 +1142,10 @@ export function commitSuspenseStoreReads(
   const prevReads = prevState === null ? null : prevState.storeReads;
   const nextReads = nextState === null ? null : nextState.storeReads;
   if (prevReads !== nextReads) {
-    if (prevReads !== null) {
+    if (prevReads != null) {
       unsubscribeFromStores(finishedWork, prevReads);
     }
-    if (nextReads !== null) {
+    if (nextReads != null) {
       subscribeToStores(finishedWork, nextReads);
     }
   }
@@ -984,7 +1153,7 @@ export function commitSuspenseStoreReads(
 
 export function unsubscribeSuspenseStoreReadsOnDeletion(fiber: Fiber): void {
   const state: SuspenseState | null = fiber.memoizedState;
-  if (state !== null && state.storeReads !== null) {
+  if (state !== null && state.storeReads != null) {
     unsubscribeFromStores(fiber, state.storeReads);
   }
 }
@@ -995,11 +1164,12 @@ function removeStoreRecord(record: StoreRecord<any, any>): void {
   // the only ones that can still reference the record.
   const rootState: RootState = record.root.current.memoizedState;
   const storeStates = rootState.storeStates;
-  if (storeStates !== null) {
+  if (storeStates != null) {
     storeStates.map.delete(record);
   }
   record.lastVersion = -1;
   record.lastState = null;
+  record.scheduledFiber = null;
   const records = record.store._records;
   const index = records.indexOf(record);
   if (index !== -1) {
@@ -1019,6 +1189,7 @@ function commitStoreState(
     return;
   }
   record.committed = state;
+  record.hasUnprocessedHeldUpdates = false;
   if (state.errorUpdate !== null) {
     if (
       !didCommitErrorBoundary(state.errorFibers, committingFinishedWork as any)
@@ -1059,7 +1230,7 @@ export function commitStoreStates(root: FiberRoot, finishedWork: Fiber): void {
   }
   const rootState: RootState = finishedWork.memoizedState;
   const storeStates = rootState.storeStates;
-  if (storeStates !== null) {
+  if (storeStates != null) {
     committingFinishedWork = finishedWork;
     storeStates.map.forEach(commitStoreState);
     committingFinishedWork = null;
@@ -1068,9 +1239,9 @@ export function commitStoreStates(root: FiberRoot, finishedWork: Fiber): void {
   if (pending === null) {
     return;
   }
-  // Updates dispatched during the render haven't been added to their queues
-  // yet.
-  const concurrentlyUpdatedLanes = getConcurrentlyUpdatedLanes();
+  // Updates dispatched since the concurrent queue was last drained haven't
+  // been added to their queues yet.
+  const epoch = getConcurrentQueuesEpoch();
   let writeIndex = 0;
   for (let i = 0; i < pending.length; i++) {
     const record = pending[i];
@@ -1079,7 +1250,7 @@ export function commitStoreStates(root: FiberRoot, finishedWork: Fiber): void {
         getStoreQueueLanes(record.committed.baseQueue),
         getStoreQueueLanes(record.pending),
       ),
-      intersectLanes(record.lanes, concurrentlyUpdatedLanes),
+      record.enqueuedEpoch === epoch ? record.enqueuedLanes : NoLanes,
     );
     if (hasPendingStoreUpdates(record)) {
       pending[writeIndex++] = record;

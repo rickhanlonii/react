@@ -36,6 +36,7 @@ import {
   enableViewTransition,
   enableGestureTransition,
   enableDefaultTransitionIndicator,
+  enableStore,
 } from 'shared/ReactFeatureFlags';
 import type {StoreStates} from './ReactFiberStore';
 import {initializeUpdateQueue} from './ReactFiberClassUpdateQueue';
@@ -46,9 +47,9 @@ export type RootState = {
   element: any,
   isDehydrated: boolean,
   cache: Cache,
-  // The states of the stores this render processed. When the HostRoot
-  // commits, they become the committed states.
-  storeStates: StoreStates | null,
+  // enableStore only: the states of the stores this render processed. When
+  // the HostRoot commits, they become the committed states.
+  storeStates?: StoreStates | null,
 };
 
 function FiberRootNode(
@@ -72,8 +73,6 @@ function FiberRootNode(
   this.timeoutHandle = noTimeout;
   this.cancelPendingCommit = null;
   this.context = null;
-  this.pendingStoreRecords = null;
-  this.unsubscribedStoreRecords = null;
   this.pendingContext = null;
   this.next = null;
   this.callbackNode = null;
@@ -122,6 +121,11 @@ function FiberRootNode(
   if (enableGestureTransition) {
     this.pendingGestures = null;
     this.gestureClone = null;
+  }
+
+  if (enableStore) {
+    this.pendingStoreRecords = null;
+    this.unsubscribedStoreRecords = null;
   }
 
   this.incompleteTransitions = new Map();
@@ -229,12 +233,18 @@ export function createFiberRoot(
   // retained separately.
   root.pooledCache = initialCache;
   retainCache(initialCache);
-  const initialState: RootState = {
-    element: initialChildren,
-    isDehydrated: hydrate,
-    cache: initialCache,
-    storeStates: null,
-  };
+  const initialState: RootState = enableStore
+    ? {
+        element: initialChildren,
+        isDehydrated: hydrate,
+        cache: initialCache,
+        storeStates: null,
+      }
+    : {
+        element: initialChildren,
+        isDehydrated: hydrate,
+        cache: initialCache,
+      };
   uninitializedFiber.memoizedState = initialState;
 
   initializeUpdateQueue(uninitializedFiber);

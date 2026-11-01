@@ -125,6 +125,7 @@ import {
 import {
   takeStoreReadsOfSuspendedTree,
   processStoreRecords,
+  suspendIfUnreadStoreReadFromEntangledAsyncAction,
 } from './ReactFiberStore';
 import shallowEqual from 'shared/shallowEqual';
 import getComponentNameFromFiber from 'react-reconciler/src/getComponentNameFromFiber';
@@ -1970,6 +1971,9 @@ function updateHostRoot(
   // it needs to happen after the `pushCacheProvider` call above to avoid a
   // context stack mismatch. A bit unfortunate.
   suspendIfUpdateReadFromEntangledAsyncAction();
+  if (enableStore) {
+    suspendIfUnreadStoreReadFromEntangledAsyncAction(nextState.storeStates);
+  }
 
   // Caution: React DevTools currently depends on this property
   // being called "element".
@@ -1980,19 +1984,25 @@ function updateHostRoot(
 
     // Flip isDehydrated to false to indicate that when this render
     // finishes, the root will no longer be dehydrated.
-    const overrideState: RootState = {
-      element: nextChildren,
-      isDehydrated: false,
-      cache: nextState.cache,
-      storeStates: nextState.storeStates,
-    };
+    const overrideState: RootState = enableStore
+      ? {
+          element: nextChildren,
+          isDehydrated: false,
+          cache: nextState.cache,
+          storeStates: nextState.storeStates,
+        }
+      : {
+          element: nextChildren,
+          isDehydrated: false,
+          cache: nextState.cache,
+        };
     const updateQueue: UpdateQueue<RootState> =
       workInProgress.updateQueue as any;
     // `baseState` can always be the last state because the root doesn't
     // have reducer functions so it doesn't need rebasing. The store states
     // belong to this render, so they're left out of it.
     updateQueue.baseState =
-      enableStore && overrideState.storeStates !== null
+      enableStore && overrideState.storeStates != null
         ? {
             element: overrideState.element,
             isDehydrated: overrideState.isDehydrated,
@@ -2399,13 +2409,20 @@ function validateFunctionComponentInDev(workInProgress: Fiber, Component: any) {
   }
 }
 
-const SUSPENDED_MARKER: SuspenseState = {
-  dehydrated: null,
-  treeContext: null,
-  retryLane: NoLane,
-  hydrationErrors: null,
-  storeReads: null,
-};
+const SUSPENDED_MARKER: SuspenseState = enableStore
+  ? {
+      dehydrated: null,
+      treeContext: null,
+      retryLane: NoLane,
+      hydrationErrors: null,
+      storeReads: null,
+    }
+  : {
+      dehydrated: null,
+      treeContext: null,
+      retryLane: NoLane,
+      hydrationErrors: null,
+    };
 
 function getSuspendedState(
   current: Fiber | null,
@@ -2427,7 +2444,7 @@ function getSuspendedState(
     }
     const prevState: SuspenseState | null =
       current === null ? null : current.memoizedState;
-    if (prevState !== null && prevState.storeReads !== null) {
+    if (prevState !== null && prevState.storeReads != null) {
       // Still showing the fallback. Keep the subscriptions.
       return prevState;
     }

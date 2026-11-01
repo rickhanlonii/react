@@ -65,8 +65,7 @@ export function didStatefulHookChange(
   return false;
 }
 
-// The leaves of a hooks tree in order. These are the positions the frontend
-// shows as "Hook N changed".
+// The leaves of a hooks tree in order.
 function flattenHooks(tree: HooksTree, leaves: Array<HooksNode>): void {
   for (let i = 0; i < tree.length; i++) {
     const node = tree[i];
@@ -78,17 +77,27 @@ function flattenHooks(tree: HooksTree, leaves: Array<HooksNode>): void {
   }
 }
 
-// Returns the positions of the hooks in nextHooks that changed since prevHooks.
+export type ChangedHooks = {
+  // The ids of the changed hooks that take a slot in the list of Hooks. These
+  // are the ids the frontend matches against the inspected hooks, and shows as
+  // "Hook N".
+  hooks: Array<number>,
+  // Store reads have no id. These are the positions of the changed reads among
+  // the store reads of the new render, in order.
+  storeReads: Array<number>,
+};
+
+// Returns the hooks in nextHooks that changed since prevHooks.
 //
 // Hooks that take a slot in the list of Hooks keep their id across renders, so
 // they're matched by id. use(store) takes no slot and can be called
 // conditionally, so a store read is matched with the read of the same store in
 // the previous render (the first read with the first read, and so on). A read
 // that only happens in one of the two renders isn't a change.
-export function getChangedHooksIndices(
+export function getChangedHooks(
   prevHooks: HooksTree | null,
   nextHooks: HooksTree | null,
-): null | Array<number> {
+): null | ChangedHooks {
   if (prevHooks == null || nextHooks == null) {
     return null;
   }
@@ -117,30 +126,37 @@ export function getChangedHooksIndices(
     }
   }
 
-  const indices: Array<number> = [];
+  const hooks: Array<number> = [];
+  const storeReads: Array<number> = [];
   const nextStoreReadCounts: Map<mixed, number> = new Map();
+  let storeReadIndex = 0;
   for (let i = 0; i < nextLeaves.length; i++) {
     const nextHook = nextLeaves[i];
-    let prevHook;
-    if (nextHook.id !== null) {
-      prevHook = prevHooksByID.get(nextHook.id);
-    } else {
-      const storeKey = getStoreKeyOfHooksNode(nextHook);
-      if (storeKey !== null) {
-        const count = nextStoreReadCounts.get(storeKey) || 0;
-        nextStoreReadCounts.set(storeKey, count + 1);
-        const reads = prevStoreReads.get(storeKey);
-        prevHook = reads === undefined ? undefined : reads[count];
+    const id = nextHook.id;
+    if (id !== null) {
+      const prevHook = prevHooksByID.get(id);
+      if (prevHook !== undefined && didStatefulHookChange(prevHook, nextHook)) {
+        hooks.push(id);
       }
+      continue;
     }
-    // Hooks without a match (Context, DebugValue, a store that wasn't read
-    // before) can't have changed state.
+    const storeKey = getStoreKeyOfHooksNode(nextHook);
+    if (storeKey === null) {
+      // Hooks without a slot that aren't store reads (Context, Promise) can't
+      // have changed state.
+      continue;
+    }
+    const count = nextStoreReadCounts.get(storeKey) || 0;
+    nextStoreReadCounts.set(storeKey, count + 1);
+    const reads = prevStoreReads.get(storeKey);
+    const prevHook = reads === undefined ? undefined : reads[count];
     if (prevHook !== undefined && didStatefulHookChange(prevHook, nextHook)) {
-      indices.push(i);
+      storeReads.push(storeReadIndex);
     }
+    storeReadIndex++;
   }
 
-  return indices;
+  return {hooks, storeReads};
 }
 
 export function getChangedKeys(prev: any, next: any): null | Array<string> {

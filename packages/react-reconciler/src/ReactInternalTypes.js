@@ -232,12 +232,6 @@ type BaseFiberRootProperties = {
   cancelPendingCommit: null | (() => void),
   // Top context object, used by renderSubtreeIntoContainer
   context: Object | null,
-  // The records of the stores read by this root that have pending updates,
-  // and the ones that may have no readers. And the value of the store update
-  // sequence and the entangled lanes of the current render, which every store
-  // read in the render uses.
-  pendingStoreRecords: Array<StoreRecord<any, any>> | null,
-  unsubscribedStoreRecords: Array<StoreRecord<any, any>> | null,
   pendingContext: Object | null,
 
   // Used to create a linked list that represent all the roots that have
@@ -300,6 +294,12 @@ type BaseFiberRootProperties = {
   // enableGestureTransition only
   pendingGestures: null | ScheduledGesture,
   gestureClone: null | Instance,
+
+  // enableStore only
+  // The records of the stores read by this root that have updates that
+  // haven't committed, and the ones that may have no readers.
+  pendingStoreRecords: Array<StoreRecord<any, any>> | null,
+  unsubscribedStoreRecords: Array<StoreRecord<any, any>> | null,
 };
 
 // The following attributes are only used by DevTools and are only present in DEV builds.

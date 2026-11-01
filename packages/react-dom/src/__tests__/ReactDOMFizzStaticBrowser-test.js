@@ -2967,9 +2967,9 @@ describe('ReactDOMFizzStaticBrowser', () => {
       function Abort() {
         const value = use(valueStore);
         if (prerendering && value === 0) {
-          // store-semantics: the server renders the value the store was created
-          // with and doesn't re-render for updates, so the abort happens in the
-          // same render as the updates around it.
+          // The server renders the value the store was created with and
+          // doesn't re-render for updates, so the abort happens in the same
+          // render as the updates around it.
           valueStore.update(1);
           controller.abort('render-phase abort');
           valueStore.update(2);
@@ -3009,6 +3009,15 @@ describe('ReactDOMFizzStaticBrowser', () => {
           JSON.parse(JSON.stringify(prerendered.postponed)),
         ),
       );
+      // The prerender updated the store, so the resumed render warns that it
+      // renders the store's initial value without those updates.
+      assertConsoleErrorDev([
+        'A store was updated before this server render. The server renders ' +
+          "a store's initial value, so the update isn't included. Create the " +
+          'store with the server data, or pass a per-request store through ' +
+          'context.\n' +
+          '    in App (at **)',
+      ]);
       await readIntoContainer(resumed);
       expect(getVisibleChildren(container)).toEqual(
         <div>

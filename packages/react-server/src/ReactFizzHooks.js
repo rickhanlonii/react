@@ -96,6 +96,11 @@ let actionStateMatchingIndex: number = -1;
 let thenableIndexCounter: number = 0;
 let thenableState: ThenableState | null = null;
 
+let didWarnAboutUpdatedStore;
+if (__DEV__) {
+  didWarnAboutUpdatedStore = new WeakSet<ReactStore<any>>();
+}
+
 const browserReasonInitializationFallback =
   'The reason for browser-only rendering could not be determined because its ' +
   'initializer threw.';
@@ -849,6 +854,20 @@ function use<T>(usable: Usable<T>): T {
       // also what the client hydrates with. Updates to the store are not
       // rendered on the server.
       const store: ReactStore<T> = usable as any;
+      if (__DEV__) {
+        if (
+          (store._head !== store._initial || store._headQueue !== null) &&
+          !didWarnAboutUpdatedStore.has(store)
+        ) {
+          didWarnAboutUpdatedStore.add(store);
+          console.error(
+            'A store was updated before this server render. The server ' +
+              "renders a store's initial value, so the update isn't included. " +
+              'Create the store with the server data, or pass a per-request ' +
+              'store through context.',
+          );
+        }
+      }
       return store._initial;
     }
   }

@@ -865,6 +865,44 @@ describe('ProfilingCache', () => {
   });
 
   // @reactVersion >= 18.0
+  it('should report changed hooks by id when hooks without an id come first', () => {
+    const Context = React.createContext(0);
+
+    let setFirst = null;
+    let setSecond = null;
+    const Component = () => {
+      // Context takes no slot in the list of Hooks, so it has no id.
+      React.useContext(Context);
+      const [first, _setFirst] = React.useState('a');
+      const [second, _setSecond] = React.useState('b');
+      setFirst = _setFirst;
+      setSecond = _setSecond;
+      return first + second;
+    };
+
+    utils.act(() => render(<Component />));
+
+    // Save references before inspectHooks() overwrites them.
+    const realSetFirst = setFirst;
+    const realSetSecond = setSecond;
+
+    utils.act(() => store.profilerStore.startProfiling());
+    utils.act(() => realSetFirst('c'));
+    utils.act(() => realSetSecond('d'));
+    utils.act(() => store.profilerStore.stopProfiling());
+
+    const rootID = store.roots[0];
+    const changedHooks = store.profilerStore
+      .getDataForRoot(rootID)
+      .commitData.map(
+        commitData =>
+          Array.from(commitData.changeDescriptions.values())[0].hooks,
+      );
+    // The ids match the hook numbers in the inspected hooks, which skip Context.
+    expect(changedHooks).toEqual([[0], [1]]);
+  });
+
+  // @reactVersion >= 18.0
   it('should calculate durations based on actual children (not filtered children)', () => {
     store.componentFilters = [utils.createDisplayNameFilter('^Parent$')];
 
@@ -1439,8 +1477,9 @@ describe('ProfilingCache', () => {
       use = React.use;
     });
 
-    // Store reads are stateful, so a store update is reported as a changed hook
-    // (B-16). It has a reactVersion pragma rather than a gate pragma, so
+    // Store reads are stateful, so a store update is reported as a changed
+    // hook. Store reads have no id, so they're reported by their position among
+    // the store reads, and the ids of the other hooks don't count them. It has a reactVersion pragma rather than a gate pragma, so
     // DevTools regression runs against older versions of React skip it. A gate
     // pragma would override the reactVersion one.
     // @reactVersion >= 19.3
@@ -1593,12 +1632,13 @@ describe('ProfilingCache', () => {
           3 => {
             "context": false,
             "didHooksChange": true,
-            "hooks": [
-              1,
-            ],
+            "hooks": [],
             "isFirstMount": false,
             "props": [],
             "state": null,
+            "storeReads": [
+              1,
+            ],
           },
         }
       `);
@@ -1609,12 +1649,13 @@ describe('ProfilingCache', () => {
           3 => {
             "context": false,
             "didHooksChange": true,
-            "hooks": [
-              0,
-            ],
+            "hooks": [],
             "isFirstMount": false,
             "props": [],
             "state": null,
+            "storeReads": [
+              0,
+            ],
           },
         }
       `);
@@ -1640,7 +1681,7 @@ describe('ProfilingCache', () => {
             "context": false,
             "didHooksChange": true,
             "hooks": [
-              2,
+              0,
             ],
             "isFirstMount": false,
             "props": [],

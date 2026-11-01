@@ -38,7 +38,7 @@ ordered by priority within each section. Nothing is committed yet.
 | D2 | Client `cache()` lifetime and mechanism | A new render-scoped root (`getRenderCache()`), **not** the removed `<Cache>`/`CacheContext` design | §3.2. Background: #27977, #28698, reactwg #53/#72 |
 | D3 | Which A form to teach | **Pass the reads in** as the default: `cache(fn)(use(a), use(b), arg)`. The handle form `use(family(arg))` is a follow-up | §3.1 |
 | D4 | Pursue option B (dependency-tracked entries that skip readers)? | **A flagged experiment only**, gated on real-app data | §4. `research/signals-review.md` (includes prior art #20646, #30407/#31806, #171, #296) |
-| D5 | Reading stores outside render | **Don't ship a derived read.** A handler uses its render closure or an updater. If forced, a committed `peek(root)`, never the latest value | `research/reading-outside-render.md`, signals review |
+| D5 | Reading stores outside render | **Decided (2026-11-01): no read outside render, Seb's position.** Reads go through `use()` in a React scope, and a store is "use():ed or written to" (#140), with writes outside render. A handler uses its render closure, and read-then-write uses an updater or the reducer. Seb hasn't said anything about a read of the latest value (`getSnapshot()`), so ask him before adding one. | `research/reading-outside-render.md`, DECISIONS DCP-21 |
 | D6 | `enableSameElementBailout` | Review and roll out **as its own PR**, separate from stores | DCP-10 |
 | D7 | `enableNoCloningMemoCache` | **Don't enable for stores:** no measured benefit, and an identity-loss risk | DECISIONS.md, "Finding: enableNoCloningMemoCache…" |
 | D8 | Store reducer errors when nothing reads the store | Accept DCP-14: `store.update()` throws synchronously and the update isn't applied | DCP-14 |
@@ -203,9 +203,12 @@ signals review:
 
 ## 5. Other engineering follow-ups
 
-1. **Compiler: `f(use(a), use(b), x)` isn't memoized** (the scope is
-   flattened). Hoisted reads work. This must be fixed before people learn the
-   wrong idiom; it also affects §3.1's default form.
+1. **Compiler (corrected 2026-11-01):** `f(use(a), use(b), x)` *is* memoized.
+   Both reads go into temporaries first, so `f` gets its own scope keyed on the
+   values. What isn't memoized is a mutable value still being built when `use()`
+   runs, like an array filled with `push(use(a))` or built in a loop over
+   `use()` calls, because its scope contains `use()` and is flattened. Pinned by
+   the `use-operator-store-*` compiler fixtures.
    (`FlattenScopesWithHooksOrUseHIR`.)
 2. **Compiler and lint awareness of handles.** Make sure
    `use(family(args))` compiles optimally (memoize handle creation, keep `use`

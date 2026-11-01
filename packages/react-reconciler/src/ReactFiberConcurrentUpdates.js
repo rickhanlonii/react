@@ -47,11 +47,16 @@ let concurrentQueuesIndex = 0;
 
 let concurrentlyUpdatedLanes: Lanes = NoLanes;
 
+// Incremented every time the queue is drained, so a caller can tell whether
+// something it enqueued is still waiting in it.
+let concurrentQueuesEpoch: number = 0;
+
 export function finishQueueingConcurrentUpdates(): void {
   const endIndex = concurrentQueuesIndex;
   concurrentQueuesIndex = 0;
 
   concurrentlyUpdatedLanes = NoLanes;
+  concurrentQueuesEpoch++;
 
   let i = 0;
   while (i < endIndex) {
@@ -85,6 +90,10 @@ export function finishQueueingConcurrentUpdates(): void {
 
 export function getConcurrentlyUpdatedLanes(): Lanes {
   return concurrentlyUpdatedLanes;
+}
+
+export function getConcurrentQueuesEpoch(): number {
+  return concurrentQueuesEpoch;
 }
 
 function enqueueUpdate(

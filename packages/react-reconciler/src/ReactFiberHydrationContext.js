@@ -66,6 +66,7 @@ import {
   validateHydratableTextInstance,
 } from './ReactFiberConfig';
 import {OffscreenLane} from './ReactFiberLane';
+import {enableStore} from 'shared/ReactFeatureFlags';
 import {
   getSuspendedTreeContext,
   restoreSuspendedTreeContext,
@@ -354,13 +355,20 @@ function tryHydrateSuspense(
   );
   // $FlowFixMe[invalid-compare]
   if (suspenseInstance !== null) {
-    const suspenseState: SuspenseState = {
-      dehydrated: suspenseInstance,
-      treeContext: getSuspendedTreeContext(),
-      retryLane: OffscreenLane,
-      hydrationErrors: null,
-      storeReads: null,
-    };
+    const suspenseState: SuspenseState = enableStore
+      ? {
+          dehydrated: suspenseInstance,
+          treeContext: getSuspendedTreeContext(),
+          retryLane: OffscreenLane,
+          hydrationErrors: null,
+          storeReads: null,
+        }
+      : {
+          dehydrated: suspenseInstance,
+          treeContext: getSuspendedTreeContext(),
+          retryLane: OffscreenLane,
+          hydrationErrors: null,
+        };
     fiber.memoizedState = suspenseState;
     // Store the dehydrated fragment as a child fiber.
     // This simplifies the code for getHostSibling and deleting nodes,

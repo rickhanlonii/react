@@ -9,7 +9,7 @@
 
 // "Why did this render?" for components that read stores. use(store) can be
 // called conditionally, so store reads are matched across renders by store,
-// not by position (B-20).
+// not by position.
 //
 // Cases are marked `@reactVersion >= 19.3`, so DevTools regression runs
 // against older versions of React skip them.
@@ -45,7 +45,8 @@ describe('profiling store change detection', () => {
       .commitData.map(commitData => {
         const descriptions = Array.from(commitData.changeDescriptions.values());
         expect(descriptions).toHaveLength(1);
-        return descriptions[0].hooks;
+        const {hooks, storeReads} = descriptions[0];
+        return {hooks, storeReads: storeReads ?? []};
       });
   }
 
@@ -86,7 +87,7 @@ describe('profiling store change detection', () => {
     utils.act(() => setState('def'));
     utils.act(() => store.profilerStore.stopProfiling());
 
-    expect(getChangedHooks()).toEqual([[0]]);
+    expect(getChangedHooks()).toEqual([{hooks: [0], storeReads: []}]);
   });
 
   // @reactVersion >= 19.3
@@ -104,7 +105,7 @@ describe('profiling store change detection', () => {
     utils.act(() => setState('abc'));
     utils.act(() => store.profilerStore.stopProfiling());
 
-    expect(getChangedHooks()).toEqual([[0]]);
+    expect(getChangedHooks()).toEqual([{hooks: [0], storeReads: []}]);
   });
 
   // @reactVersion >= 19.3
@@ -127,7 +128,10 @@ describe('profiling store change detection', () => {
     utils.act(() => setState('abd'));
     utils.act(() => store.profilerStore.stopProfiling());
 
-    expect(getChangedHooks()).toEqual([[0, 2], [0]]);
+    expect(getChangedHooks()).toEqual([
+      {hooks: [0], storeReads: [1]},
+      {hooks: [0], storeReads: []},
+    ]);
   });
 
   // @reactVersion >= 19.3
@@ -145,6 +149,63 @@ describe('profiling store change detection', () => {
     utils.act(() => storeB.update(5));
     utils.act(() => store.profilerStore.stopProfiling());
 
-    expect(getChangedHooks()).toEqual([[0, 2], [1]]);
+    expect(getChangedHooks()).toEqual([
+      {hooks: [], storeReads: [0, 2]},
+      {hooks: [], storeReads: [1]},
+    ]);
+  });
+
+  // Store reads have no id, so the ids of the hooks after them don't count
+  // them.
+  // @reactVersion >= 19.3
+  it('reports a store read and a state hook after it separately', () => {
+    const countStore = createStore(1);
+    let setState = null;
+    function Component() {
+      const count = React.use(countStore);
+      let state;
+      [state, setState] = React.useState('a');
+      return state + count;
+    }
+
+    utils.act(() => render(<Component />));
+    const realSetState = setState;
+
+    utils.act(() => store.profilerStore.startProfiling());
+    utils.act(() => countStore.update(2));
+    utils.act(() => realSetState('b'));
+    utils.act(() => store.profilerStore.stopProfiling());
+
+    expect(getChangedHooks()).toEqual([
+      {hooks: [], storeReads: [0]},
+      {hooks: [0], storeReads: []},
+    ]);
+  });
+
+  // @reactVersion >= 19.3
+  it('reports a store read in a custom hook', () => {
+    const countStore = createStore(1);
+    function useCount() {
+      return React.use(countStore);
+    }
+    let setState = null;
+    function Component() {
+      let state;
+      [state, setState] = React.useState('a');
+      return state + useCount();
+    }
+
+    utils.act(() => render(<Component />));
+    const realSetState = setState;
+
+    utils.act(() => store.profilerStore.startProfiling());
+    utils.act(() => countStore.update(2));
+    utils.act(() => realSetState('b'));
+    utils.act(() => store.profilerStore.stopProfiling());
+
+    expect(getChangedHooks()).toEqual([
+      {hooks: [], storeReads: [0]},
+      {hooks: [0], storeReads: []},
+    ]);
   });
 });

@@ -262,11 +262,12 @@ export type FunctionComponentUpdateQueue = {
   events: Array<EventFunctionPayload<any, any, any>> | null,
   stores: Array<StoreConsistencyCheck<any>> | null,
   memoCache: MemoCache | null,
-  // The stores read during the last render, as pairs of a StoreRecord and
-  // the value that was read.
-  storeReads: Array<mixed> | null,
-  // The instance of the effect that subscribes to every store in storeReads.
-  storeInst: EffectInstance | null,
+  // enableStore only: the stores read during the last render, as pairs of a
+  // StoreRecord and the value that was read.
+  storeReads?: Array<mixed> | null,
+  // enableStore only: the instance of the effect that subscribes to every
+  // store in storeReads.
+  storeInst?: EffectInstance | null,
 };
 
 type BasicStateAction<S> = (S => S) | S;
@@ -671,7 +672,7 @@ function finishRenderingHooks<Props, SecondArg>(
     checkIfUseWasUsedBefore(workInProgress, thenableState);
   }
 
-  if (enableStore) {
+  if (enableStore && didReadStores) {
     finishStoreReads(current, workInProgress);
   }
 
@@ -1094,13 +1095,21 @@ function updateWorkInProgressHook(): Hook {
 }
 
 function createFunctionComponentUpdateQueue(): FunctionComponentUpdateQueue {
+  if (enableStore) {
+    return {
+      lastEffect: null,
+      events: null,
+      stores: null,
+      memoCache: null,
+      storeReads: null,
+      storeInst: null,
+    };
+  }
   return {
     lastEffect: null,
     events: null,
     stores: null,
     memoCache: null,
-    storeReads: null,
-    storeInst: null,
   };
 }
 
@@ -1110,8 +1119,10 @@ function resetFunctionComponentUpdateQueue(
   updateQueue.lastEffect = null;
   updateQueue.events = null;
   updateQueue.stores = null;
-  updateQueue.storeReads = null;
-  updateQueue.storeInst = null;
+  if (enableStore) {
+    updateQueue.storeReads = null;
+    updateQueue.storeInst = null;
+  }
   if (updateQueue.memoCache != null) {
     // NOTE: this function intentionally does not reset memoCache data. We reuse updateQueue for the memo
     // cache to avoid increasing the size of fibers that don't need a cache, but we don't want to reset
@@ -1191,6 +1202,10 @@ let storeReadsEpoch: number = 0;
 // changed since.
 let didHydrateStaleStore: boolean = false;
 
+// Whether any component has read a store yet. Until one does, there are no
+// store reads to keep track of after a component renders.
+let didReadStores: boolean = false;
+
 function useStore<T>(store: ReactStore<T>): T {
   const fiber = currentlyRenderingFiber;
   // $FlowFixMe[invalid-compare]: This is null outside of a function component.
@@ -1213,6 +1228,7 @@ function useStore<T>(store: ReactStore<T>): T {
       'Expected a work-in-progress root. This is a bug in React. Please file an issue.',
     );
   }
+  didReadStores = true;
   const record = getStoreRecord(store, root);
   const state = getStoreStateForRender(record, hostRoot);
   if (__DEV__ && shouldDoubleInvokeUserFnsInHooksDEV) {
@@ -1226,9 +1242,23 @@ function useStore<T>(store: ReactStore<T>): T {
       ReactSharedInternals.H = prevDispatcher;
     }
   }
-  // Throws if a reducer threw, like every other component that reads the
-  // store in this render.
-  let value = readStoreState(state, fiber);
+  const isHydrating = getIsHydrating();
+  let value;
+  if (isHydrating) {
+    // The server rendered the initial value of the store, so hydrate with
+    // that. If the store has changed since, the component renders again with
+    // the latest value once it has hydrated. If a reducer threw, it doesn't
+    // throw here either: the server value is still valid, and since no
+    // component rendered the error, the commit reports it.
+    if (!is(state.memoizedState, store._initial)) {
+      didHydrateStaleStore = true;
+    }
+    value = store._initial;
+  } else {
+    // Throws if a reducer threw, like every other component that reads the
+    // store in this render.
+    value = readStoreState(state, fiber);
+  }
 
   // Use the lanes of the root, not of this subtree: a revealed Activity
   // renders with its base lanes, but the store's value is the root's.
@@ -1246,17 +1276,6 @@ function useStore<T>(store: ReactStore<T>): T {
     markSkippedUpdateLanes(skippedLanes);
   }
 
-  const isHydrating = getIsHydrating();
-  if (isHydrating) {
-    // The server rendered the initial value of the store, so hydrate with
-    // that. If the store has changed since, the component renders again with
-    // the latest value once it has hydrated.
-    if (!is(value, store._initial)) {
-      didHydrateStaleStore = true;
-    }
-    value = store._initial;
-  }
-
   let componentUpdateQueue: null | FunctionComponentUpdateQueue =
     fiber.updateQueue as any;
   if (componentUpdateQueue === null) {
@@ -1267,7 +1286,7 @@ function useStore<T>(store: ReactStore<T>): T {
   // subscriptions are updated once the component has finished rendering, in
   // finishStoreReads.
   let storeReads = componentUpdateQueue.storeReads;
-  if (storeReads === null) {
+  if (storeReads == null) {
     storeReads = componentUpdateQueue.storeReads = [];
     storeReadsEpoch++;
   } else if (record.readEpoch === storeReadsEpoch) {
@@ -1287,7 +1306,7 @@ function useStore<T>(store: ReactStore<T>): T {
       current === null ? null : (current.updateQueue as any);
     const previousReads =
       currentUpdateQueue === null ? null : currentUpdateQueue.storeReads;
-    if (previousReads !== null) {
+    if (previousReads != null) {
       const previousIndex = previousReads.indexOf(record);
       if (
         previousIndex !== -1 &&
@@ -1364,13 +1383,13 @@ function finishStoreReads(current: Fiber | null, workInProgress: Fiber): void {
   if (current !== null) {
     const currentUpdateQueue: null | FunctionComponentUpdateQueue =
       current.updateQueue as any;
-    if (currentUpdateQueue !== null && currentUpdateQueue.storeReads !== null) {
+    if (currentUpdateQueue !== null && currentUpdateQueue.storeReads != null) {
       previousReads = currentUpdateQueue.storeReads;
       inst = currentUpdateQueue.storeInst;
     }
   }
-  if (updateQueue === null || nextReads === null) {
-    if (inst !== null) {
+  if (updateQueue === null || nextReads == null) {
+    if (inst != null) {
       // The component stopped reading stores. Unsubscribe when this commits.
       workInProgress.flags |= UpdateEffect;
       pushSimpleEffect(
@@ -1383,7 +1402,7 @@ function finishStoreReads(current: Fiber | null, workInProgress: Fiber): void {
     }
     return;
   }
-  if (inst === null) {
+  if (inst == null) {
     inst = createEffectInstance();
   }
   updateQueue.storeInst = inst;
@@ -1439,6 +1458,9 @@ function use<T>(usable: Usable<T>): T {
         const store: ReactStore<T> = usable as any;
         return useStore(store);
       }
+    } else if (usable.$$typeof === REACT_STORE_TYPE) {
+      // React can export createStore to a renderer that's built without it.
+      throw new Error('use(store) is not supported by this renderer.');
     }
   }
 

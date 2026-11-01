@@ -190,7 +190,10 @@ export type ChangeDescription = {
   isFirstMount: boolean,
   props: Array<string> | null,
   state: Array<string> | null,
+  // The ids of the changed hooks that take a slot in the list of Hooks.
   hooks?: Array<number> | null,
+  // The positions of the changed store reads among the component's store reads.
+  storeReads?: Array<number>,
 };
 
 export type CommitDataBackend = {
