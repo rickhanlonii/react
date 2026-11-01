@@ -53,16 +53,13 @@ export function finishQueueingConcurrentUpdates(): void {
 
   concurrentlyUpdatedLanes = NoLanes;
 
-  let lastParent: Fiber | null = null;
-  let lastLane: Lane = NoLane;
-
   let i = 0;
   while (i < endIndex) {
     const fiber: Fiber = concurrentQueues[i];
     concurrentQueues[i++] = null;
     const queue: ConcurrentQueue = concurrentQueues[i];
     concurrentQueues[i++] = null;
-    const update: ConcurrentUpdate | null = concurrentQueues[i];
+    const update: ConcurrentUpdate = concurrentQueues[i];
     concurrentQueues[i++] = null;
     const lane: Lane = concurrentQueues[i];
     concurrentQueues[i++] = null;
@@ -81,22 +78,7 @@ export function finishQueueingConcurrentUpdates(): void {
     }
 
     if (lane !== NoLane) {
-      if (update === null && fiber.return === lastParent && lane === lastLane) {
-        // Siblings often update together, like the items of a list that read
-        // the same store. The first one marked the path to the root, and an
-        // entry without an update doesn't need markHiddenUpdate. Mark the
-        // fiber itself again, since a render that was in progress when it was
-        // queued may have reset its lanes.
-        fiber.lanes = mergeLanes(fiber.lanes, lane);
-        const alternate = fiber.alternate;
-        if (alternate !== null) {
-          alternate.lanes = mergeLanes(alternate.lanes, lane);
-        }
-      } else {
-        markUpdateLaneFromFiberToRoot(fiber, update, lane);
-        lastParent = fiber.return;
-        lastLane = lane;
-      }
+      markUpdateLaneFromFiberToRoot(fiber, update, lane);
     }
   }
 }

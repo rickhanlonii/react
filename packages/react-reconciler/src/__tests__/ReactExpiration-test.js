@@ -768,4 +768,313 @@ describe('ReactExpiration', () => {
       assertLog(['Effect: 1']);
     }
   });
+
+  describe('use(store)', () => {
+    // These cases read a store in place of component state, where the store
+    // update path matters to what the case checks.
+    let createStore;
+    let use;
+    let useLayoutEffect;
+
+    beforeEach(() => {
+      createStore = React.unstable_createStore;
+      use = React.use;
+      useLayoutEffect = React.useLayoutEffect;
+    });
+
+    // @gate enableStore
+    it('cannot update at the same expiration time that is already rendering', async () => {
+      const store = createStore('initial');
+      function Connected({label}) {
+        const text = use(store);
+        useLayoutEffect(() => {
+          Scheduler.log(`${text} [${label}] [commit]`);
+        });
+        Scheduler.log(`${text} [${label}] [render]`);
+        return <span prop={text} />;
+      }
+
+      function App() {
+        return (
+          <>
+            <Connected label="A" />
+            <Connected label="B" />
+            <Connected label="C" />
+            <Connected label="D" />
+          </>
+        );
+      }
+
+      // Initial mount
+      React.startTransition(() => {
+        ReactNoop.render(<App />);
+      });
+
+      await waitForAll([
+        'initial [A] [render]',
+        'initial [B] [render]',
+        'initial [C] [render]',
+        'initial [D] [render]',
+        'initial [A] [commit]',
+        'initial [B] [commit]',
+        'initial [C] [commit]',
+        'initial [D] [commit]',
+      ]);
+
+      // Partial update
+      React.startTransition(() => {
+        store.update('1');
+      });
+
+      await waitFor(['1 [A] [render]', '1 [B] [render]']);
+
+      // Before the update can finish, update again. Even though no time has
+      // advanced, this update should be given a different expiration time than
+      // the currently rendering one. So, C and D should render with 1, not 2.
+      React.startTransition(() => {
+        store.update('2');
+      });
+      await waitFor(['1 [C] [render]', '1 [D] [render]']);
+    });
+
+    // @gate enableStore
+    it('prevents starvation by sync updates by disabling time slicing if too much time has elapsed', async () => {
+      const highPriStore = createStore(0);
+      const normalPriStore = createStore(0);
+      const updateSyncPri = () => {
+        ReactNoop.flushSync(() => {
+          highPriStore.update(n => n + 1);
+        });
+      };
+      const updateNormalPri = () => normalPriStore.update(n => n + 1);
+      function App() {
+        const highPri = use(highPriStore);
+        const normalPri = use(normalPriStore);
+        return (
+          <>
+            <Text text={'Sync pri: ' + highPri} />
+            {', '}
+            <Text text={'Normal pri: ' + normalPri} />
+          </>
+        );
+      }
+
+      const root = ReactNoop.createRoot();
+      await act(() => {
+        root.render(<App />);
+      });
+      assertLog(['Sync pri: 0', 'Normal pri: 0']);
+      expect(root).toMatchRenderedOutput('Sync pri: 0, Normal pri: 0');
+
+      // First demonstrate what happens when there's no starvation
+      await act(async () => {
+        React.startTransition(() => {
+          updateNormalPri();
+        });
+        await waitFor(['Sync pri: 0']);
+        updateSyncPri();
+        assertLog(['Sync pri: 1', 'Normal pri: 0']);
+
+        // The remaining work hasn't expired, so the render phase is time sliced.
+        // In other words, we can flush just the first child without flushing
+        // the rest.
+        //
+        // Yield right after first child.
+        await waitFor(['Sync pri: 1']);
+        // Now do the rest.
+        await waitForAll(['Normal pri: 1']);
+      });
+      expect(root).toMatchRenderedOutput('Sync pri: 1, Normal pri: 1');
+
+      // Do the same thing, but starve the first update
+      await act(async () => {
+        React.startTransition(() => {
+          updateNormalPri();
+        });
+        await waitFor(['Sync pri: 1']);
+
+        // This time, a lot of time has elapsed since the normal pri update
+        // started rendering. (This should advance time by some number that's
+        // definitely bigger than the constant heuristic we use to detect
+        // starvation of normal priority updates.)
+        Scheduler.unstable_advanceTime(10000);
+
+        updateSyncPri();
+        assertLog(['Sync pri: 2', 'Normal pri: 1']);
+
+        // The remaining work _has_ expired, so the render phase is _not_ time
+        // sliced. Attempting to flush just the first child also flushes the rest.
+        await waitFor(['Sync pri: 2'], {
+          additionalLogsAfterAttemptingToYield: ['Normal pri: 2'],
+        });
+      });
+      expect(root).toMatchRenderedOutput('Sync pri: 2, Normal pri: 2');
+    });
+
+    // @gate enableStore
+    it('idle work never expires', async () => {
+      const syncPriStore = createStore(0);
+      const idlePriStore = createStore(0);
+      const updateSyncPri = () =>
+        ReactNoop.flushSync(() => syncPriStore.update(n => n + 1));
+      const updateIdlePri = () =>
+        ReactNoop.idleUpdates(() => {
+          idlePriStore.update(n => n + 1);
+        });
+      function App() {
+        const syncPri = use(syncPriStore);
+        const highPri = use(idlePriStore);
+        return (
+          <>
+            <Text text={'Sync pri: ' + syncPri} />
+            {', '}
+            <Text text={'Idle pri: ' + highPri} />
+          </>
+        );
+      }
+
+      const root = ReactNoop.createRoot();
+      await act(() => {
+        root.render(<App />);
+      });
+      assertLog(['Sync pri: 0', 'Idle pri: 0']);
+      expect(root).toMatchRenderedOutput('Sync pri: 0, Idle pri: 0');
+
+      // First demonstrate what happens when there's no starvation
+      await act(async () => {
+        updateIdlePri();
+        await waitFor(['Sync pri: 0']);
+        updateSyncPri();
+      });
+      // Same thing should happen as last time
+      assertLog([
+        // Interrupt idle update to render sync update
+        'Sync pri: 1',
+        'Idle pri: 0',
+        // Now render idle
+        'Sync pri: 1',
+        'Idle pri: 1',
+      ]);
+      expect(root).toMatchRenderedOutput('Sync pri: 1, Idle pri: 1');
+
+      // Do the same thing, but starve the first update
+      await act(async () => {
+        updateIdlePri();
+        await waitFor(['Sync pri: 1']);
+
+        // Advance a ridiculously large amount of time to demonstrate that the
+        // idle work never expires
+        Scheduler.unstable_advanceTime(100000);
+
+        updateSyncPri();
+      });
+      assertLog([
+        // Interrupt idle update to render sync update
+        'Sync pri: 2',
+        'Idle pri: 1',
+        // Now render idle
+        'Sync pri: 2',
+        'Idle pri: 2',
+      ]);
+      expect(root).toMatchRenderedOutput('Sync pri: 2, Idle pri: 2');
+    });
+
+    // @gate enableStore
+    it('when multiple lanes expire, we can finish the in-progress one without including the others', async () => {
+      const aStore = createStore(0);
+      const bStore = createStore(0);
+      const setA = aStore.update;
+      const setB = bStore.update;
+      function App() {
+        const a = use(aStore);
+        const b = use(bStore);
+        return (
+          <>
+            <Text text={'A' + a} />
+            <Text text={'B' + b} />
+            <Text text="C" />
+          </>
+        );
+      }
+
+      const root = ReactNoop.createRoot();
+      await act(() => {
+        root.render(<App />);
+      });
+      assertLog(['A0', 'B0', 'C']);
+      expect(root).toMatchRenderedOutput('A0B0C');
+
+      await act(async () => {
+        startTransition(() => {
+          setA(1);
+        });
+        await waitFor(['A1']);
+        startTransition(() => {
+          setB(1);
+        });
+        await waitFor(['B0']);
+
+        // Expire both the transitions
+        Scheduler.unstable_advanceTime(10000);
+        // Both transitions have expired, but since they aren't related
+        // (entangled), we should be able to finish the in-progress transition
+        // without also including the next one.
+        await waitFor([], {
+          additionalLogsAfterAttemptingToYield: ['C'],
+        });
+        expect(root).toMatchRenderedOutput('A1B0C');
+
+        // The next transition also finishes without yielding.
+        await waitFor(['A1'], {
+          additionalLogsAfterAttemptingToYield: ['B1', 'C'],
+        });
+        expect(root).toMatchRenderedOutput('A1B1C');
+      });
+    });
+
+    // @gate enableStore
+    it('flushSync should not affect expired work', async () => {
+      const aStore = createStore(0);
+      const bStore = createStore(0);
+      const setA = aStore.update;
+      const setB = bStore.update;
+      function App() {
+        const a = use(aStore);
+        const b = use(bStore);
+        return (
+          <>
+            <Text text={'A' + a} />
+            <Text text={'B' + b} />
+          </>
+        );
+      }
+
+      const root = ReactNoop.createRoot();
+      await act(() => {
+        root.render(<App />);
+      });
+      assertLog(['A0', 'B0']);
+
+      await act(async () => {
+        startTransition(() => {
+          setA(1);
+        });
+        await waitFor(['A1']);
+
+        // Expire the in-progress update
+        Scheduler.unstable_advanceTime(10000);
+
+        ReactNoop.flushSync(() => {
+          setB(1);
+        });
+        assertLog(['A0', 'B1']);
+
+        // Now flush the original update. Because it expired, it should finish
+        // without yielding.
+        await waitFor(['A1'], {
+          additionalLogsAfterAttemptingToYield: ['B1'],
+        });
+      });
+    });
+  });
 });

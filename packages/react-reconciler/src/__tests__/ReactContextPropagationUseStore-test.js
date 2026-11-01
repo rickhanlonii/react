@@ -1,10 +1,20 @@
+// The cases of ReactContextPropagation-test.js, with context replaced by
+// `use(store)`: a store update has to reach its readers through memo,
+// Suspense retries, hidden trees and SuspenseList, like a context change.
+//
+// In the original, the component that renders the Provider owns the value in
+// state. Here it reads the store instead, so it still re-renders when the
+// value changes, the same way it did with setState, and the update still has
+// to get past the memo/Suspense/hidden boundaries between it and the readers.
+// The readers below it read the store directly.
+
 let React;
 let ReactNoop;
 let Scheduler;
 let act;
 let use;
+let useState;
 let createStore;
-let useContext;
 let Suspense;
 let SuspenseList;
 let getCacheForType;
@@ -21,8 +31,8 @@ describe('ReactLazyContextPropagation', () => {
     Scheduler = require('scheduler');
     act = require('internal-test-utils').act;
     use = React.use;
+    useState = React.useState;
     createStore = React.unstable_createStore;
-    useContext = React.useContext;
     Suspense = React.Suspense;
     if (gate(flags => flags.enableSuspenseList)) {
       SuspenseList = React.unstable_SuspenseList;
@@ -173,12 +183,11 @@ describe('ReactLazyContextPropagation', () => {
     async () => {
       const root = ReactNoop.createRoot();
 
-      const Context = React.createContext(0);
+      const store = createStore(0);
 
-      const valueStore = createStore(0);
-      const setValue = valueStore.update;
       function App() {
-        const value = use(valueStore);
+        // Stands in for the useState that owned the Provider value.
+        use(store);
 
         // NOTE: It's an important part of this test that we're memoizing the
         // props of the Consumer component, as opposed to wrapping in an
@@ -186,11 +195,11 @@ describe('ReactLazyContextPropagation', () => {
         // context changes whenever a fiber bails out.
         const consumer = React.useMemo(() => <Consumer />, []);
 
-        return <Context.Provider value={value}>{consumer}</Context.Provider>;
+        return consumer;
       }
 
       function Consumer() {
-        const value = useContext(Context);
+        const value = use(store);
         // Even though Consumer is memoized, Consumer should re-render
         // DeepChild whenever the context value changes. Otherwise DeepChild
         // won't receive the new value.
@@ -208,7 +217,7 @@ describe('ReactLazyContextPropagation', () => {
       expect(root).toMatchRenderedOutput('0');
 
       await act(() => {
-        setValue(1);
+        store.update(1);
       });
       assertLog([1]);
       expect(root).toMatchRenderedOutput('1');
@@ -219,21 +228,16 @@ describe('ReactLazyContextPropagation', () => {
   it('context change should prevent bailout of memoized component (memo HOC)', async () => {
     const root = ReactNoop.createRoot();
 
-    const Context = React.createContext(0);
+    const store = createStore(0);
 
-    const valueStore = createStore(0);
-    const setValue = valueStore.update;
     function App() {
-      const value = use(valueStore);
-      return (
-        <Context.Provider value={value}>
-          <Consumer />
-        </Context.Provider>
-      );
+      // Stands in for the useState that owned the Provider value.
+      use(store);
+      return <Consumer />;
     }
 
     const Consumer = React.memo(() => {
-      const value = useContext(Context);
+      const value = use(store);
       // Even though Consumer is memoized, Consumer should re-render
       // DeepChild whenever the context value changes. Otherwise DeepChild
       // won't receive the new value.
@@ -251,51 +255,7 @@ describe('ReactLazyContextPropagation', () => {
     expect(root).toMatchRenderedOutput('0');
 
     await act(() => {
-      setValue(1);
-    });
-    assertLog([1]);
-    expect(root).toMatchRenderedOutput('1');
-  });
-
-  // @gate enableStore
-  it('context change should prevent bailout of memoized component (PureComponent)', async () => {
-    const root = ReactNoop.createRoot();
-
-    const Context = React.createContext(0);
-
-    const valueStore = createStore(0);
-    const setValue = valueStore.update;
-    function App() {
-      const value = use(valueStore);
-      return (
-        <Context.Provider value={value}>
-          <Consumer />
-        </Context.Provider>
-      );
-    }
-
-    class Consumer extends React.PureComponent {
-      static contextType = Context;
-      render() {
-        // Even though Consumer is memoized, Consumer should re-render
-        // DeepChild whenever the context value changes. Otherwise DeepChild
-        // won't receive the new value.
-        return <DeepChild value={this.context} />;
-      }
-    }
-
-    function DeepChild({value}) {
-      return <Text text={value} />;
-    }
-
-    await act(() => {
-      root.render(<App />);
-    });
-    assertLog([0]);
-    expect(root).toMatchRenderedOutput('0');
-
-    await act(() => {
-      setValue(1);
+      store.update(1);
     });
     assertLog([1]);
     expect(root).toMatchRenderedOutput('1');
@@ -305,22 +265,18 @@ describe('ReactLazyContextPropagation', () => {
   it("context consumer bails out if context hasn't changed", async () => {
     const root = ReactNoop.createRoot();
 
-    const Context = React.createContext(0);
+    const store = createStore(0);
 
     function App() {
-      return (
-        <Context.Provider value={0}>
-          <Consumer />
-        </Context.Provider>
-      );
+      return <Consumer />;
     }
 
-    const otherValueStore = createStore(0);
-    const setOtherValue = otherValueStore.update;
+    let setOtherValue;
     const Consumer = React.memo(() => {
-      const value = useContext(Context);
+      const value = use(store);
 
-      use(otherValueStore);
+      const [, _setOtherValue] = useState(0);
+      setOtherValue = _setOtherValue;
 
       Scheduler.log('Consumer');
 
@@ -353,24 +309,22 @@ describe('ReactLazyContextPropagation', () => {
   it('context is propagated across retries', async () => {
     const root = ReactNoop.createRoot();
 
-    const Context = React.createContext('A');
+    const store = createStore('A');
 
-    const valueStore = createStore('A');
-    const setContext = valueStore.update;
     function App() {
-      const value = use(valueStore);
+      const value = use(store);
       return (
-        <Context.Provider value={value}>
+        <>
           <Suspense fallback={<Text text="Loading..." />}>
             <Async />
           </Suspense>
           <Text text={value} />
-        </Context.Provider>
+        </>
       );
     }
 
     function Async() {
-      const value = useContext(Context);
+      const value = use(store);
       readText(value);
 
       // When `readText` suspends, we haven't yet visited Indirection and all
@@ -384,7 +338,7 @@ describe('ReactLazyContextPropagation', () => {
     });
 
     function DeepChild() {
-      const value = useContext(Context);
+      const value = use(store);
       return <Text text={value} />;
     }
 
@@ -398,7 +352,7 @@ describe('ReactLazyContextPropagation', () => {
     await act(() => {
       // Intentionally not wrapping in startTransition, so that the fallback
       // the fallback displays despite this being a refresh.
-      setContext('B');
+      store.update('B');
     });
     assertLog([
       'Suspend! [B]',
@@ -416,114 +370,26 @@ describe('ReactLazyContextPropagation', () => {
     expect(root).toMatchRenderedOutput('BB');
   });
 
-  // @gate enableStore && enableLegacyCache
-  it('multiple contexts are propagated across retries', async () => {
-    // Same as previous test, but with multiple context providers
-    const root = ReactNoop.createRoot();
-
-    const Context1 = React.createContext('A');
-    const Context2 = React.createContext('A');
-
-    const valueStore = createStore('A');
-    const setContext = valueStore.update;
-    function App() {
-      const value = use(valueStore);
-      return (
-        <Context1.Provider value={value}>
-          <Context2.Provider value={value}>
-            <Suspense fallback={<Text text="Loading..." />}>
-              <Async />
-            </Suspense>
-            <Text text={value} />
-          </Context2.Provider>
-        </Context1.Provider>
-      );
-    }
-
-    function Async() {
-      const value = useContext(Context1);
-      readText(value);
-
-      // When `readText` suspends, we haven't yet visited Indirection and all
-      // of its children. They won't get rendered until a later retry.
-      return (
-        <>
-          <Indirection1 />
-          <Indirection2 />
-        </>
-      );
-    }
-
-    const Indirection1 = React.memo(() => {
-      // This child must always be consistent with the sibling Text component.
-      return <DeepChild1 />;
-    });
-
-    const Indirection2 = React.memo(() => {
-      // This child must always be consistent with the sibling Text component.
-      return <DeepChild2 />;
-    });
-
-    function DeepChild1() {
-      const value = useContext(Context1);
-      return <Text text={value} />;
-    }
-
-    function DeepChild2() {
-      const value = useContext(Context2);
-      return <Text text={value} />;
-    }
-
-    await seedNextTextCache('A');
-    await act(() => {
-      root.render(<App />);
-    });
-    assertLog(['A', 'A', 'A']);
-    expect(root).toMatchRenderedOutput('AAA');
-
-    await act(() => {
-      // Intentionally not wrapping in startTransition, so that the fallback
-      // the fallback displays despite this being a refresh.
-      setContext('B');
-    });
-    assertLog([
-      'Suspend! [B]',
-      'Loading...',
-      'B',
-      // pre-warming
-      'Suspend! [B]',
-    ]);
-    expect(root).toMatchRenderedOutput('Loading...B');
-
-    await act(async () => {
-      await resolveText('B');
-    });
-    assertLog(['B', 'B']);
-    expect(root).toMatchRenderedOutput('BBB');
-  });
-
-  // @gate enableStore && (enableLegacyCache && !disableLegacyMode)
+  // @gate enableStore && enableLegacyCache && !disableLegacyMode
   it('context is propagated across retries (legacy)', async () => {
     const root = ReactNoop.createLegacyRoot();
 
-    const Context = React.createContext('A');
+    const store = createStore('A');
 
-    const valueStore = createStore('A');
-    const setContext = valueStore.update;
     function App() {
-      const value = use(valueStore);
+      const value = use(store);
       return (
-        <Context.Provider value={value}>
+        <>
           <Suspense fallback={<Text text="Loading..." />}>
             <Async />
           </Suspense>
           <Text text={value} />
-        </Context.Provider>
+        </>
       );
     }
 
     function Async() {
-      const value = useContext(Context);
+      const value = use(store);
       readText(value);
 
       // When `readText` suspends, we haven't yet visited Indirection and all
@@ -537,7 +403,7 @@ describe('ReactLazyContextPropagation', () => {
     });
 
     function DeepChild() {
-      const value = useContext(Context);
+      const value = use(store);
       return <Text text={value} />;
     }
 
@@ -551,7 +417,7 @@ describe('ReactLazyContextPropagation', () => {
     await act(() => {
       // Intentionally not wrapping in startTransition, so that the fallback
       // the fallback displays despite this being a refresh.
-      setContext('B');
+      store.update('B');
     });
     assertLog(['Suspend! [B]', 'Loading...', 'B']);
     expect(root).toMatchRenderedOutput('Loading...B');
@@ -563,25 +429,23 @@ describe('ReactLazyContextPropagation', () => {
     expect(root).toMatchRenderedOutput('BB');
   });
 
-  // @gate enableStore && (enableLegacyCache && enableLegacyHidden)
+  // @gate enableStore && enableLegacyCache && enableLegacyHidden
   it('context is propagated through offscreen trees', async () => {
     const LegacyHidden = React.unstable_LegacyHidden;
 
     const root = ReactNoop.createRoot();
 
-    const Context = React.createContext('A');
+    const store = createStore('A');
 
-    const valueStore = createStore('A');
-    const setContext = valueStore.update;
     function App() {
-      const value = use(valueStore);
+      const value = use(store);
       return (
-        <Context.Provider value={value}>
+        <>
           <LegacyHidden mode="hidden">
             <Indirection />
           </LegacyHidden>
           <Text text={value} />
-        </Context.Provider>
+        </>
       );
     }
 
@@ -591,7 +455,7 @@ describe('ReactLazyContextPropagation', () => {
     });
 
     function DeepChild() {
-      const value = useContext(Context);
+      const value = use(store);
       return <Text text={value} />;
     }
 
@@ -603,71 +467,10 @@ describe('ReactLazyContextPropagation', () => {
     expect(root).toMatchRenderedOutput('AA');
 
     await act(() => {
-      setContext('B');
+      store.update('B');
     });
     assertLog(['B', 'B']);
     expect(root).toMatchRenderedOutput('BB');
-  });
-
-  // @gate enableStore && (enableLegacyCache && enableLegacyHidden)
-  it('multiple contexts are propagated across through offscreen trees', async () => {
-    // Same as previous test, but with multiple context providers
-    const LegacyHidden = React.unstable_LegacyHidden;
-
-    const root = ReactNoop.createRoot();
-
-    const Context1 = React.createContext('A');
-    const Context2 = React.createContext('A');
-
-    const valueStore = createStore('A');
-    const setContext = valueStore.update;
-    function App() {
-      const value = use(valueStore);
-      return (
-        <Context1.Provider value={value}>
-          <Context2.Provider value={value}>
-            <LegacyHidden mode="hidden">
-              <Indirection1 />
-              <Indirection2 />
-            </LegacyHidden>
-            <Text text={value} />
-          </Context2.Provider>
-        </Context1.Provider>
-      );
-    }
-
-    const Indirection1 = React.memo(() => {
-      // This child must always be consistent with the sibling Text component.
-      return <DeepChild1 />;
-    });
-
-    const Indirection2 = React.memo(() => {
-      // This child must always be consistent with the sibling Text component.
-      return <DeepChild2 />;
-    });
-
-    function DeepChild1() {
-      const value = useContext(Context1);
-      return <Text text={value} />;
-    }
-
-    function DeepChild2() {
-      const value = useContext(Context2);
-      return <Text text={value} />;
-    }
-
-    await seedNextTextCache('A');
-    await act(() => {
-      root.render(<App />);
-    });
-    assertLog(['A', 'A', 'A']);
-    expect(root).toMatchRenderedOutput('AAA');
-
-    await act(() => {
-      setContext('B');
-    });
-    assertLog(['B', 'B', 'B']);
-    expect(root).toMatchRenderedOutput('BBB');
   });
 
   // @gate enableStore && enableSuspenseList
@@ -675,12 +478,11 @@ describe('ReactLazyContextPropagation', () => {
     // This kinda tests an implementation detail. SuspenseList has an early
     // bailout that doesn't use `bailoutOnAlreadyFinishedWork`. It probably
     // should just use that function, though.
-    const Context = React.createContext('A');
+    const store = createStore('A');
 
-    const valueStore = createStore('A');
-    const setContext = valueStore.update;
     function App() {
-      const value = use(valueStore);
+      // Stands in for the useState that owned the Provider value.
+      use(store);
       const children = React.useMemo(
         () => (
           <SuspenseList revealOrder="forwards" tail="visible">
@@ -690,11 +492,11 @@ describe('ReactLazyContextPropagation', () => {
         ),
         [],
       );
-      return <Context.Provider value={value}>{children}</Context.Provider>;
+      return children;
     }
 
     function Child() {
-      const value = useContext(Context);
+      const value = use(store);
       return <Text text={value} />;
     }
 
@@ -706,7 +508,7 @@ describe('ReactLazyContextPropagation', () => {
     expect(root).toMatchRenderedOutput('AA');
 
     await act(() => {
-      setContext('B');
+      store.update('B');
     });
     assertLog(['B', 'B']);
     expect(root).toMatchRenderedOutput('BB');
@@ -717,17 +519,12 @@ describe('ReactLazyContextPropagation', () => {
     // Lazy context propagation will stop propagating when it hits the first
     // match. If we bail out again inside that tree, we must resume propagating.
 
-    const Context = React.createContext('A');
+    const store = createStore('A');
 
-    const valueStore = createStore('A');
-    const setContext = valueStore.update;
     function App() {
-      const value = use(valueStore);
-      return (
-        <Context.Provider value={value}>
-          <ChildIndirection />
-        </Context.Provider>
-      );
+      // Stands in for the useState that owned the Provider value.
+      use(store);
+      return <ChildIndirection />;
     }
 
     const ChildIndirection = React.memo(() => {
@@ -735,7 +532,7 @@ describe('ReactLazyContextPropagation', () => {
     });
 
     function Child() {
-      const value = useContext(Context);
+      const value = use(store);
       return (
         <>
           <Text text={value} />
@@ -749,7 +546,7 @@ describe('ReactLazyContextPropagation', () => {
     });
 
     function DeepChild() {
-      const value = useContext(Context);
+      const value = use(store);
       return <Text text={value} />;
     }
 
@@ -761,7 +558,7 @@ describe('ReactLazyContextPropagation', () => {
     expect(root).toMatchRenderedOutput('AA');
 
     await act(() => {
-      setContext('B');
+      store.update('B');
     });
     assertLog(['B', 'B']);
     expect(root).toMatchRenderedOutput('BB');
@@ -772,18 +569,14 @@ describe('ReactLazyContextPropagation', () => {
     // Lazy context propagation will stop propagating when it hits the first
     // match. If we bail out again inside that tree, we must resume propagating.
 
-    const Context = React.createContext('A');
+    const store = createStore('A');
 
-    const valueStore = createStore('A');
-    const setContext = valueStore.update;
     function App() {
-      const value = use(valueStore);
+      const value = use(store);
       return (
-        <Context.Provider value={value}>
-          <Suspense fallback={<Text text="Loading..." />}>
-            <Async value={value} />
-          </Suspense>
-        </Context.Provider>
+        <Suspense fallback={<Text text="Loading..." />}>
+          <Async value={value} />
+        </Suspense>
       );
     }
 
@@ -797,7 +590,7 @@ describe('ReactLazyContextPropagation', () => {
     }
 
     function Child() {
-      const value = useContext(Context);
+      const value = use(store);
       return (
         <>
           <Text text={value} />
@@ -811,7 +604,7 @@ describe('ReactLazyContextPropagation', () => {
     });
 
     function DeepChild() {
-      const value = useContext(Context);
+      const value = use(store);
       return <Text text={value} />;
     }
 
@@ -824,7 +617,7 @@ describe('ReactLazyContextPropagation', () => {
     expect(root).toMatchRenderedOutput('AA');
 
     await act(() => {
-      setContext('B');
+      store.update('B');
     });
     assertLog([
       'Suspend! [B]',
@@ -841,30 +634,27 @@ describe('ReactLazyContextPropagation', () => {
     expect(root).toMatchRenderedOutput('BB');
   });
 
-  // @gate enableStore && (enableLegacyCache && enableLegacyHidden)
+  // @gate enableStore && enableLegacyCache && enableLegacyHidden
   it('nested bailouts through offscreen trees', async () => {
     // Lazy context propagation will stop propagating when it hits the first
     // match. If we bail out again inside that tree, we must resume propagating.
 
     const LegacyHidden = React.unstable_LegacyHidden;
 
-    const Context = React.createContext('A');
+    const store = createStore('A');
 
-    const valueStore = createStore('A');
-    const setContext = valueStore.update;
     function App() {
-      const value = use(valueStore);
+      // Stands in for the useState that owned the Provider value.
+      use(store);
       return (
-        <Context.Provider value={value}>
-          <LegacyHidden mode="hidden">
-            <Child />
-          </LegacyHidden>
-        </Context.Provider>
+        <LegacyHidden mode="hidden">
+          <Child />
+        </LegacyHidden>
       );
     }
 
     function Child() {
-      const value = useContext(Context);
+      const value = use(store);
       return (
         <>
           <Text text={value} />
@@ -878,7 +668,7 @@ describe('ReactLazyContextPropagation', () => {
     });
 
     function DeepChild() {
-      const value = useContext(Context);
+      const value = use(store);
       return <Text text={value} />;
     }
 
@@ -890,7 +680,7 @@ describe('ReactLazyContextPropagation', () => {
     expect(root).toMatchRenderedOutput('AA');
 
     await act(() => {
-      setContext('B');
+      store.update('B');
     });
     assertLog(['B', 'B']);
     expect(root).toMatchRenderedOutput('BB');
@@ -901,17 +691,12 @@ describe('ReactLazyContextPropagation', () => {
     // This test confirms that when we find a matching context consumer during
     // propagation, we continue propagating to its sibling branches.
 
-    const Context = React.createContext('A');
+    const store = createStore('A');
 
-    const valueStore = createStore('A');
-    const setContext = valueStore.update;
     function App() {
-      const value = use(valueStore);
-      return (
-        <Context.Provider value={value}>
-          <Blah />
-        </Context.Provider>
-      );
+      // Stands in for the useState that owned the Provider value.
+      use(store);
+      return <Blah />;
     }
 
     const Blah = React.memo(() => {
@@ -928,7 +713,7 @@ describe('ReactLazyContextPropagation', () => {
     });
 
     function Child() {
-      const value = useContext(Context);
+      const value = use(store);
       return <Text text={value} />;
     }
 
@@ -940,12 +725,14 @@ describe('ReactLazyContextPropagation', () => {
     expect(root).toMatchRenderedOutput('AA');
 
     await act(() => {
-      setContext('B');
+      store.update('B');
     });
     assertLog(['B', 'B']);
     expect(root).toMatchRenderedOutput('BB');
   });
 
+  // store-semantics: the Consumer suspended on mount, so it never committed.
+  // The boundary subscribes to the stores it read instead.
   // @gate enableStore
   it('regression: context change triggers retry of suspended Suspense boundary on initial mount', async () => {
     // Regression test for a bug where a context change above a suspended
@@ -961,19 +748,18 @@ describe('ReactLazyContextPropagation', () => {
     // passed in from above, so they are not re-created when the Provider
     // re-renders — this means the Suspense boundary bails out, exercising
     // the lazy context propagation path where the bug manifests.
-    const Context = React.createContext(null);
     const neverResolvingPromise = new Promise(() => {});
     const resolvedThenable = {status: 'fulfilled', value: 'Result', then() {}};
+    const store = createStore(neverResolvingPromise);
 
     function Consumer() {
-      return <Text text={use(use(Context))} />;
+      return <Text text={use(use(store))} />;
     }
 
-    const promiseStore = createStore(neverResolvingPromise);
-    const setPromise = promiseStore.update;
     function Provider({children}) {
-      const promise = use(promiseStore);
-      return <Context.Provider value={promise}>{children}</Context.Provider>;
+      // Stands in for the useState that owned the Provider value.
+      use(store);
+      return children;
     }
 
     const root = ReactNoop.createRoot();
@@ -990,24 +776,26 @@ describe('ReactLazyContextPropagation', () => {
     expect(root).toMatchRenderedOutput('Loading');
 
     await act(() => {
-      setPromise(resolvedThenable);
+      store.update(resolvedThenable);
     });
     assertLog(['Result']);
     expect(root).toMatchRenderedOutput('Result');
   });
 
+  // store-semantics: the Consumer suspended on mount, so it never committed.
+  // The boundary subscribes to the stores it read instead.
   // @gate enableStore
   it('regression: context change triggers retry of suspended Suspense boundary on initial mount (nested)', async () => {
     // Same as above, but with an additional indirection component between
     // the provider and the Suspense boundary. This exercises the
     // propagateContextChanges walker path rather than the
     // propagateParentContextChanges path.
-    const Context = React.createContext(null);
     const neverResolvingPromise = new Promise(() => {});
     const resolvedThenable = {status: 'fulfilled', value: 'Result', then() {}};
+    const store = createStore(neverResolvingPromise);
 
     function Consumer() {
-      return <Text text={use(use(Context))} />;
+      return <Text text={use(use(store))} />;
     }
 
     function Indirection({children}) {
@@ -1015,11 +803,10 @@ describe('ReactLazyContextPropagation', () => {
       return children;
     }
 
-    const promiseStore = createStore(neverResolvingPromise);
-    const setPromise = promiseStore.update;
     function Provider({children}) {
-      const promise = use(promiseStore);
-      return <Context.Provider value={promise}>{children}</Context.Provider>;
+      // Stands in for the useState that owned the Provider value.
+      use(store);
+      return children;
     }
 
     const root = ReactNoop.createRoot();
@@ -1040,7 +827,7 @@ describe('ReactLazyContextPropagation', () => {
     // Indirection should not re-render — only the Suspense boundary
     // should be retried.
     await act(() => {
-      setPromise(resolvedThenable);
+      store.update(resolvedThenable);
     });
     assertLog(['Result']);
     expect(root).toMatchRenderedOutput('Result');
@@ -1054,17 +841,15 @@ describe('ReactLazyContextPropagation', () => {
     // provider and the Suspense boundary that prevents the fallback element
     // references from changing.
     const root = ReactNoop.createRoot();
-    const Context = React.createContext('A');
+    const store = createStore('A');
 
-    const valueStore = createStore('A');
-    const setContext = valueStore.update;
     function App() {
-      const value = use(valueStore);
+      const value = use(store);
       return (
-        <Context.Provider value={value}>
+        <>
           <MemoizedWrapper />
           <Text text={value} />
-        </Context.Provider>
+        </>
       );
     }
 
@@ -1077,7 +862,7 @@ describe('ReactLazyContextPropagation', () => {
     });
 
     function FallbackConsumer() {
-      const value = useContext(Context);
+      const value = use(store);
       return <Text text={'Fallback: ' + value} />;
     }
 
@@ -1102,15 +887,18 @@ describe('ReactLazyContextPropagation', () => {
     // Update context while still suspended. The fallback consumer should
     // re-render with the new value.
     await act(() => {
-      setContext('B');
+      store.update('B');
     });
     assertLog([
-      // The Suspense boundary retries the primary children first
-      'Suspend! [async]',
+      // store-semantics: the original retries the primary children first,
+      // and pre-warms them again, because context propagation conservatively
+      // marks every Suspense boundary that shows a fallback below a changed
+      // Provider for retry (it can't look into primary children that were
+      // discarded). A store update only schedules the components that read
+      // the store. AsyncChild doesn't, so the primary children aren't retried
+      // and only the readers re-render.
       'Fallback: B',
       'B',
-      // pre-warming
-      'Suspend! [async]',
     ]);
     expect(root).toMatchRenderedOutput('Fallback: BB');
 
@@ -1120,5 +908,68 @@ describe('ReactLazyContextPropagation', () => {
     });
     assertLog(['Content']);
     expect(root).toMatchRenderedOutput('ContentB');
+  });
+
+  // From the use(store) copy of ReactContextPropagation-test.js, where the
+  // component that renders the Provider reads its value from a store.
+  // @gate enableStore && enableLegacyCache && !disableLegacyMode
+  it('context is propagated across retries (legacy, a store holds the Provider value)', async () => {
+    const root = ReactNoop.createLegacyRoot();
+
+    const Context = React.createContext('A');
+
+    const valueStore = createStore('A');
+    const setContext = valueStore.update;
+    function App() {
+      const value = use(valueStore);
+      return (
+        <Context.Provider value={value}>
+          <Suspense fallback={<Text text="Loading..." />}>
+            <Async />
+          </Suspense>
+          <Text text={value} />
+        </Context.Provider>
+      );
+    }
+
+    function Async() {
+      const value = React.useContext(Context);
+      readText(value);
+
+      // When `readText` suspends, we haven't yet visited Indirection and all
+      // of its children. They won't get rendered until a later retry.
+      return <Indirection />;
+    }
+
+    const Indirection = React.memo(() => {
+      // This child must always be consistent with the sibling Text component.
+      return <DeepChild />;
+    });
+
+    function DeepChild() {
+      const value = React.useContext(Context);
+      return <Text text={value} />;
+    }
+
+    await seedNextTextCache('A');
+    await act(() => {
+      root.render(<App />);
+    });
+    assertLog(['A', 'A']);
+    expect(root).toMatchRenderedOutput('AA');
+
+    await act(() => {
+      // Intentionally not wrapping in startTransition, so that the fallback
+      // the fallback displays despite this being a refresh.
+      setContext('B');
+    });
+    assertLog(['Suspend! [B]', 'Loading...', 'B']);
+    expect(root).toMatchRenderedOutput('Loading...B');
+
+    await act(async () => {
+      await resolveText('B');
+    });
+    assertLog(['B']);
+    expect(root).toMatchRenderedOutput('BB');
   });
 });

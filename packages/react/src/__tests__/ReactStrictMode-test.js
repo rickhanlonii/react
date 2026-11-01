@@ -569,6 +569,51 @@ describe('ReactStrictMode', () => {
     expect(container.textContent).toBe('1');
     expect(log).toEqual(['Compute new state: 1', 'Compute new state: 1']);
   });
+
+  describe('use(store)', () => {
+    // In StrictMode, a store update's updater function runs twice in DEV, like
+    // a setState updater (the reducer case is in ReactUseStore-test).
+    let use;
+    let createStore;
+
+    beforeEach(() => {
+      use = React.use;
+      createStore = React.unstable_createStore;
+    });
+
+    // @gate enableStore && (__DEV__)
+    it('double invokes setState updater functions', async () => {
+      const log = [];
+
+      const countStore = createStore(0);
+      const setCount = countStore.update;
+      function App() {
+        const count = use(countStore);
+        return count;
+      }
+
+      const container = document.createElement('div');
+      const root = ReactDOMClient.createRoot(container);
+
+      await act(() => {
+        root.render(
+          <React.StrictMode>
+            <App />
+          </React.StrictMode>,
+        );
+      });
+      expect(container.textContent).toBe('0');
+
+      await act(() => {
+        setCount(() => {
+          log.push('Compute count: 1');
+          return 1;
+        });
+      });
+      expect(container.textContent).toBe('1');
+      expect(log).toEqual(['Compute count: 1', 'Compute count: 1']);
+    });
+  });
 });
 
 describe('Concurrent Mode', () => {

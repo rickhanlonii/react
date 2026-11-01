@@ -1,44 +1,19 @@
 # use(store) status
 
-Last updated 2026-10-30.
+Last updated 2026-10-31.
 
-## Goal
+## Tests
 
-Every test file that uses state has a passing copy that uses `use(store)`.
+The overnight copy campaign gave every test file that uses state (or reads context) a `…UseStore` copy, with parity checked by title. On 2026-10-31 the copies were cleaned up (plan: `~/.claude/plans/vivid-squishing-river.md`): parity by title is retired, and `scripts/store-parity/` and `COPY_RULES.md` are deleted. Its "Differences to expect" list is now "Intentional differences from useState" and "Differences from context" in `DESIGN.md`.
 
-## Parity
+A case stays only if what it checks depends on store machinery: lane selection, rebasing and entanglement, subscriptions, Suspense and Activity, hydration, StrictMode, reducer errors, bailouts and context, DevTools, Fast Refresh, the compiler, Fizz and Flight. Where it lives:
 
-`node scripts/store-parity/check.js` → **138/138 files done. 3230 cases copied, 21 skipped, 0 missing (of 3251).**
+- **Store spec suites:** `ReactUseStore-test.js`, `ReactDOMStore-test.js`, `ReactDebugHooksStore-test.js`, and their `…Staged-test.js` files waiting to be merged into them.
+- **Base files:** a `describe('use(store)')` block, gated `enableStore`, when the case is about the base file's subject (event priority in `ReactInternalTestUtilsDOM-test.js`, transitions in `ReactExpiration-test.js`, and so on). Each case names the copy it came from.
+- **Dedicated `…UseStore` files** for store-heavy subjects: ReactHooks, ReactHooksWithNoopRenderer, ReactTransition, ReactAsyncActions, ReactSuspense, ReactSuspenseWithNoopRenderer, ReactSuspenseFuzz, ReactContextPropagation, ReactNewContext, ReactDOMServerIntegrationHooks, and the same-element bailout pair (DCP-10, to go with that PR).
+- **Legacy roots:** `ReactUseStoreLegacyMode-test.js` (react-reconciler, so it runs on xplat). Legacy mode is only on in the native-fb forks, where `enableStore` is now a dynamic flag (`__VARIANT__`), so the legacy store cases run on `-r=xplat --variant=true`.
 
-The 21 skips (`scripts/store-parity/skips/*.json`), each with a note:
-
-- 8 `hook-only-semantics`, `reconciler-hooks.json`:
-  - 6 reducers that close over render-time values;
-  - Hooks inside a lazy initializer;
-  - "Too many re-renders".
-- 4 `hook-only-semantics`, `dom-server.json`: the server-integration versions of those same cases.
-- 1 `hook-only-semantics`, `react-pkg.json`: the StrictMode lazy initializer.
-- 3 `not-applicable`, `react-pkg.json`: DevTools hook editing.
-- 5 `not-applicable`, `devtools.json`: DevTools hook editing.
-
-Store values aren't editable from DevTools in v1.
-
-## Context parity
-
-Every test case that reads React context has a copy that reads a store instead, or a skip that says why a store can't replace context there (see "Context copies" in `COPY_RULES.md`).
-
-`node scripts/store-parity/check.js --context` → **52/52 files done (7 excluded). 105 cases copied, 82 skipped, 0 missing (of 187).** In addition, 26 runs of `ReactNewContext`'s parametrized suite (the two class-reader runs) are left out.
-
-- The 82 skips (`scripts/store-parity/skips/context-*.json`):
-  - 52 `context-only-api`;
-  - 14 `class-reader`;
-  - 10 `no-subtree-scoping`;
-  - 3 `not-context` (checker false positives);
-  - 1 each of `server-component`, `server-subtree-value` and `no-client-apis`.
-- Blockers found by the context copies:
-  - B-18 (fixed, DCP-16): a reader that suspends on mount never subscribes;
-  - B-19 (fixed): Flight's generic error for a client reference to a store;
-  - B-20 (fixed in source, build-level DevTools run pending a rebuild): DevTools crashed on a dropped conditional store read and paired store reads by position.
+The cleanup removed about 177,000 lines of copies. A before/after coverage comparison of `ReactFiberStore.js`, `ReactStore.js`, `getStoreHead.js`, the store lines of the other reconciler files, `ReactFizzHooks.js`, `ReactFlightHooks.js` and `ReactDebugHooks.js` (experimental, www-modern variant=true, xplat variant=true) lost no store line or branch.
 
 ## Test runs
 
@@ -55,7 +30,7 @@ Every test case that reads React context has a copy that reads a store instead, 
 
 ## Spec suites
 
-- `packages/react-reconciler/src/__tests__/ReactUseStore-test.js` (40 tests): rebasing, joining in-flight transitions, interleaving, entanglement, conditional reads and loops, stores of stores, Activity, Suspense, multiple roots, StrictMode, async actions, render-phase warnings, reducer errors, and reducer call counts.
+- `packages/react-reconciler/src/__tests__/ReactUseStore-test.js` (78 tests): rebasing, joining in-flight transitions, interleaving, entanglement, conditional reads and loops, stores of stores, Activity, Suspense, multiple roots, StrictMode, async actions, render-phase warnings, reducer errors, and reducer call counts.
 - `packages/react-dom/src/__tests__/ReactDOMStore-test.js`: hydration with the initial value, server rendering, controlled inputs, and catch-up inside newly inserted parents.
 
 ## Open follow-ups (not blocking)
@@ -65,5 +40,4 @@ See the end of `DECISIONS.md`:
 - DevTools store editing.
 - DevTools hook names for `use(...)`.
 - Profiler updater attribution for stores.
-- The fixture regeneration script must learn about `indexUseStore.js` before landing.
 - Optimistic stores, external-source interop and observables, from the original plan.

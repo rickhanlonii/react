@@ -10945,4 +10945,64 @@ Unfortunately that previous paragraph wasn't quite long enough so I'll continue 
 
     root.unmount();
   });
+
+  describe('use(store)', () => {
+    let createStore;
+
+    beforeEach(() => {
+      createStore = React.unstable_createStore;
+    });
+
+    // @gate enableStore
+    it(
+      'a transition that flows into a dehydrated boundary should not suspend ' +
+        'if the boundary is showing a fallback',
+      async () => {
+        const searchStore = createStore('initial query');
+        const setSearch = searchStore.update;
+        function App() {
+          const search = use(searchStore);
+          return (
+            <div>
+              <div>{search}</div>
+              <div>
+                <Suspense fallback="Loading...">
+                  <AsyncText text="Async" />
+                </Suspense>
+              </div>
+            </div>
+          );
+        }
+
+        // Render the initial HTML, which is showing a fallback.
+        await act(() => {
+          const {pipe} = renderToPipeableStream(<App />);
+          pipe(writable);
+        });
+
+        // Start hydrating.
+        await clientAct(() => {
+          ReactDOMClient.hydrateRoot(container, <App />);
+        });
+        expect(getVisibleChildren(container)).toEqual(
+          <div>
+            <div>initial query</div>
+            <div>Loading...</div>
+          </div>,
+        );
+
+        // Before the HTML has streamed in, update the query. The part outside
+        // the fallback should be allowed to finish.
+        await clientAct(() => {
+          React.startTransition(() => setSearch('updated query'));
+        });
+        expect(getVisibleChildren(container)).toEqual(
+          <div>
+            <div>updated query</div>
+            <div>Loading...</div>
+          </div>,
+        );
+      },
+    );
+  });
 });

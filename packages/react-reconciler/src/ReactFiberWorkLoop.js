@@ -5415,25 +5415,6 @@ function recursivelyTraverseAndDoubleInvokeEffectsInDEV(
   }
 }
 
-// Double invokes the effects of every StrictMode subtree inside a subtree
-// whose effects all mounted in this commit, but that isn't in StrictMode.
-function doubleInvokeEffectsInStrictSubtreesDEV(
-  root: FiberRoot,
-  parentFiber: Fiber,
-) {
-  let child = parentFiber.child;
-  while (child !== null) {
-    if (child.tag === OffscreenComponent && child.memoizedState !== null) {
-      // Hidden, so its effects aren't mounted.
-    } else if (child.type === REACT_STRICT_MODE_TYPE) {
-      runWithFiberInDEV(child, doubleInvokeEffectsOnFiber, root, child);
-    } else {
-      doubleInvokeEffectsInStrictSubtreesDEV(root, child);
-    }
-    child = child.sibling;
-  }
-}
-
 // Unconditionally disconnects and connects passive and layout effects.
 function doubleInvokeEffectsOnFiber(root: FiberRoot, fiber: Fiber) {
   setIsStrictModeForDevtools(true);
@@ -5461,11 +5442,6 @@ function doubleInvokeEffectsInDEVIfNecessary(
     if (fiber.flags & PlacementDEV) {
       if (isInStrictMode) {
         runWithFiberInDEV(fiber, doubleInvokeEffectsOnFiber, root, fiber);
-      } else {
-        // The fiber mounted in this commit, along with its whole subtree, so
-        // its descendants aren't flagged. A StrictMode boundary inside it
-        // still needs its effects double invoked.
-        doubleInvokeEffectsInStrictSubtreesDEV(root, fiber);
       }
     } else {
       recursivelyTraverseAndDoubleInvokeEffectsInDEV(
@@ -5488,10 +5464,6 @@ function doubleInvokeEffectsInDEVIfNecessary(
       // However, we also need to consider newly hydrated Offscreen because their
       // visibility flags might not have changed.
       runWithFiberInDEV(fiber, doubleInvokeEffectsOnFiber, root, fiber);
-    } else if (fiber.flags & (Visibility | PlacementDEV)) {
-      // The subtree mounted or became visible in this commit. Look for
-      // StrictMode boundaries inside it.
-      doubleInvokeEffectsInStrictSubtreesDEV(root, fiber);
     } else if (fiber.subtreeFlags & PlacementDEV) {
       // Something in the subtree could have been suspended.
       // We need to continue traversal and find newly inserted fibers.

@@ -1268,6 +1268,190 @@ describe(`onRender`, () => {
 
     expect(callback).toHaveBeenCalledTimes(1);
   });
+
+  describe('use(store)', () => {
+    // A store update goes through the HostRoot, so these check that a Profiler
+    // next to a reader isn't reported, and that store updates scheduled in
+    // effects are reported as nested updates. Some cases reload modules, so
+    // they read React.unstable_createStore and React.use from the reloaded
+    // React.
+
+    // @gate enableStore
+    it('does not report work done on a sibling', async () => {
+      const callback = jest.fn();
+
+      const DoesNotUpdate = React.memo(
+        function DoesNotUpdateInner() {
+          Scheduler.unstable_advanceTime(10);
+          return null;
+        },
+        () => true,
+      );
+
+      const countStore = React.unstable_createStore(0);
+      let updateProfilerSibling;
+
+      function ProfilerSibling() {
+        const count = React.use(countStore);
+        updateProfilerSibling = () => countStore.update(count + 1);
+        return null;
+      }
+
+      function App() {
+        return (
+          <React.Fragment>
+            <React.Profiler id="test" onRender={callback}>
+              <DoesNotUpdate />
+            </React.Profiler>
+            <ProfilerSibling />
+          </React.Fragment>
+        );
+      }
+
+      const root = ReactNoop.createRoot();
+      await act(() => {
+        root.render(<App />);
+      });
+
+      expect(callback).toHaveBeenCalledTimes(1);
+
+      let call = callback.mock.calls[0];
+
+      expect(call).toHaveLength(6);
+      expect(call[0]).toBe('test');
+      expect(call[1]).toBe('mount');
+      expect(call[2]).toBe(10); // actual time
+      expect(call[3]).toBe(10); // base time
+      expect(call[4]).toBe(0); // start time
+      expect(call[5]).toBe(10); // commit time
+
+      callback.mockReset();
+
+      Scheduler.unstable_advanceTime(20); // 10 -> 30
+
+      await act(() => {
+        root.render(<App />);
+      });
+
+      if (gate(flags => flags.enableUseJSStackToTrackPassiveDurations)) {
+        // None of the Profiler's subtree was rendered because App bailed out before the Profiler.
+        // So we expect onRender not to be called.
+        expect(callback).not.toHaveBeenCalled();
+      } else {
+        // Updating a parent reports a re-render,
+        // since React technically did a little bit of work between the Profiler and the bailed out subtree.
+        // This is not optimal but it's how the old reconciler fork works.
+        expect(callback).toHaveBeenCalledTimes(1);
+
+        call = callback.mock.calls[0];
+
+        expect(call).toHaveLength(6);
+        expect(call[0]).toBe('test');
+        expect(call[1]).toBe('update');
+        expect(call[2]).toBe(0); // actual time
+        expect(call[3]).toBe(10); // base time
+        expect(call[4]).toBe(30); // start time
+        expect(call[5]).toBe(30); // commit time
+
+        callback.mockReset();
+      }
+
+      Scheduler.unstable_advanceTime(20); // 30 -> 50
+
+      // Updating a sibling should not report a re-render.
+      await act(() => updateProfilerSibling());
+
+      expect(callback).not.toHaveBeenCalled();
+    });
+
+    // @gate enableStore
+    it('should clear nested-update flag when multiple cascading renders are scheduled', async () => {
+      jest.resetModules();
+      loadModules();
+
+      const didMountStore = React.unstable_createStore(false);
+      const didMountAndUpdateStore = React.unstable_createStore(false);
+
+      function Component() {
+        const didMount = React.use(didMountStore);
+        const didMountAndUpdate = React.use(didMountAndUpdateStore);
+
+        React.useLayoutEffect(() => {
+          didMountStore.update(true);
+        }, []);
+
+        React.useEffect(() => {
+          if (didMount && !didMountAndUpdate) {
+            didMountAndUpdateStore.update(true);
+          }
+        }, [didMount, didMountAndUpdate]);
+
+        Scheduler.log(`${didMount}:${didMountAndUpdate}`);
+
+        return null;
+      }
+
+      const onRender = jest.fn();
+
+      await act(() => {
+        ReactNoop.render(
+          <React.Profiler id="root" onRender={onRender}>
+            <Component />
+          </React.Profiler>,
+        );
+      });
+      assertLog(['false:false', 'true:false', 'true:true']);
+
+      expect(onRender).toHaveBeenCalledTimes(3);
+      expect(onRender.mock.calls[0][1]).toBe('mount');
+      expect(onRender.mock.calls[1][1]).toBe('nested-update');
+      expect(onRender.mock.calls[2][1]).toBe('update');
+    });
+
+    // @gate enableStore
+    it('is properly distinguish updates and nested-updates when there is more than sync remaining work', () => {
+      jest.resetModules();
+      loadModules();
+
+      const didMountStore = React.unstable_createStore(false);
+
+      function Component() {
+        const didMount = React.use(didMountStore);
+
+        React.useLayoutEffect(() => {
+          didMountStore.update(true);
+        }, []);
+        Scheduler.log(didMount);
+        return didMount;
+      }
+
+      const onRender = jest.fn();
+
+      // Schedule low-priority work.
+      React.startTransition(() =>
+        ReactNoop.render(
+          <React.Profiler id="root" onRender={onRender}>
+            <Component />
+          </React.Profiler>,
+        ),
+      );
+
+      // Flush sync work with a nested update
+      ReactNoop.flushSync(() => {
+        ReactNoop.render(
+          <React.Profiler id="root" onRender={onRender}>
+            <Component />
+          </React.Profiler>,
+        );
+      });
+      assertLog([false, true]);
+
+      // Verify that the nested update inside of the sync work is appropriately tagged.
+      expect(onRender).toHaveBeenCalledTimes(2);
+      expect(onRender.mock.calls[0][1]).toBe('mount');
+      expect(onRender.mock.calls[1][1]).toBe('nested-update');
+    });
+  });
 });
 
 describe(`onCommit`, () => {

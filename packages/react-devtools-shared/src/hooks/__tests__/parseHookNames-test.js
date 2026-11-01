@@ -912,6 +912,22 @@ describe('parseHookNames', () => {
       // TODO test no-columns and bundle cases with extended source maps
     });
   });
+
+  describe('use(store)', () => {
+    // The store version of "should parse names for useState()". DevTools only
+    // names hooks whose callee matches /^use[A-Z0-9]/, so use(store) reads
+    // aren't named, the same as use(context). It has a reactVersion pragma
+    // rather than a gate pragma, so DevTools regression runs against older
+    // versions of React skip it. A gate pragma would override the reactVersion
+    // one.
+    // @reactVersion >= 19.3
+    it('does not name use(store) reads', async () => {
+      const Component =
+        require('./__source__/__untransformed__/ComponentWithUseStore').Component;
+      const hookNames = await getHookNamesForComponent(Component);
+      expectHookNamesToEqual(hookNames, [null, null, null, null]);
+    });
+  });
 });
 
 describe('parseHookNames worker', () => {

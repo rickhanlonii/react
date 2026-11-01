@@ -2752,6 +2752,270 @@ describe('ReactFresh', () => {
     }
   }, 10000);
 
+  describe('use(store)', () => {
+    let createStore;
+
+    beforeEach(() => {
+      if (__DEV__) {
+        createStore = React.unstable_createStore;
+      }
+    });
+
+    // A hot update keeps the reader mounted and subscribed to its store.
+    // @gate enableStore || !__DEV__
+    it('can preserve state for compatible types', async () => {
+      if (__DEV__) {
+        let valStore = createStore(0);
+
+        const HelloV1 = await render(() => {
+          function Hello() {
+            const val = React.use(valStore);
+            return (
+              <p
+                style={{color: 'blue'}}
+                onClick={() => valStore.update(val + 1)}>
+                {val}
+              </p>
+            );
+          }
+          $RefreshReg$(Hello, 'Hello');
+          return Hello;
+        });
+
+        // Bump the state before patching.
+        const el = container.firstChild;
+        expect(el.textContent).toBe('0');
+        expect(el.style.color).toBe('blue');
+        await act(() => {
+          el.dispatchEvent(new MouseEvent('click', {bubbles: true}));
+        });
+        expect(el.textContent).toBe('1');
+
+        // Perform a hot update.
+        const HelloV2 = await patch(() => {
+          function Hello() {
+            const val = React.use(valStore);
+            return (
+              <p
+                style={{color: 'red'}}
+                onClick={() => valStore.update(val + 1)}>
+                {val}
+              </p>
+            );
+          }
+          $RefreshReg$(Hello, 'Hello');
+          return Hello;
+        });
+
+        // Assert the state was preserved but color changed.
+        expect(container.firstChild).toBe(el);
+        expect(el.textContent).toBe('1');
+        expect(el.style.color).toBe('red');
+
+        // Bump the state again.
+        await act(() => {
+          el.dispatchEvent(new MouseEvent('click', {bubbles: true}));
+        });
+        expect(container.firstChild).toBe(el);
+        expect(el.textContent).toBe('2');
+        expect(el.style.color).toBe('red');
+
+        // Perform top-down renders with both fresh and stale types.
+        // Neither should change the state or color.
+        // They should always resolve to the latest version.
+        await render(() => HelloV1);
+        await render(() => HelloV2);
+        await render(() => HelloV1);
+        expect(container.firstChild).toBe(el);
+        expect(el.textContent).toBe('2');
+        expect(el.style.color).toBe('red');
+
+        // Bump the state again.
+        await act(() => {
+          el.dispatchEvent(new MouseEvent('click', {bubbles: true}));
+        });
+        expect(container.firstChild).toBe(el);
+        expect(el.textContent).toBe('3');
+        expect(el.style.color).toBe('red');
+
+        // Finally, a render with incompatible type should reset it.
+        // store-semantics: stores persist across remounts, so a new store is
+        // passed for the new instance.
+        valStore = createStore(0);
+        await render(() => {
+          function Hello() {
+            const val = React.use(valStore);
+            return (
+              <p
+                style={{color: 'blue'}}
+                onClick={() => valStore.update(val + 1)}>
+                {val}
+              </p>
+            );
+          }
+          // No register call.
+          // This is considered a new type.
+          return Hello;
+        });
+        expect(container.firstChild).not.toBe(el);
+        const newEl = container.firstChild;
+        expect(newEl.textContent).toBe('0');
+        expect(newEl.style.color).toBe('blue');
+      }
+    });
+
+    // A forced remount unmounts the old reader and subscribes the new one.
+    // @gate enableStore || !__DEV__
+    it('can force remount by changing signature', async () => {
+      if (__DEV__) {
+        let valStore = createStore(0);
+
+        const HelloV1 = await render(() => {
+          function Hello() {
+            const val = React.use(valStore);
+            return (
+              <p
+                style={{color: 'blue'}}
+                onClick={() => valStore.update(val + 1)}>
+                {val}
+              </p>
+            );
+          }
+          $RefreshReg$(Hello, 'Hello');
+          // When this changes, we'll expect a remount:
+          $RefreshSig$(Hello, '1');
+          return Hello;
+        });
+
+        // Bump the state before patching.
+        const el = container.firstChild;
+        expect(el.textContent).toBe('0');
+        expect(el.style.color).toBe('blue');
+        await act(() => {
+          el.dispatchEvent(new MouseEvent('click', {bubbles: true}));
+        });
+        expect(el.textContent).toBe('1');
+
+        // Perform a hot update.
+        const HelloV2 = await patch(() => {
+          function Hello() {
+            const val = React.use(valStore);
+            return (
+              <p
+                style={{color: 'red'}}
+                onClick={() => valStore.update(val + 1)}>
+                {val}
+              </p>
+            );
+          }
+          $RefreshReg$(Hello, 'Hello');
+          // The signature hasn't changed since the last time:
+          $RefreshSig$(Hello, '1');
+          return Hello;
+        });
+
+        // Assert the state was preserved but color changed.
+        expect(container.firstChild).toBe(el);
+        expect(el.textContent).toBe('1');
+        expect(el.style.color).toBe('red');
+
+        // Perform a hot update.
+        // store-semantics: stores persist across remounts, so a new store is
+        // passed for the new instance.
+        valStore = createStore(0);
+        const HelloV3 = await patch(() => {
+          function Hello() {
+            const val = React.use(valStore);
+            return (
+              <p
+                style={{color: 'yellow'}}
+                onClick={() => valStore.update(val + 1)}>
+                {val}
+              </p>
+            );
+          }
+          // We're changing the signature now so it will remount:
+          $RefreshReg$(Hello, 'Hello');
+          $RefreshSig$(Hello, '2');
+          return Hello;
+        });
+
+        // Expect a remount.
+        expect(container.firstChild).not.toBe(el);
+        const newEl = container.firstChild;
+        expect(newEl.textContent).toBe('0');
+        expect(newEl.style.color).toBe('yellow');
+
+        // Bump state again.
+        await act(() => {
+          newEl.dispatchEvent(new MouseEvent('click', {bubbles: true}));
+        });
+        expect(newEl.textContent).toBe('1');
+        expect(newEl.style.color).toBe('yellow');
+
+        // Perform top-down renders with both fresh and stale types.
+        // Neither should change the state or color.
+        // They should always resolve to the latest version.
+        await render(() => HelloV1);
+        await render(() => HelloV2);
+        await render(() => HelloV3);
+        await render(() => HelloV2);
+        await render(() => HelloV1);
+        expect(container.firstChild).toBe(newEl);
+        expect(newEl.textContent).toBe('1');
+        expect(newEl.style.color).toBe('yellow');
+
+        // Verify we can patch again while preserving the signature.
+        await patch(() => {
+          function Hello() {
+            const val = React.use(valStore);
+            return (
+              <p
+                style={{color: 'purple'}}
+                onClick={() => valStore.update(val + 1)}>
+                {val}
+              </p>
+            );
+          }
+          // Same signature as last time.
+          $RefreshReg$(Hello, 'Hello');
+          $RefreshSig$(Hello, '2');
+          return Hello;
+        });
+
+        expect(container.firstChild).toBe(newEl);
+        expect(newEl.textContent).toBe('1');
+        expect(newEl.style.color).toBe('purple');
+
+        // Check removing the signature also causes a remount.
+        // store-semantics: stores persist across remounts, so a new store is
+        // passed for the new instance.
+        valStore = createStore(0);
+        await patch(() => {
+          function Hello() {
+            const val = React.use(valStore);
+            return (
+              <p
+                style={{color: 'orange'}}
+                onClick={() => valStore.update(val + 1)}>
+                {val}
+              </p>
+            );
+          }
+          // No signature this time.
+          $RefreshReg$(Hello, 'Hello');
+          return Hello;
+        });
+
+        // Expect a remount.
+        expect(container.firstChild).not.toBe(newEl);
+        const finalEl = container.firstChild;
+        expect(finalEl.textContent).toBe('0');
+        expect(finalEl.style.color).toBe('orange');
+      }
+    });
+  });
+
   async function runRemountingStressTest(tree) {
     await patch(() => {
       function Hello({children}) {

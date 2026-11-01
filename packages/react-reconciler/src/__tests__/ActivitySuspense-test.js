@@ -598,4 +598,244 @@ describe('Activity Suspense', () => {
       </>,
     );
   });
+
+  describe('use(store)', () => {
+    // Component state is a store read inside the hidden tree.
+    let createStore;
+
+    beforeEach(() => {
+      createStore = React.unstable_createStore;
+    });
+
+    // @gate enableStore
+    test('update that suspends inside hidden tree', async () => {
+      const textStore = createStore('A');
+      const setText = textStore.update;
+      function Child() {
+        const text = use(textStore);
+        return <AsyncText text={text} />;
+      }
+
+      function App({show}) {
+        return (
+          <Activity mode={show ? 'visible' : 'hidden'}>
+            <span>
+              <Child />
+            </span>
+          </Activity>
+        );
+      }
+
+      const root = ReactNoop.createRoot();
+      resolveText('A');
+      await act(() => {
+        root.render(<App show={false} />);
+      });
+      assertLog(['A']);
+
+      await act(() => {
+        startTransition(() => {
+          setText('B');
+        });
+      });
+    });
+
+    // @gate enableStore
+    test('updates at multiple priorities that suspend inside hidden tree', async () => {
+      const textStore = createStore('A');
+      const setText = textStore.update;
+      const stepStore = createStore(0);
+      const setStep = stepStore.update;
+      function Child() {
+        const text = use(textStore);
+        const step = use(stepStore);
+
+        return <AsyncText text={text + step} />;
+      }
+
+      function App({show}) {
+        return (
+          <Activity mode={show ? 'visible' : 'hidden'}>
+            <span>
+              <Child />
+            </span>
+          </Activity>
+        );
+      }
+
+      const root = ReactNoop.createRoot();
+      resolveText('A0');
+      await act(() => {
+        root.render(<App show={false} />);
+      });
+      assertLog(['A0']);
+      expect(root).toMatchRenderedOutput(<span hidden={true}>A0</span>);
+
+      await act(() => {
+        React.startTransition(() => {
+          setStep(1);
+        });
+        ReactNoop.flushSync(() => {
+          setText('B');
+        });
+      });
+      // store-semantics: the HostRoot owns the stores, so the transition's
+      // update to stepStore commits at the root before the hidden tree renders.
+      // The hidden tree then reads the committed value, B1, and never renders
+      // B0, which was never visible. useState renders B0 first because its
+      // updates are deferred with the hidden tree.
+      assertLog(['Suspend! [B1]', 'Suspend! [B1]']);
+      expect(root).toMatchRenderedOutput(<span hidden={true}>A0</span>);
+
+      // Resolve the data and finish rendering
+      await act(() => {
+        resolveText('B1');
+      });
+      assertLog(['B1']);
+      expect(root).toMatchRenderedOutput(<span hidden={true}>B1</span>);
+    });
+
+    // @gate enableStore
+    test('detect updates to a hidden tree during a concurrent event', async () => {
+      // This is a pretty complex test case. It relates to how we detect if an
+      // update is made to a hidden tree: when scheduling the update, we walk up
+      // the fiber return path to see if any of the parents is a hidden Activity
+      // component. This doesn't work if there's already a render in progress,
+      // because the tree might be about to flip to hidden. To avoid a data race,
+      // queue updates atomically: wait to queue the update until after the
+      // current render has finished.
+
+      const innerStore = createStore(0);
+      const setInner = innerStore.update;
+      function Child({outer}) {
+        const inner = use(innerStore);
+
+        useEffect(() => {
+          // Inner and outer values are always updated simultaneously, so they
+          // should always be consistent.
+          if (inner !== outer) {
+            Scheduler.log('Tearing! Inner and outer are inconsistent!');
+          } else {
+            Scheduler.log('Inner and outer are consistent');
+          }
+        }, [inner, outer]);
+
+        return <Text text={'Inner: ' + inner} />;
+      }
+
+      const outerStore = createStore(0);
+      const setOuter = outerStore.update;
+      function App({show}) {
+        const outer = use(outerStore);
+        return (
+          <>
+            <Activity mode={show ? 'visible' : 'hidden'}>
+              <span>
+                <Child outer={outer} />
+              </span>
+            </Activity>
+            <span>
+              <Text text={'Outer: ' + outer} />
+            </span>
+            <Suspense fallback={<Text text="Loading..." />}>
+              <span>
+                <Text text={'Sibling: ' + outer} />
+              </span>
+            </Suspense>
+          </>
+        );
+      }
+
+      // Render a hidden tree
+      const root = ReactNoop.createRoot();
+      resolveText('Async: 0');
+      await act(() => {
+        root.render(<App show={true} />);
+      });
+      assertLog([
+        'Inner: 0',
+        'Outer: 0',
+        'Sibling: 0',
+        'Inner and outer are consistent',
+      ]);
+      expect(root).toMatchRenderedOutput(
+        <>
+          <span>Inner: 0</span>
+          <span>Outer: 0</span>
+          <span>Sibling: 0</span>
+        </>,
+      );
+
+      await act(async () => {
+        // Update a value both inside and outside the hidden tree. These values
+        // must always be consistent.
+        startTransition(() => {
+          setOuter(1);
+          setInner(1);
+          // In the same render, also hide the offscreen tree.
+          root.render(<App show={false} />);
+        });
+
+        await waitFor([
+          // The outer update will commit, but the inner update is deferred until
+          // a later render.
+          'Outer: 1',
+        ]);
+
+        // Assert that we haven't committed quite yet
+        expect(root).toMatchRenderedOutput(
+          <>
+            <span>Inner: 0</span>
+            <span>Outer: 0</span>
+            <span>Sibling: 0</span>
+          </>,
+        );
+
+        // Before the tree commits, schedule a concurrent event. The inner update
+        // is to a tree that's just about to be hidden.
+        startTransition(() => {
+          setOuter(2);
+          setInner(2);
+        });
+
+        // Finish rendering and commit the in-progress render.
+        await waitForPaint(['Sibling: 1']);
+        expect(root).toMatchRenderedOutput(
+          <>
+            <span hidden={true}>Inner: 0</span>
+            <span>Outer: 1</span>
+            <span>Sibling: 1</span>
+          </>,
+        );
+
+        // Now reveal the hidden tree at high priority.
+        ReactNoop.flushSync(() => {
+          root.render(<App show={true} />);
+        });
+        assertLog([
+          // There are two pending updates on Inner, but only the first one
+          // is processed, even though they share the same lane. If the second
+          // update were erroneously processed, then Inner would be inconsistent
+          // with Outer.
+          'Inner: 1',
+          'Outer: 1',
+          'Sibling: 1',
+          'Inner and outer are consistent',
+        ]);
+      });
+      assertLog([
+        'Inner: 2',
+        'Outer: 2',
+        'Sibling: 2',
+        'Inner and outer are consistent',
+      ]);
+      expect(root).toMatchRenderedOutput(
+        <>
+          <span>Inner: 2</span>
+          <span>Outer: 2</span>
+          <span>Sibling: 2</span>
+        </>,
+      );
+    });
+  });
 });

@@ -561,4 +561,34 @@ describe('ReactFreshBabelPlugin', () => {
       ),
     ).toMatchSnapshot();
   });
+
+  describe('use(store)', () => {
+    // The store version of "generates signatures for function declarations
+    // calling hooks".
+    it('leaves use(store) out of signatures', () => {
+      // store-semantics: use(store) doesn't match the Hook naming convention
+      // (use[A-Z]), so the plugin leaves it out of the signature.
+      expect(
+        transform(`
+          export default function App() {
+            const foo = use(fooStore);
+            React.useEffect(() => {});
+            return <h1>{foo}</h1>;
+          }
+      `),
+      ).toMatchInlineSnapshot(`
+  var _s = $RefreshSig$();
+  export default function App() {
+    _s();
+    const foo = use(fooStore);
+    React.useEffect(() => {});
+    return <h1>{foo}</h1>;
+  }
+  _s(App, "useEffect{}");
+  _c = App;
+  var _c;
+  $RefreshReg$(_c, "App");
+  `);
+    });
+  });
 });

@@ -29,6 +29,10 @@ let assertLog;
 let caches;
 let seededCache;
 
+// The cases of ReactTransition-test.js with their state in stores. Every store
+// update goes through the HostRoot's update queue, so entanglement of
+// transitions that update "different queues", and the order of normal and
+// transition priority updates, take a store-specific path here.
 describe('ReactTransition', () => {
   beforeEach(() => {
     jest.resetModules();
@@ -169,48 +173,6 @@ describe('ReactTransition', () => {
       caches[caches.length - 1].resolve(text);
     }
   }
-
-  // @gate enableStore && (enableLegacyCache)
-  it('isPending works even if called from outside an input event', async () => {
-    let start;
-    const showStore = createStore(false);
-    function App() {
-      const show = use(showStore);
-      const [isPending, _start] = useTransition();
-      start = () => _start(() => showStore.update(true));
-      return (
-        <Suspense fallback={<Text text="Loading..." />}>
-          {isPending ? <Text text="Pending..." /> : null}
-          {show ? <AsyncText text="Async" /> : <Text text="(empty)" />}
-        </Suspense>
-      );
-    }
-
-    const root = ReactNoop.createRoot();
-
-    await act(() => {
-      root.render(<App />);
-    });
-    assertLog(['(empty)']);
-    expect(root).toMatchRenderedOutput('(empty)');
-
-    await act(async () => {
-      start();
-
-      await waitForAll([
-        'Pending...',
-        '(empty)',
-        'Suspend! [Async]',
-        'Loading...',
-      ]);
-
-      expect(root).toMatchRenderedOutput('Pending...(empty)');
-
-      await resolveText('Async');
-    });
-    assertLog(['Async']);
-    expect(root).toMatchRenderedOutput('Async');
-  });
 
   // @gate enableStore && (enableLegacyCache)
   it('when multiple transitions update different queues, they entangle', async () => {
@@ -615,131 +577,6 @@ describe('ReactTransition', () => {
     },
   );
 
-  // Same as previous test, but for class update queue.
-  // @gate enableLegacyCache
-  it(
-    'when multiple transitions update the same queue, only the most recent ' +
-      'one is allowed to finish (no intermediate states) (classes)',
-    async () => {
-      let update;
-      class App extends React.Component {
-        state = {
-          label: 'A',
-          contents: 'A',
-        };
-        render() {
-          update = value => {
-            ReactNoop.discreteUpdates(() => {
-              this.setState({label: value});
-              startTransition(() => {
-                this.setState({contents: value});
-              });
-            });
-          };
-          const label = this.state.label;
-          const contents = this.state.contents;
-          const isContentPending = label !== contents;
-          return (
-            <>
-              <Text
-                text={
-                  label + ' label' + (isContentPending ? ' (loading...)' : '')
-                }
-              />
-              <div>
-                <Suspense fallback={<Text text="Loading..." />}>
-                  <AsyncText text={contents + ' content'} />
-                </Suspense>
-              </div>
-            </>
-          );
-        }
-      }
-
-      // Initial render
-      const root = ReactNoop.createRoot();
-      await act(() => {
-        seedNextTextCache('A content');
-        root.render(<App />);
-      });
-      assertLog(['A label', 'A content']);
-      expect(root).toMatchRenderedOutput(
-        <>
-          A label<div>A content</div>
-        </>,
-      );
-
-      // Switch to B
-      await act(() => {
-        update('B');
-      });
-      assertLog([
-        // Commit pending state
-        'B label (loading...)',
-        'A content',
-
-        // Attempt to render B, but it suspends
-        'B label',
-        'Suspend! [B content]',
-        'Loading...',
-      ]);
-      // This is a refresh transition so it shouldn't show a fallback
-      expect(root).toMatchRenderedOutput(
-        <>
-          B label (loading...)<div>A content</div>
-        </>,
-      );
-
-      // Before B finishes loading, switch to C
-      await act(() => {
-        update('C');
-      });
-      assertLog([
-        // Commit pending state
-        'C label (loading...)',
-        'A content',
-
-        // Attempt to render C, but it suspends
-        'C label',
-        'Suspend! [C content]',
-        'Loading...',
-      ]);
-      expect(root).toMatchRenderedOutput(
-        <>
-          C label (loading...)<div>A content</div>
-        </>,
-      );
-
-      // Finish loading B. But we're not allowed to render B because it's
-      // entangled with C. So we're still pending.
-      await act(() => {
-        resolveText('B content');
-      });
-      assertLog([
-        // Attempt to render C, but it suspends
-        'C label',
-        'Suspend! [C content]',
-        'Loading...',
-      ]);
-      expect(root).toMatchRenderedOutput(
-        <>
-          C label (loading...)<div>A content</div>
-        </>,
-      );
-
-      // Now finish loading C. This is the terminal update, so it can finish.
-      await act(() => {
-        resolveText('C content');
-      });
-      assertLog(['C label', 'C content']);
-      expect(root).toMatchRenderedOutput(
-        <>
-          C label<div>C content</div>
-        </>,
-      );
-    },
-  );
-
   // @gate enableStore && (enableLegacyCache)
   it(
     'when multiple transitions update overlapping queues, all the transitions ' +
@@ -845,61 +682,6 @@ describe('ReactTransition', () => {
     },
   );
 
-  // @gate enableLegacyCache
-  it('interrupt a refresh transition if a new transition is scheduled', async () => {
-    const root = ReactNoop.createRoot();
-
-    await act(() => {
-      root.render(
-        <>
-          <Suspense fallback={<Text text="Loading..." />} />
-          <Text text="Initial" />
-        </>,
-      );
-    });
-    assertLog(['Initial']);
-    expect(root).toMatchRenderedOutput('Initial');
-
-    await act(async () => {
-      // Start a refresh transition
-      startTransition(() => {
-        root.render(
-          <>
-            <Suspense fallback={<Text text="Loading..." />}>
-              <AsyncText text="Async" />
-            </Suspense>
-            <Text text="After Suspense" />
-            <Text text="Sibling" />
-          </>,
-        );
-      });
-
-      // Partially render it.
-      await waitFor([
-        // Once we the update suspends, we know it's a refresh transition,
-        // because the Suspense boundary has already mounted.
-        'Suspend! [Async]',
-        'Loading...',
-        'After Suspense',
-      ]);
-
-      // Schedule a new transition
-      startTransition(async () => {
-        root.render(
-          <>
-            <Suspense fallback={<Text text="Loading..." />} />
-            <Text text="Updated" />
-          </>,
-        );
-      });
-    });
-
-    // Because the first one is going to suspend regardless, we should
-    // immediately switch to rendering the new transition.
-    assertLog(['Updated']);
-    expect(root).toMatchRenderedOutput('Updated');
-  });
-
   // @gate enableStore && (enableLegacyCache)
   it(
     "interrupt a refresh transition when something suspends and we've " +
@@ -988,71 +770,6 @@ describe('ReactTransition', () => {
           'C',
         ]);
         expect(root).toMatchRenderedOutput('A(empty)BC');
-      });
-    },
-  );
-
-  // @gate enableLegacyCache
-  it(
-    'interrupt a refresh transition when something suspends and a parent ' +
-      'component received an interleaved update after its queue was processed',
-    async () => {
-      // Title is confusing so I'll try to explain further: This is similar to
-      // the previous test, except instead of skipped over a transition update
-      // in a parent, the parent receives an interleaved update *after* its
-      // begin phase has already finished.
-
-      function App({shouldSuspend, step}) {
-        return (
-          <>
-            <Text text={`A${step}`} />
-            <Suspense fallback={<Text text="Loading..." />}>
-              {shouldSuspend ? <AsyncText text="Async" /> : null}
-            </Suspense>
-            <Text text={`B${step}`} />
-            <Text text={`C${step}`} />
-          </>
-        );
-      }
-
-      const root = ReactNoop.createRoot();
-
-      await act(() => {
-        root.render(<App shouldSuspend={false} step={0} />);
-      });
-      assertLog(['A0', 'B0', 'C0']);
-      expect(root).toMatchRenderedOutput('A0B0C0');
-
-      await act(async () => {
-        // This update will suspend.
-        startTransition(() => {
-          root.render(<App shouldSuspend={true} step={1} />);
-        });
-        // Flush past the root, but stop before the async component.
-        await waitFor(['A1']);
-
-        // Schedule another transition on the root, which already completed.
-        startTransition(() => {
-          root.render(<App shouldSuspend={false} step={2} />);
-        });
-        // We'll keep working on the first update.
-        await waitFor([
-          // Now the async component suspends
-          'Suspend! [Async]',
-          'Loading...',
-          'B1',
-        ]);
-        // Should not have committed loading state
-        expect(root).toMatchRenderedOutput('A0B0C0');
-
-        // After suspending, should abort the first update and switch to the
-        // second update. So, C1 should not appear in the log.
-        // TODO: This should work even if React does not yield to the main
-        // thread. Should use same mechanism as selective hydration to interrupt
-        // the render before the end of the current slice of work.
-        await waitForAll(['A2', 'B2', 'C2']);
-
-        expect(root).toMatchRenderedOutput('A2B2C2');
       });
     },
   );
@@ -1241,47 +958,5 @@ describe('ReactTransition', () => {
     ]);
 
     expect(root).toMatchRenderedOutput('Transition pri: 1, Normal pri: 1');
-  });
-
-  // @gate enableStore
-  it('tracks two pending flags for nested startTransition (#26226)', async () => {
-    let update;
-    const store = createStore(0);
-    const setState = store.update;
-    function App() {
-      const [isPendingA, startTransitionA] = useTransition();
-      const [isPendingB, startTransitionB] = useTransition();
-      const state = use(store);
-
-      update = function () {
-        startTransitionA(() => {
-          startTransitionB(() => {
-            setState(1);
-          });
-        });
-      };
-
-      return (
-        <>
-          <Text text={state} />
-          {', '}
-          <Text text={'A ' + isPendingA} />
-          {', '}
-          <Text text={'B ' + isPendingB} />
-        </>
-      );
-    }
-    const root = ReactNoop.createRoot();
-    await act(async () => {
-      root.render(<App />);
-    });
-    assertLog([0, 'A false', 'B false']);
-    expect(root).toMatchRenderedOutput('0, A false, B false');
-
-    await act(async () => {
-      update();
-    });
-    assertLog([0, 'A true', 'B true', 1, 'A false', 'B false']);
-    expect(root).toMatchRenderedOutput('1, A false, B false');
   });
 });

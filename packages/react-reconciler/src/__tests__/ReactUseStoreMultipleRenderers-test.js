@@ -10,9 +10,9 @@
 
 'use strict';
 
-// The context cases of ReactTestRenderer-test.internal.js, with context
-// replaced by `use(store)`. See "Context copies" in
-// docs/use-store/COPY_RULES.md.
+// use(store) with two renderers in the same app. This needs its own file: the
+// noop renderer's reconciler is isolated at module level, so the test renderer
+// and the noop renderer share one copy of React.
 
 const ReactFeatureFlags = require('shared/ReactFeatureFlags');
 const React = require('react');
@@ -21,12 +21,10 @@ const InternalTestUtils = require('internal-test-utils');
 const waitForAll = InternalTestUtils.waitForAll;
 const act = InternalTestUtils.act;
 
-// Isolate noop renderer. The original isolates every module, so the noop
-// renderer also gets its own copy of React. A store is read with use(store),
-// which goes through the dispatcher of the React copy the component calls, so
-// both renderers have to share this file's copy of React (and its internals),
-// the way two renderers share React in an app. The reconciler is still
-// isolated.
+// Isolate the noop renderer's reconciler, so the test renderer and the noop
+// renderer are two renderers in the same app. Both share this file's copy of
+// React (and its internals), because use(store) goes through the dispatcher of
+// the React copy the component calls.
 const ReactSharedInternals = require('shared/ReactSharedInternals');
 jest.resetModules();
 jest.doMock('react', () => React);
@@ -38,36 +36,30 @@ const NoopScheduler = require('scheduler');
 jest.dontMock('react');
 jest.dontMock('shared/ReactSharedInternals');
 
-describe('ReactTestRenderer', () => {
+describe('ReactUseStore with multiple renderers', () => {
   beforeEach(() => {
     jest.resetModules();
     ReactFeatureFlags.enableReactTestRendererWarning = false;
   });
 
+  // The store version of 'can concurrently render context with a "primary"
+  // renderer' in ReactTestRenderer-test. Each renderer's root gets its own
+  // record of the store.
   // @gate enableStore
-  it('can concurrently render context with a "primary" renderer', async () => {
+  it('two renderers that read the same store each get a record of it', async () => {
     const store = React.unstable_createStore(null);
-    const Indirection = React.Fragment;
-    // <Context.Consumer> becomes a function component that reads the store
-    // and calls its render prop.
-    function Consumer({children}) {
-      return children(React.use(store));
+    function Reader() {
+      React.use(store);
+      return null;
     }
-    const App = () => (
-      <Indirection>
-        <Consumer>{() => null}</Consumer>
-      </Indirection>
-    );
-    ReactNoop.render(<App />);
+    ReactNoop.render(<Reader />);
+    // The root is scheduled in a microtask. Flush it, then flush the noop
+    // renderer's own Scheduler.
     await waitForAll([]);
-    // store-semantics: in the original, waitForAll flushes this file's
-    // Scheduler, not the isolated noop renderer's, so the noop render never
-    // runs and only the test renderer renders the context. Flush the noop
-    // renderer's Scheduler, so that both renderers read the store.
     NoopScheduler.unstable_flushAllWithoutAsserting();
     expect(store._records.length).toBe(1);
     await act(() => {
-      ReactTestRenderer.create(<App />);
+      ReactTestRenderer.create(<Reader />);
     });
     expect(store._records.length).toBe(2);
   });

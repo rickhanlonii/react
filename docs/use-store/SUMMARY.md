@@ -116,8 +116,8 @@ Ricky". In priority order:
 - **Tests** (from the repo root):
   - `yarn test --r=experimental UseStore`
   - `yarn test --r=experimental ReactDOMStore`
-  - `node scripts/store-parity/check.js`
-  - `node scripts/store-parity/check.js --context`
+  - `yarn test --r=xplat --variant=true ReactUseStoreLegacyMode` (legacy-mode store cases; xplat is the only channel with legacy mode and `enableStore`)
+  - The copy-parity checker (`scripts/store-parity/`) is retired: copies were folded into the store spec files or their base files.
 - **Report** (from `fixtures/store-bench`):
   `ls results/full-final-r*.json | grep -v discarded | xargs node report.mjs`,
   then open `results/report.html`. The suites come from `results/smoke-q-*.json`.

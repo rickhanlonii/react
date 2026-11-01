@@ -457,6 +457,277 @@ describe('memo', () => {
         });
         expect(root).toMatchRenderedOutput('1');
       });
+      describe('use(store)', () => {
+        // Component state and context are stores, so updates have to get past
+        // memo's bailout.
+        let use;
+        let createStore;
+
+        beforeEach(() => {
+          use = React.use;
+          createStore = React.unstable_createStore;
+        });
+
+        // @gate enableStore
+        it("does not bail out if there's a context change", async () => {
+          const countStore = createStore(0);
+
+          function Counter(props) {
+            const count = use(countStore);
+            return <Text text={`${props.label}: ${count}`} />;
+          }
+          Counter = memo(Counter);
+
+          class Parent extends React.Component {
+            state = {count: 0};
+            render() {
+              return (
+                <Suspense fallback={<Text text="Loading..." />}>
+                  <Counter label="Count" />
+                </Suspense>
+              );
+            }
+          }
+
+          const parent = React.createRef(null);
+          await act(() => ReactNoop.render(<Parent ref={parent} />));
+          assertLog(['Loading...', 'Count: 0']);
+          expect(ReactNoop).toMatchRenderedOutput(<span prop="Count: 0" />);
+
+          // Should bail out because props have not changed
+          ReactNoop.render(<Parent ref={parent} />);
+          await waitForAll([]);
+          expect(ReactNoop).toMatchRenderedOutput(<span prop="Count: 0" />);
+
+          // Should update because there was a context change. Parent's state
+          // still re-renders it, so the update has to get past memo's bailout,
+          // and the value it provided is updated in the store.
+          parent.current.setState({count: 1});
+          countStore.update(1);
+          await waitForAll(['Count: 1']);
+          expect(ReactNoop).toMatchRenderedOutput(<span prop="Count: 1" />);
+        });
+
+        // @gate enableStore
+        it('consistent behavior for reusing props object across different function component types', async () => {
+          // This test is a bit complicated because it relates to an
+          // implementation detail. We don't have strong guarantees that the props
+          // object is referentially equal during updates where we can't bail
+          // out anyway — like if the props are shallowly equal, but there's a
+          // local state or context update in the same batch.
+          //
+          // However, as a principle, we should aim to make the behavior
+          // consistent across different ways of memoizing a component. For
+          // example, React.memo has a different internal Fiber layout if you pass
+          // a normal function component (SimpleMemoComponent) versus if you pass
+          // a different type like forwardRef (MemoComponent). But this is an
+          // implementation detail. Wrapping a component in forwardRef (or
+          // React.lazy, etc) shouldn't affect whether the props object is reused
+          // during a bailout.
+          //
+          // So this test isn't primarily about asserting a particular behavior
+          // for reusing the props object; it's about making sure the behavior
+          // is consistent.
+
+          const {useEffect} = React;
+
+          const simpleMemoStepStore = createStore(0);
+          const setSimpleMemoStep = simpleMemoStepStore.update;
+          const SimpleMemo = React.memo(props => {
+            const step = use(simpleMemoStepStore);
+
+            const prevProps = React.useRef(props);
+            useEffect(() => {
+              if (props !== prevProps.current) {
+                prevProps.current = props;
+                Scheduler.log('Props changed [SimpleMemo]');
+              }
+            }, [props]);
+
+            return <Text text={`SimpleMemo [${props.prop}${step}]`} />;
+          });
+
+          const complexMemoStepStore = createStore(0);
+          const setComplexMemo = complexMemoStepStore.update;
+          const ComplexMemo = React.memo(
+            React.forwardRef((props, ref) => {
+              const step = use(complexMemoStepStore);
+
+              const prevProps = React.useRef(props);
+              useEffect(() => {
+                if (props !== prevProps.current) {
+                  prevProps.current = props;
+                  Scheduler.log('Props changed [ComplexMemo]');
+                }
+              }, [props]);
+
+              return <Text text={`ComplexMemo [${props.prop}${step}]`} />;
+            }),
+          );
+
+          const memoWithIndirectionStepStore = createStore(0);
+          const setMemoWithIndirectionStep =
+            memoWithIndirectionStepStore.update;
+          const MemoWithIndirection = React.memo(props => {
+            return <Indirection props={props} />;
+          });
+          function Indirection({props}) {
+            const step = use(memoWithIndirectionStepStore);
+
+            const prevProps = React.useRef(props);
+            useEffect(() => {
+              if (props !== prevProps.current) {
+                prevProps.current = props;
+                Scheduler.log('Props changed [MemoWithIndirection]');
+              }
+            }, [props]);
+
+            return <Text text={`MemoWithIndirection [${props.prop}${step}]`} />;
+          }
+
+          function setLocalUpdateOnChildren(step) {
+            setSimpleMemoStep(step);
+            setMemoWithIndirectionStep(step);
+            setComplexMemo(step);
+          }
+
+          function App({prop}) {
+            return (
+              <>
+                <SimpleMemo prop={prop} />
+                <ComplexMemo prop={prop} />
+                <MemoWithIndirection prop={prop} />
+              </>
+            );
+          }
+
+          const root = ReactNoop.createRoot();
+          await act(() => {
+            root.render(<App prop="A" />);
+          });
+          assertLog([
+            'SimpleMemo [A0]',
+            'ComplexMemo [A0]',
+            'MemoWithIndirection [A0]',
+          ]);
+
+          // Demonstrate what happens when the props change
+          await act(() => {
+            root.render(<App prop="B" />);
+          });
+          assertLog([
+            'SimpleMemo [B0]',
+            'ComplexMemo [B0]',
+            'MemoWithIndirection [B0]',
+            'Props changed [SimpleMemo]',
+            'Props changed [ComplexMemo]',
+            'Props changed [MemoWithIndirection]',
+          ]);
+
+          // Demonstrate what happens when the prop object changes but there's a
+          // bailout because all the individual props are the same.
+          await act(() => {
+            root.render(<App prop="B" />);
+          });
+          // Nothing re-renders
+          assertLog([]);
+
+          // Demonstrate what happens when the prop object changes, it bails out
+          // because all the props are the same, but we still render the
+          // children because there's a local update in the same batch.
+          await act(() => {
+            root.render(<App prop="B" />);
+            setLocalUpdateOnChildren(1);
+          });
+          // The components should re-render with the new local state, but none
+          // of the props objects should have changed
+          assertLog([
+            'SimpleMemo [B1]',
+            'ComplexMemo [B1]',
+            'MemoWithIndirection [B1]',
+          ]);
+
+          // Do the same thing again. We should still reuse the props object.
+          await act(() => {
+            root.render(<App prop="B" />);
+            setLocalUpdateOnChildren(2);
+          });
+          // The components should re-render with the new local state, but none
+          // of the props objects should have changed
+          assertLog([
+            'SimpleMemo [B2]',
+            'ComplexMemo [B2]',
+            'MemoWithIndirection [B2]',
+          ]);
+        });
+
+        // @gate enableStore
+        it('does not drop lower priority state updates when bailing out at higher pri (simple)', async () => {
+          const counterStore = createStore(0);
+          const setCounter = counterStore.update;
+          const Counter = memo(() => {
+            const counter = use(counterStore);
+            return counter;
+          });
+
+          function App() {
+            return (
+              <Suspense fallback="Loading...">
+                <Counter />
+              </Suspense>
+            );
+          }
+
+          const root = ReactNoop.createRoot();
+          await act(() => {
+            root.render(<App />);
+          });
+          expect(root).toMatchRenderedOutput('0');
+
+          await act(() => {
+            setCounter(1);
+            ReactNoop.discreteUpdates(() => {
+              root.render(<App />);
+            });
+          });
+          expect(root).toMatchRenderedOutput('1');
+        });
+
+        // @gate enableStore
+        it('does not drop lower priority state updates when bailing out at higher pri (complex)', async () => {
+          const counterStore = createStore(0);
+          const setCounter = counterStore.update;
+          const Counter = memo(
+            () => {
+              const counter = use(counterStore);
+              return counter;
+            },
+            (a, b) => a.complexProp.val === b.complexProp.val,
+          );
+
+          function App() {
+            return (
+              <Suspense fallback="Loading...">
+                <Counter complexProp={{val: 1}} />
+              </Suspense>
+            );
+          }
+
+          const root = ReactNoop.createRoot();
+          await act(() => {
+            root.render(<App />);
+          });
+          expect(root).toMatchRenderedOutput('0');
+
+          await act(() => {
+            setCounter(1);
+            ReactNoop.discreteUpdates(() => {
+              root.render(<App />);
+            });
+          });
+          expect(root).toMatchRenderedOutput('1');
+        });
+      });
     });
 
     it('should skip memo in the stack if neither displayName nor name are present', async () => {

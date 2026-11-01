@@ -563,4 +563,146 @@ describe('ReactInternalTestUtilsDOM', () => {
       assertLog([]);
     });
   });
+
+  // The priority of the event decides the lane of a store update, like it does
+  // for setState: discrete updates flush between handlers, and continuous
+  // updates are batched.
+  describe('use(store)', () => {
+    let createStore;
+
+    beforeEach(() => {
+      createStore = React.unstable_createStore;
+    });
+
+    // @gate enableStore
+    it('does not batch discrete events between handlers', async () => {
+      let childRef = React.createRef();
+      const store = createStore(0);
+      function Component() {
+        const state = React.use(store);
+        const parentRef = React.useRef();
+        React.useEffect(() => {
+          function handleParentEvent() {
+            queueMicrotask(() => {
+              Scheduler.log('Parent microtask');
+            });
+            store.update(2);
+            Scheduler.log(`Click parent`);
+          }
+
+          function handleChildEvent() {
+            queueMicrotask(() => {
+              Scheduler.log('Child microtask');
+            });
+            store.update(1);
+            Scheduler.log(`Click child`);
+          }
+          parentRef.current.addEventListener('click', handleParentEvent);
+
+          childRef.current.addEventListener('click', handleChildEvent);
+
+          return () => {
+            parentRef.current.removeEventListener('click', handleParentEvent);
+
+            childRef.current.removeEventListener('click', handleChildEvent);
+          };
+        });
+
+        Scheduler.log(`Render ${state}`);
+        return (
+          <div ref={parentRef}>
+            <button ref={childRef} />
+          </div>
+        );
+      }
+
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+      const root = ReactDOMClient.createRoot(container);
+      await act(() => {
+        root.render(<Component />);
+      });
+
+      assertLog(['Render 0']);
+
+      await act(async () => {
+        await simulateEventDispatch(childRef.current, 'click');
+      });
+
+      assertLog([
+        'Click child',
+        'Child microtask',
+        'Render 1',
+        'Click parent',
+        'Parent microtask',
+        'Render 2',
+      ]);
+    });
+
+    // @gate enableStore
+    it('should batch continuous events between handlers', async () => {
+      let childRef = React.createRef();
+      const store = createStore(0);
+      function Component() {
+        const state = React.use(store);
+        const parentRef = React.useRef();
+        React.useEffect(() => {
+          function handleChildEvent() {
+            queueMicrotask(() => {
+              Scheduler.log('Child microtask');
+            });
+            store.update(1);
+            Scheduler.log(`Mouseout child`);
+          }
+          function handleParentEvent() {
+            queueMicrotask(() => {
+              Scheduler.log('Parent microtask');
+            });
+            store.update(2);
+            Scheduler.log(`Mouseout parent`);
+          }
+          parentRef.current.addEventListener('mouseout', handleParentEvent);
+
+          childRef.current.addEventListener('mouseout', handleChildEvent);
+
+          return () => {
+            parentRef.current.removeEventListener(
+              'mouseout',
+              handleParentEvent
+            );
+
+            childRef.current.removeEventListener('mouseout', handleChildEvent);
+          };
+        });
+
+        Scheduler.log(`Render ${state}`);
+        return (
+          <div ref={parentRef}>
+            <button ref={childRef} />
+          </div>
+        );
+      }
+
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+      const root = ReactDOMClient.createRoot(container);
+      await act(() => {
+        root.render(<Component />);
+      });
+
+      assertLog(['Render 0']);
+
+      await act(async () => {
+        await simulateEventDispatch(childRef.current, 'mouseout');
+      });
+
+      assertLog([
+        'Mouseout child',
+        'Child microtask',
+        'Mouseout parent',
+        'Parent microtask',
+        'Render 2',
+      ]);
+    });
+  });
 });

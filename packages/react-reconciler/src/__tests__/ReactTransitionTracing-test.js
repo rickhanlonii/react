@@ -2568,4 +2568,153 @@ describe('ReactInteractionTracing', () => {
       'onTransitionComplete(transition two, 0, 3000) /root two/',
     ]);
   });
+
+  describe('use(store)', () => {
+    // These cases read a store in place of component state, where the store
+    // update path matters to what the case checks.
+    let createStore;
+    let use;
+
+    beforeEach(() => {
+      createStore = React.unstable_createStore;
+      use = React.use;
+    });
+
+    // @gate enableStore && enableTransitionTracing
+    it('should correctly trace basic interaction', async () => {
+      const transitionCallbacks = {
+        onTransitionStart: (name, startTime) => {
+          Scheduler.log(`onTransitionStart(${name}, ${startTime})`);
+        },
+        onTransitionProgress: (name, startTime, endTime, pending) => {
+          const suspenseNames = pending.map(p => p.name || '<null>').join(', ');
+          Scheduler.log(
+            `onTransitionProgress(${name}, ${startTime}, ${endTime}, [${suspenseNames}])`,
+          );
+        },
+        onTransitionComplete: (name, startTime, endTime) => {
+          Scheduler.log(
+            `onTransitionComplete(${name}, ${startTime}, ${endTime})`,
+          );
+        },
+      };
+
+      const navigateStore = createStore(false);
+      const navigateToPageTwo = () => {
+        navigateStore.update(true);
+      };
+      function App() {
+        const navigate = use(navigateStore);
+
+        return (
+          <div>
+            {navigate ? <Text text="Page Two" /> : <Text text="Page One" />}
+          </div>
+        );
+      }
+
+      const root = ReactNoop.createRoot({
+        unstable_transitionCallbacks: transitionCallbacks,
+      });
+      await act(async () => {
+        root.render(<App />);
+        ReactNoop.expire(1000);
+        await advanceTimers(1000);
+
+        await waitForAll(['Page One']);
+
+        await act(async () => {
+          startTransition(() => navigateToPageTwo(), {name: 'page transition'});
+
+          ReactNoop.expire(1000);
+          await advanceTimers(1000);
+
+          await waitForAll([
+            'Page Two',
+            'onTransitionStart(page transition, 1000)',
+            'onTransitionComplete(page transition, 1000, 2000)',
+          ]);
+        });
+      });
+    });
+
+    // @gate enableStore && enableTransitionTracing
+    it('multiple commits happen before a paint', async () => {
+      const transitionCallbacks = {
+        onTransitionStart: (name, startTime) => {
+          Scheduler.log(`onTransitionStart(${name}, ${startTime})`);
+        },
+        onTransitionProgress: (name, startTime, endTime, pending) => {
+          const suspenseNames = pending.map(p => p.name || '<null>').join(', ');
+          Scheduler.log(
+            `onTransitionProgress(${name}, ${startTime}, ${endTime}, [${suspenseNames}])`,
+          );
+        },
+        onTransitionComplete: (name, startTime, endTime) => {
+          Scheduler.log(
+            `onTransitionComplete(${name}, ${startTime}, ${endTime})`,
+          );
+        },
+      };
+
+      const rerenderStore = createStore(false);
+      function App() {
+        use(rerenderStore);
+        React.useLayoutEffect(() => {
+          resolveText('Text');
+          rerenderStore.update(true);
+        });
+        return (
+          <>
+            <Suspense name="one" fallback={<Text text="Loading..." />}>
+              <AsyncText text="Text" />
+            </Suspense>
+            <Suspense name="two" fallback={<Text text="Loading Two..." />}>
+              <AsyncText text="Text Two" />
+            </Suspense>
+          </>
+        );
+      }
+
+      const root = ReactNoop.createRoot({
+        unstable_transitionCallbacks: transitionCallbacks,
+      });
+
+      await act(() => {
+        startTransition(() => root.render(<App />), {name: 'transition'});
+        ReactNoop.expire(1000);
+        advanceTimers(1000);
+      });
+
+      assertLog([
+        'Suspend [Text]',
+        'Loading...',
+        'Suspend [Text Two]',
+        'Loading Two...',
+        'Text',
+        'Suspend [Text Two]',
+        'Loading Two...',
+        // pre-warming
+        'Suspend [Text Two]',
+        // end pre-warming
+        'onTransitionStart(transition, 0)',
+        'onTransitionProgress(transition, 0, 1000, [two])',
+        // store-semantics: the second layout effect updates the store to the
+        // value it already has. Nothing is pending, so the update bails out at
+        // dispatch. useState renders App again and bails out there, and that
+        // extra commit pre-warms Text Two a second time.
+      ]);
+
+      await act(() => {
+        resolveText('Text Two');
+        ReactNoop.expire(1000);
+        advanceTimers(1000);
+      });
+      assertLog([
+        'Text Two',
+        'onTransitionProgress(transition, 0, 2000, [])',
+        'onTransitionComplete(transition, 0, 2000)',
+      ]);
+    });
+  });
 });

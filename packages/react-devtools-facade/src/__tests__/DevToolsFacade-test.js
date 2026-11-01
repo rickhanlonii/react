@@ -2427,4 +2427,74 @@ describe('react-devtools-facade', () => {
       expect(tree.find(n => n.name === 'Child')).toBeDefined();
     });
   });
+
+  describe('use(store)', () => {
+    let getComponentTree;
+    let getComponentByUid;
+    let createStore;
+
+    beforeEach(() => {
+      const tools = createTools(facade);
+      getComponentTree = tools.getComponentTree;
+      getComponentByUid = tools.getComponentByUid;
+      createStore = React.unstable_createStore;
+    });
+
+    // It has a reactVersion pragma rather than a gate pragma, so DevTools
+    // regression runs against older versions of React skip it. A gate pragma
+    // would override the reactVersion one.
+    // @reactVersion >= 19.3
+    it('returns the full hooks tree for a function component', () => {
+      const cStore = createStore(0);
+      const countStore = createStore(7);
+      const objStore = createStore({color: 'red'});
+      function useCounter() {
+        const c = React.use(cStore);
+        return c;
+      }
+      function Widget() {
+        const count = React.use(countStore);
+        React.useEffect(() => {}, []);
+        const obj = React.use(objStore);
+        useCounter();
+        const ref = React.useRef(1);
+        const memo = React.useMemo(() => 5, []);
+        return (
+          <div>
+            {count}
+            {obj.color}
+            {ref.current}
+            {memo}
+          </div>
+        );
+      }
+
+      act(() => {
+        ReactDOMClient.createRoot(container).render(<Widget />);
+      });
+
+      const widget = getComponentTree().find(n => n.name === 'Widget');
+      const info = getComponentByUid(widget.uid, true);
+
+      // Full structural assertion: every hook node, in order, with its id
+      // (sequential per primitive hook; custom hooks are null), name, normalized
+      // value (the Effect's create fn becomes '[fn]'), and subHooks.
+      // store-semantics: use(store) is reported as a "Store" hook with the value
+      // the component rendered. It doesn't take a hook slot, so its id is null
+      // and the following primitive hooks are numbered without it.
+      expect(info.hooks).toEqual([
+        {id: null, name: 'Store', value: 7, subHooks: []},
+        {id: 0, name: 'Effect', value: '[fn]', subHooks: []},
+        {id: null, name: 'Store', value: {color: 'red'}, subHooks: []},
+        {
+          id: null,
+          name: 'Counter',
+          value: null,
+          subHooks: [{id: null, name: 'Store', value: 0, subHooks: []}],
+        },
+        {id: 1, name: 'Ref', value: 1, subHooks: []},
+        {id: 2, name: 'Memo', value: 5, subHooks: []},
+      ]);
+    });
+  });
 });

@@ -9,7 +9,7 @@
  */
 
 // The context cases of ReactSameElementBailout-test.js, with context replaced
-// by `use(store)`. See "Context copies" in docs/use-store/COPY_RULES.md.
+// by `use(store)`. See "Differences from context" in docs/use-store/DESIGN.md.
 
 'use strict';
 

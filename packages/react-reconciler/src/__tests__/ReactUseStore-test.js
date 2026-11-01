@@ -1905,8 +1905,12 @@ describe('ReactUseStore', () => {
     await act(() => {
       store.update(1);
     });
-    // Once for the eager state, and once more for the reader in StrictMode.
-    assertLog(['reducer', 'Loose: 1', 'reducer', 'Strict: 1']);
+    if (__DEV__) {
+      // Once for the eager state, and once more for the reader in StrictMode.
+      assertLog(['reducer', 'Loose: 1', 'reducer', 'Strict: 1']);
+    } else {
+      assertLog(['reducer', 'Loose: 1', 'Strict: 1']);
+    }
   });
 
   // @gate enableStore
@@ -2354,6 +2358,17 @@ describe('ReactUseStore', () => {
       setShow(true);
     });
     assertLog(['Tab: b', 'Reader: 2']);
+  });
+
+  // From packages/react/src/__tests__/React-hooks-arityUseStore.js. The copy
+  // asserted inside a component that never rendered, so it checks the arity
+  // directly.
+  // @gate enableStore
+  it('store.update has an arity of 1, like a setState function', () => {
+    const store = createStore(0);
+    expect(store.update.length).toBe(1);
+    const reducerStore = createStore(0, (s, a) => a);
+    expect(reducerStore.update.length).toBe(1);
   });
 
   // Found by the port of the react-concurrent-store tests

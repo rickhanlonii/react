@@ -272,5 +272,28 @@ if (!__EXPERIMENTAL__) {
         __DEV__ ? '\n    in Bar (at **)' + '\n    in Foo (at **)' : null,
       );
     });
+
+    describe('use(store)', () => {
+      // @gate enableStore
+      it('should error on use(store)', async () => {
+        // The react-server build of React doesn't export createStore, so the
+        // store comes from the client build, like a store passed from client
+        // code.
+        const store = jest.requireActual('react').unstable_createStore('hello');
+        function Component() {
+          const state = React.use(store);
+          // We can't use JSX because that's client-JSX in our tests.
+          return React.createElement('div', null, state);
+        }
+
+        // useState doesn't exist in the react-server build of React. use()
+        // does, and it throws when it's passed a store.
+        await expect(async () => {
+          await ReactMarkup.experimental_renderToHTML(
+            React.createElement(Component),
+          );
+        }).rejects.toThrow('Cannot read a store from a Server Component.');
+      });
+    });
   });
 }

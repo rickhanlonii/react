@@ -685,4 +685,206 @@ describe('ReactIncrementalUpdates', () => {
     // There were two total prop changes, plus an increment.
     expect(root).toMatchRenderedOutput('201');
   });
+
+  describe('use(store)', () => {
+    // These cases read a store in place of component state, where the store
+    // update path matters to what the case checks.
+    let createStore;
+    let use;
+    let useLayoutEffect;
+
+    beforeEach(() => {
+      createStore = React.unstable_createStore;
+      use = React.use;
+      useLayoutEffect = React.useLayoutEffect;
+    });
+
+    // Merges partial state like class setState. An action can be an object or
+    // an updater function.
+    function mergeState(prevState, partialState) {
+      return {
+        ...prevState,
+        ...(typeof partialState === 'function'
+          ? partialState(prevState)
+          : partialState),
+      };
+    }
+
+    // @gate enableStore
+    it('applies updates in order of priority', async () => {
+      let state;
+      const store = createStore({}, mergeState);
+      function Foo() {
+        useLayoutEffect(() => {
+          Scheduler.log('commit');
+          React.startTransition(() => {
+            // Has low priority
+            store.update({b: 'b'});
+            store.update({c: 'c'});
+          });
+          // Has Task priority
+          store.update({a: 'a'});
+        }, []);
+        state = use(store);
+        return <div />;
+      }
+
+      ReactNoop.render(<Foo />);
+      await waitFor(['commit']);
+
+      expect(state).toEqual({a: 'a'});
+      await waitForAll([]);
+      expect(state).toEqual({a: 'a', b: 'b', c: 'c'});
+    });
+
+    // @gate enableStore
+    it('can abort an update, schedule additional updates, and resume', async () => {
+      const store = createStore({}, mergeState);
+      const instance = {setState: store.update};
+      function Foo() {
+        const state = use(store);
+        return <span prop={Object.keys(state).sort().join('')} />;
+      }
+
+      ReactNoop.render(<Foo />);
+      await waitForAll([]);
+
+      function createUpdate(letter) {
+        return () => {
+          Scheduler.log(letter);
+          return {
+            [letter]: letter,
+          };
+        };
+      }
+
+      // Schedule some async updates
+      React.startTransition(() => {
+        instance.setState(createUpdate('a'));
+        instance.setState(createUpdate('b'));
+        instance.setState(createUpdate('c'));
+      });
+      // store-semantics: like useState, the first update to an idle store is
+      // computed eagerly when it's dispatched
+      assertLog(['a']);
+
+      // Begin the updates but don't flush them yet
+      await waitFor(['b', 'c']);
+      expect(ReactNoop).toMatchRenderedOutput(<span prop="" />);
+
+      // Schedule some more updates at different priorities
+      instance.setState(createUpdate('d'));
+      ReactNoop.flushSync(() => {
+        instance.setState(createUpdate('e'));
+        instance.setState(createUpdate('f'));
+      });
+      React.startTransition(() => {
+        instance.setState(createUpdate('g'));
+      });
+
+      // The sync updates should have flushed, but not the async ones.
+      assertLog(['d', 'e', 'f']);
+      expect(ReactNoop).toMatchRenderedOutput(<span prop="def" />);
+
+      // Now flush the remaining work. Even though e and f were already processed,
+      // they should be processed again, to ensure that the terminal state
+      // is deterministic.
+      await waitForAll([
+        // Then we'll re-process everything for 'g'.
+        // store-semantics: like useState, the eagerly computed state of 'a' is
+        // reused, so it isn't processed again.
+        'b',
+        'c',
+        'd',
+        'e',
+        'f',
+        'g',
+      ]);
+      expect(ReactNoop).toMatchRenderedOutput(<span prop="abcdefg" />);
+    });
+
+    // @gate enableStore
+    it('regression: does not expire soon due to layout effects in the last batch', async () => {
+      const countStore = createStore(0);
+      const setCount = countStore.update;
+      function App() {
+        const count = use(countStore);
+        Scheduler.log('Render: ' + count);
+        useLayoutEffect(() => {
+          setCount(1);
+          Scheduler.log('Commit: ' + count);
+        }, []);
+        return <Text text="Child" />;
+      }
+
+      await act(async () => {
+        React.startTransition(() => {
+          ReactNoop.render(<App />);
+        });
+        assertLog([]);
+        await waitForAll([
+          'Render: 0',
+          'Child',
+          'Commit: 0',
+          'Render: 1',
+          'Child',
+        ]);
+
+        Scheduler.unstable_advanceTime(10000);
+        React.startTransition(() => {
+          setCount(2);
+        });
+        // The transition should not have expired, so we should be able to
+        // partially render it.
+        await waitFor(['Render: 2']);
+        // Now do the rest
+        await waitForAll(['Child']);
+      });
+    });
+
+    // @gate enableStore
+    it('when rebasing, does not exclude updates that were already committed, regardless of priority', async () => {
+      const logStore = createStore('');
+      const setLog = logStore.update;
+      let pushToLog;
+      function App() {
+        const log = use(logStore);
+        pushToLog = msg => {
+          setLog(prevLog => prevLog + msg);
+        };
+
+        useLayoutEffect(() => {
+          Scheduler.log('Committed: ' + log);
+          if (log === 'B') {
+            // Right after B commits, schedule additional updates.
+            ReactNoop.unstable_runWithPriority(ContinuousEventPriority, () =>
+              pushToLog('C'),
+            );
+            setLog(prevLog => prevLog + 'D');
+          }
+        }, [log]);
+
+        return log;
+      }
+
+      const root = ReactNoop.createRoot();
+      await act(() => {
+        root.render(<App />);
+      });
+      assertLog(['Committed: ']);
+      expect(root).toMatchRenderedOutput(null);
+
+      await act(() => {
+        React.startTransition(() => {
+          pushToLog('A');
+        });
+
+        ReactNoop.unstable_runWithPriority(ContinuousEventPriority, () =>
+          pushToLog('B'),
+        );
+      });
+      assertLog(['Committed: B', 'Committed: BCD', 'Committed: ABCD']);
+      expect(root).toMatchRenderedOutput('ABCD');
+    });
+  });
 });

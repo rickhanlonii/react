@@ -4,22 +4,31 @@
 what was done), the derived-data discussion, and the signals review. Items are
 ordered by priority within each section. Nothing is committed yet.
 
-## 0. Where things stand
+## 0. Where things stand (updated 2026-10-31, after the HostRoot redesign)
 
-- **The implementation is complete behind `enableStore`.**
-  - The full `yarn test` passes on 4 channels; the only failures are the
-    pre-existing Node 25 Flight cases (B-2).
-  - The state and context parity copies are complete (139/139 and 53/53).
-  - All 20 blockers are resolved.
-- **Perf (main benchmark, compiler on):** use(store) matches or beats the
-  faster of Redux and Zustand in 36/36 configurations. It also wins 3 of the 4
-  Redux-team benchmarks.
-- **Known losses:**
-  - rows that select 1–2 values (selection is 1.3–1.4× slower than Zustand);
-  - partial compiler coverage;
-  - shared expensive derived data (`derived-selectors`).
-- **The selection win relies on `enableSameElementBailout`** (DCP-10), a
-  separate reconciler optimization.
+- **The implementation is complete behind `enableStore`,** in local WIP commits on `rh/use-store`.
+  - **The HostRoot owns store state** (DCP-17), and transition updates to stores nobody reads are held (DCP-18/20).
+  - **Reducer errors are reported unless a committed boundary logs them** (DCP-19).
+- **Fixed since the overnight run:**
+  - five bugs from a correctness review: subscribing when a render bails out, dispatch atomicity, lost lanes (×2), and DevTools running reducers;
+  - the ponyfill-port bug (#6);
+  - ten findings from four review passes on the redesign;
+  - a React StrictMode bug, where effects under a newly mounted non-strict parent weren't double invoked.
+- **Perf against the pre-redesign build** (react-builds/final vs hostroot5, 7 interleaved rounds): every cell within ±2%.
+  - Mount is equal or faster.
+  - Memory is +1.5% per row (the per-record `StoreState`).
+  - Typing latency during a transition is unchanged.
+- **Against Redux and Zustand, with the compiler:**
+  - **Main suite:** 36/36. Selection is 0.52–1.00×; everything else is 0.11–0.59×.
+  - **Redux-team suites:**
+    - rapid-dispatch: all win, 0.53–0.64×;
+    - many-components-same-slice: wins, about 0.75×;
+    - deeptree: 11/12, with `appendMany` x1 tied (worse mean, better median);
+    - derived-selectors with `store-memo` (userland `weakMemo`): all win, 0.68–0.78×. Plain `store` still loses 3 of 4 by up to 1.23×, so sharing derived data through `weakMemo` is the recommended pattern.
+  - **Sweeps (selection with one or two reads per row):** plain `store` keeps the selection floor (1.3–1.5× slower than Zustand with the full compiler; worse with partial coverage).
+    - **`store-keyed` wins all 48 configurations at about 0.5×,** with or without the compiler. It selects through a `weakMemo`'d store per row, so only the two changed rows re-render.
+    - That's the userland equivalent of a keyed selector (Solid's `createSelector`), and it removes both the selection floor and the partial-coverage cliff for selection.
+- **The test copies are being cleaned up** (plan: ~/.claude/plans/vivid-squishing-river.md): parity by title is retired, and copies are folded into store spec files or base files.
 
 ## 1. Decisions needed
 
@@ -33,7 +42,7 @@ ordered by priority within each section. Nothing is committed yet.
 | D6 | `enableSameElementBailout` | Review and roll out **as its own PR**, separate from stores | DCP-10 |
 | D7 | `enableNoCloningMemoCache` | **Don't enable for stores:** no measured benefit, and an identity-loss risk | DECISIONS.md, "Finding: enableNoCloningMemoCache…" |
 | D8 | Store reducer errors when nothing reads the store | Accept DCP-14: `store.update()` throws synchronously and the update isn't applied | DCP-14 |
-| D9 | Two context-copy translation rules | Accept (bailout parent re-render kept; Suspense retry not prewarmed) | `COPY_RULES.md`, "Context copies" |
+| D9 | Two context-copy translation rules | Accept (bailout parent re-render kept; Suspense retry not prewarmed) | `DESIGN.md`, "Differences from context" |
 
 **Ask Seb directly:**
 - Do general, parameterized derived computations evaluated in render (B's

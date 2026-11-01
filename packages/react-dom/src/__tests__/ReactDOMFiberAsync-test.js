@@ -904,4 +904,63 @@ describe('ReactDOMFiberAsync', () => {
       root.unmount();
     });
   });
+
+  // A store update in a transition that's scheduled during popstate gets the
+  // same transition lane as setState, so it's rendered synchronously too.
+  describe('use(store)', () => {
+    let use;
+    let createStore;
+
+    beforeEach(() => {
+      use = React.use;
+      createStore = React.unstable_createStore;
+    });
+
+    // @gate enableStore
+    it('should synchronously render the transition lane scheduled in a popState', async () => {
+      const syncStateStore = createStore(false);
+      const hasNavigatedStore = createStore(false);
+      const setSyncState = syncStateStore.update;
+      const setHasNavigated = hasNavigatedStore.update;
+      function App() {
+        const syncState = use(syncStateStore);
+        const hasNavigated = use(hasNavigatedStore);
+        function onPopstate() {
+          Scheduler.log(`popState`);
+          React.startTransition(() => {
+            setHasNavigated(true);
+          });
+          setSyncState(true);
+        }
+        React.useEffect(() => {
+          window.addEventListener('popstate', onPopstate);
+          return () => {
+            window.removeEventListener('popstate', onPopstate);
+          };
+        }, []);
+        Scheduler.log(`render:${hasNavigated}/${syncState}`);
+        return null;
+      }
+      const root = ReactDOMClient.createRoot(container);
+      await act(async () => {
+        root.render(<App />);
+      });
+      assertLog(['render:false/false']);
+
+      await act(async () => {
+        const popStateEvent = new Event('popstate');
+        // Jest is not emulating window.event correctly in the microtask
+        window.event = popStateEvent;
+        window.dispatchEvent(popStateEvent);
+        queueMicrotask(() => {
+          window.event = undefined;
+        });
+      });
+
+      assertLog(['popState', 'render:true/true']);
+      await act(() => {
+        root.unmount();
+      });
+    });
+  });
 });

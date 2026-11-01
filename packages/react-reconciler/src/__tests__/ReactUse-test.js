@@ -2347,4 +2347,399 @@ describe('ReactUse', () => {
     assertLog(['Hi']);
     expect(root).toMatchRenderedOutput('Hi');
   });
+
+  describe('use(store)', () => {
+    // Component state and context are stores.
+    let createStore;
+
+    beforeEach(() => {
+      createStore = React.unstable_createStore;
+    });
+
+    // @gate enableStore && enableSuspendingDuringWorkLoop
+    it('while suspended, hooks cannot be called (i.e. current dispatcher is unset correctly)', async () => {
+      const store = createStore(0);
+
+      function App() {
+        return <Text text={use(getAsyncText('Will never resolve'))} />;
+      }
+
+      const root = ReactNoop.createRoot();
+      await act(() => {
+        root.render(<Suspense fallback={<Text text="Loading..." />} />);
+      });
+
+      await act(() => {
+        startTransition(() => {
+          root.render(
+            <Suspense fallback={<Text text="Loading..." />}>
+              <App />
+            </Suspense>,
+          );
+        });
+      });
+      assertLog(['Async text requested [Will never resolve]']);
+
+      // Calling a hook should error because we're oustide of a component.
+      expect(() => use(store)).toThrow(
+        'Invalid hook call. Hooks can only be called inside of the body of a ' +
+          'function component.',
+      );
+    });
+
+    // @gate enableStore
+    it('does not suspend indefinitely if an interleaved update was skipped', async () => {
+      function Child({childShouldSuspend}) {
+        return (
+          <Text
+            text={
+              childShouldSuspend
+                ? use(getAsyncText('Will never resolve'))
+                : 'Child'
+            }
+          />
+        );
+      }
+
+      const showChildStore = createStore(true);
+      const childShouldSuspendStore = createStore(false);
+      const setChildShouldSuspend = childShouldSuspendStore.update;
+      const setShowChild = showChildStore.update;
+      function Parent() {
+        const showChild = use(showChildStore);
+
+        const childShouldSuspend = use(childShouldSuspendStore);
+
+        Scheduler.log(
+          `childShouldSuspend: ${childShouldSuspend}, showChild: ${showChild}`,
+        );
+        return showChild ? (
+          <Child childShouldSuspend={childShouldSuspend} />
+        ) : (
+          <Text text="(empty)" />
+        );
+      }
+
+      const root = ReactNoop.createRoot();
+      await act(() => {
+        root.render(<Parent />);
+      });
+      assertLog(['childShouldSuspend: false, showChild: true', 'Child']);
+      expect(root).toMatchRenderedOutput('Child');
+
+      await act(async () => {
+        // Perform an update that causes the app to suspend
+        startTransition(() => {
+          setChildShouldSuspend(true);
+        });
+        await waitFor(['childShouldSuspend: true, showChild: true']);
+        // While the update is in progress, schedule another update.
+        startTransition(() => {
+          setShowChild(false);
+        });
+      });
+      assertLog([
+        // Because the interleaved update is not higher priority than what we were
+        // already working on, it won't interrupt. The first update will continue,
+        // and will suspend.
+        'Async text requested [Will never resolve]',
+
+        // Instead of waiting for the promise to resolve, React notices there's
+        // another pending update that it hasn't tried yet. It will switch to
+        // rendering that instead.
+        //
+        // This time, the update hides the component that previous was suspending,
+        // so it finishes successfully.
+        'childShouldSuspend: false, showChild: false',
+        '(empty)',
+
+        // Finally, React attempts to render the first update again. It also
+        // finishes successfully, because it was rebased on top of the update that
+        // hid the suspended component.
+        // NOTE: These this render happened to not be entangled with the previous
+        // one. If they had been, this update would have been included in the
+        // previous render, and there wouldn't be an extra one here. This could
+        // change if we change our entanglement heurstics. Semantically, it
+        // shouldn't matter, though in general we try to work on transitions in
+        // parallel whenever possible. So even though in this particular case, the
+        // extra render is unnecessary, it's a nice property that it wasn't
+        // entangled with the other transition.
+        'childShouldSuspend: true, showChild: false',
+        '(empty)',
+      ]);
+      expect(root).toMatchRenderedOutput('(empty)');
+    });
+
+    // @gate enableStore && enableSuspendingDuringWorkLoop
+    it('when replaying a suspended component, reuses the hooks computed during the previous attempt (State)', async () => {
+      const fruitStore = createStore('apple');
+      const vegetableStore = createStore('carrot');
+      const _setFruit = fruitStore.update;
+      const _setVegetable = vegetableStore.update;
+      function Kitchen() {
+        const fruit = use(fruitStore);
+        const usedFruit = use(getAsyncText(fruit));
+        const vegetable = use(vegetableStore);
+        return <Text text={usedFruit + ' ' + vegetable} />;
+      }
+
+      // Initial render.
+      const root = ReactNoop.createRoot();
+      await act(() => {
+        startTransition(() => {
+          root.render(<Kitchen />);
+        });
+      });
+      assertLog(['Async text requested [apple]']);
+      expect(root).toMatchRenderedOutput(null);
+      await act(() => {
+        resolveTextRequests('apple');
+      });
+      assertLog(['Async text requested [apple]', 'apple carrot']);
+      assertConsoleErrorDev([
+        'A component was suspended by an uncached promise. ' +
+          'Creating promises inside a Client Component or hook is not yet supported, ' +
+          'except via a Suspense-compatible library or framework.\n' +
+          '    in Kitchen (at **)',
+      ]);
+
+      expect(root).toMatchRenderedOutput('apple carrot');
+
+      // Update the state variable after the use().
+      await act(() => {
+        startTransition(() => {
+          _setVegetable('dill');
+        });
+      });
+      assertLog(['Async text requested [apple]']);
+      expect(root).toMatchRenderedOutput('apple carrot');
+      await act(() => {
+        resolveTextRequests('apple');
+      });
+      assertLog(['Async text requested [apple]', 'apple dill']);
+      assertConsoleErrorDev([
+        'A component was suspended by an uncached promise. ' +
+          'Creating promises inside a Client Component or hook is not yet supported, ' +
+          'except via a Suspense-compatible library or framework.\n' +
+          '    in Kitchen (at **)',
+      ]);
+
+      expect(root).toMatchRenderedOutput('apple dill');
+
+      // Update the state variable before the use(). The second state is maintained.
+      await act(() => {
+        startTransition(() => {
+          _setFruit('banana');
+        });
+      });
+      assertLog(['Async text requested [banana]']);
+      expect(root).toMatchRenderedOutput('apple dill');
+      await act(() => {
+        resolveTextRequests('banana');
+      });
+      assertLog(['Async text requested [banana]', 'banana dill']);
+      assertConsoleErrorDev([
+        'A component was suspended by an uncached promise. ' +
+          'Creating promises inside a Client Component or hook is not yet supported, ' +
+          'except via a Suspense-compatible library or framework.\n' +
+          '    in Kitchen (at **)',
+      ]);
+      expect(root).toMatchRenderedOutput('banana dill');
+    });
+
+    // @gate enableStore && enableSuspendingDuringWorkLoop
+    it('when replaying a suspended component, reuses the hooks computed during the previous attempt (DebugValue+State)', async () => {
+      // Make sure we don't get a Hook mismatch warning on updates if there were non-stateful Hooks before the use().
+      const lawyerStore = createStore('abogado');
+      const _setLawyer = lawyerStore.update;
+      function Lexicon() {
+        useDebugValue(123);
+        const avocado = use(getAsyncText('aguacate'));
+        const lawyer = use(lawyerStore);
+        return <Text text={avocado + ' ' + lawyer} />;
+      }
+
+      // Initial render.
+      const root = ReactNoop.createRoot();
+      await act(() => {
+        startTransition(() => {
+          root.render(<Lexicon />);
+        });
+      });
+      assertLog(['Async text requested [aguacate]']);
+      expect(root).toMatchRenderedOutput(null);
+      await act(() => {
+        resolveTextRequests('aguacate');
+      });
+      assertLog(['Async text requested [aguacate]', 'aguacate abogado']);
+      assertConsoleErrorDev([
+        'A component was suspended by an uncached promise. ' +
+          'Creating promises inside a Client Component or hook is not yet supported, ' +
+          'except via a Suspense-compatible library or framework.\n' +
+          '    in Lexicon (at **)',
+      ]);
+      expect(root).toMatchRenderedOutput('aguacate abogado');
+
+      // Now update the state.
+      await act(() => {
+        startTransition(() => {
+          _setLawyer('avocat');
+        });
+      });
+      assertLog(['Async text requested [aguacate]']);
+      expect(root).toMatchRenderedOutput('aguacate abogado');
+      await act(() => {
+        resolveTextRequests('aguacate');
+      });
+      assertLog(['Async text requested [aguacate]', 'aguacate avocat']);
+      assertConsoleErrorDev([
+        'A component was suspended by an uncached promise. ' +
+          'Creating promises inside a Client Component or hook is not yet supported, ' +
+          'except via a Suspense-compatible library or framework.\n' +
+          '    in Lexicon (at **)',
+      ]);
+      expect(root).toMatchRenderedOutput('aguacate avocat');
+    });
+
+    // @gate enableStore
+    it('use() combined with render phase updates', async () => {
+      const countStore = createStore(0);
+      function Async() {
+        const a = use(Promise.resolve('A'));
+        const count = use(countStore);
+        if (count === 0) {
+          countStore.update(1);
+        }
+        const usedCount = use(Promise.resolve(count));
+        return <Text text={a + usedCount} />;
+      }
+
+      function App() {
+        return (
+          <Suspense fallback={<Text text="Loading..." />}>
+            <Async />
+          </Suspense>
+        );
+      }
+
+      const root = ReactNoop.createRoot();
+      await act(() => {
+        startTransition(() => {
+          root.render(<App />);
+        });
+      });
+      // store-semantics: store updates during render warn and are rendered after
+      // the current render, so the render with count 0 commits first.
+      assertLog(['A0', 'A1']);
+      assertConsoleErrorDev([
+        'A component was suspended by an uncached promise. ' +
+          'Creating promises inside a Client Component or hook is not yet supported, ' +
+          'except via a Suspense-compatible library or framework.\n' +
+          '    in App (at **)',
+        'Cannot update a store while rendering a component (`Async`). ' +
+          'Updating a store is a side effect, so it should happen in an event ' +
+          'handler or an effect. The update will be rendered after the ' +
+          'current render. To locate the bad store.update() call inside ' +
+          '`Async`, follow the stack trace as described in ' +
+          'https://react.dev/link/setstate-in-render\n' +
+          '    in App (at **)',
+        'A component was suspended by an uncached promise. ' +
+          'Creating promises inside a Client Component or hook is not yet supported, ' +
+          'except via a Suspense-compatible library or framework.\n' +
+          '    in App (at **)',
+      ]);
+      expect(root).toMatchRenderedOutput('A1');
+    });
+
+    // @gate enableStore
+    it('regression test: updates while component is suspended should not be mistaken for render phase updates', async () => {
+      const promiseA = getAsyncText('A');
+      const promiseB = getAsyncText('B');
+      const promiseC = getAsyncText('C');
+      assertLog([
+        'Async text requested [A]',
+        'Async text requested [B]',
+        'Async text requested [C]',
+      ]);
+
+      const store = createStore(promiseA);
+      const setState = store.update;
+      function App() {
+        const state = use(store);
+        return <Text text={use(state)} />;
+      }
+
+      // Initial render
+      const root = ReactNoop.createRoot();
+      await act(() => root.render(<App />));
+      expect(root).toMatchRenderedOutput(null);
+      await act(() => resolveTextRequests('A'));
+      assertLog(['A']);
+      expect(root).toMatchRenderedOutput('A');
+
+      // Update to B. This will suspend.
+      await act(() => startTransition(() => setState(promiseB)));
+      expect(root).toMatchRenderedOutput('A');
+
+      // While B is suspended, update to C. This should immediately interrupt
+      // the render for B. In the regression, this update was mistakenly treated
+      // as a render phase update.
+      ReactNoop.flushSync(() => setState(promiseC));
+
+      // Finish rendering.
+      await act(() => resolveTextRequests('C'));
+      assertLog(['C']);
+      expect(root).toMatchRenderedOutput('C');
+    });
+
+    // @gate enableStore
+    it('interrupting while yielded should reset contexts', async () => {
+      let resolve;
+      const promise = new Promise(r => {
+        resolve = r;
+      });
+
+      const store = createStore('world');
+
+      const lazy = React.lazy(() => {
+        return promise;
+      });
+
+      function ContextText() {
+        return <Text text={use(store)} />;
+      }
+
+      function App() {
+        return (
+          <div>
+            {lazy}
+            <ContextText />
+          </div>
+        );
+      }
+
+      const root = ReactNoop.createRoot();
+      startTransition(() => {
+        root.render(<App />);
+      });
+      await waitForPaint([]);
+      expect(root).toMatchRenderedOutput(null);
+
+      await resolve({default: <Text key="hi" text="Hello " />});
+
+      // Higher priority update that interrupts the first render. The original
+      // re-renders the root with a new Provider value. Keep the root render,
+      // which has to interrupt the transition, and update the store with it.
+      // The interrupted render read 'world', so the new render must not reuse
+      // what it read.
+      ReactNoop.flushSync(() => {
+        root.render(<App />);
+        store.update('world!');
+      });
+
+      assertLog(['Hello ', 'world!']);
+
+      expect(root).toMatchRenderedOutput(<div>Hello world!</div>);
+    });
+  });
 });

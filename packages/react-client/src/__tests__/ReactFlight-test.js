@@ -4560,4 +4560,45 @@ describe('ReactFlight', () => {
     );
     expect(await ReactNoopFlightClient.read(chunks)).toBe(text);
   });
+
+  describe('use(store)', () => {
+    // The store versions of the "Cannot read a Client Context from a Server
+    // Component" cases.
+    let createStore;
+
+    beforeEach(() => {
+      createStore = React.unstable_createStore;
+    });
+
+    // @gate enableStore
+    it('should error if a store is passed to use()', () => {
+      const store = createStore();
+      function ServerComponent() {
+        return ReactServer.use(store);
+      }
+      const errors = [];
+      ReactNoopFlightServer.render(<ServerComponent />, {
+        onError(x) {
+          errors.push(x.message);
+        },
+      });
+      expect(errors).toEqual(['Cannot read a store from a Server Component.']);
+    });
+
+    // @gate enableStore
+    it('should error if a client reference to a store is passed to use()', () => {
+      const store = createStore();
+      const ClientStore = clientReference(store);
+      function ServerComponent() {
+        return ReactServer.use(ClientStore);
+      }
+      const errors = [];
+      ReactNoopFlightServer.render(<ServerComponent />, {
+        onError(x) {
+          errors.push(x.message);
+        },
+      });
+      expect(errors).toEqual(['Cannot read a store from a Server Component.']);
+    });
+  });
 });

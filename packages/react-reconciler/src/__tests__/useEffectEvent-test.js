@@ -1257,4 +1257,196 @@ describe('useEffectEvent', () => {
       'layout create: 2',
     ]);
   });
+
+  describe('use(store)', () => {
+    // A reader that mounts inside a hidden Activity, and is the store's only
+    // reader, re-renders in the background when the store updates.
+    let use;
+    let createStore;
+
+    beforeEach(() => {
+      use = React.use;
+      createStore = React.unstable_createStore;
+    });
+
+    // @gate enableStore
+    it('correctly mutates effect event with Activity', async () => {
+      const stateStore = createStore(1);
+      const setState = stateStore.update;
+      const childStateStore = createStore(1);
+      const setChildState = childStateStore.update;
+      function CounterA({count, hideChild}) {
+        const state = use(stateStore);
+        const onEvent = useEffectEvent(() => {
+          return `A ${count} ${state}`;
+        });
+
+        useInsertionEffect(() => {
+          // Call the event function to verify it sees the latest value
+          Scheduler.log(`Parent Insertion Create: ${onEvent()}`);
+          return () => {
+            Scheduler.log(`Parent Insertion Create: ${onEvent()}`);
+          };
+        });
+
+        useLayoutEffect(() => {
+          Scheduler.log(`Parent Layout Create: ${onEvent()}`);
+          return () => {
+            Scheduler.log(`Parent Layout Cleanup: ${onEvent()}`);
+          };
+        });
+
+        // this breaks the rules, but ensures the ordering is correct.
+        return (
+          <React.Activity mode={hideChild ? 'hidden' : 'visible'}>
+            <CounterB count={count} state={state} onEventParent={onEvent} />
+          </React.Activity>
+        );
+      }
+
+      function CounterB({count, state, onEventParent}) {
+        const childState = use(childStateStore);
+        const onEvent = useEffectEvent(() => {
+          return `${onEventParent()} B ${count} ${state} ${childState}`;
+        });
+
+        useInsertionEffect(() => {
+          Scheduler.log(`Child Insertion Create ${onEvent()}`);
+          return () => {
+            Scheduler.log(`Child Insertion Destroy ${onEvent()}`);
+          };
+        });
+
+        useLayoutEffect(() => {
+          Scheduler.log(`Child Layout Create ${onEvent()}`);
+          return () => {
+            Scheduler.log(`Child Layout Destroy ${onEvent()}`);
+          };
+        });
+
+        useEffect(() => {
+          Scheduler.log(`Child Passive Create ${onEvent()}`);
+          return () => {
+            Scheduler.log(`Child Passive Destroy ${onEvent()}`);
+          };
+        });
+
+        return null;
+      }
+
+      await act(async () => {
+        ReactNoop.render(<CounterA count={1} hideChild={true} />);
+        await waitFor([
+          'Parent Insertion Create: A 1 1',
+          'Parent Layout Create: A 1 1',
+          'Child Insertion Create A 1 1 B 1 1 1',
+        ]);
+      });
+
+      assertLog([]);
+
+      await act(async () => {
+        ReactNoop.render(<CounterA count={2} hideChild={true} />);
+
+        await waitFor([
+          'Parent Insertion Create: A 2 1',
+          'Parent Insertion Create: A 2 1',
+          'Parent Layout Cleanup: A 2 1',
+          'Parent Layout Create: A 2 1',
+          'Child Insertion Destroy A 2 1 B 2 1 1',
+          'Child Insertion Create A 2 1 B 2 1 1',
+        ]);
+      });
+
+      assertLog([]);
+
+      await act(async () => {
+        setState(2);
+
+        await waitFor([
+          'Parent Insertion Create: A 2 2',
+          'Parent Insertion Create: A 2 2',
+          'Parent Layout Cleanup: A 2 2',
+          'Parent Layout Create: A 2 2',
+          'Child Insertion Destroy A 2 2 B 2 2 1',
+          'Child Insertion Create A 2 2 B 2 2 1',
+        ]);
+      });
+
+      assertLog([]);
+
+      await act(async () => {
+        setChildState(2);
+
+        await waitFor([
+          'Child Insertion Destroy A 2 2 B 2 2 2',
+          'Child Insertion Create A 2 2 B 2 2 2',
+        ]);
+      });
+
+      assertLog([]);
+
+      await act(async () => {
+        ReactNoop.render(<CounterA count={3} hideChild={true} />);
+
+        await waitFor([
+          'Parent Insertion Create: A 3 2',
+          'Parent Insertion Create: A 3 2',
+          'Parent Layout Cleanup: A 3 2',
+          'Parent Layout Create: A 3 2',
+        ]);
+      });
+
+      assertLog([
+        'Child Insertion Destroy A 3 2 B 3 2 2',
+        'Child Insertion Create A 3 2 B 3 2 2',
+      ]);
+
+      await act(async () => {
+        ReactNoop.render(<CounterA count={3} hideChild={false} />);
+
+        await waitFor([
+          'Child Insertion Destroy A 3 2 B 3 2 2',
+          'Child Insertion Create A 3 2 B 3 2 2',
+          'Parent Insertion Create: A 3 2',
+          'Parent Insertion Create: A 3 2',
+          'Parent Layout Cleanup: A 3 2',
+          'Child Layout Create A 3 2 B 3 2 2',
+
+          'Parent Layout Create: A 3 2',
+        ]);
+      });
+
+      assertLog(['Child Passive Create A 3 2 B 3 2 2']);
+
+      await act(async () => {
+        ReactNoop.render(<CounterA count={3} hideChild={true} />);
+
+        await waitFor([
+          'Child Layout Destroy A 3 2 B 3 2 2',
+          'Parent Insertion Create: A 3 2',
+          'Parent Insertion Create: A 3 2',
+          'Parent Layout Cleanup: A 3 2',
+          'Parent Layout Create: A 3 2',
+          'Child Passive Destroy A 3 2 B 3 2 2',
+        ]);
+      });
+
+      assertLog([
+        'Child Insertion Destroy A 3 2 B 3 2 2',
+        'Child Insertion Create A 3 2 B 3 2 2',
+      ]);
+
+      // Unmount everything
+      await act(async () => {
+        ReactNoop.render(null);
+      });
+
+      assertLog([
+        'Parent Insertion Create: A 3 2',
+        'Parent Layout Cleanup: A 3 2',
+        'Child Insertion Destroy A 3 2 B 3 2 2',
+      ]);
+    });
+  });
 });

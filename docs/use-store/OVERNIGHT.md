@@ -33,7 +33,9 @@ Complete the work. That means:
 - **Tests.** Every `*UseStore-test*` and `*UseStoreContext-test*` passes on
   experimental, www-modern variant true and false, and stable (gated).
   - `node scripts/store-parity/check.js` reports 100%, and so does the context
-    mode.
+    mode. (Retired on 2026-10-31: the copies were cleaned up, parity by title
+    was dropped, and `scripts/store-parity/` was deleted. The `check.js`
+    results in the log below are historical. See `STATUS.md`.)
   - `yarn flow dom-node` and `yarn linc` are clean.
 - **Code.** An independent fresh-eyes review is done, and its findings are
   fixed or explicitly rejected with reasons. The code is simplified: prefer

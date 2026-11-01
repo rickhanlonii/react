@@ -2239,6 +2239,224 @@ describe('ReactFreshIntegration', () => {
         }
       });
     });
+
+    describe('use(store)', () => {
+      // Stores live outside of the edited modules, so that edits don't
+      // re-create them.
+      afterEach(() => {
+        delete global.stores;
+      });
+
+      // The store version of "resets state when renaming a state variable".
+      // use(store) isn't Hook state, so it isn't part of the signature.
+      // @gate enableStore || !__DEV__
+      it('does not remount when renaming a variable read from a store', async () => {
+        if (__DEV__) {
+          global.stores = {foo: React.unstable_createStore(1)};
+          await render(`
+            const {use} = React;
+            const fooStore = global.stores.foo;
+
+            export default function App() {
+              const foo = use(fooStore);
+              return <h1>A{foo}</h1>;
+            }
+          `);
+          const el = container.firstChild;
+          expect(el.textContent).toBe('A1');
+
+          await patch(`
+            const {use} = React;
+            const fooStore = global.stores.foo;
+
+            export default function App() {
+              const foo = use(fooStore);
+              return <h1>B{foo}</h1>;
+            }
+          `);
+          // Same state variable name, so state is preserved.
+          expect(container.firstChild).toBe(el);
+          expect(el.textContent).toBe('B1');
+
+          await patch(`
+            const {use} = React;
+            const fooStore = global.stores.foo;
+
+            export default function App() {
+              const bar = use(fooStore);
+              return <h1>C{bar}</h1>;
+            }
+          `);
+          // store-semantics: use(store) isn't Hook state, so it isn't part of
+          // the Fast Refresh signature. Renaming the variable doesn't remount,
+          // and the store keeps its value.
+          expect(container.firstChild).toBe(el);
+          expect(el.textContent).toBe('C1');
+        }
+      });
+
+      // The store version of "resets state on every edit with @refresh reset
+      // annotation". With no Hook calls, the plugin emits no signature, so the
+      // annotation has nothing to attach to.
+      // @gate enableStore || !__DEV__
+      it('does not remount a component that only reads stores on @refresh reset', async () => {
+        if (__DEV__) {
+          global.stores = {foo: React.unstable_createStore(1)};
+          await render(`
+            const {use} = React;
+            const fooStore = global.stores.foo;
+
+            export default function App() {
+              const foo = use(fooStore);
+              return <h1>A{foo}</h1>;
+            }
+          `);
+          const el = container.firstChild;
+          expect(el.textContent).toBe('A1');
+
+          await patch(`
+            const {use} = React;
+            const fooStore = global.stores.foo;
+
+            export default function App() {
+              const foo = use(fooStore);
+              return <h1>B{foo}</h1>;
+            }
+          `);
+          // Same state variable name, so state is preserved.
+          expect(container.firstChild).toBe(el);
+          expect(el.textContent).toBe('B1');
+
+          await patch(`
+            const {use} = React;
+            const fooStore = global.stores.foo;
+
+            /* @refresh reset */
+
+            export default function App() {
+              const foo = use(fooStore);
+              return <h1>C{foo}</h1>;
+            }
+          `);
+          // store-semantics: use(store) isn't a Hook call, so the plugin doesn't
+          // emit a signature for App, and @refresh reset has nothing to attach
+          // to. App doesn't remount, and the store keeps its value.
+          expect(container.firstChild).toBe(el);
+          expect(el.textContent).toBe('C1');
+
+          await patch(`
+            const {use} = React;
+            const fooStore = global.stores.foo;
+
+            export default function App() {
+
+              // @refresh reset
+
+              const foo = use(fooStore);
+              return <h1>D{foo}</h1>;
+            }
+          `);
+          // store-semantics: use(store) isn't a Hook call, so the plugin doesn't
+          // emit a signature for App, and @refresh reset has nothing to attach
+          // to. App doesn't remount, and the store keeps its value.
+          expect(container.firstChild).toBe(el);
+          expect(el.textContent).toBe('D1');
+
+          await patch(`
+            const {use} = React;
+            const fooStore = global.stores.foo;
+
+            export default function App() {
+              const foo = use(fooStore);
+              return <h1>E{foo}</h1>;
+            }
+          `);
+          // There is no remount annotation anymore,
+          // so preserve the previous state.
+          expect(container.firstChild).toBe(el);
+          expect(el.textContent).toBe('E1');
+
+          await patch(`
+            const {use} = React;
+            const fooStore = global.stores.foo;
+
+            export default function App() {
+              const foo = use(fooStore);
+              return <h1>F{foo}</h1>;
+            }
+          `);
+          // Continue editing.
+          expect(container.firstChild).toBe(el);
+          expect(el.textContent).toBe('F1');
+
+          await patch(`
+            const {use} = React;
+            const fooStore = global.stores.foo;
+
+            export default function App() {
+
+              /* @refresh reset */
+
+              const foo = use(fooStore);
+              return <h1>G{foo}</h1>;
+            }
+          `);
+          // store-semantics: use(store) isn't a Hook call, so the plugin doesn't
+          // emit a signature for App, and @refresh reset has nothing to attach
+          // to. App doesn't remount, and the store keeps its value.
+          expect(container.firstChild).toBe(el);
+          expect(el.textContent).toBe('G1');
+        }
+      });
+
+      // The store version of "resets state when useState initial state is
+      // edited". The reader switches to the new store without remounting.
+      // @gate enableStore || !__DEV__
+      it('reads the new store when an edit re-creates it', async () => {
+        if (__DEV__) {
+          await render(`
+            const {use} = React;
+            const fooStore = React.unstable_createStore(1);
+
+            export default function App() {
+              const foo = use(fooStore);
+              return <h1>A{foo}</h1>;
+            }
+          `);
+          const el = container.firstChild;
+          expect(el.textContent).toBe('A1');
+
+          await patch(`
+            const {use} = React;
+            const fooStore = React.unstable_createStore(1);
+
+            export default function App() {
+              const foo = use(fooStore);
+              return <h1>B{foo}</h1>;
+            }
+          `);
+          // Same initial state, so it's preserved.
+          expect(container.firstChild).toBe(el);
+          expect(el.textContent).toBe('B1');
+
+          await patch(`
+            const {use} = React;
+            const fooStore = React.unstable_createStore(2);
+
+            export default function App() {
+              const foo = use(fooStore);
+              return <h1>C{foo}</h1>;
+            }
+          `);
+          // store-semantics: the store is created in the edited module, so
+          // editing its initial value creates a new store. use(store) isn't part
+          // of the Fast Refresh signature, so App doesn't remount. It reads the
+          // new store instead.
+          expect(container.firstChild).toBe(el);
+          expect(el.textContent).toBe('C2');
+        }
+      });
+    });
   }
 
   function testTypeScript(render, patch) {

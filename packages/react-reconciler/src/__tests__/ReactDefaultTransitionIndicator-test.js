@@ -477,4 +477,113 @@ describe('ReactDefaultTransitionIndicator', () => {
 
     expect(root).toMatchRenderedOutput('Hello');
   });
+
+  describe('use(store)', () => {
+    // These cases read a store in place of component state, where the store
+    // update path matters to what the case checks.
+    let createStore;
+
+    beforeEach(() => {
+      createStore = React.unstable_createStore;
+    });
+
+    // @gate enableStore && enableDefaultTransitionIndicator
+    it('does not trigger the default indicator if there is a sync mutation', async () => {
+      const promiseA = Promise.resolve('Hi');
+      let resolveB;
+      const promiseB = new Promise(r => (resolveB = r));
+      const store = createStore('');
+      const update = store.update;
+      function App({children}) {
+        const state = use(store);
+        return (
+          <div>
+            {state}
+            {children}
+          </div>
+        );
+      }
+
+      const root = ReactNoop.createRoot({
+        onDefaultTransitionIndicator() {
+          Scheduler.log('start');
+          return () => {
+            Scheduler.log('stop');
+          };
+        },
+      });
+      await act(() => {
+        React.startTransition(() => {
+          root.render(<App>{promiseA}</App>);
+        });
+      });
+
+      assertLog(['start', 'stop']);
+
+      expect(root).toMatchRenderedOutput(<div>Hi</div>);
+
+      await act(() => {
+        update('Loading...');
+        React.startTransition(() => {
+          update('');
+          root.render(<App>{promiseB}</App>);
+        });
+      });
+
+      assertLog([]);
+
+      expect(root).toMatchRenderedOutput(<div>Loading...Hi</div>);
+
+      await act(async () => {
+        await resolveB('Hello');
+      });
+
+      assertLog([]);
+
+      expect(root).toMatchRenderedOutput(<div>Hello</div>);
+    });
+
+    // @gate enableStore
+    it('does not triggers isomorphic async action default indicator if there is a loading state', async () => {
+      let resolve;
+      const promise = new Promise(r => (resolve = r));
+      const store = createStore(false);
+      const update = store.update;
+      function App() {
+        const state = use(store);
+        return state ? 'Loading' : 'Hi';
+      }
+
+      const root = ReactNoop.createRoot({
+        onDefaultTransitionIndicator() {
+          Scheduler.log('start');
+          return () => {
+            Scheduler.log('stop');
+          };
+        },
+      });
+      await act(() => {
+        root.render(<App />);
+      });
+
+      assertLog([]);
+
+      await act(() => {
+        update(true);
+        React.startTransition(() => promise.then(() => update(false)));
+      });
+
+      assertLog([]);
+
+      expect(root).toMatchRenderedOutput('Loading');
+
+      await act(async () => {
+        await resolve('Hello');
+      });
+
+      assertLog([]);
+
+      expect(root).toMatchRenderedOutput('Hi');
+    });
+  });
 });

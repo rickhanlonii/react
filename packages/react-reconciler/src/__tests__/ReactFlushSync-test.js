@@ -342,4 +342,102 @@ describe('ReactFlushSync', () => {
     expect(error.errors[0]).toBe(aahh);
     expect(error.errors[1]).toBe(nooo);
   });
+
+  describe('use(store)', () => {
+    // These cases read a store in place of component state, where the store
+    // update path matters to what the case checks.
+    let createStore;
+    let use;
+
+    beforeEach(() => {
+      createStore = React.unstable_createStore;
+      use = React.use;
+    });
+
+    // @gate enableStore
+    it('changes priority of updates in useEffect', async () => {
+      const syncStateStore = createStore(0);
+      const stateStore = createStore(0);
+      function App() {
+        const syncState = use(syncStateStore);
+        const state = use(stateStore);
+        useEffect(() => {
+          if (syncState !== 1) {
+            stateStore.update(1);
+            ReactDOM.flushSync(() => syncStateStore.update(1));
+          }
+        }, [syncState, state]);
+        return <Text text={`${syncState}, ${state}`} />;
+      }
+
+      const container = document.createElement('div');
+      const root = ReactDOMClient.createRoot(container);
+      await act(async () => {
+        React.startTransition(() => {
+          root.render(<App />);
+        });
+        // This will yield right before the passive effect fires
+        await waitForPaint(['0, 0']);
+
+        // The passive effect will schedule a sync update and a normal update.
+        // They should commit in two separate batches. First the sync one.
+        await waitForPaint(['1, 1']);
+
+        // The remaining update is not sync
+        ReactDOM.flushSync();
+        assertLog([]);
+        assertConsoleErrorDev([
+          'flushSync was called from inside a lifecycle method. React ' +
+            'cannot flush when React is already rendering. Consider moving this ' +
+            'call to a scheduler task or micro task.' +
+            '\n    in App',
+        ]);
+
+        await waitForPaint([]);
+      });
+      expect(getVisibleChildren(container)).toEqual('1, 1');
+    });
+
+    // @gate enableStore
+    it('supports nested flushSync with startTransition', async () => {
+      const syncStateStore = createStore(0);
+      const stateStore = createStore(0);
+      const setSyncState = syncStateStore.update;
+      const setState = stateStore.update;
+      function App() {
+        const syncState = use(syncStateStore);
+        const state = use(stateStore);
+        return <Text text={`${syncState}, ${state}`} />;
+      }
+
+      const container = document.createElement('div');
+      const root = ReactDOMClient.createRoot(container);
+      await act(() => {
+        root.render(<App />);
+      });
+      assertLog(['0, 0']);
+      expect(getVisibleChildren(container)).toEqual('0, 0');
+
+      await act(() => {
+        ReactDOM.flushSync(() => {
+          startTransition(() => {
+            // This should be async even though flushSync is on the stack, because
+            // startTransition is closer.
+            setState(1);
+            ReactDOM.flushSync(() => {
+              // This should be async even though startTransition is on the stack,
+              // because flushSync is closer.
+              setSyncState(1);
+            });
+          });
+        });
+        // Only the sync update should have flushed
+        assertLog(['1, 0']);
+        expect(getVisibleChildren(container)).toEqual('1, 0');
+      });
+      // Now the async update has flushed, too.
+      assertLog(['1, 1']);
+      expect(getVisibleChildren(container)).toEqual('1, 1');
+    });
+  });
 });

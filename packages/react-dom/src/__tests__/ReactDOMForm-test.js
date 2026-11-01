@@ -2401,4 +2401,52 @@ describe('ReactDOMForm', () => {
 
     assertLog(['[unrelated form] pending: false, state: 1']);
   });
+
+  // A store update in a form action is a transition, like setState.
+  describe('use(store)', () => {
+    let createStore;
+
+    beforeEach(() => {
+      createStore = React.unstable_createStore;
+    });
+
+    // @gate enableStore
+    it('form actions are transitions', async () => {
+      const formRef = React.createRef();
+
+      function Status() {
+        const {pending} = useFormStatus();
+        return pending ? <Text text="Pending..." /> : null;
+      }
+
+      const stateStore = createStore('Initial');
+      function App() {
+        const state = use(stateStore);
+        return (
+          <form action={() => stateStore.update('Updated')} ref={formRef}>
+            <Status />
+            <Suspense fallback={<Text text="Loading..." />}>
+              <AsyncText text={state} />
+            </Suspense>
+          </form>
+        );
+      }
+
+      const root = ReactDOMClient.createRoot(container);
+      await resolveText('Initial');
+      await act(() => root.render(<App />));
+      assertLog(['Initial']);
+      expect(container.textContent).toBe('Initial');
+
+      // This should suspend because form actions are implicitly wrapped
+      // in startTransition.
+      await submit(formRef.current);
+      assertLog(['Pending...', 'Suspend! [Updated]', 'Loading...']);
+      expect(container.textContent).toBe('Pending...Initial');
+
+      await act(() => resolveText('Updated'));
+      assertLog(['Updated']);
+      expect(container.textContent).toBe('Updated');
+    });
+  });
 });

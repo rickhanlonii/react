@@ -3310,4 +3310,57 @@ describe('InspectedElement', () => {
       }
     `);
   });
+
+  describe('use(store)', () => {
+    // A component whose only hook is use(store) still has inspectable hooks
+    // (B-17). It has a reactVersion pragma rather than a gate pragma, so
+    // DevTools regression runs against older versions of React skip it. A gate
+    // pragma would override the reactVersion one.
+    // @reactVersion >= 19.3
+    it('should inspect the currently selected element (createRoot)', async () => {
+      const countStore = React.unstable_createStore(1);
+      const Example = () => {
+        const count = React.use(countStore);
+        return count;
+      };
+
+      await utils.actAsync(() => {
+        modernRender(<Example a={1} b="abc" />);
+      });
+
+      const inspectedElement = await inspectElementAtIndex(0);
+      // store-semantics: use(store) shows up as a 'Store' hook. It doesn't take a
+      // hook slot (id: null), and store values aren't editable in DevTools.
+      expect(inspectedElement).toMatchInlineSnapshot(`
+        {
+          "context": null,
+          "events": undefined,
+          "hooks": [
+            {
+              "debugInfo": null,
+              "hookSource": {
+                "columnNumber": "removed by Jest serializer",
+                "fileName": "react-devtools-shared/src/__tests__/inspectedElement-test.js",
+                "functionName": "Example",
+                "lineNumber": "removed by Jest serializer",
+              },
+              "id": null,
+              "isStateEditable": false,
+              "name": "Store",
+              "subHooks": [],
+              "value": 1,
+            },
+          ],
+          "id": 2,
+          "owners": null,
+          "props": {
+            "a": 1,
+            "b": "abc",
+          },
+          "rootType": "createRoot()",
+          "state": null,
+        }
+      `);
+    });
+  });
 });

@@ -353,4 +353,43 @@ describe('Activity StrictMode', () => {
       'Child two mount',
     ]);
   });
+
+  describe('use(store)', () => {
+    let use;
+    let createStore;
+
+    beforeEach(() => {
+      use = React.use;
+      createStore = React.unstable_createStore;
+    });
+
+    // @gate enableStore
+    it('should not cause infinite render loop when StrictMode is used with Suspense and synchronous set states', async () => {
+      // This is a regression test, see https://github.com/react/react/pull/25179 for more details.
+      const store = createStore(false);
+      function App() {
+        const state = use(store);
+
+        React.useLayoutEffect(() => {
+          store.update(true);
+        }, []);
+
+        React.useEffect(() => {
+          // Empty useEffect with empty dependency array is needed to trigger infinite render loop.
+        }, []);
+
+        return state;
+      }
+
+      await act(() => {
+        ReactNoop.render(
+          <React.StrictMode>
+            <React.Suspense>
+              <App />
+            </React.Suspense>
+          </React.StrictMode>,
+        );
+      });
+    });
+  });
 });
