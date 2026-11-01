@@ -1,0 +1,85 @@
+/* Inside each sandbox iframe. The host sets color-scheme on <html>. */
+:root {
+  color-scheme: light dark;
+  --flash: #e5484d;
+}
+html {
+  background: transparent;
+}
+body {
+  margin: 0;
+  padding: 12px 14px;
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: CanvasText;
+}
+button {
+  font: inherit;
+  padding: 4px 10px;
+  margin: 0 6px 6px 0;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, CanvasText 30%, transparent);
+  background: color-mix(in srgb, CanvasText 6%, Canvas);
+  color: inherit;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+input,
+select,
+textarea {
+  font: inherit;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, CanvasText 30%, transparent);
+  background: Canvas;
+  color: inherit;
+}
+code,
+pre {
+  font: 13px ui-monospace, Menlo, monospace;
+}
+ul.slow-list {
+  margin: 0;
+  padding-left: 20px;
+  max-height: 160px;
+  overflow: auto;
+}
+
+/* Components that rendered in the last commit (frame-hook.js). The dashed
+   outline and the text label carry the meaning, not only the color. */
+.__sandbox-flash-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2147483647;
+}
+.__sandbox-flash {
+  position: fixed;
+  box-sizing: border-box;
+  outline: 2px dashed var(--flash);
+  outline-offset: -1px;
+  background: color-mix(in srgb, var(--flash) 10%, transparent);
+  opacity: 1;
+  transition: opacity 0.5s ease-out;
+}
+.__sandbox-flash-out {
+  opacity: 0;
+}
+.__sandbox-flash-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translateY(-100%);
+  padding: 0 4px;
+  font: 10px/14px ui-monospace, Menlo, monospace;
+  color: #fff;
+  background: var(--flash);
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .__sandbox-flash {
+    transition: none;
+  }
+}

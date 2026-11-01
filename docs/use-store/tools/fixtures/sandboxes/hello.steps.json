@@ -1,0 +1,15 @@
+{
+  "steps": [
+    {"expectText": "button", "equals": "Clicked 0 times"},
+    {"click": "button"},
+    {"expectText": "button", "equals": "Clicked 1 times"},
+    {"expectRenders": {"App": 2}}
+  ],
+  "edit": {
+    "replace": {"find": "x + 1", "with": "x + 10"},
+    "steps": [
+      {"click": "button"},
+      {"expectText": "button", "equals": "Clicked 10 times"}
+    ]
+  }
+}

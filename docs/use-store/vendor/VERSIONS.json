@@ -1,0 +1,44 @@
+{
+  "react": {
+    "dir": "fixtures/store-bench/react-builds/head",
+    "version": "0.0.0-experimental-e31a6640-20261031",
+    "sha": "e31a6640a074659dd9fb657dea99e2b0e4b642c8",
+    "branch": "rh/use-store",
+    "dirty": [
+      "?? scripts/ponyfill-compat/"
+    ],
+    "dirtyAffectsBuild": false,
+    "channel": "oss-experimental",
+    "builtAt": "2026-11-01T15:50:03.383Z",
+    "frozenAt": "2026-11-01T16:04:36.435Z",
+    "hashes": {
+      "react/cjs/react.development.js": "0b229d4de7eef1f0",
+      "react/cjs/react.production.js": "eabbcfcaccd5be66",
+      "react-dom/cjs/react-dom-client.development.js": "9bea4b57d259e63f",
+      "react-dom/cjs/react-dom-client.production.js": "0683fe79ae9ff6d8",
+      "scheduler/cjs/scheduler.production.js": "81891bbcdd78e398"
+    }
+  },
+  "tools": {
+    "esbuild": "0.25.1",
+    "sucrase": "3.35.0"
+  },
+  "bundles": {
+    "react-dev.js": {
+      "bytes": 481393,
+      "sha256": "222d3270e8b628fe"
+    },
+    "react-step.js": {
+      "bytes": 481957,
+      "sha256": "4bfd618c53a516f3"
+    },
+    "react-server-dev.js": {
+      "bytes": 344323,
+      "sha256": "d7d888f77b384a01"
+    },
+    "sucrase.js": {
+      "bytes": 289824,
+      "sha256": "119428d0653f6f8b"
+    }
+  }
+}

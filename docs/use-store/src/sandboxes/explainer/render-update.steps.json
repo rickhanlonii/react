@@ -1,0 +1,20 @@
+{
+  "allowConsole": [{"kind": "error", "contains": "Cannot update a store while rendering a component (`Results`)"}],
+  "steps": [
+    {"expectConsole": {"kind": "error", "contains": "Cannot update a store while rendering a component (`Results`)"}},
+    {"expectText": ".last", "equals": "Last search: react"},
+    {"click": "button"},
+    {"expectText": ".results", "equals": "Results for \"stores\""},
+    {"expectText": ".last", "equals": "Last search: stores"}
+  ],
+  "edit": {
+    "replace": {
+      "find": "  if (use(lastSearch) !== query) {\n    lastSearch.update(query);\n  }\n",
+      "with": ""
+    },
+    "steps": [
+      {"expectText": ".results", "equals": "Results for \"react\""},
+      {"expectNoConsole": {"kind": "error"}}
+    ]
+  }
+}

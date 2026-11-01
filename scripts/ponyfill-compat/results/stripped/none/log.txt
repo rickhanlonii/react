@@ -1,0 +1,11 @@
+PASS scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js (14.273 s)
+PASS scripts/ponyfill-compat/stripped/ReactUseStore-test.js (14.596 s)
+PASS scripts/ponyfill-compat/stripped/TODOCorrectnessUseStore-test.js
+PASS scripts/ponyfill-compat/stripped/ReactDOMStore-test.js
+PASS scripts/ponyfill-compat/stripped/ReactTestRendererUseStoreContext-test.internal.js
+
+Test Suites: 5 passed, 5 total
+Tests:       1 skipped, 109 passed, 110 total
+Snapshots:   0 total
+Time:        17.949 s
+Ran all test suites.

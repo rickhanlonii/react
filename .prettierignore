@@ -43,3 +43,6 @@ compiler/*.ico
 compiler/*.svg
 compiler/*.lock
 compiler/*.toml
+
+# use(store) docs: generated vendor bundles
+docs/use-store/vendor

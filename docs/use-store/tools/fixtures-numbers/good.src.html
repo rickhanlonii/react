@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>G5 fixture: a page that passes</title>
+<!-- gen:charts-assets -->
+</head>
+<body>
+<h1>Work per update</h1>
+<!-- gen:build-label -->
+
+<h2>2. Selectors run on every update</h2>
+<p>Changing the selected row makes Redux run <span data-n="counts.main.selection.redux.on.selectors"></span> selector calls, and use(store) runs <span data-n="counts.main.selection.store.on.selectors"></span>. It re-renders <span data-n="counts.main.selection.store.on.rows"></span> rows instead.</p>
+<p>The rows compare their reads with <code>$[13] !== selected</code>, and the same-element bailout (DCP-10) skips the rest. That landed in 2026, and G5 checks it.</p>
+<pre>const s = createStore(0); // digits in code are fine: 1, 2, 3</pre>
+<!-- gen:code:fixtures/store-bench/src/apps/store.jsx#Row --><pre class="code">function Row({index}) { /* 42 */ }</pre><!-- /gen:code:fixtures/store-bench/src/apps/store.jsx#Row -->
+<p>A literal the checker should skip: <span data-lit>React Compiler 1.0 beta</span>.</p>
+
+<!-- gen:counts-table {"note": "args are passed through"} -->
+</body>
+</html>

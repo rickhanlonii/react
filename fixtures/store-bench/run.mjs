@@ -84,6 +84,16 @@ const config = {
 // --dist=<dir> runs bundles from somewhere other than the mode's default.
 const distDir = path.resolve(here, option('dist', config.dir));
 const manifestPath = path.join(distDir, 'manifest.json');
+
+function readBuildInfo() {
+  const file = path.join(distDir, 'build-info.json');
+  if (!fs.existsSync(file)) {
+    console.warn(`no build-info.json in ${distDir}: rebuild to record the React build`);
+    return {react: null, compiler: null};
+  }
+  const {react, compiler} = JSON.parse(fs.readFileSync(file, 'utf8'));
+  return {react, compiler};
+}
 if (!fs.existsSync(manifestPath)) {
   console.error(
     `Missing ${manifestPath}. Run: node build.mjs${config.dir === 'dist-count' ? ' --count' : ''}`,
@@ -487,6 +497,9 @@ async function main() {
     iterations,
     warmup,
     restarts,
+    // Which React build and compiler the bundles were built from (build.mjs).
+    ...readBuildInfo(),
+    loadStart: os.loadavg(),
   };
 
   if (mode === 'verify' || mode === 'counts') {
@@ -514,6 +527,7 @@ async function main() {
 
   if (results.length > 0) {
     fs.mkdirSync(path.join(here, 'results'), {recursive: true});
+    env.loadEnd = os.loadavg();
     const label = option('label', null);
     const out = path.join(
       here,

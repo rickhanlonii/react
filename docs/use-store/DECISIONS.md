@@ -206,7 +206,7 @@ Append-only. Each entry records a design change (DCP) or a notable decision, why
 - **Status:** accepted (2026-10-30).
 - **Problem:** B-18. A reader that suspends while its boundary shows a fallback is thrown away, so it never subscribes. A store update didn't retry the boundary, and `use(use(store))` with a never-resolving promise hung.
 - **Decision:**
-  - When a component suspends, `throwException` collects the stores read by the component and by the components above it, up to the nearest Suspense boundary (`collectStoreReadsOfSuspendedTree`). Those are the reads that can change what the suspended component renders. Siblings that rendered before it can't unsuspend it, and a context update doesn't retry for them either.
+  - When a component suspends, `throwException` collects the stores read by the component and by the components above it, up to the nearest Suspense boundary (`collectStoreReadsOfSuspendedTree`). Those are the reads that can change what the suspended component renders. Siblings that rendered before it can't unsuspend it, so their reads aren't collected. (Context is more conservative: a context update marks every client-rendered boundary below the Provider that's showing a fallback, because the primary children's fibers may not exist, so it retries regardless of who read what. Corrected 2026-11-01; an earlier version of this entry said context doesn't retry for those siblings.)
   - This happens on the suspend path only. `use(store)` itself does no extra work.
   - When the boundary renders its fallback, the reads go on its `SuspenseState` (`storeReads`). Without new reads, a boundary that's still showing its fallback keeps the previous state, and so its subscriptions. Without store reads, the state is still the shared `SUSPENDED_MARKER`.
   - In the mutation phase, the boundary subscribes to those records (`commitSuspenseStoreReads`), with the catch-up from DCP-15. It unsubscribes when its primary children commit or when it's deleted (a new `SuspenseComponent` case in `commitDeletionEffectsOnFiber`).
@@ -271,9 +271,9 @@ Append-only. Each entry records a design change (DCP) or a notable decision, why
 - **Held updates are released** at every commit, and when a root starts reading the store.
 - **Limits:** with several roots, "done" is judged on the committing root, so a transition that's still pending on another root can be applied there early. That matches the existing rule that a root that starts reading a store starts from the latest value. With several renderers, the last one to load installs `U`.
 
-## Fix: StrictMode subtrees under a newly mounted non-strict parent (2026-10-31; not store specific)
+## Not a bug: StrictMode under a newly mounted non-strict parent (2026-11-01; not store specific)
 
-- `doubleInvokeEffectsInDEVIfNecessary` skipped the subtree of a newly placed fiber that isn't in StrictMode, and its descendants carry no `PlacementDEV`, so a `<StrictMode>` inside never double invoked its effects. Same for a newly visible Offscreen. It now walks such a subtree for StrictMode boundaries (`doubleInvokeEffectsInStrictSubtreesDEV`). This fixes the "TODO: this is currently broken" case in `ReactStrictMode-test.internal.js`.
+- The ponyfill-compat run reported that a `<StrictMode>` mounting under a non-strict parent placed in the same commit doesn't double invoke its effects on mount, and the branch briefly "fixed" it (`doubleInvokeEffectsInStrictSubtreesDEV`). That's the intended React 19 behavior, decided in react/react#32315: double invoking only the subtree on mount can't happen in production, so code could depend on it in development and break in production. The docs note is reactjs/react.dev#7702. The fix was reverted. The "TODO: this is currently broken" lines in ReactStrictMode-test.internal.js (from #31825) predate that decision.
 
 ## DCP-19: Reducer errors are reported unless a committed error boundary logs them (2026-10-31; amends DCP-14)
 

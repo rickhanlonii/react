@@ -8,11 +8,13 @@
 //                             (see src/redux-suite/suites.mjs)
 
 import {build} from 'esbuild';
+import crypto from 'crypto';
 import {createRequire} from 'module';
 import {fileURLToPath} from 'url';
 import fs from 'fs';
 import path from 'path';
 import {suites} from './src/redux-suite/suites.mjs';
+import {compilerPlugin} from './compiler-plugin.mjs';
 
 const require = createRequire(import.meta.url);
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -82,54 +84,6 @@ function checkReactBuild() {
   }
 }
 
-function compilerPlugin() {
-  const babel = require('@babel/core');
-  const reactCompiler = require(compilerPath);
-  return {
-    name: 'react-compiler',
-    setup(b) {
-      b.onLoad({filter: /\/src\/.*\.jsx$/}, async args => {
-        const source = await fs.promises.readFile(args.path, 'utf8');
-        const errors = [];
-        const result = await babel.transformAsync(source, {
-          filename: args.path,
-          babelrc: false,
-          configFile: false,
-          parserOpts: {plugins: ['jsx']},
-          plugins: [
-            [
-              reactCompiler,
-              {
-                target: '19',
-                panicThreshold: 'all_errors',
-                logger: {
-                  logEvent(filename, event) {
-                    if (event.kind === 'CompileError') {
-                      errors.push(event);
-                    }
-                  },
-                },
-              },
-            ],
-          ],
-        });
-        if (errors.length > 0) {
-          throw new Error(
-            `React Compiler failed on ${args.path}: ` +
-              JSON.stringify(errors[0].detail || errors[0]),
-          );
-        }
-        // Every file that defines a component must come out memoized.
-        const definesComponent = /function [A-Z]/.test(source);
-        if (definesComponent && !result.code.includes('_c(')) {
-          throw new Error(`React Compiler did not memoize ${args.path}`);
-        }
-        return {contents: result.code, loader: 'jsx'};
-      });
-    },
-  };
-}
-
 async function buildVariant(variant, compiled) {
   const suffix = (compiled ? 'compiler' : 'nocompiler') + (count ? '-count' : '');
   const outfile = path.join(outDir, `${variant.name}-${suffix}.js`);
@@ -157,7 +111,7 @@ async function buildVariant(variant, compiled) {
         'use-sync-external-store',
       ),
     },
-    plugins: compiled ? [compilerPlugin()] : [],
+    plugins: compiled ? [compilerPlugin({compilerPath})] : [],
     logLevel: 'warning',
   });
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${variant.name} ${suffix}</title></head><body><script src="./${path.basename(outfile)}"></script></body></html>`;
@@ -184,6 +138,37 @@ async function main() {
   fs.writeFileSync(
     path.join(outDir, 'manifest.json'),
     JSON.stringify(built, null, 2),
+  );
+  // Provenance for run.mjs: which React build and compiler these bundles use.
+  // Frozen builds carry a BUILD.json (sha, dirty state, file hashes).
+  const buildJson = path.join(reactBuild, 'BUILD.json');
+  const compilerSource = fs.readFileSync(compilerPath);
+  fs.writeFileSync(
+    path.join(outDir, 'build-info.json'),
+    JSON.stringify(
+      {
+        builtAt: new Date().toISOString(),
+        suite,
+        count,
+        react: {
+          dir: path.relative(here, reactBuild),
+          version: require(path.join(reactBuild, 'react/package.json')).version,
+          ...(fs.existsSync(buildJson)
+            ? JSON.parse(fs.readFileSync(buildJson, 'utf8'))
+            : {sha: null, note: 'unfrozen build: no BUILD.json'}),
+        },
+        compiler: {
+          bytes: compilerSource.length,
+          sha256: crypto
+            .createHash('sha256')
+            .update(compilerSource)
+            .digest('hex')
+            .slice(0, 16),
+        },
+      },
+      null,
+      2,
+    ),
   );
   console.log(`built ${built.length} bundles into ${path.relative(here, outDir)}`);
 }

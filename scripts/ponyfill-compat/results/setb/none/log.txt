@@ -1,0 +1,9 @@
+PASS packages/react-reconciler/src/__tests__/TODOCorrectnessUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStoreContext-test.js
+
+Test Suites: 3 passed, 3 total
+Tests:       13 passed, 13 total
+Snapshots:   0 total
+Time:        4.648 s
+Ran all test suites matching packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js|packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStoreContext-test.js|packages/react-reconciler/src/__tests__/TODOCorrectnessUseStore-test.js.

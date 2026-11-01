@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {"expectText": ".profile", "equals": "Loading…"},
+    {"expectStore": "userId", "path": "record.readers", "contains": "Suspense"},
+    {"click": "button"},
+    {"expectText": ".profile", "equals": "Hello, Grace Hopper"},
+    {"expectStore": "userId", "path": "record.readers", "contains": "Profile"}
+  ]
+}

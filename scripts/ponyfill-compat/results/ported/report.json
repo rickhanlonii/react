@@ -1,0 +1,659 @@
+{
+  "dir": "/tmp/usestore-base/scripts/ponyfill-compat/results/ported",
+  "baseSuiteErrors": [],
+  "impls": {
+    "experimental": {
+      "totals": {
+        "skipped": 1,
+        "pass-both": 23,
+        "fail-ponyfill-only": 8,
+        "na": 7
+      },
+      "gatedTotals": {},
+      "buckets": {
+        "render log mismatch": 7,
+        "store switching (dynamic stores)": 1
+      },
+      "suiteErrors": [],
+      "rows": [
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill wdyr react should be monkey patched by WDYR",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill wdyr react should be monkey patched by WDYR",
+          "gated": false,
+          "cls": "skipped"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore should create a store with initial value",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore should create a store with initial value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore should create a store with initial value and reducer",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore should create a store with initial value and reducer",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore should create store with primitive initial value",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore should create store with primitive initial value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore should create store with string initial value",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore should create store with string initial value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore should create store with array initial value",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore should create store with array initial value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should return initial store value",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should return initial store value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should return initial primitive value",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should return initial primitive value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should return initial string value",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should return initial string value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should return initial array value",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should return initial array value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should throw error for invalid store type",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should throw error for invalid store type",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should update store value with reducer",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should update store value with reducer",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should work with array values",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should work with array values",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should handle complex state updates",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should handle complex state updates",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should work with multiple components using same store",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should work with multiple components using same store",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should change value when updated without reducer",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should change value when updated without reducer",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should change value when updated with setter",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should change value when updated with setter",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should handle an initial value of undefined",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should handle an initial value of undefined",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore(suspense) should suspend while loading",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore(suspense) should suspend while loading",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore(suspense) should skip suspense fallback when in a transition",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore(suspense) should skip suspense fallback when in a transition",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore(suspense) should handle transition interruption and resolve to the final state",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore(suspense) should handle transition interruption and resolve to the final state",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store Does not tear when new component mounts mid transition",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store Does not tear when new component mounts mid transition",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n      \"count\": 1,\n      \"testid\": \"count\",\n    },\n    Object {\n+     \"count\": 2,\n+     \"testid\": \"otherCount\",\n+   },\n+   Object {\n      \"count\": 1,\n      \"testid\": \"otherCount\",\n    },\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store Does not tear when new component mounts in its own transition mid transition",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store Does not tear when new component mounts in its own transition mid transition",
+          "gated": false,
+          "cls": "na",
+          "ponyMessage": "Error: PONYFILL_ADAPTER_NA: test reads store._records"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store Does not miss updates triggered in useEffect or useLayoutEffect",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store Does not miss updates triggered in useEffect or useLayoutEffect",
+          "gated": false,
+          "cls": "na",
+          "ponyMessage": "Error: PONYFILL_ADAPTER_NA: test reads store._records"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store Does not miss sync updates triggered in useEffect or useLayoutEffect during a long-running transition",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store Does not miss sync updates triggered in useEffect or useLayoutEffect during a long-running transition",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n      \"count\": 4,\n      \"testid\": \"count\",\n    },\n    Object {\n-     \"count\": 5,\n+     \"count\": 3,\n      \"testid\": \"count\",\n    },\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store Sync update interrupting transition correctly tracks committed state",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store Sync update interrupting transition correctly tracks committed state",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n      \"count\": 3,\n      \"testid\": \"count\",\n    },\n    Object {\n+     \"count\": 5,\n+     \"testid\": \"otherCount\",\n+   },\n+   Object {\n      \"count\": 3,\n      \"testid\": \"otherCount\",\n    },\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store Multiple sync updates interrupting transition correctly tracks committed state",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store Multiple sync updates interrupting transition correctly tracks committed state",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n      \"count\": 4,\n      \"testid\": \"count\",\n    },\n    Object {\n+     \"count\": 6,\n+     \"testid\": \"otherCount\",\n+   },\n+   Object {\n      \"count\": 4,\n      \"testid\": \"otherCount\",\n    },\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store flushSync update interrupting transition correctly tracks committed state",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store flushSync update interrupting transition correctly tracks committed state",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n      \"count\": 4,\n      \"testid\": \"count\",\n    },\n    Object {\n+     \"count\": 6,\n+     \"testid\": \"otherCount\",\n+   },\n+   Object {\n      \"count\": 4,\n      \"testid\": \"otherCount\",\n    },\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store correctly handles consecutive sync updates",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store correctly handles consecutive sync updates",
+          "gated": false,
+          "cls": "na",
+          "ponyMessage": "Error: PONYFILL_ADAPTER_NA: test reads store._records"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store dynamic stores are not yet supported",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store dynamic stores are not yet supported",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "store switching (dynamic stores)",
+          "ponyMessage": "Error: useStoreSelector does not currently support dynamic stores"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store transition store update causes new store reader to mount",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store transition store update causes new store reader to mount",
+          "gated": false,
+          "cls": "na",
+          "ponyMessage": "Error: PONYFILL_ADAPTER_NA: test reads store._records"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store gets stuck in suspense when transition state suspends on mount",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store gets stuck in suspense when transition state suspends on mount",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n      \"action\": \"render\",\n      \"count\": 1,\n      \"testid\": \"count\",\n    },\n    Object {\n-     \"action\": \"render\",\n-     \"count\": 1,\n-     \"testid\": \"otherCount\",\n-   },\n-   Object {\n      \"action\": \"suspend\",\n      \"count\": 2,\n-     \"testid\": \"count\",\n+     \"testid\": \"otherCount\",\n    },\n    Object {\n      \"action\": \"suspend\",\n      \"count\": 2,\n-     \"testid\": \"otherCount\",\n+     \"testid\": \"count\",\n    },\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store can read from multiple different stores updating independently",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store can read from multiple different stores updating independently",
+          "gated": false,
+          "cls": "na",
+          "ponyMessage": "Error: PONYFILL_ADAPTER_NA: test reads store._records"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Selectors can be dynamic dynamic selectors are supported",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Selectors can be dynamic dynamic selectors are supported",
+          "gated": false,
+          "cls": "na",
+          "ponyMessage": "Error: PONYFILL_ADAPTER_NA: test reads store._records"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Selectors can be dynamic selector changes sync during a transition update to the store",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Selectors can be dynamic selector changes sync during a transition update to the store",
+          "gated": false,
+          "cls": "na",
+          "ponyMessage": "Error: PONYFILL_ADAPTER_NA: test reads store._records"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore for Redux Using Redux Toolkit's configureStore",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore for Redux Using Redux Toolkit's configureStore",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n      \"count\": 1,\n      \"testid\": \"count\",\n    },\n    Object {\n+     \"count\": 2,\n+     \"testid\": \"otherCount\",\n+   },\n+   Object {\n      \"count\": 1,\n      \"testid\": \"otherCount\",\n    },\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore for a Relay-like state solution Minimal example of MiniRelay",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore for a Relay-like state solution Minimal example of MiniRelay",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore for a Relay-like state solution Avoids rerendering the component if the fragment value computes the same output",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore for a Relay-like state solution Avoids rerendering the component if the fragment value computes the same output",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore for a Relay-like state solution Implements structural sharing such that substructures remain referential identical even if parent object change",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore for a Relay-like state solution Implements structural sharing such that substructures remain referential identical even if parent object change",
+          "gated": false,
+          "cls": "pass-both"
+        }
+      ]
+    },
+    "stable": {
+      "totals": {
+        "skipped": 1,
+        "pass-both": 12,
+        "fail-ponyfill-only": 25,
+        "na": 1
+      },
+      "gatedTotals": {},
+      "buckets": {
+        "render log mismatch": 19,
+        "rendered output mismatch": 1,
+        "other": 5
+      },
+      "suiteErrors": [],
+      "rows": [
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill wdyr react should be monkey patched by WDYR",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill wdyr react should be monkey patched by WDYR",
+          "gated": false,
+          "cls": "skipped"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore should create a store with initial value",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore should create a store with initial value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore should create a store with initial value and reducer",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore should create a store with initial value and reducer",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore should create store with primitive initial value",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore should create store with primitive initial value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore should create store with string initial value",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore should create store with string initial value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore should create store with array initial value",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore should create store with array initial value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should return initial store value",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should return initial store value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should return initial primitive value",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should return initial primitive value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should return initial string value",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should return initial string value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should return initial array value",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should return initial array value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should throw error for invalid store type",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should throw error for invalid store type",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should update store value with reducer",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should update store value with reducer",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   0,\n    1,\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should work with array values",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should work with array values",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"1,2,3\",\n    \"1,2,3,4\",\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should handle complex state updates",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should handle complex state updates",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"render\",\n+   \"render\",\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should work with multiple components using same store",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should work with multiple components using same store",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"1: 0\",\n+   \"2: 0\",\n    \"1: 1\",\n    \"2: 1\",\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should change value when updated without reducer",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should change value when updated without reducer",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   0,\n    100,\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should change value when updated with setter",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should change value when updated with setter",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   0,\n    1,\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should handle an initial value of undefined",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should handle an initial value of undefined",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"undefined\",\n    42,\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore(suspense) should suspend while loading",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore(suspense) should suspend while loading",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore(suspense) should skip suspense fallback when in a transition",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore(suspense) should skip suspense fallback when in a transition",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore(suspense) should handle transition interruption and resolve to the final state",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore(suspense) should handle transition interruption and resolve to the final state",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "rendered output mismatch",
+          "ponyMessage": "Error: expect(received).not.toBe(expected) // Object.is equality\n\nExpected: not null\nError: Log of yielded values is not empty. Call assertLog first.\n\nReceived:\n+ 0"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store Does not tear when new component mounts mid transition",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store Does not tear when new component mounts mid transition",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   Object {\n+     \"count\": 1,\n+     \"testid\": \"count\",\n+   },\n+ ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store Does not tear when new component mounts in its own transition mid transition",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store Does not tear when new component mounts in its own transition mid transition",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: Log of yielded values is not empty. Call assertLog first.\n\nReceived:\n+ [object Object]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store Does not miss updates triggered in useEffect or useLayoutEffect",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store Does not miss updates triggered in useEffect or useLayoutEffect",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n      \"count\": 1,\n      \"testid\": \"count\",\n    },\n-   Object {\n-     \"count\": 2,\n-     \"testid\": \"count\",\n-   },\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store Does not miss sync updates triggered in useEffect or useLayoutEffect during a long-running transition",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store Does not miss sync updates triggered in useEffect or useLayoutEffect during a long-running transition",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n-     \"count\": 4,\n-     \"testid\": \"count\",\n-   },\n-   Object {\n-     \"count\": 5,\n+     \"count\": 2,\n      \"testid\": \"count\",\n    },\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store Sync update interrupting transition correctly tracks committed state",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store Sync update interrupting transition correctly tracks committed state",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   Object {\n+     \"count\": 2,\n+     \"testid\": \"count\",\n+   },\n+ ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store Multiple sync updates interrupting transition correctly tracks committed state",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store Multiple sync updates interrupting transition correctly tracks committed state",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   Object {\n+     \"count\": 2,\n+     \"testid\": \"count\",\n+   },\n+ ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store flushSync update interrupting transition correctly tracks committed state",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store flushSync update interrupting transition correctly tracks committed state",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   Object {\n+     \"count\": 2,\n+     \"testid\": \"count\",\n+   },\n+ ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store correctly handles consecutive sync updates",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store correctly handles consecutive sync updates",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n+     \"count\": 1,\n+     \"testid\": \"count\",\n+   },\n+   Object {\n      \"count\": 3,\n      \"testid\": \"count\",\n    },\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store dynamic stores are not yet supported",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store dynamic stores are not yet supported",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n-     \"count\": 10,\n+     \"count\": 1,\n      \"testid\": \"count\",\n    },\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store transition store update causes new store reader to mount",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store transition store update causes new store reader to mount",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n      \"action\": \"render\",\n+     \"count\": 1,\n+     \"testid\": \"countIfEven\",\n+   },\n+   Object {\n+     \"action\": \"render\",\n      \"count\": 2,\n      \"testid\": \"countIfEven\",\n    },\n    Object {\n      \"action\": \"render\",\n      \"count\": 2,\n      \"testid\": \"count\",\n    },\n    Object {\n      \"action\": \"mount\",\n      \"count\": 2,\n      \"testid\": \"count\",\n    },\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store gets stuck in suspense when transition state suspends on mount",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store gets stuck in suspense when transition state suspends on mount",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n+     \"action\": \"render\",\n+     \"count\": 1,\n+     \"testid\": \"count\",\n+   },\n+   Object {\n      \"action\": \"suspend\",\n      \"count\": 2,\n      \"testid\": \"count\",\n    },\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store can read from multiple different stores updating independently",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store can read from multiple different stores updating independently",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n+     \"count\": 50,\n+     \"testid\": \"CountB\",\n+     \"type\": \"render\",\n+   },\n+   Object {\n      \"count\": 51,\n      \"testid\": \"CountB\",\n      \"type\": \"render\",\n    },\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Selectors can be dynamic dynamic selectors are supported",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Selectors can be dynamic dynamic selectors are supported",
+          "gated": false,
+          "cls": "na",
+          "ponyMessage": "Error: PONYFILL_ADAPTER_NA: test reads store._records"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Selectors can be dynamic selector changes sync during a transition update to the store",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Selectors can be dynamic selector changes sync during a transition update to the store",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: Log of yielded values is not empty. Call assertLog first.\n\nReceived:\n+ [object Object]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore for Redux Using Redux Toolkit's configureStore",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore for Redux Using Redux Toolkit's configureStore",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   Object {\n+     \"count\": 1,\n+     \"testid\": \"count\",\n+   },\n+ ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore for a Relay-like state solution Minimal example of MiniRelay",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore for a Relay-like state solution Minimal example of MiniRelay",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: No record found for id: ROOT\nError: Log of yielded values is not empty. Call assertLog first.\n\nReceived:\n+ [object Object]\n+ [object Object]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore for a Relay-like state solution Avoids rerendering the component if the fragment value computes the same output",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore for a Relay-like state solution Avoids rerendering the component if the fragment value computes the same output",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: No record found for id: ROOT\nError: Log of yielded values is not empty. Call assertLog first.\n\nReceived:\n+ [object Object]\n+ [object Object]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore for a Relay-like state solution Implements structural sharing such that substructures remain referential identical even if parent object change",
+          "file": "packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore for a Relay-like state solution Implements structural sharing such that substructures remain referential identical even if parent object change",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: No record found for id: ROOT\nError: Log of yielded values is not empty. Call assertLog first.\n\nReceived:\n+ [object Object]\n+ [object Object]"
+        }
+      ]
+    }
+  }
+}

@@ -3,8 +3,8 @@
 // the fairness controls, typing with useDeferredValue, and the sweeps.
 //
 // Results are grouped by env.suite, so any mix of files works. By default
-// it reads the quiet runs from run-all-quiet.sh (results/smoke-q-*.json) and
-// the spike's final matrix (results/smoke-spike-final-*.json).
+// it reads the files pinned in results/report-sources.json (see
+// report-data.mjs), the same ones the docs are generated from.
 
 import fs from 'fs';
 import path from 'path';
@@ -12,9 +12,10 @@ import {fileURLToPath} from 'url';
 import {median, percentile, summarize, compare, verdict, ms} from './stats.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const resultsDir = path.join(here, 'results');
+export const resultsDir = path.join(here, 'results');
+export const sourcesPath = path.join(resultsDir, 'report-sources.json');
 
-const SUITES = {
+export const SUITES = {
   'derived-selectors': {
     title: 'derived-selectors (Redux benchmark)',
     description:
@@ -52,25 +53,44 @@ const SUITES = {
   sweeps: {
     title: 'Sweeps: compiler coverage and component width (N=1,000)',
     description:
-      'Rows compiled at 100/90/75/50% coverage (8 props), and fully compiled rows with 4/8/16 props.',
+      "Rows compiled at 100/90/75/50% coverage (8 props), and fully compiled rows with 4/8/16 props. store-keyed selects through a weakMemo'd store per row.",
   },
 };
 
-export function defaultSuiteFiles() {
-  if (!fs.existsSync(resultsDir)) {
-    return [];
-  }
-  return fs
-    .readdirSync(resultsDir)
-    .filter(
-      f =>
-        /^smoke-(q-.*-r\d+|spike-final-r\d+-.*)-\d+\.json$/.test(f) &&
-        !f.includes('discarded'),
-    )
-    .map(f => path.join(resultsDir, f));
+// The pinned result files: report-sources.json maps a set name to a list of
+// file names in results/.
+export function readSources(file = sourcesPath) {
+  return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
-function load(files) {
+export function pinnedFiles(sources, sets) {
+  return sets.flatMap(set =>
+    (sources.sets[set]?.files ?? []).map(f => path.join(resultsDir, f)),
+  );
+}
+
+// The sets in report-sources.json that this section reads.
+export const SUITE_SETS = [
+  'derived-selectors',
+  'spike',
+  'rapid-dispatch',
+  'many-components-same-slice',
+  'deeptree-nested-hooks',
+  'fairness',
+  'typing-suite',
+  'sweeps',
+];
+
+export function defaultSuiteFiles() {
+  if (!fs.existsSync(sourcesPath)) {
+    return [];
+  }
+  return pinnedFiles(readSources(), SUITE_SETS);
+}
+
+// Each result remembers the file it came from (result.file), so a number can
+// name its sources.
+export function load(files) {
   const bySuite = new Map();
   for (const file of files) {
     const {env, results} = JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -82,26 +102,35 @@ function load(files) {
       bySuite.set(suite, {files: [], results: []});
     }
     bySuite.get(suite).files.push(file);
+    for (const r of results) {
+      r.file = path.basename(file);
+    }
     bySuite.get(suite).results.push(...results);
   }
   return bySuite;
 }
 
-function name(variant, compiler) {
+export function name(variant, compiler) {
   return variant + (compiler ? ' +c' : '');
 }
 
 // stats[group][variant+compiler] = summary, where a group is a scenario at a
-// size and CPU throttle.
-function updateStats(results) {
+// size and CPU throttle. Besides summarize(), each summary has the quartiles,
+// the sample count and the files the samples came from.
+export function updateStats(results) {
   const durations = new Map();
+  const files = new Map();
   for (const r of results.filter(r => r.kind === 'update')) {
     const group = [r.scenario, r.n, r.throttle].join('|');
     const key = group + '|' + name(r.variant, r.compiler);
     if (!durations.has(key)) {
       durations.set(key, []);
+      files.set(key, new Set());
     }
     durations.get(key).push(...r.durations);
+    if (r.file) {
+      files.get(key).add(r.file);
+    }
   }
   const stats = new Map();
   for (const [key, values] of durations) {
@@ -110,19 +139,25 @@ function updateStats(results) {
     if (!stats.has(group)) {
       stats.set(group, new Map());
     }
-    stats.get(group).set(parts[3], summarize(values));
+    stats.get(group).set(parts[3], {
+      ...summarize(values),
+      p25: percentile(values, 0.25),
+      p75: percentile(values, 0.75),
+      count: values.length,
+      files: [...files.get(key)].sort(),
+    });
   }
   return stats;
 }
 
-function groupLabel(group, showN = true) {
+export function groupLabel(group, showN = true) {
   const [scenario, n, throttle] = group.split('|');
   return `${scenario}${showN && n !== '0' ? ` · N=${Number(n).toLocaleString()}` : ''} · ${throttle}×`;
 }
 
 // The spike's variants that share a derivation correctly. store-derived is
 // fast but tears under transitions, so it doesn't count.
-const SHARING = new Set([
+export const SHARING = new Set([
   'store-memo',
   'store-reselect',
   'store-cache-gen',
@@ -132,7 +167,7 @@ const SHARING = new Set([
   'store-compiled-shared-site',
 ]);
 
-function storeVerdict(store, opponent) {
+export function storeVerdict(store, opponent) {
   if (store && opponent && store.median === 0) {
     // Below the timer resolution: the update didn't render anything.
     return '<span class="win">no work</span>';
@@ -141,7 +176,7 @@ function storeVerdict(store, opponent) {
 }
 
 // The faster of a variant with and without the compiler.
-function bestOf(byVariant, variant) {
+export function bestOf(byVariant, variant) {
   const on = byVariant.get(name(variant, true));
   const off = byVariant.get(name(variant, false));
   if (!on) return off;
@@ -149,7 +184,7 @@ function bestOf(byVariant, variant) {
   return on.mean <= off.mean ? on : off;
 }
 
-function sortGroups(groups) {
+export function sortGroups(groups) {
   return [...groups].sort((a, b) => {
     const [sa, na, ta] = a.split('|');
     const [sb, nb, tb] = b.split('|');
@@ -159,15 +194,22 @@ function sortGroups(groups) {
   });
 }
 
+// The store variants that get their own verdict column, besides store. In
+// derived-selectors, store-memo shares derived data with weakMemo (the
+// recommended pattern). store-derived tears under transitions, so it never
+// gets a verdict.
+export const EXTRA_VERDICTS = ['store-memo'];
+
 // One row per scenario/size/throttle, one column per variant with the
-// compiler, each cell relative to redux. The last column compares store with
-// the compiler against the best configuration of every other library. For
-// the spike, it compares the fastest correct way to share a derivation with
-// redux instead.
+// compiler, each cell relative to redux. The last columns compare store (and
+// store-memo, when the suite has it) with the compiler against the best
+// configuration of every other library. For the spike, it compares the
+// fastest correct way to share a derivation with redux instead.
 function updateTable(stats, variants, {showN, spike}) {
   const groups = sortGroups(stats.keys());
   const header = variants.map(v => `<th class="r">${v}</th>`).join('');
   const opponents = variants.filter(v => !v.startsWith('store'));
+  const extras = spike ? [] : EXTRA_VERDICTS.filter(v => variants.includes(v));
   const rows = groups.map(group => {
     const byVariant = stats.get(group);
     const redux = byVariant.get('redux +c');
@@ -185,27 +227,29 @@ function updateTable(stats, variants, {showN, spike}) {
         return `<td class="r${cls}">${ms(entry)}${rel}</td>`;
       })
       .join('');
-    let result;
+    let results;
     if (spike) {
       const sharing = [...SHARING]
         .map(v => byVariant.get(name(v, true)))
         .filter(Boolean)
         .sort((a, b) => a.mean - b.mean)[0];
-      result = storeVerdict(sharing, bestOf(byVariant, 'redux'));
+      results = [storeVerdict(sharing, bestOf(byVariant, 'redux'))];
     } else {
       const best = opponents
         .map(v => bestOf(byVariant, v))
         .filter(Boolean)
         .sort((a, b) => a.mean - b.mean)[0];
-      result = storeVerdict(byVariant.get('store +c'), best);
+      results = ['store', ...extras].map(v =>
+        storeVerdict(byVariant.get(name(v, true)), best),
+      );
     }
-    return `<tr><td>${groupLabel(group, showN)}</td>${cells}<td>${result}</td></tr>`;
+    return `<tr><td>${groupLabel(group, showN)}</td>${cells}${results.map(r => `<td>${r}</td>`).join('')}</tr>`;
   });
   const last = spike
-    ? 'fastest correct sharing vs redux'
-    : `store vs best of ${opponents.join('/')}`;
+    ? ['fastest correct sharing vs redux']
+    : ['store', ...extras].map(v => `${v} vs best of ${opponents.join('/')}`);
   return `<div class="card"><table>
-<tr><th>scenario</th>${header}<th>${last}</th></tr>
+<tr><th>scenario</th>${header}${last.map(l => `<th>${l}</th>`).join('')}</tr>
 ${rows.join('\n')}
 </table></div>
 <p class="muted">Median ms per update, with the compiler. Small numbers are the ratio of means to redux +compiler. Verdicts compare against each library's faster configuration (with or without the compiler); "tie" is within two standard errors.</p>`;
@@ -234,34 +278,45 @@ ${sorted
 }
 
 // Sweep variants are named <library>-c<coverage>-w<width>. Builds without the
-// compiler are the 0% coverage point.
+// compiler are the 0% coverage point. store-keyed selects through a
+// weakMemo'd store per row (sweep-store-keyed.jsx).
+export const SWEEP_LIBRARIES = ['store', 'store-keyed', 'redux', 'zustand'];
+export const SWEEP_STORES = ['store', 'store-keyed'];
+export const SWEEP_CONFIGS = [
+  ['c100-w8', '100% compiled, 8 props'],
+  ['c90-w8', '90% compiled, 8 props'],
+  ['c75-w8', '75% compiled, 8 props'],
+  ['c50-w8', '50% compiled, 8 props'],
+  ['c100-w8-off', 'no compiler, 8 props'],
+  ['c100-w4', '100% compiled, 4 props'],
+  ['c100-w16', '100% compiled, 16 props'],
+];
+
+// The entry for a library at a sweep configuration, and the faster of redux
+// and zustand at the same configuration.
+export function sweepEntries(byVariant, config) {
+  const off = config.endsWith('-off');
+  const base = off ? config.slice(0, -4) : config;
+  const entry = lib => byVariant.get(name(`${lib}-${base}`, !off));
+  const best = ['redux', 'zustand']
+    .map(entry)
+    .filter(Boolean)
+    .sort((a, b) => a.mean - b.mean)[0];
+  return {entry, best: best ?? null};
+}
+
 function sweepTable(stats) {
-  const libraries = ['store', 'redux', 'zustand'];
-  const configs = [
-    ['c100-w8', '100% compiled, 8 props'],
-    ['c90-w8', '90% compiled, 8 props'],
-    ['c75-w8', '75% compiled, 8 props'],
-    ['c50-w8', '50% compiled, 8 props'],
-    ['c100-w8-off', 'no compiler, 8 props'],
-    ['c100-w4', '100% compiled, 4 props'],
-    ['c100-w16', '100% compiled, 16 props'],
-  ];
   const groups = sortGroups(stats.keys());
   return groups
     .map(group => {
       const byVariant = stats.get(group);
-      const rows = configs.map(([config, label]) => {
-        const off = config.endsWith('-off');
-        const base = off ? config.slice(0, -4) : config;
-        const entries = libraries.map(lib =>
-          byVariant.get(name(`${lib}-${base}`, !off)),
-        );
-        const [store, ...libs] = entries;
-        const bestLib = libs.filter(Boolean).sort((a, b) => a.mean - b.mean)[0];
-        return `<tr><td>${label}</td>${entries.map((e, i) => `<td class="r${i === 0 ? ' storename' : ''}">${ms(e)}</td>`).join('')}<td>${verdict(compare(store, bestLib ?? null))}</td></tr>`;
+      const rows = SWEEP_CONFIGS.map(([config, label]) => {
+        const {entry, best} = sweepEntries(byVariant, config);
+        const entries = SWEEP_LIBRARIES.map(entry);
+        return `<tr><td>${label}</td>${entries.map((e, i) => `<td class="r${SWEEP_STORES.includes(SWEEP_LIBRARIES[i]) ? ' storename' : ''}">${ms(e)}</td>`).join('')}${SWEEP_STORES.map(lib => `<td>${verdict(compare(entry(lib), best))}</td>`).join('')}</tr>`;
       });
       return `<h4>${groupLabel(group)}</h4><div class="card"><table>
-<tr><th>configuration</th>${libraries.map(l => `<th class="r">${l}</th>`).join('')}<th>store vs best</th></tr>
+<tr><th>configuration</th>${SWEEP_LIBRARIES.map(l => `<th class="r">${l}</th>`).join('')}${SWEEP_STORES.map(l => `<th>${l} vs best</th>`).join('')}</tr>
 ${rows.join('\n')}
 </table></div>`;
     })

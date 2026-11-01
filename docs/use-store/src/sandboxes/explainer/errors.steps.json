@@ -1,0 +1,50 @@
+{
+  "allowConsole": [
+    {
+      "kind": "error",
+      "contains": "The above error occurred in the <Count> component"
+    }
+  ],
+  "steps": [
+    {
+      "click": "button.add"
+    },
+    {
+      "expectText": ".count",
+      "equals": "Count: 1"
+    },
+    {
+      "click": "button.explode"
+    },
+    {
+      "expectText": "button.retry",
+      "contains": "The reducer threw"
+    },
+    {
+      "click": "button.retry"
+    },
+    {
+      "expectText": ".count",
+      "equals": "Count: 1"
+    },
+    {
+      "click": "button.add"
+    },
+    {
+      "expectText": ".count",
+      "equals": "Count: 2"
+    },
+    {
+      "click": "button.unread"
+    },
+    {
+      "expectConsole": {
+        "kind": "log",
+        "contains": "store.update threw: The reducer threw"
+      }
+    },
+    {
+      "expectNoError": true
+    }
+  ]
+}

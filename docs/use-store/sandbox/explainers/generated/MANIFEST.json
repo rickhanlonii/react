@@ -1,0 +1,47 @@
+{
+  "builtAt": "2026-11-01T18:35:57.765Z",
+  "react": {
+    "dir": "fixtures/store-bench/react-builds/head",
+    "version": "0.0.0-experimental-e31a6640-20261031",
+    "sha": "e31a6640a074659dd9fb657dea99e2b0e4b642c8"
+  },
+  "compiler": {
+    "path": "compiler/packages/babel-plugin-react-compiler/dist/index.js",
+    "bytes": 3782244,
+    "sha256": "c59ecf06d45b47db"
+  },
+  "files": {
+    "queue.frame.js": {
+      "bytes": 20630,
+      "sha256": "b8ae2f527a0f5820"
+    },
+    "tearing.frame.js": {
+      "bytes": 21474,
+      "sha256": "8553ef91a4adb783"
+    },
+    "subscriptions.frame.js": {
+      "bytes": 19332,
+      "sha256": "6d87e1e0b7a842c1"
+    },
+    "rerenders-selectors.frame.js": {
+      "bytes": 31008,
+      "sha256": "e2eced71e5dd6077"
+    },
+    "rerenders-stores-compiler.frame.js": {
+      "bytes": 25955,
+      "sha256": "86270b69bac3d9ab"
+    },
+    "rerenders-stores-nocompiler.frame.js": {
+      "bytes": 22824,
+      "sha256": "0384c74e8cb209ea"
+    },
+    "rerenders-code.json": {
+      "bytes": 1795,
+      "sha256": "45459c8a2fd2d2fc"
+    },
+    "explainers.js": {
+      "bytes": 81886,
+      "sha256": "8559873ab3c45c86"
+    }
+  }
+}

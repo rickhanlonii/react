@@ -1,0 +1,34 @@
+{
+  "_doc": "G5 fixture: pins only the counts, which are already from the frozen build, so a page can pass every check. Regenerate bench-data.json with: node fixtures/store-bench/report-data.mjs --sources=docs/use-store/tools/fixtures-numbers/report-sources.json --out=docs/use-store/tools/fixtures-numbers/bench-data.json",
+  "expectBuild": {
+    "dir": "react-builds/head",
+    "sha": "e31a6640a074659dd9fb657dea99e2b0e4b642c8"
+  },
+  "pinnedAt": "2026-11-01",
+  "sets": {
+    "counts": {
+      "status": "head",
+      "files": [
+        "counts-head-1793550235385.json"
+      ],
+      "headPattern": "^counts-head-\\d+\\.json$",
+      "expectFiles": 1,
+      "newestPerLabel": true
+    },
+    "suite-counts": {
+      "status": "head",
+      "files": [
+        "counts-head-q-deeptree-nested-hooks-1793550273674.json",
+        "counts-head-q-derived-selectors-1793550249104.json",
+        "counts-head-q-derived-selectors-spike-1793550409655.json",
+        "counts-head-q-fairness-1793550287066.json",
+        "counts-head-q-many-components-same-slice-1793550259763.json",
+        "counts-head-q-rapid-dispatch-1793550255168.json",
+        "counts-head-q-sweeps-1793550307773.json"
+      ],
+      "headPattern": "^counts-head-q-[a-z-]+-\\d+\\.json$",
+      "expectFiles": 7,
+      "newestPerLabel": true
+    }
+  }
+}

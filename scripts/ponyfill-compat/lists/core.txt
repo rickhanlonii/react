@@ -1,0 +1,2 @@
+packages/react-reconciler/src/__tests__/ReactUseStore-test.js
+packages/react-dom/src/__tests__/ReactDOMStore-test.js

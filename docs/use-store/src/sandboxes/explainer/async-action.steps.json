@@ -1,0 +1,12 @@
+{
+  "steps": [
+    {"expectText": ".summary", "equals": "Cart: 0. Not saved"},
+    {"click": "button.add"},
+    {"expectText": ".pending", "equals": "Saving…"},
+    {"expectText": ".summary", "equals": "Cart: 0. Not saved"},
+    {"click": "button.finish"},
+    {"expectText": ".summary", "equals": "Cart: 1. Saved"},
+    {"expectText": ".pending", "equals": "Idle"},
+    {"expectNoConsole": {"contains": "rendered cart=1, Not saved"}}
+  ]
+}

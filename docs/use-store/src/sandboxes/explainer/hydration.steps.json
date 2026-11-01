@@ -1,0 +1,25 @@
+{
+  "steps": [
+    {
+      "expectConsole": {
+        "kind": "log",
+        "contains": "server HTML: <p>Theme: <!-- -->light</p>"
+      }
+    },
+    {
+      "expectText": "p",
+      "equals": "Theme: dark"
+    },
+    {
+      "expectConsole": {
+        "kind": "log",
+        "contains": "rendered dark"
+      }
+    },
+    {
+      "expectNoConsole": {
+        "contains": "hydration error"
+      }
+    }
+  ]
+}

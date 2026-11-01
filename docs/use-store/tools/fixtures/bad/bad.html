@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Deliberately bad page for G7 and G8</title>
+<!--
+  check-docs.mjs --gates=G7,G8 --pages=docs/use-store/tools/fixtures/bad/bad.html
+  must FAIL on every rule:
+    G7: em dash, semicolon, a Title Case heading, everwrite tells
+        ("not just ... but", stock words)
+    G8: a button with no name (page and sandbox), a status shown by color
+        alone, an svg and an img without labels, a skipped heading level, and
+        an animation that ignores prefers-reduced-motion
+-->
+<link rel="stylesheet" href="../../../sandbox/host.css">
+<script src="../../../sandbox/host.js" defer></script>
+<style>
+  .pulse { animation: pulse 1s infinite; }
+  @keyframes pulse { from { opacity: 1; } to { opacity: 0.2; } }
+  .bad { background: red; display: inline-block; width: 12px; height: 12px; }
+</style>
+</head>
+<body>
+<h1>Bad page</h1>
+<p>The store is fast — and it is small.</p>
+<p>Readers subscribe; writers dispatch.</p>
+<h2>How The Store Works</h2>
+<p>It is not just fast, but also a crucial and robust tapestry of features.</p>
+<h4>Skipped a level</h4>
+<p><code>use(store)</code> in code doesn't count; a semicolon in code is fine: <code>a; b</code>.</p>
+<button class="icon"></button>
+<span class="bad"></span>
+<span class="pulse">pulsing</span>
+<svg width="20" height="20"><circle cx="10" cy="10" r="8"></circle></svg>
+<img src="../../../vendor/missing.png">
+<div class="sandbox" id="unnamed" data-title="A button without a name">
+<script type="text/plain">
+export default function App() {
+  return <button className="x" />;
+}
+</script>
+</div>
+</body>
+</html>

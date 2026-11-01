@@ -1,0 +1,55 @@
+PASS packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js (12.144 s)
+  ReactUseStorePonyfill
+    wdyr
+      ○ skipped react should be monkey patched by WDYR
+    createStore
+      ✓ should create a store with initial value (1543 ms)
+      ✓ should create a store with initial value and reducer (429 ms)
+      ✓ should create store with primitive initial value (394 ms)
+      ✓ should create store with string initial value (317 ms)
+      ✓ should create store with array initial value (300 ms)
+    useStore
+      ✓ should return initial store value (347 ms)
+      ✓ should return initial primitive value (201 ms)
+      ✓ should return initial string value (176 ms)
+      ✓ should return initial array value (219 ms)
+      ✓ should throw error for invalid store type (387 ms)
+      ✓ should update store value with reducer (915 ms)
+      ✓ should work with array values (263 ms)
+      ✓ should handle complex state updates (475 ms)
+      ✓ should work with multiple components using same store (207 ms)
+      ✓ should change value when updated without reducer (219 ms)
+      ✓ should change value when updated with setter (213 ms)
+      ✓ should handle an initial value of undefined (367 ms)
+    useStore(suspense)
+      ✓ should suspend while loading (245 ms)
+      ✓ should skip suspense fallback when in a transition (205 ms)
+      ✓ should handle transition interruption and resolve to the final state (176 ms)
+    Experimental Userland Store
+      ✓ Does not tear when new component mounts mid transition (185 ms)
+      ✓ Does not tear when new component mounts in its own transition mid transition (208 ms)
+      ✓ Does not miss updates triggered in useEffect or useLayoutEffect (150 ms)
+      ✓ Does not miss sync updates triggered in useEffect or useLayoutEffect during a long-running transition (158 ms)
+      ✓ Sync update interrupting transition correctly tracks committed state (195 ms)
+      ✓ Multiple sync updates interrupting transition correctly tracks committed state (159 ms)
+      ✓ flushSync update interrupting transition correctly tracks committed state (141 ms)
+      ✓ correctly handles consecutive sync updates (178 ms)
+      ✓ dynamic stores are not yet supported (213 ms)
+      ✓ transition store update causes new store reader to mount (155 ms)
+      ✓ gets stuck in suspense when transition state suspends on mount (187 ms)
+      ✓ can read from multiple different stores updating independently (179 ms)
+    Selectors can be dynamic
+      ✓ dynamic selectors are supported (136 ms)
+      ✓ selector changes sync during a transition update to the store (215 ms)
+    createStore for Redux
+      ✓ Using Redux Toolkit's configureStore (160 ms)
+    createStore for a Relay-like state solution
+      ✓ Minimal example of MiniRelay (183 ms)
+      ✓ Avoids rerendering the component if the fragment value computes the same output (210 ms)
+      ✓ Implements structural sharing such that substructures remain referential identical even if parent object change (280 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       1 skipped, 38 passed, 39 total
+Snapshots:   0 total
+Time:        12.711 s
+Ran all test suites matching packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js.

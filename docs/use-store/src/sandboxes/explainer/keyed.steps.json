@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {"expectCount": "li", "equals": 5},
+    {"resetRenders": true},
+    {"click": "li:nth-child(2)"},
+    {"expectText": "li:nth-child(2)", "equals": "Row b (selected)"},
+    {"expectRenders": {"Row": 1, "List": 0}},
+    {"resetRenders": true},
+    {"click": "li:nth-child(4)"},
+    {"expectText": "li:nth-child(4)", "equals": "Row d (selected)"},
+    {"expectText": "li:nth-child(2)", "equals": "Row b"},
+    {"expectRenders": {"Row": 2, "List": 0}}
+  ]
+}

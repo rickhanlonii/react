@@ -1,7 +1,10 @@
 // Turns results from run.mjs into results/report.html and results/report.md.
+// (The docs in docs/use-store are generated from the same pinned results by
+// report-data.mjs.)
 //
-//   node report.mjs                         Newest full/smoke results + newest counts
-//   node report.mjs results/full-123.json   A specific timing file
+//   node report.mjs                         The results pinned in report-sources.json
+//   node report.mjs results/full-123.json   Specific timing files
+//   --out=<dir>                             Write somewhere other than results/
 
 import fs from 'fs';
 import path from 'path';
@@ -12,17 +15,19 @@ import {
   suitesSection,
   derivedSummary,
   sweepSummary,
+  readSources,
+  pinnedFiles,
 } from './report-suites.mjs';
+import {median, percentile, compare, verdict, ms} from './stats.mjs';
 import {
-  median,
-  percentile,
-  mean,
-  sem,
-  summarize,
-  compare,
-  verdict,
-  ms,
-} from './stats.mjs';
+  VARIANTS,
+  SCENARIOS,
+  buildMainStats,
+  x,
+  describe,
+  slower,
+  ratioRange as ratioRangeOf,
+} from './report-data.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -37,15 +42,30 @@ function newest(prefixes) {
   return files[0] || null;
 }
 
+const args = process.argv.slice(2);
+const outArg = args.find(a => a.startsWith('--out='));
+const outDir = outArg ? path.resolve(outArg.slice(6)) : resultsDir;
+const fileArgs = args.filter(a => !a.startsWith('--'));
+const sources = fs.existsSync(path.join(resultsDir, 'report-sources.json'))
+  ? readSources()
+  : null;
+
 // Timing files to merge. The first one's environment is reported. Extra files
-// (e.g. re-runs of noisy configurations) add samples.
+// (e.g. re-runs of noisy configurations) add samples. By default, the main
+// suite, typing and memory files pinned in report-sources.json.
 const timingFiles =
-  process.argv.length > 2 ? process.argv.slice(2) : [newest(['full', 'smoke'])];
+  fileArgs.length > 0
+    ? fileArgs
+    : sources
+      ? pinnedFiles(sources, ['main', 'main-typing', 'main-memory'])
+      : [newest(['full', 'smoke'])];
 const timingFile = timingFiles[0];
-if (timingFile === null) {
+if (!timingFile) {
   throw new Error('No timing results yet. Run: node run.mjs --full');
 }
-const countsFile = newest(['counts']);
+const countsFile = sources
+  ? pinnedFiles(sources, ['counts'])[0] ?? null
+  : newest(['counts']);
 const {env} = JSON.parse(fs.readFileSync(timingFile, 'utf8'));
 // Restarts can be split across files (run separately so each can be gated on
 // load), so count them across every timing file.
@@ -84,58 +104,8 @@ const versions = {
 
 // ---------------------------------------------------------------- stats
 
-const VARIANTS = [
-  'store',
-  'store-single',
-  'context',
-  'context-split',
-  'redux',
-  'zustand',
-  'zustand-granular',
-];
-const SCENARIOS = [
-  ['selection', 'Selection', 'Every row reads the selected id; 2 rows change'],
-  ['entity', 'Entity edit', 'One entity changes'],
-  ['filter', 'Filter', 'Every row derives whether it matches; half change'],
-  [
-    'details-inline',
-    'Conditional read (inline)',
-    '1% of rows read a hot value in the row itself',
-  ],
-  [
-    'details-component',
-    'Conditional read (child component)',
-    '1% of rows read a hot value in a child that only mounts when expanded',
-  ],
-  ['structure', 'Add / remove', 'Add and remove one row'],
-];
-
-// stats[scenario][n][throttle][variant][compiler] = {median, mean, sem, p95}
-const stats = {};
-for (const r of results.filter(r => r.kind === 'update')) {
-  const s = (stats[r.scenario] ??= {});
-  const byN = (s[r.n] ??= {});
-  const byThrottle = (byN[r.throttle] ??= {});
-  const byVariant = (byThrottle[r.variant] ??= {});
-  (byVariant[r.compiler ? 'on' : 'off'] ??= {durations: []}).durations.push(
-    ...r.durations,
-  );
-}
-for (const s of Object.values(stats)) {
-  for (const byN of Object.values(s)) {
-    for (const byThrottle of Object.values(byN)) {
-      for (const byVariant of Object.values(byThrottle)) {
-        for (const entry of Object.values(byVariant)) {
-          entry.median = median(entry.durations);
-          entry.mean = mean(entry.durations);
-          entry.sem = sem(entry.durations);
-          entry.p95 = percentile(entry.durations, 0.95);
-          delete entry.durations;
-        }
-      }
-    }
-  }
-}
+// stats[scenario][n][throttle][variant][compiler] = {median, mean, sem, p95, ...}
+const stats = buildMainStats(results.filter(r => r.kind === 'update'));
 const nValues = [
   ...new Set(results.filter(r => r.kind === 'update').map(r => r.n)),
 ].sort((a, b) => a - b);
@@ -229,10 +199,6 @@ function tally(scenario, left, right) {
   };
 }
 
-function x(value) {
-  return value >= 10 ? value.toFixed(0) : value.toFixed(1);
-}
-
 function range(t) {
   if (t.total === 0) {
     return '<span class="muted">n/a</span>';
@@ -278,24 +244,6 @@ const vsZustand = overall('zustand');
 const zustandLosses = scoreboard
   .filter(r => r.tallies.zustand.losses > 0)
   .map(r => r.title);
-
-// Builds stats[scenario][n][throttle][variant][compiler] from update results.
-function buildStats(updateResults) {
-  const out = {};
-  for (const r of updateResults) {
-    const byVariant = (((out[r.scenario] ??= {})[r.n] ??= {})[r.throttle] ??=
-      {});
-    (byVariant[r.variant] ??= {})[r.compiler ? 'on' : 'off'] ??= [];
-    byVariant[r.variant][r.compiler ? 'on' : 'off'].push(...r.durations);
-  }
-  for (const s of Object.values(out))
-    for (const byN of Object.values(s))
-      for (const byThrottle of Object.values(byN))
-        for (const byVariant of Object.values(byThrottle))
-          for (const key of Object.keys(byVariant))
-            byVariant[key] = summarize(byVariant[key]);
-  return out;
-}
 
 // store + compiler vs the faster of the given libraries (each at its best
 // configuration), for every size and throttle of a scenario in the given stats.
@@ -357,7 +305,7 @@ const noBailoutFiles = process.env.NOBAILOUT_FILES
       .readdirSync(resultsDir)
       .filter(f => /^full-final-nobailout.*\.json$/.test(f) && !f.includes('discarded'))
       .map(f => path.join(resultsDir, f));
-const noBailoutStats = buildStats(
+const noBailoutStats = buildMainStats(
   noBailoutFiles
     .flatMap(f => JSON.parse(fs.readFileSync(f, 'utf8')).results)
     .filter(r => r.kind === 'update'),
@@ -376,24 +324,6 @@ function bytesPerRow(variant) {
   return largest.bytesPerRow;
 }
 
-// Describes a tally against a library, e.g. "up to 1.3× faster (5 faster,
-// 1 tie)" or "1.2–1.4× slower".
-function describe(t) {
-  if (t.total === 0) return 'n/a';
-  const counts = [
-    t.wins && `${t.wins} faster`,
-    t.ties && `${t.ties} tie`,
-    t.losses && `${t.losses} slower`,
-  ]
-    .filter(Boolean)
-    .join(', ');
-  if (t.losses === 0 && t.ties === 0) return `${x(t.min)}–${x(t.max)}× faster`;
-  if (t.wins === 0 && t.ties === 0) return `${x(1 / t.max)}–${x(1 / t.min)}× slower`;
-  if (t.losses === 0) return `up to ${x(t.max)}× faster (${counts})`;
-  if (t.wins === 0) return `up to ${x(1 / t.min)}× slower (${counts})`;
-  return `${x(1 / t.min)}× slower to ${x(t.max)}× faster (${counts})`;
-}
-
 const selectionVsZustand = tally('selection', 'store', 'zustand');
 const singleVsZustand = tally('selection', 'store-single', 'zustand');
 const inlineVsRedux = tally('details-inline', 'store', 'redux');
@@ -406,16 +336,6 @@ const noCompilerSelection = {
   max: Math.max(...noCompilerSpeedups),
 };
 const inlineVsZustand = tally('details-inline', 'store', 'zustand');
-
-// Slowdown ranges for "N× slower" sentences, as percentages when small.
-function slower(t) {
-  const lo = Math.max(1, 1 / t.max);
-  const hi = 1 / t.min;
-  if (hi < 1.5) {
-    return `${Math.round((lo - 1) * 100)}–${Math.round((hi - 1) * 100)}%`;
-  }
-  return `${x(lo)}–${x(hi)}×`;
-}
 
 // Work counters for one update at N=1,000, keyed by "scenario bundle".
 const countsBy = Object.fromEntries(
@@ -454,14 +374,7 @@ const derived = derivedSummary(suiteFiles);
 const sweeps = sweepSummary(suiteFiles);
 // "1.2–1.4× slower" style range of store/best ratios across throttles.
 function ratioRange(entries) {
-  if (!entries || entries.length === 0) return null;
-  const ratios = entries.map(e => e.ratio);
-  const lo = Math.min(...ratios);
-  const hi = Math.max(...ratios);
-  const span = (a, b) => (x(a) === x(b) ? `${x(a)}×` : `${x(a)}–${x(b)}×`);
-  if (lo >= 1) return `${span(lo, hi)} slower`;
-  if (hi <= 1) return `${span(1 / hi, 1 / lo)} faster`;
-  return `${x(1 / lo)}× faster to ${x(hi)}× slower`;
+  return entries ? ratioRangeOf(entries.map(e => e.ratio)) : null;
 }
 
 // ---------------------------------------------------------------- charts
@@ -800,7 +713,8 @@ ${memory.map(m => `<tr><td>${m.variant}${m.compiler ? ' +compiler' : ''}</td><td
 <p class="muted">Raw data: ${timingFiles.map(f => '<code>' + path.relative(here, f) + '</code>').join(', ')}${countsFile ? `, <code>${path.relative(here, countsFile)}</code>` : ''}. Harness: <code>fixtures/store-bench</code>.</p>
 </div></body></html>`;
 
-fs.writeFileSync(path.join(resultsDir, 'report.html'), html);
+fs.mkdirSync(outDir, {recursive: true});
+fs.writeFileSync(path.join(outDir, 'report.html'), html);
 
 // A short markdown version for quick reading.
 let md = `# use(store) benchmark results\n\n${env.date} · ${env.cpu}\n\n## Headline (store + compiler vs each library's best configuration)\n\n| N | CPU | ${headlineHeader.map(h => h.replace(/<br><small>/, ' · ').replace(/<\/small>/, '')).join(' | ')} |\n|---|---|${headlineHeader.map(() => '---').join('|')}|\n`;
@@ -809,14 +723,14 @@ for (const r of headlineRows) {
     .map(c => (c === null ? 'n/a' : c.tie ? 'tie' : c.ratio < 1 ? `${(1 / c.ratio).toFixed(1)}× faster` : `${c.ratio.toFixed(1)}× slower`))
     .join(' | ')} |\n`;
 }
-fs.writeFileSync(path.join(resultsDir, 'report.md'), md);
+fs.writeFileSync(path.join(outDir, 'report.md'), md);
 
 // Also export the computed numbers so a written summary can quote them.
 fs.writeFileSync(
-  path.join(resultsDir, 'summary.json'),
+  path.join(outDir, 'summary.json'),
   JSON.stringify({env, versions, stats, typing, memory}, null, 1),
 );
 
 console.log(
-  `wrote results/report.html, report.md and summary.json from ${path.relative(here, timingFile)}`,
+  `wrote ${path.relative(here, outDir) || '.'}/report.html, report.md and summary.json from ${path.relative(here, timingFile)}`,
 );

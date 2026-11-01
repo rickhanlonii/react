@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sandbox demo</title>
+<link rel="stylesheet" href="host.css">
+<script src="host.js" defer></script>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    margin: 0;
+    font: 15px/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  main { max-width: 860px; margin: 0 auto; padding: 40px 24px 80px; }
+  h1 { font-size: 30px; margin: 0 0 8px; }
+  h2 { font-size: 20px; margin: 40px 0 6px; }
+  code { font: 13px ui-monospace, Menlo, monospace; }
+  .note { padding: 10px 14px; border-radius: 8px; border: 1px solid #8884; }
+</style>
+</head>
+<body>
+<main>
+<h1 id="top">Sandbox demo</h1>
+<p>Every sandbox on this page runs real React in an iframe, offline from <code>file://</code>. It exercises each feature of <code>host.js</code> once. <a href="API.md">API.md</a> documents them.</p>
+<p class="note">These sandboxes run <span data-sandbox-build></span>: the development build, without the React Compiler, with StrictMode off unless a sandbox turns it on. The stepper sandbox uses the mock scheduler, so it's stepped for illustration.</p>
+
+<h2 id="about-counter">A store, a log and render counts</h2>
+<p>Click the button. The render strip counts renders and the outline shows what rendered. Try Edit, change the code, and Run.</p>
+<div class="sandbox" id="counter" data-title="A counter in a store">
+<script type="text/plain">
+import {use, unstable_createStore as createStore} from 'react';
+
+const count = createStore(0);
+
+export default function App() {
+  const n = use(count);
+  return (
+    <button
+      onClick={() => {
+        log('clicked');
+        count.update(x => x + 1);
+      }}>
+      Clicked {n} times
+    </button>
+  );
+}
+</script>
+<script type="application/json" class="steps">
+{
+  "steps": [
+    {"expectText": "button", "equals": "Clicked 0 times"},
+    {"click": "button"},
+    {"expectText": "button", "equals": "Clicked 1 times"},
+    {"expectRenders": {"App": 2}},
+    {"expectConsole": {"kind": "log", "contains": "clicked"}}
+  ],
+  "edit": {
+    "replace": {"find": "x + 1", "with": "x + 10"},
+    "steps": [
+      {"click": "button"},
+      {"expectText": "button", "equals": "Clicked 10 times"}
+    ]
+  }
+}
+</script>
+</div>
+
+<h2 id="about-rows">Conditional reads and the store panel</h2>
+<p>Every row reads <code>selected</code>. Only open rows read <code>details</code>, so the store panel shows its readers change as you open and close rows.</p>
+<div class="sandbox" id="rows" data-title="Rows that read conditionally" data-panels="console renders stores" data-styles="demo.css">
+<script type="text/plain">
+import {use, useState, unstable_createStore as createStore} from 'react';
+
+const selected = watchStore(createStore(1), 'selected');
+const details = watchStore(createStore('details'), 'details');
+
+function Row({id}) {
+  const [open, setOpen] = useState(false);
+  const isSelected = use(selected) === id;
+  return (
+    <li>
+      <button className="select" onClick={() => selected.update(id)}>
+        {isSelected ? 'Selected' : 'Select'} {id}
+      </button>
+      <button className="open" onClick={() => setOpen(o => !o)}>
+        {open ? 'Close' : 'Open'}
+      </button>
+      {open && <span className="demo-note">{use(details)}</span>}
+    </li>
+  );
+}
+
+export default function App() {
+  return (
+    <ul>
+      {[1, 2, 3].map(id => (
+        <Row key={id} id={id} />
+      ))}
+    </ul>
+  );
+}
+</script>
+<script type="application/json" class="steps">
+{
+  "steps": [
+    {"expectStore": "selected", "path": "record.readerCount", "equals": 3},
+    {"expectStore": "details", "path": "records.length", "equals": 0},
+    {"click": "li:nth-child(1) button.open"},
+    {"expectText": "li:nth-child(1) .demo-note", "equals": "details"},
+    {"expectStore": "details", "path": "record.readerCount", "equals": 1},
+    {"resetRenders": true},
+    {"click": "li:nth-child(3) button.select"},
+    {"expectText": "li:nth-child(3) button.select", "equals": "Selected 3"},
+    {"expectRenders": {"Row": 3, "App": 0}},
+    {"expectStore": "selected", "path": "record.committed.memoizedState", "equals": "3"}
+  ]
+}
+</script>
+</div>
+
+<h2 id="about-stepper">Stepping a transition</h2>
+<p><q data-lit>Add 1 in a transition</q> renders the pending state right away, and the transition waits for "Next commit". The store panel shows the update waiting in the queue.</p>
+<div class="sandbox" id="stepper" data-title="A transition, one commit at a time" data-stepper="paint flush yield">
+<script type="text/plain">
+import {use, useTransition, unstable_createStore as createStore} from 'react';
+
+const count = watchStore(createStore(0), 'count');
+
+export default function App() {
+  const [isPending, startTransition] = useTransition();
+  const n = use(count);
+  log('render ' + n + (isPending ? ' (pending)' : ''));
+  return (
+    <>
+      <button
+        className="transition"
+        onClick={() => startTransition(() => count.update(x => x + 1))}>
+        Add 1 in a transition
+      </button>
+      <button className="now" onClick={() => count.update(x => x + 100)}>
+        Add 100 now
+      </button>
+      <p>
+        Count: <b>{n}</b>
+        {isPending ? ' (transition pending)' : ''}
+      </p>
+    </>
+  );
+}
+</script>
+<script type="application/json" class="steps">
+{
+  "steps": [
+    {"expectText": "p", "equals": "Count: 0"},
+    {"click": "button.transition"},
+    {"expectText": "p", "equals": "Count: 0 (transition pending)"},
+    {"expectStepper": {"pending": true}},
+    {"stepper": "paint"},
+    {"expectText": "p", "equals": "Count: 1"},
+    {"stepper": "flush"},
+    {"expectStore": "count", "path": "record.committed.memoizedState", "equals": "1"},
+    {"expectStore": "count", "path": "record.baseQueue.length", "equals": 0}
+  ]
+}
+</script>
+</div>
+
+<h2 id="about-suspense">Suspense with a manual resource</h2>
+<p><code>createResource()</code> without a loader waits for <code>resolve</code>. <code>&lt;Slow&gt;</code> blocks for a few milliseconds while it renders. This preview has a fixed height.</p>
+<div class="sandbox" id="suspense" data-title="Suspending on a promise" data-height="120">
+<script type="text/plain">
+import {use, Suspense, unstable_createStore as createStore} from 'react';
+
+const users = createResource();
+const userId = createStore('ada');
+
+function Profile() {
+  const name = use(users.read(use(userId)));
+  return <p>Hello, {name}</p>;
+}
+
+export default function App() {
+  return (
+    <>
+      <button onClick={() => users.resolve('ada', 'Ada Lovelace')}>Resolve</button>
+      <Suspense fallback={<p>Loading…</p>}>
+        <Slow ms={20}>
+          <Profile />
+        </Slow>
+      </Suspense>
+    </>
+  );
+}
+</script>
+<script type="application/json" class="steps">
+{
+  "steps": [
+    {"expectText": "p", "equals": "Loading…"},
+    {"click": "button"},
+    {"expectText": "p", "equals": "Hello, Ada Lovelace"}
+  ]
+}
+</script>
+</div>
+
+<h2 id="about-hydration">Server rendering and hydration</h2>
+<p>With <code>data-server</code>, the code can import <code>react-dom/server</code>. It renders to a string, puts it in the page and hydrates it. This sandbox is read-only and waits for a click on Run.</p>
+<div class="sandbox" id="hydration" data-title="Hydrating a store's initial value" data-server data-readonly data-autorun="false">
+<script type="text/plain">
+import {use, unstable_createStore as createStore} from 'react';
+import {renderToString} from 'react-dom/server';
+import {hydrateRoot} from 'react-dom/client';
+
+const theme = createStore('light');
+
+function App() {
+  return (
+    <button onClick={() => theme.update(t => (t === 'light' ? 'dark' : 'light'))}>
+      Theme: {use(theme)}
+    </button>
+  );
+}
+
+const container = document.getElementById('root');
+container.innerHTML = renderToString(<App />);
+log('server HTML:', container.innerHTML);
+hydrateRoot(container, <App />);
+</script>
+<script type="application/json" class="steps">
+{
+  "steps": [
+    {"expectText": "button", "equals": "Theme: light"},
+    {"expectConsole": {"kind": "log", "contains": "server HTML: <button>"}},
+    {"click": "button"},
+    {"expectText": "button", "equals": "Theme: dark"}
+  ]
+}
+</script>
+</div>
+
+<h2 id="about-errors">A reducer that throws</h2>
+<p>The reducer throws during render, in every component that reads the store. With no error boundary, the error is uncaught and the overlay shows it.</p>
+<div class="sandbox" id="errors" data-title="Reducer errors">
+<script type="text/plain">
+import {use, unstable_createStore as createStore} from 'react';
+
+const count = createStore(0, (state, action) => {
+  if (action === 'explode') {
+    throw new Error('The reducer threw on "explode"');
+  }
+  return state + action;
+});
+
+export default function App() {
+  return (
+    <>
+      <button className="add" onClick={() => count.update(1)}>Add 1</button>
+      <button className="explode" onClick={() => count.update('explode')}>
+        Throw in the reducer
+      </button>
+      <p>Count: {use(count)}</p>
+    </>
+  );
+}
+</script>
+<script type="application/json" class="steps">
+{
+  "steps": [
+    {"click": "button.add"},
+    {"expectText": "p", "equals": "Count: 1"},
+    {"expectNoError": true},
+    {"click": "button.explode"},
+    {"expectError": {"contains": "The reducer threw on \"explode\""}}
+  ]
+}
+</script>
+</div>
+
+<h2 id="about-warnings">React's own warnings, in StrictMode</h2>
+<p>The console panel shows what React prints. This list has no keys, and the sandbox starts with StrictMode on.</p>
+<div class="sandbox" id="warnings" data-title="A missing key" data-strict>
+<script type="text/plain">
+export default function App() {
+  const items = ['a', 'b', 'c'];
+  return (
+    <ul>
+      {items.map(item => (
+        <li>{item}</li>
+      ))}
+    </ul>
+  );
+}
+</script>
+<script type="application/json" class="steps">
+{
+  "allowConsole": [{"kind": "error", "contains": "unique \"key\" prop"}],
+  "steps": [
+    {"expectCount": "li", "equals": 3},
+    {"expectConsole": {"kind": "error", "contains": "unique \"key\" prop"}}
+  ],
+  "edit": {
+    "replace": {"find": "<li>", "with": "<li key={item}>"},
+    "steps": [
+      {"expectCount": "li", "equals": 3},
+      {"expectNoConsole": {"kind": "error"}}
+    ]
+  }
+}
+</script>
+</div>
+
+<p><a href="#top">Back to top</a></p>
+</main>
+</body>
+</html>

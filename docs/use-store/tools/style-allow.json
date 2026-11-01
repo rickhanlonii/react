@@ -1,0 +1,12 @@
+{
+  "_comment": "G7 allowlist (tools/check-docs.mjs). headingTerms: proper nouns allowed capitalized in sentence-case headings (multi-word terms match as a phrase). tells: everwrite findings that are false positives for these docs. Each entry needs match (a substring of the finding) and reason; page, category and contains (a substring of the sentence) narrow it. Never loosen tells.py itself.",
+  "headingTerms": [
+    "React", "React Compiler", "React DOM", "React DevTools", "React Native",
+    "Redux", "Redux Toolkit", "Zustand", "Suspense", "Activity", "DevTools",
+    "StrictMode", "Strict Mode", "Context", "Fizz", "Flight", "Chrome",
+    "JavaScript", "TypeScript", "Flow", "Node", "Jest", "Playwright", "MobX",
+    "Jotai", "Recoil", "Valtio", "Preact", "Solid", "Vue", "Svelte", "Angular",
+    "TC39"
+  ],
+  "tells": []
+}

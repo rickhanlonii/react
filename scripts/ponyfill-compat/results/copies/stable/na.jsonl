@@ -1,0 +1,1 @@
+{"testPath":"/private/tmp/usestore-base/packages/react-test-renderer/src/__tests__/ReactTestRendererUseStoreContext-test.internal.js","name":"ReactTestRenderer can concurrently render context with a \"primary\" renderer","reasons":["test reads store._records"]}

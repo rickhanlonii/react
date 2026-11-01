@@ -1,0 +1,439 @@
+FAIL packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js (12.169 s)
+  ReactUseStorePonyfill
+    wdyr
+      ○ skipped react should be monkey patched by WDYR
+    createStore
+      ✓ should create a store with initial value (1543 ms)
+      ✓ should create a store with initial value and reducer (429 ms)
+      ✓ should create store with primitive initial value (394 ms)
+      ✓ should create store with string initial value (317 ms)
+      ✓ should create store with array initial value (300 ms)
+    useStore
+      ✓ should return initial store value (348 ms)
+      ✓ should return initial primitive value (201 ms)
+      ✓ should return initial string value (176 ms)
+      ✓ should return initial array value (220 ms)
+      ✓ should throw error for invalid store type (385 ms)
+      ✓ should update store value with reducer (919 ms)
+      ✓ should work with array values (258 ms)
+      ✓ should handle complex state updates (476 ms)
+      ✓ should work with multiple components using same store (209 ms)
+      ✓ should change value when updated without reducer (216 ms)
+      ✓ should change value when updated with setter (215 ms)
+      ✓ should handle an initial value of undefined (366 ms)
+    useStore(suspense)
+      ✓ should suspend while loading (246 ms)
+      ✓ should skip suspense fallback when in a transition (203 ms)
+      ✓ should handle transition interruption and resolve to the final state (178 ms)
+    Experimental Userland Store
+      ✕ Does not tear when new component mounts mid transition (189 ms)
+      ✕ Does not tear when new component mounts in its own transition mid transition (205 ms)
+      ✕ Does not miss updates triggered in useEffect or useLayoutEffect (154 ms)
+      ✕ Does not miss sync updates triggered in useEffect or useLayoutEffect during a long-running transition (150 ms)
+      ✕ Sync update interrupting transition correctly tracks committed state (199 ms)
+      ✕ Multiple sync updates interrupting transition correctly tracks committed state (157 ms)
+      ✕ flushSync update interrupting transition correctly tracks committed state (138 ms)
+      ✕ correctly handles consecutive sync updates (181 ms)
+      ✕ dynamic stores are not yet supported (219 ms)
+      ✕ transition store update causes new store reader to mount (151 ms)
+      ✕ gets stuck in suspense when transition state suspends on mount (179 ms)
+      ✕ can read from multiple different stores updating independently (182 ms)
+    Selectors can be dynamic
+      ✕ dynamic selectors are supported (137 ms)
+      ✕ selector changes sync during a transition update to the store (216 ms)
+    createStore for Redux
+      ✕ Using Redux Toolkit's configureStore (158 ms)
+    createStore for a Relay-like state solution
+      ✓ Minimal example of MiniRelay (183 ms)
+      ✓ Avoids rerendering the component if the fragment value computes the same output (209 ms)
+      ✓ Implements structural sharing such that substructures remain referential identical even if parent object change (277 ms)
+
+  ● ReactUseStorePonyfill › Experimental Userland Store › Does not tear when new component mounts mid transition
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        Object {
+          "count": 1,
+          "testid": "count",
+        },
+        Object {
+    +     "count": 2,
+    +     "testid": "otherCount",
+    +   },
+    +   Object {
+          "count": 1,
+          "testid": "otherCount",
+        },
+      ]
+
+      1033 |       // the committed value once. The skipped lane is merged into its fiber,
+      1034 |       // so it re-renders with the transition (DCP-3). No fixup render.
+    > 1035 |       assertLog([
+           |       ^
+      1036 |         {testid: 'count', count: 1},
+      1037 |         {testid: 'otherCount', count: 1},
+      1038 |       ]);
+
+      at Object.<anonymous> (packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js:1035:7)
+
+  ● ReactUseStorePonyfill › Experimental Userland Store › Does not tear when new component mounts in its own transition mid transition
+
+    PONYFILL_ADAPTER_NA: test reads store._records
+
+      22 |   global.__ponyfillNotApplicable = global.__ponyfillNotApplicable || [];
+      23 |   global.__ponyfillNotApplicable.push(reason);
+    > 24 |   throw new Error(`${NA_PREFIX}: ${reason}`);
+         |         ^
+      25 | }
+      26 |
+      27 | function createAdaptedReact(RealReact, impl) {
+
+      at markNotApplicable (scripts/ponyfill-compat/adapter.js:24:9)
+      at Object.get (scripts/ponyfill-compat/adapter.js:76:11)
+      at Object.<anonymous> (packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js:1130:20)
+
+  ● ReactUseStorePonyfill › Experimental Userland Store › Does not miss updates triggered in useEffect or useLayoutEffect
+
+    PONYFILL_ADAPTER_NA: test reads store._records
+
+      22 |   global.__ponyfillNotApplicable = global.__ponyfillNotApplicable || [];
+      23 |   global.__ponyfillNotApplicable.push(reason);
+    > 24 |   throw new Error(`${NA_PREFIX}: ${reason}`);
+         |         ^
+      25 | }
+      26 |
+      27 | function createAdaptedReact(RealReact, impl) {
+
+      at markNotApplicable (scripts/ponyfill-compat/adapter.js:24:9)
+      at Object.get (scripts/ponyfill-compat/adapter.js:76:11)
+      at Object.<anonymous> (packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js:1217:20)
+
+  ● ReactUseStorePonyfill › Experimental Userland Store › Does not miss sync updates triggered in useEffect or useLayoutEffect during a long-running transition
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        Object {
+          "count": 4,
+          "testid": "count",
+        },
+        Object {
+    -     "count": 5,
+    +     "count": 3,
+          "testid": "count",
+        },
+      ]
+
+      1301 |       // the last reader unmounted does not see a pending transition early"),
+      1302 |       // but not when the store had no record when the update was dispatched.
+    > 1303 |       assertLog([
+           |       ^
+      1304 |         {testid: 'count', count: 4},
+      1305 |         {testid: 'count', count: 5},
+      1306 |       ]);
+
+      at Object.<anonymous> (packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js:1303:7)
+
+  ● ReactUseStorePonyfill › Experimental Userland Store › Sync update interrupting transition correctly tracks committed state
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        Object {
+          "count": 3,
+          "testid": "count",
+        },
+        Object {
+    +     "count": 5,
+    +     "testid": "otherCount",
+    +   },
+    +   Object {
+          "count": 3,
+          "testid": "otherCount",
+        },
+      ]
+
+      1451 |       // the committed value once. The skipped lane is merged into its fiber,
+      1452 |       // so it re-renders with the transition (DCP-3). No fixup render.
+    > 1453 |       assertLog([
+           |       ^
+      1454 |         {testid: 'count', count: 3},
+      1455 |         {testid: 'otherCount', count: 3},
+      1456 |       ]);
+
+      at Object.<anonymous> (packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js:1453:7)
+
+  ● ReactUseStorePonyfill › Experimental Userland Store › Multiple sync updates interrupting transition correctly tracks committed state
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        Object {
+          "count": 4,
+          "testid": "count",
+        },
+        Object {
+    +     "count": 6,
+    +     "testid": "otherCount",
+    +   },
+    +   Object {
+          "count": 4,
+          "testid": "otherCount",
+        },
+      ]
+
+      1553 |       // the committed value once. The skipped lane is merged into its fiber,
+      1554 |       // so it re-renders with the transition (DCP-3). No fixup render.
+    > 1555 |       assertLog([
+           |       ^
+      1556 |         {testid: 'count', count: 4},
+      1557 |         {testid: 'otherCount', count: 4},
+      1558 |       ]);
+
+      at Object.<anonymous> (packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js:1555:7)
+
+  ● ReactUseStorePonyfill › Experimental Userland Store › flushSync update interrupting transition correctly tracks committed state
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        Object {
+          "count": 4,
+          "testid": "count",
+        },
+        Object {
+    +     "count": 6,
+    +     "testid": "otherCount",
+    +   },
+    +   Object {
+          "count": 4,
+          "testid": "otherCount",
+        },
+      ]
+
+      1655 |       // the committed value once. The skipped lane is merged into its fiber,
+      1656 |       // so it re-renders with the transition (DCP-3). No fixup render.
+    > 1657 |       assertLog([
+           |       ^
+      1658 |         {testid: 'count', count: 4},
+      1659 |         {testid: 'otherCount', count: 4},
+      1660 |       ]);
+
+      at Object.<anonymous> (packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js:1657:7)
+
+  ● ReactUseStorePonyfill › Experimental Userland Store › correctly handles consecutive sync updates
+
+    PONYFILL_ADAPTER_NA: test reads store._records
+
+      22 |   global.__ponyfillNotApplicable = global.__ponyfillNotApplicable || [];
+      23 |   global.__ponyfillNotApplicable.push(reason);
+    > 24 |   throw new Error(`${NA_PREFIX}: ${reason}`);
+         |         ^
+      25 | }
+      26 |
+      27 | function createAdaptedReact(RealReact, impl) {
+
+      at markNotApplicable (scripts/ponyfill-compat/adapter.js:24:9)
+      at Object.get (scripts/ponyfill-compat/adapter.js:76:11)
+      at Object.<anonymous> (packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js:1718:20)
+
+  ● ReactUseStorePonyfill › Experimental Userland Store › dynamic stores are not yet supported
+
+    useStoreSelector does not currently support dynamic stores
+
+      234 |   const previousStoreRef = (0, import_react2.useRef)(store);
+      235 |   if (store !== previousStoreRef.current) {
+    > 236 |     throw new Error(
+          |             ^
+      237 |       "useStoreSelector does not currently support dynamic stores"
+      238 |     );
+      239 |   }
+
+      at useStoreSelector (scripts/ponyfill-compat/dist/experimental.js:236:13)
+      at Object.useStore (scripts/ponyfill-compat/dist/experimental.js:287:12)
+      at use (scripts/ponyfill-compat/adapter.js:98:23)
+      at useStoreSelector (packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js:953:21)
+      at Count (packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js:1731:21)
+      at Object.react_stack_bottom_frame (packages/react-reconciler/src/ReactFiberCallUserSpace.js:30:20)
+      at renderWithHooks (packages/react-reconciler/src/ReactFiberHooks.js:615:51)
+      at updateFunctionComponent (packages/react-reconciler/src/ReactFiberBeginWork.js:1533:57)
+      at beginWork (packages/react-reconciler/src/ReactFiberBeginWork.js:4444:16)
+      at runWithFiberInDEV (packages/react-reconciler/src/ReactCurrentFiber.js:64:14)
+      at performUnitOfWork (packages/react-reconciler/src/ReactFiberWorkLoop.js:3174:55)
+      at workLoopSync (packages/react-reconciler/src/ReactFiberWorkLoop.js:2858:5)
+      at renderRootSync (packages/react-reconciler/src/ReactFiberWorkLoop.js:2808:7)
+      at recoverFromConcurrentError (packages/react-reconciler/src/ReactFiberWorkLoop.js:1418:20)
+      at performWorkOnRoot (packages/react-reconciler/src/ReactFiberWorkLoop.js:1331:24)
+      at performWorkOnRootViaSchedulerTask (packages/react-reconciler/src/ReactFiberRootScheduler.js:590:45)
+      at workLoop (packages/scheduler/src/forks/SchedulerMock.js:220:34)
+      at flushWork (packages/scheduler/src/forks/SchedulerMock.js:179:14)
+      at Object.unstable_flushUntilNextPaint (packages/scheduler/src/forks/SchedulerMock.js:540:23)
+      at act (packages/internal-test-utils/internalAct.js:156:17)
+      at Object.<anonymous> (packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js:1756:7)
+
+  ● ReactUseStorePonyfill › Experimental Userland Store › transition store update causes new store reader to mount
+
+    PONYFILL_ADAPTER_NA: test reads store._records
+
+      22 |   global.__ponyfillNotApplicable = global.__ponyfillNotApplicable || [];
+      23 |   global.__ponyfillNotApplicable.push(reason);
+    > 24 |   throw new Error(`${NA_PREFIX}: ${reason}`);
+         |         ^
+      25 | }
+      26 |
+      27 | function createAdaptedReact(RealReact, impl) {
+
+      at markNotApplicable (scripts/ponyfill-compat/adapter.js:24:9)
+      at Object.get (scripts/ponyfill-compat/adapter.js:76:11)
+      at Object.<anonymous> (packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js:1817:20)
+
+  ● ReactUseStorePonyfill › Experimental Userland Store › gets stuck in suspense when transition state suspends on mount
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        Object {
+          "action": "render",
+          "count": 1,
+          "testid": "count",
+        },
+        Object {
+    -     "action": "render",
+    -     "count": 1,
+    -     "testid": "otherCount",
+    -   },
+    -   Object {
+          "action": "suspend",
+          "count": 2,
+    -     "testid": "count",
+    +     "testid": "otherCount",
+        },
+        Object {
+          "action": "suspend",
+          "count": 2,
+    -     "testid": "otherCount",
+    +     "testid": "count",
+        },
+      ]
+
+      1897 |       // commits. Then the transition renders again, and both readers suspend
+      1898 |       // on the transition state, which keeps the committed content.
+    > 1899 |       assertLog([
+           |       ^
+      1900 |         // The parent rerenders with the new `showOther` state
+      1901 |         {action: 'render', testid: 'count', count: 1},
+      1902 |         // The new component renders the pre-transition state
+
+      at Object.<anonymous> (packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js:1899:7)
+
+  ● ReactUseStorePonyfill › Experimental Userland Store › can read from multiple different stores updating independently
+
+    PONYFILL_ADAPTER_NA: test reads store._records
+
+      22 |   global.__ponyfillNotApplicable = global.__ponyfillNotApplicable || [];
+      23 |   global.__ponyfillNotApplicable.push(reason);
+    > 24 |   throw new Error(`${NA_PREFIX}: ${reason}`);
+         |         ^
+      25 | }
+      26 |
+      27 | function createAdaptedReact(RealReact, impl) {
+
+      at markNotApplicable (scripts/ponyfill-compat/adapter.js:24:9)
+      at Object.get (scripts/ponyfill-compat/adapter.js:76:11)
+      at Object.<anonymous> (packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js:1989:21)
+
+  ● ReactUseStorePonyfill › Selectors can be dynamic › dynamic selectors are supported
+
+    PONYFILL_ADAPTER_NA: test reads store._records
+
+      22 |   global.__ponyfillNotApplicable = global.__ponyfillNotApplicable || [];
+      23 |   global.__ponyfillNotApplicable.push(reason);
+    > 24 |   throw new Error(`${NA_PREFIX}: ${reason}`);
+         |         ^
+      25 | }
+      26 |
+      27 | function createAdaptedReact(RealReact, impl) {
+
+      at markNotApplicable (scripts/ponyfill-compat/adapter.js:24:9)
+      at Object.get (scripts/ponyfill-compat/adapter.js:76:11)
+      at Object.<anonymous> (packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js:2034:20)
+
+  ● ReactUseStorePonyfill › Selectors can be dynamic › selector changes sync during a transition update to the store
+
+    PONYFILL_ADAPTER_NA: test reads store._records
+
+      22 |   global.__ponyfillNotApplicable = global.__ponyfillNotApplicable || [];
+      23 |   global.__ponyfillNotApplicable.push(reason);
+    > 24 |   throw new Error(`${NA_PREFIX}: ${reason}`);
+         |         ^
+      25 | }
+      26 |
+      27 | function createAdaptedReact(RealReact, impl) {
+
+      at markNotApplicable (scripts/ponyfill-compat/adapter.js:24:9)
+      at Object.get (scripts/ponyfill-compat/adapter.js:76:11)
+      at Object.<anonymous> (packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js:2104:20)
+
+  ● ReactUseStorePonyfill › createStore for Redux › Using Redux Toolkit's configureStore
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        Object {
+          "count": 1,
+          "testid": "count",
+        },
+        Object {
+    +     "count": 2,
+    +     "testid": "otherCount",
+    +   },
+    +   Object {
+          "count": 1,
+          "testid": "otherCount",
+        },
+      ]
+
+      2267 |       // the committed value once. The skipped lane is merged into its fiber,
+      2268 |       // so it re-renders with the transition (DCP-3). No fixup render.
+    > 2269 |       assertLog([
+           |       ^
+      2270 |         {testid: 'count', count: 1},
+      2271 |         {testid: 'otherCount', count: 1},
+      2272 |       ]);
+
+      at Object.<anonymous> (packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js:2269:7)
+
+Test Suites: 1 failed, 1 total
+Tests:       15 failed, 1 skipped, 23 passed, 39 total
+Snapshots:   0 total
+Time:        12.735 s
+Ran all test suites matching packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js.

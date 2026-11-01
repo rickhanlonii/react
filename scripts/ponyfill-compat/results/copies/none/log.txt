@@ -1,0 +1,138 @@
+PASS packages/react-dom/src/__tests__/ReactDOMUseIdUseStore-test.js (27.525 s)
+PASS packages/react-reconciler/src/__tests__/ReactNewContextUseStore-test.js (18.831 s)
+PASS packages/react-dom/src/__tests__/ReactDOMServerIntegrationHooksUseStore-test.js (51.206 s)
+PASS packages/react-dom/src/events/__tests__/DOMPluginEventSystemUseStore-test.internal.js (62.01 s)
+PASS packages/react-dom/src/__tests__/ReactDOMFizzShellHydrationUseStore-test.js (12.213 s)
+PASS packages/react-dom/src/__tests__/ReactDOMFragmentRefsUseStore-test.js (21.583 s)
+PASS packages/react-dom/src/__tests__/ReactDOMServerIntegrationUserInteractionUseStore-test.js (5.344 s)
+PASS packages/react-refresh/src/__tests__/ReactFreshIntegrationUseStore-test.js (70.725 s)
+PASS packages/react-reconciler/src/__tests__/ReactHooksWithNoopRendererUseStore-test.js (8.893 s)
+PASS packages/react-dom/src/events/plugins/__tests__/SimpleEventPluginUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactTestUtilsActUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactLazyUseStore-test.internal.js
+PASS packages/react-reconciler/src/__tests__/ReactSuspenseWithNoopRendererUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactCompositeComponentUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactDOMInputUseStore-test.js (8.157 s)
+PASS packages/react-dom/src/__tests__/ReactEmptyComponentUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactSuspenseUseStore-test.internal.js
+PASS packages/react-dom/src/__tests__/ReactDOMServerPartialHydrationUseStore-test.internal.js (6.415 s)
+PASS packages/react-reconciler/src/__tests__/ReactHooksUseStore-test.internal.js (6.532 s)
+PASS packages/react-reconciler/src/__tests__/ReactIncrementalErrorHandlingUseStore-test.internal.js
+PASS packages/react-dom/src/__tests__/ReactDOMEventListenerUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactNewContextUseStoreContext-test.js
+PASS packages/react-dom/src/__tests__/ReactUpdatesUseStore-test.js
+PASS packages/react-dom/src/events/plugins/__tests__/ChangeEventPluginUseStore-test.js
+PASS packages/react/src/__tests__/ReactProfilerUseStore-test.internal.js
+PASS packages/react-dom/src/__tests__/ReactDOMFormUseStore-test.js
+PASS packages/react/src/__tests__/ReactStrictModeUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactMemoUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactDeferredValueUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactServerRenderingHydrationUseStore-test.js
+PASS packages/react-test-renderer/src/__tests__/ReactTestRendererActUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactSuspenseListUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactComponentLifeCycleUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactDOMServerIntegrationHooksUseStoreContext-test.js
+PASS packages/react-reconciler/src/__tests__/ReactUseUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactDOMServerPartialHydrationActivityUseStore-test.internal.js
+PASS packages/react-reconciler/src/__tests__/StrictEffectsModeUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactDOMUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactAsyncActionsUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ActivityUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactExpirationUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/StrictEffectsModeDefaultsUseStore-test.internal.js
+PASS packages/react-reconciler/src/__tests__/ReactIncrementalUpdatesUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactDOMImageLoadUseStore-test.internal.js
+PASS packages/react-reconciler/src/__tests__/ReactFlushSyncUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactSuspenseEffectsSemanticsDOMUseStore-test.js
+PASS packages/internal-test-utils/__tests__/ReactInternalTestUtilsDOMUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactTransitionUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactUpdatersUseStore-test.internal.js
+PASS packages/react-reconciler/src/__tests__/ReactDefaultTransitionIndicatorUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactIncrementalSchedulingUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactSuspenseUseStoreContext-test.internal.js
+PASS packages/react-dom/src/__tests__/ReactDOMNativeEventHeuristicUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactContextPropagationUseStoreContext-test.js
+PASS packages/react/src/__tests__/forwardRefUseStore-test.internal.js
+PASS packages/react-reconciler/src/__tests__/useMemoCacheUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactContextPropagationUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactDOMServerPartialHydrationUseStoreContext-test.internal.js
+PASS packages/react-dom/src/__tests__/ReactDOMServerPartialHydrationActivityUseStoreContext-test.internal.js
+PASS packages/react-reconciler/src/__tests__/useSyncExternalStoreUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ActivityLegacySuspenseUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ActivitySuspenseUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactActWarningsUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactTestUtilsActUnmockedSchedulerUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactCPUSuspenseUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactBatchingUseStore-test.internal.js
+PASS packages/react-reconciler/src/__tests__/ReactHooksUseStoreContext-test.internal.js
+PASS packages/react-reconciler/src/__tests__/ReactUpdatePriorityUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactDOMSafariMicrotaskBugUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactInterleavedUpdatesUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactMemoUseStoreContext-test.js
+PASS packages/react-reconciler/src/__tests__/ReactUseUseStoreContext-test.js
+PASS packages/react-dom/src/__tests__/ReactCompositeComponentStateUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactWrongReturnPointerUseStore-test.js
+PASS packages/react-test-renderer/src/__tests__/ReactTestRendererUseStoreContext-test.internal.js
+PASS packages/react-reconciler/src/__tests__/useEffectEventUseStoreContext-test.js
+PASS packages/react-reconciler/src/__tests__/useRefUseStore-test.internal.js
+PASS packages/react-reconciler/src/__tests__/useEffectEventUseStore-test.js
+PASS packages/react-test-renderer/src/__tests__/ReactTestRendererUseStore-test.internal.js
+PASS packages/react-dom/src/__tests__/ReactDOMFiberAsyncUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactDOMSelectUseStore-test.js (19.201 s)
+PASS packages/react-refresh/src/__tests__/ReactFreshUseStore-test.js (26.494 s)
+PASS packages/react-dom/src/__tests__/ReactDOMServerIntegrationNewContextUseStoreContext-test.js (11.923 s)
+PASS packages/react-dom/src/__tests__/ReactDOMTestSelectorsUseStore-test.js (6.366 s)
+PASS packages/react/src/__tests__/ReactTypeScriptClassUseStore-test.ts
+PASS packages/react-dom/src/__tests__/ReactServerRenderingUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactLegacyMountUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactDOMFiberUseStore-test.js (38.608 s)
+PASS packages/react-dom/src/__tests__/ReactDOMServerSelectiveHydrationActivityUseStore-test.internal.js
+PASS packages/react-dom/src/__tests__/ReactDOMServerSelectiveHydrationUseStore-test.internal.js (5.278 s)
+PASS packages/react-native-renderer/src/__tests__/ReactFabricUseStore-test.internal.js
+PASS packages/react-dom/src/__tests__/ReactLegacyUpdatesUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactSuspenseEffectsSemanticsUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactIdentityUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactLegacyCompositeComponentUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactDOMSuspensePlaceholderUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactDOMActivityUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactIncrementalUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactDOMServerLifecyclesUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactIncrementalSideEffectsUseStore-test.js
+PASS packages/use-sync-external-store/src/__tests__/useSyncExternalStoreSharedUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactSuspenseFuzzUseStoreContext-test.internal.js
+PASS packages/react-markup/src/__tests__/ReactMarkupServerUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactLegacyErrorBoundariesUseStore-test.internal.js
+PASS packages/react-refresh/src/__tests__/ReactFreshBabelPluginUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactIncrementalErrorLoggingUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactDOMFizzServerUseStoreContext-test.js
+PASS packages/react-dom/src/__tests__/ReactDOMFizzStaticBrowserUseStore-test.js (51.202 s)
+PASS packages/react-reconciler/src/__tests__/ReactConfigurableErrorLoggingUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactDOMHooksUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactSuspenseFuzzUseStore-test.internal.js
+PASS packages/react-reconciler/src/__tests__/ActivityStrictModeUseStore-test.js
+PASS packages/react-markup/src/__tests__/ReactMarkupClientUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactDOMServerSelectiveHydrationUseStoreContext-test.internal.js
+PASS packages/react-refresh/src/__tests__/ReactFreshUseStoreContext-test.js
+PASS packages/react-dom/src/__tests__/refsUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactDOMServerSelectiveHydrationActivityUseStoreContext-test.internal.js
+PASS packages/react-dom/src/__tests__/ReactDOMComponentTreeUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactDOMServerIntegrationLegacyContextUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactTransitionTracingUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ErrorBoundaryReconciliationUseStore-test.internal.js
+PASS packages/react/src/__tests__/ReactES6ClassUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactDOMFizzStaticBrowserUseStoreContext-test.js
+PASS packages/react-dom/src/__tests__/ReactCompositeComponentNestedStateUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactDOMFizzServerNodeUseStoreContext-test.js
+PASS packages/react-dom/src/__tests__/ReactErrorBoundariesHooksUseStore-test.internal.js
+PASS packages/react-dom/src/__tests__/ReactDOMNestedEventsUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactNoopRendererActUseStore-test.js
+PASS packages/react/src/__tests__/ReactStartTransitionUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ActivityErrorHandlingUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactDOMLegacyFiberUseStore-test.js
+PASS packages/react-dom/src/__tests__/ReactDOMFizzServerUseStore-test.js (151.511 s)
+
+Test Suites: 132 passed, 132 total
+Tests:       19 skipped, 3231 passed, 3250 total
+Snapshots:   62 passed, 62 total
+Time:        153.426 s, estimated 212 s
+Ran all test suites matching packages/internal-test-utils/__tests__/ReactInternalTestUtilsDOMUseStore-test.js|packages/react-dom/src/__tests__/ReactComponentLifeCycleUseStore-test.js|packages/react-dom/src/__tests__/ReactCompositeComponentNestedStateUseStore-test.js|packages/react-dom/src/__tests__/ReactCompositeComponentStateUseStore-test.js|packages/react-dom/src/__tests__/ReactCompositeComponentUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMActivityUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMComponentTreeUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMEventListenerUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMFiberAsyncUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMFiberUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMFizzServerNodeUseStoreContext-test.js|packages/react-dom/src/__tests__/ReactDOMFizzServerUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMFizzServerUseStoreContext-test.js|packages/react-dom/src/__tests__/ReactDOMFizzShellHydrationUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMFizzStaticBrowserUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMFizzStaticBrowserUseStoreContext-test.js|packages/react-dom/src/__tests__/ReactDOMFormUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMFragmentRefsUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMHooksUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMImageLoadUseStore-test.internal.js|packages/react-dom/src/__tests__/ReactDOMInputUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMLegacyFiberUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMNativeEventHeuristicUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMNestedEventsUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMSafariMicrotaskBugUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMSelectUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMServerIntegrationHooksUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMServerIntegrationHooksUseStoreContext-test.js|packages/react-dom/src/__tests__/ReactDOMServerIntegrationLegacyContextUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMServerIntegrationNewContextUseStoreContext-test.js|packages/react-dom/src/__tests__/ReactDOMServerIntegrationUserInteractionUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMServerLifecyclesUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMServerPartialHydrationActivityUseStore-test.internal.js|packages/react-dom/src/__tests__/ReactDOMServerPartialHydrationActivityUseStoreContext-test.internal.js|packages/react-dom/src/__tests__/ReactDOMServerPartialHydrationUseStore-test.internal.js|packages/react-dom/src/__tests__/ReactDOMServerPartialHydrationUseStoreContext-test.internal.js|packages/react-dom/src/__tests__/ReactDOMServerSelectiveHydrationActivityUseStore-test.internal.js|packages/react-dom/src/__tests__/ReactDOMServerSelectiveHydrationActivityUseStoreContext-test.internal.js|packages/react-dom/src/__tests__/ReactDOMServerSelectiveHydrationUseStore-test.internal.js|packages/react-dom/src/__tests__/ReactDOMServerSelectiveHydrationUseStoreContext-test.internal.js|packages/react-dom/src/__tests__/ReactDOMSuspensePlaceholderUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMTestSelectorsUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMUseIdUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMUseStore-test.js|packages/react-dom/src/__tests__/ReactEmptyComponentUseStore-test.js|packages/react-dom/src/__tests__/ReactErrorBoundariesHooksUseStore-test.internal.js|packages/react-dom/src/__tests__/ReactIdentityUseStore-test.js|packages/react-dom/src/__tests__/ReactLegacyCompositeComponentUseStore-test.js|packages/react-dom/src/__tests__/ReactLegacyErrorBoundariesUseStore-test.internal.js|packages/react-dom/src/__tests__/ReactLegacyMountUseStore-test.js|packages/react-dom/src/__tests__/ReactLegacyUpdatesUseStore-test.js|packages/react-dom/src/__tests__/ReactServerRenderingHydrationUseStore-test.js|packages/react-dom/src/__tests__/ReactServerRenderingUseStore-test.js|packages/react-dom/src/__tests__/ReactTestUtilsActUnmockedSchedulerUseStore-test.js|packages/react-dom/src/__tests__/ReactTestUtilsActUseStore-test.js|packages/react-dom/src/__tests__/ReactUpdatesUseStore-test.js|packages/react-dom/src/__tests__/ReactWrongReturnPointerUseStore-test.js|packages/react-dom/src/__tests__/refsUseStore-test.js|packages/react-dom/src/events/__tests__/DOMPluginEventSystemUseStore-test.internal.js|packages/react-dom/src/events/plugins/__tests__/ChangeEventPluginUseStore-test.js|packages/react-dom/src/events/plugins/__tests__/SimpleEventPluginUseStore-test.js|packages/react-markup/src/__tests__/ReactMarkupClientUseStore-test.js|packages/react-markup/src/__tests__/ReactMarkupServerUseStore-test.js|packages/react-native-renderer/src/__tests__/ReactFabricUseStore-test.internal.js|packages/react-reconciler/src/__tests__/ActivityErrorHandlingUseStore-test.js|packages/react-reconciler/src/__tests__/ActivityLegacySuspenseUseStore-test.js|packages/react-reconciler/src/__tests__/ActivityStrictModeUseStore-test.js|packages/react-reconciler/src/__tests__/ActivitySuspenseUseStore-test.js|packages/react-reconciler/src/__tests__/ActivityUseStore-test.js|packages/react-reconciler/src/__tests__/ErrorBoundaryReconciliationUseStore-test.internal.js|packages/react-reconciler/src/__tests__/ReactActWarningsUseStore-test.js|packages/react-reconciler/src/__tests__/ReactAsyncActionsUseStore-test.js|packages/react-reconciler/src/__tests__/ReactBatchingUseStore-test.internal.js|packages/react-reconciler/src/__tests__/ReactConfigurableErrorLoggingUseStore-test.js|packages/react-reconciler/src/__tests__/ReactContextPropagationUseStore-test.js|packages/react-reconciler/src/__tests__/ReactContextPropagationUseStoreContext-test.js|packages/react-reconciler/src/__tests__/ReactCPUSuspenseUseStore-test.js|packages/react-reconciler/src/__tests__/ReactDefaultTransitionIndicatorUseStore-test.js|packages/react-reconciler/src/__tests__/ReactDeferredValueUseStore-test.js|packages/react-reconciler/src/__tests__/ReactExpirationUseStore-test.js|packages/react-reconciler/src/__tests__/ReactFlushSyncUseStore-test.js|packages/react-reconciler/src/__tests__/ReactHooksUseStore-test.internal.js|packages/react-reconciler/src/__tests__/ReactHooksUseStoreContext-test.internal.js|packages/react-reconciler/src/__tests__/ReactHooksWithNoopRendererUseStore-test.js|packages/react-reconciler/src/__tests__/ReactIncrementalErrorHandlingUseStore-test.internal.js|packages/react-reconciler/src/__tests__/ReactIncrementalErrorLoggingUseStore-test.js|packages/react-reconciler/src/__tests__/ReactIncrementalSchedulingUseStore-test.js|packages/react-reconciler/src/__tests__/ReactIncrementalSideEffectsUseStore-test.js|packages/react-reconciler/src/__tests__/ReactIncrementalUpdatesUseStore-test.js|packages/react-reconciler/src/__tests__/ReactIncrementalUseStore-test.js|packages/react-reconciler/src/__tests__/ReactInterleavedUpdatesUseStore-test.js|packages/react-reconciler/src/__tests__/ReactLazyUseStore-test.internal.js|packages/react-reconciler/src/__tests__/ReactMemoUseStore-test.js|packages/react-reconciler/src/__tests__/ReactMemoUseStoreContext-test.js|packages/react-reconciler/src/__tests__/ReactNewContextUseStore-test.js|packages/react-reconciler/src/__tests__/ReactNewContextUseStoreContext-test.js|packages/react-reconciler/src/__tests__/ReactNoopRendererActUseStore-test.js|packages/react-reconciler/src/__tests__/ReactSuspenseEffectsSemanticsDOMUseStore-test.js|packages/react-reconciler/src/__tests__/ReactSuspenseEffectsSemanticsUseStore-test.js|packages/react-reconciler/src/__tests__/ReactSuspenseFuzzUseStore-test.internal.js|packages/react-reconciler/src/__tests__/ReactSuspenseFuzzUseStoreContext-test.internal.js|packages/react-reconciler/src/__tests__/ReactSuspenseListUseStore-test.js|packages/react-reconciler/src/__tests__/ReactSuspenseUseStore-test.internal.js|packages/react-reconciler/src/__tests__/ReactSuspenseUseStoreContext-test.internal.js|packages/react-reconciler/src/__tests__/ReactSuspenseWithNoopRendererUseStore-test.js|packages/react-reconciler/src/__tests__/ReactTransitionTracingUseStore-test.js|packages/react-reconciler/src/__tests__/ReactTransitionUseStore-test.js|packages/react-reconciler/src/__tests__/ReactUpdatePriorityUseStore-test.js|packages/react-reconciler/src/__tests__/ReactUpdatersUseStore-test.internal.js|packages/react-reconciler/src/__tests__/ReactUseUseStore-test.js|packages/react-reconciler/src/__tests__/ReactUseUseStoreContext-test.js|packages/react-reconciler/src/__tests__/StrictEffectsModeDefaultsUseStore-test.internal.js|packages/react-reconciler/src/__tests__/StrictEffectsModeUseStore-test.js|packages/react-reconciler/src/__tests__/useEffectEventUseStore-test.js|packages/react-reconciler/src/__tests__/useEffectEventUseStoreContext-test.js|packages/react-reconciler/src/__tests__/useMemoCacheUseStore-test.js|packages/react-reconciler/src/__tests__/useRefUseStore-test.internal.js|packages/react-reconciler/src/__tests__/useSyncExternalStoreUseStore-test.js|packages/react-refresh/src/__tests__/ReactFreshBabelPluginUseStore-test.js|packages/react-refresh/src/__tests__/ReactFreshIntegrationUseStore-test.js|packages/react-refresh/src/__tests__/ReactFreshUseStore-test.js|packages/react-refresh/src/__tests__/ReactFreshUseStoreContext-test.js|packages/react-test-renderer/src/__tests__/ReactTestRendererActUseStore-test.js|packages/react-test-renderer/src/__tests__/ReactTestRendererUseStore-test.internal.js|packages/react-test-renderer/src/__tests__/ReactTestRendererUseStoreContext-test.internal.js|packages/react/src/__tests__/forwardRefUseStore-test.internal.js|packages/react/src/__tests__/ReactES6ClassUseStore-test.js|packages/react/src/__tests__/ReactProfilerUseStore-test.internal.js|packages/react/src/__tests__/ReactStartTransitionUseStore-test.js|packages/react/src/__tests__/ReactStrictModeUseStore-test.js|packages/react/src/__tests__/ReactTypeScriptClassUseStore-test.ts|packages/use-sync-external-store/src/__tests__/useSyncExternalStoreSharedUseStore-test.js.

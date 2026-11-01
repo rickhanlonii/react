@@ -1,0 +1,208 @@
+PASS packages/react-reconciler/src/__tests__/TODOCorrectnessUseStore-test.js
+FAIL packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js
+  ● ReactSameElementBailout › still renders a child that has its own pending update
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Parent 0",
+    +   "Child 0",
+        "Parent 1",
+        "Child 1",
+      ]
+
+      70 |       childStore.update(1);
+      71 |     });
+    > 72 |     assertLog(['Parent 1', 'Child 1']);
+         |     ^
+      73 |     expect(root).toMatchRenderedOutput('Child 1');
+      74 |
+      75 |     // With no pending update, the child bails out.
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js:72:5)
+
+  ● ReactSameElementBailout › still renders the pending update of a child of a forwardRef
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Parent 0",
+    +   "Child 0",
+        "Parent 1",
+        "Child 1",
+      ]
+
+      104 |       childStore.update(1);
+      105 |     });
+    > 106 |     assertLog(['Parent 1', 'Child 1']);
+          |     ^
+      107 |
+      108 |     await act(() => parentStore.update(2));
+      109 |     assertLog(['Parent 2']);
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js:106:5)
+
+  ● ReactSameElementBailout › keeps the context dependencies of the render that bailed out
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Parent null",
+        "Parent A",
+      ]
+
+      167 |     // element.
+      168 |     await act(() => readStore.update(true));
+    > 169 |     assertLog(['Parent A']);
+          |     ^
+      170 |
+      171 |     // It's now a consumer, so a change re-renders it.
+      172 |     await act(() => root.render(<App value="B" />));
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js:169:5)
+
+  ● ReactSameElementBailout › takes the normal path when the previous render had more than one child
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+    - Array []
+    + Array [
+    +   "Sibling",
+    + ]
+
+      237 |
+      238 |     await act(() => showSiblingStore.update(false));
+    > 239 |     assertLog([]);
+          |     ^
+      240 |     expect(root).toMatchRenderedOutput('Child');
+      241 |   });
+      242 |
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js:239:5)
+
+  ● ReactSameElementBailout › records the render time of a component that bailed out of its child
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Parent 0",
+        "Parent 1",
+      ]
+
+      270 |
+      271 |     await act(() => valueStore.update(1));
+    > 272 |     assertLog(['Parent 1']);
+          |     ^
+      273 |     expect(onRender).toHaveBeenCalledTimes(2);
+      274 |     // The parent rendered and the child didn't. The base duration still
+      275 |     // includes the child's last render.
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js:272:5)
+
+FAIL packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStoreContext-test.js
+  ● ReactSameElementBailout › propagates a context change to consumers below the child
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        "Parent 1",
+    +   "Consumer 0",
+        "Consumer 1",
+      ]
+
+      71 |       store.update(1);
+      72 |     });
+    > 73 |     assertLog(['Parent 1', 'Consumer 1']);
+         |     ^
+      74 |     expect(root).toMatchRenderedOutput('Consumer 1');
+      75 |   });
+      76 |
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStoreContext-test.js:73:5)
+
+  ● ReactSameElementBailout › keeps the context dependencies of the render that bailed out
+
+    Should have a queue. You are likely calling Hooks conditionally, which is not allowed. (https://react.dev/link/invalid-hook-call)
+
+      1582 |
+      1583 |   if (queue === null) {
+    > 1584 |     throw new Error(
+           |           ^
+      1585 |       'Should have a queue. You are likely calling Hooks conditionally, ' +
+      1586 |         'which is not allowed. (https://react.dev/link/invalid-hook-call)',
+      1587 |     );
+
+      at updateReducerImpl (packages/react-reconciler/src/ReactFiberHooks.js:1584:11)
+      at updateReducer (packages/react-reconciler/src/ReactFiberHooks.js:1573:10)
+      at updateState (packages/react-reconciler/src/ReactFiberHooks.js:2225:10)
+      at Object.useState (packages/react-reconciler/src/ReactFiberHooks.js:4718:16)
+      at useState (packages/react/src/ReactHooks.js:70:21)
+      at Object.useStore (scripts/ponyfill-compat/dist/stable.js:69:33)
+      at use (scripts/ponyfill-compat/adapter.js:98:23)
+      at Parent (packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStoreContext-test.js:84:26)
+      at Object.react_stack_bottom_frame (packages/react-reconciler/src/ReactFiberCallUserSpace.js:30:20)
+      at renderWithHooks (packages/react-reconciler/src/ReactFiberHooks.js:615:51)
+      at updateFunctionComponent (packages/react-reconciler/src/ReactFiberBeginWork.js:1533:57)
+      at updateSimpleMemoComponent (packages/react-reconciler/src/ReactFiberBeginWork.js:621:10)
+      at beginWork (packages/react-reconciler/src/ReactFiberBeginWork.js:4516:16)
+      at runWithFiberInDEV (packages/react-reconciler/src/ReactCurrentFiber.js:64:14)
+      at performUnitOfWork (packages/react-reconciler/src/ReactFiberWorkLoop.js:3174:55)
+      at workLoopSync (packages/react-reconciler/src/ReactFiberWorkLoop.js:2858:5)
+      at renderRootSync (packages/react-reconciler/src/ReactFiberWorkLoop.js:2808:7)
+      at recoverFromConcurrentError (packages/react-reconciler/src/ReactFiberWorkLoop.js:1418:20)
+      at performWorkOnRoot (packages/react-reconciler/src/ReactFiberWorkLoop.js:1331:24)
+      at performWorkOnRootViaSchedulerTask (packages/react-reconciler/src/ReactFiberRootScheduler.js:590:45)
+      at workLoop (packages/scheduler/src/forks/SchedulerMock.js:220:34)
+      at flushWork (packages/scheduler/src/forks/SchedulerMock.js:179:14)
+      at Object.unstable_flushUntilNextPaint (packages/scheduler/src/forks/SchedulerMock.js:540:23)
+      at act (packages/internal-test-utils/internalAct.js:156:17)
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStoreContext-test.js:99:5)
+
+  ● ReactSameElementBailout › keeps the context dependencies of the render that bailed out
+
+    asserConsoleLogsCleared(expected)
+
+    console.error was called without assertConsoleErrorDev:
+    + React has detected a change in the order of Hooks called by %s. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://react.dev/link/rules-of-hooks
+    +
+    +    Previous render            Next render
+    +    ------------------------------------------------------
+    + %s   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    + %s,Parent,1. useState                   useState
+    + 2. useMemo                    useState
+    + ,
+    +     in App (at **)
+
+    You must call one of the assertConsoleDev helpers between each act call.
+
+      at Promise.finally.completed (../../../Users/rickhanlonii/oss/react/node_modules/jest-circus/build/jestAdapterInit.js:1561:28)
+
+Test Suites: 2 failed, 1 passed, 3 total
+Tests:       7 failed, 6 passed, 13 total
+Snapshots:   0 total
+Time:        4.704 s
+Ran all test suites matching packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js|packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStoreContext-test.js|packages/react-reconciler/src/__tests__/TODOCorrectnessUseStore-test.js.
