@@ -17,6 +17,10 @@ Headline bar: store + compiler vs the faster of Redux and Zustand (`HEADLINE_OPP
 
 | name | what it draws |
 |---|---|
+| `ctx-scoreboard` | Store vs Context at the same compiler setting: per scenario and overall, store vs one context and vs a context per slice, compiler off and on (ctx.tally.*). |
+| `ctx-chart` | Interactive dot plot of store, one context and a context per slice, compiler on and off, by scenario, rows and CPU (log axis), with the same-setting verdicts in the note and a table view. |
+| `ctx-compiler-gain` | What the compiler buys store, one context and a context per slice: with vs without it, per scenario and overall (ctx.tally.compilerGain.*). |
+| `ctx-counts` | Counting build, one update: counted renders (method.countedComponents) and Row renders for store, one context and a context per slice, compiler off and on, per scenario. |
 | `charts-assets` | The chart CSS and runtime (filters, tooltips). Put it once per page, in the `<head>`. |
 | `build-label` | The build provenance line (React version and sha, compiler hash, pin date), or a placeholder warning. G5 requires it on every page that cites numbers. |
 | `scoreboard` | Main suite scoreboard: store + compiler vs the faster of Redux/Zustand, and vs each library and context, per scenario and overall; the granular control in its own last column, never in the headline. Low-signal scenarios (structure) are marked. |
@@ -24,7 +28,7 @@ Headline bar: store + compiler vs the faster of Redux and Zustand (`HEADLINE_OPP
 | `main-chart` | Interactive dot plot of the main suite: every variant, compiler on and off, median and middle half, filterable by scenario, rows and CPU; with the verdict and a table view. |
 | `main-verdicts` | Main suite verdict grid: store + compiler vs the faster of Redux/Zustand for every scenario × size × CPU. |
 | `main-table` | Main suite medians: one table per scenario, every variant and compiler setting × size × CPU. |
-| `counts-table` | Work for one update at N=1,000 (counting build, compiled): component renders, Row renders, selector calls. |
+| `counts-table` | Work for one update in the counting build (compiled): counted renders (only the instrumented components, method.countedComponents), Row renders, selector calls. |
 | `suite-derived-selectors` | Redux suite derived-selectors: medians and store / store-memo verdicts. |
 | `suite-rapid-dispatch` | Redux suite rapid-dispatch: medians and the store verdict. |
 | `suite-many-components-same-slice` | Redux suite many-components-same-slice: medians and the store verdict. |
@@ -37,7 +41,7 @@ Headline bar: store + compiler vs the faster of Redux and Zustand (`HEADLINE_OPP
 | `typing-suite-table` | Typing latency with the useDeferredValue variants of Redux and Zustand. |
 | `memory-chart` | Bytes per row after mount (bars, compiler on), filterable by rows, with mount time in the tooltip and a table view. |
 | `nobailout-table` | Without the same-element bailout (react-builds/head-nobailout): the tally vs the headline opponents next to the head build, main-suite medians, store vs the headline opponents and vs the granular control, and what the bailout buys store (bailoutGain); plus the sweeps when pinned. Separate from the headline. |
-| `losses-table` | Where it doesn't win: every comparison the store side loses under the verdict rule (method.verdictRule), by area (main vs the headline opponents, main vs the granular control, suites, sweeps, spike), each with the counting build's renders, selector calls and derivations for both sides. |
+| `losses-table` | Where it doesn't win: every comparison the store side loses under the verdict rule (method.verdictRule), by area (main vs the headline opponents, main vs the granular control, suites, sweeps, spike), each with the counting build's counted renders, selector calls and derivations for both sides. |
 
 ## Comparisons (`main.tally.<comparison>`)
 
@@ -53,7 +57,7 @@ Headline bar: store + compiler vs the faster of Redux and Zustand (`HEADLINE_OPP
 | `nocompiler-selectors` | store without the compiler vs the faster of Redux and Zustand without the compiler |
 | `compiler-gain` | store + compiler vs store without the compiler |
 
-Verdict rule (`method.verdictRule`, applied to every verdict and tally): A tie is a difference in means within two standard errors. A larger difference is a win or a loss only if every browser restart agrees on the direction (the side that is faster in the pooled means is faster in each restart, restarts paired by restart number); otherwise it is a tie. Each library is compared at its faster compiler setting unless the comparison says otherwise. An update no variant renders anything for (the counting build) is an "unread update", counted as no work, never as a win.
+Verdict rule (`method.verdictRule`, applied to every verdict and tally): A tie is a difference in means within two standard errors. A larger difference is a win or a loss only if every browser restart agrees on the direction (the side that is faster in the pooled means is faster in each restart, restarts paired by restart number). Otherwise it is a tie. Each library is compared at its faster compiler setting unless the comparison says otherwise. An update no variant renders anything for (the counting build) is an "unread update", counted as no work, never as a win.
 
 History (`history.*`) comes from sets with status `history` in report-sources.json: older runs from other builds, kept to say how the headline moved, outside the head check. The gate keys (`method.gate.*`) come from report-sources.json `gate`: the per-attempt ambient-CPU records and the units logs.
 
@@ -159,7 +163,7 @@ CPU throttles in the main suite, e.g. "1× and 4×".
 
 How every store-vs-opponent verdict and tally is decided (VERDICT_RULE in report-suites.mjs): two standard errors, then the restart-agreement rule.
 
-- `method.verdictRule`: A tie is a difference in means within two standard errors. A larger difference is a win or a loss only if every browser restart agrees on the direction (the side that is faster in the pooled means is faster in each restart, restarts paired by restart number); otherwise it is a tie.
+- `method.verdictRule`: A tie is a difference in means within two standard errors. A larger difference is a win or a loss only if every browser restart agrees on the direction (the side that is faster in the pooled means is faster in each restart, restarts paired by restart number). Otherwise it is a tie.
 
 ### `method.gate.ambientStart`
 
@@ -221,7 +225,7 @@ The DOM check (run.mjs --verify): updates replayed per scenario before comparing
 
 Which headline verdicts the same-element bailout changes, as text: configuration, verdict without it, verdict with it.
 
-- `nobailout.main.flips`: selection at N=10,000, 1× CPU (loss without the bailout, tie with it), selection at N=10,000, 4× CPU (tie without the bailout, win with it), subscribe churn at N=1,000, 1× CPU (tie without the bailout, win with it) and subscribe churn at N=1,000, 4× CPU (loss without the bailout, win with it)
+- `nobailout.main.flips`: selection at N=10,000, 1× CPU (loss without the bailout, tie with it), selection at N=10,000, 4× CPU (tie without the bailout, win with it), subscribe churn at N=1,000, 1× CPU (tie without the bailout, win with it), and subscribe churn at N=1,000, 4× CPU (loss without the bailout, win with it)
 
 ### `nobailout.main.flipCount`
 
@@ -451,7 +455,7 @@ Discards under the ambient-CPU gate.
 
 One line: how the gate changed during the pinned runs, from the gate lines of the units logs.
 
-- `method.gate.history`: Load-average gate first (start at or below a 1-minute load, re-run if the load after the unit was above: 4/6, then 6/8, then 5/8; structure units re-run above 12), used by main restart 1 (14 files); then from 21:37 an ambient-CPU gate on cores used outside the benchmark (start at or below 3, re-run if the mean was above 4; set to 3.5/4.5 at 21:39), used by every other pinned timed file.
+- `method.gate.history`: Load-average gate first (start at or below a 1-minute load, re-run if the load after the unit was above: 4/6, then 6/8, then 5/8, with structure units re-run above 12), used by main restart 1 (14 files). Then from 21:37 an ambient-CPU gate on cores used outside the benchmark (start at or below 3, re-run if the mean was above 4, set to 3.5/4.5 at 21:39), used by every other pinned timed file.
 
 ### `method.timedUpdates`
 
@@ -648,7 +652,7 @@ What the bailout buys: range of speedups with the bailout, as text.
 - `nobailout.main.bailoutGain.entity.range`: up to 1.1× faster (1 faster, 3 tie)
 - `nobailout.main.bailoutGain.filter.range`: up to 1.1× faster (1 faster, 3 tie)
 - `nobailout.main.bailoutGain.details-inline.range`: up to 1.1× faster (1 faster, 3 tie)
-- `nobailout.main.bailoutGain.details-component.range`: up to 1.0× faster (2 faster, 2 tie)
+- `nobailout.main.bailoutGain.details-component.range`: up to 1.04× faster (2 faster, 2 tie)
 - `nobailout.main.bailoutGain.details-churn.range`: 1.1–1.2× faster
 - `nobailout.main.bailoutGain.structure.range`: 1.2× faster
 - `nobailout.main.bailoutGain.all.range`: up to 1.3× faster (16 faster, 12 tie)
@@ -1297,7 +1301,7 @@ Main suite: store + compiler vs the headline opponents (HEADLINE_OPPONENTS in re
 - `main.details-component.n10000.x1.verdict`: 3.0× faster
 - `main.details-component.n10000.x4.verdict`: 4.0× faster
 - `main.details-churn.n100.x1.verdict`: tie
-- `main.details-churn.n100.x4.verdict`: 1.0× faster
+- `main.details-churn.n100.x4.verdict`: 1.04× faster
 - `main.details-churn.n1000.x1.verdict`: 1.1× faster
 - `main.details-churn.n1000.x4.verdict`: 1.2× faster
 - `main.details-churn.n10000.x1.verdict`: 1.4× faster
@@ -1824,7 +1828,7 @@ Main suite: the range of speedups as text, e.g. "1.2–1.4× faster" or "up to 1
 - `main.tally.single-selectors.selection.range`: 1.1× slower to 1.3× faster (3 faster, 2 tie, 1 slower)
 - `main.tally.single-selectors.entity.range`: 1.2× slower to 1.2× faster (2 faster, 1 tie, 3 slower)
 - `main.tally.single-selectors.filter.range`: 1.6–2.4× faster
-- `main.tally.single-selectors.details-inline.range`: 1.0× slower to 1.3× faster (3 faster, 2 tie, 1 slower)
+- `main.tally.single-selectors.details-inline.range`: 1.04× slower to 1.3× faster (3 faster, 2 tie, 1 slower)
 - `main.tally.single-selectors.details-component.range`: up to 1.1× slower (4 tie, 2 slower)
 - `main.tally.single-selectors.details-churn.range`: 1.1–1.6× faster
 - `main.tally.single-selectors.structure.range`: 2.3–4.0× faster
@@ -2017,7 +2021,7 @@ Main suite, every scenario: ties only because the restarts disagreed on the dire
 
 ### `counts.<suite>.<scenario>.<variant>.<compiler>.<metric>`
 
-Counting build, one update (averaged where the suite averages): renders, rows (Row renders), selectors (selector calls) or derivations. Suite "main" is the main suite at N=1,000.
+Counting build, one update (averaged where the suite averages): renders (counted renders: only components that call countRender; for main and fairness, method.countedComponents, so App and the list aren't counted), rows (Row renders), selectors (selector calls) or derivations. Suite "main" is the main suite at method.countsRows rows.
 
 <details><summary>1422 keys</summary>
 
@@ -3445,6 +3449,12 @@ Counting build, one update (averaged where the suite averages): renders, rows (R
 - `counts.sweeps.selection.zustand-c100-w16.on.selectors`: 2,007
 
 </details>
+
+### `method.countedComponents`
+
+The components the main app's counting build counts in renders, e.g. "Row, RowView, DetailsView and CountView".
+
+- `method.countedComponents`: Row, RowView, DetailsView, and CountView
 
 ### `suite.<suite>.<scenario>.x<throttle>.<variant>.<compiler>.median`
 
@@ -5181,8 +5191,8 @@ Main suite: the scenarios with at least one loss under method.verdictRule, as lo
 - `main.tally.zustand-granular.lostScenarios`: selection and subscribe churn
 - `main.tally.context.lostScenarios`: filter and subscribe churn
 - `main.tally.context-split.lostScenarios`: none
-- `main.tally.single-selectors.lostScenarios`: selection, entity edit, the inline conditional read and the conditional read in a child component
-- `main.tally.nocompiler-selectors.lostScenarios`: selection, filter and subscribe churn
+- `main.tally.single-selectors.lostScenarios`: selection, entity edit, the inline conditional read, and the conditional read in a child component
+- `main.tally.nocompiler-selectors.lostScenarios`: selection, filter, and subscribe churn
 - `main.tally.compiler-gain.lostScenarios`: the conditional read in a child component
 
 ### `main.tally.<comparison>.maxLoss`
@@ -5237,6 +5247,953 @@ Where it doesn't win: losses over every area.
 
 - `losses.all.count`: 41
 
+### `ctx.<scenario>.n<n>.x<throttle>.<compiler>.<vs>`
+
+Store vs Context at the SAME compiler setting (compiler off or on for both): vs is vsContext (one context) or vsContextSplit (a context per slice). Medians: main.<scenario>.n<n>.x<throttle>.<variant>.<compiler>.median.
+
+<details><summary>168 keys</summary>
+
+- `ctx.selection.n100.x1.off.vsContext`: tie
+- `ctx.selection.n100.x1.off.vsContextSplit`: 1.1× faster
+- `ctx.selection.n100.x1.on.vsContext`: tie (restarts disagree)
+- `ctx.selection.n100.x1.on.vsContextSplit`: 1.2× faster
+- `ctx.selection.n100.x4.off.vsContext`: tie
+- `ctx.selection.n100.x4.off.vsContextSplit`: 1.1× faster
+- `ctx.selection.n100.x4.on.vsContext`: tie
+- `ctx.selection.n100.x4.on.vsContextSplit`: 1.2× faster
+- `ctx.selection.n1000.x1.off.vsContext`: tie (restarts disagree)
+- `ctx.selection.n1000.x1.off.vsContextSplit`: 1.1× faster
+- `ctx.selection.n1000.x1.on.vsContext`: tie
+- `ctx.selection.n1000.x1.on.vsContextSplit`: 1.3× faster
+- `ctx.selection.n1000.x4.off.vsContext`: tie
+- `ctx.selection.n1000.x4.off.vsContextSplit`: 1.1× faster
+- `ctx.selection.n1000.x4.on.vsContext`: tie
+- `ctx.selection.n1000.x4.on.vsContextSplit`: 1.4× faster
+- `ctx.selection.n10000.x1.off.vsContext`: tie (restarts disagree)
+- `ctx.selection.n10000.x1.off.vsContextSplit`: 1.1× faster
+- `ctx.selection.n10000.x1.on.vsContext`: 1.3× faster
+- `ctx.selection.n10000.x1.on.vsContextSplit`: 1.6× faster
+- `ctx.selection.n10000.x4.off.vsContext`: tie (restarts disagree)
+- `ctx.selection.n10000.x4.off.vsContextSplit`: 1.1× faster
+- `ctx.selection.n10000.x4.on.vsContext`: 1.4× faster
+- `ctx.selection.n10000.x4.on.vsContextSplit`: 1.7× faster
+- `ctx.entity.n100.x1.off.vsContext`: 23.0× faster
+- `ctx.entity.n100.x1.off.vsContextSplit`: 24.4× faster
+- `ctx.entity.n100.x1.on.vsContext`: 3.1× faster
+- `ctx.entity.n100.x1.on.vsContextSplit`: 3.9× faster
+- `ctx.entity.n100.x4.off.vsContext`: 20.0× faster
+- `ctx.entity.n100.x4.off.vsContextSplit`: 22.2× faster
+- `ctx.entity.n100.x4.on.vsContext`: 3.1× faster
+- `ctx.entity.n100.x4.on.vsContextSplit`: 3.7× faster
+- `ctx.entity.n1000.x1.off.vsContext`: 34.1× faster
+- `ctx.entity.n1000.x1.off.vsContextSplit`: 36.5× faster
+- `ctx.entity.n1000.x1.on.vsContext`: 4.4× faster
+- `ctx.entity.n1000.x1.on.vsContextSplit`: 5.3× faster
+- `ctx.entity.n1000.x4.off.vsContext`: 32.7× faster
+- `ctx.entity.n1000.x4.off.vsContextSplit`: 33.5× faster
+- `ctx.entity.n1000.x4.on.vsContext`: 4.4× faster
+- `ctx.entity.n1000.x4.on.vsContextSplit`: 5.5× faster
+- `ctx.entity.n10000.x1.off.vsContext`: 53.5× faster
+- `ctx.entity.n10000.x1.off.vsContextSplit`: 57.6× faster
+- `ctx.entity.n10000.x1.on.vsContext`: 7.8× faster
+- `ctx.entity.n10000.x1.on.vsContextSplit`: 9.4× faster
+- `ctx.entity.n10000.x4.off.vsContext`: 57.0× faster
+- `ctx.entity.n10000.x4.off.vsContextSplit`: 61.5× faster
+- `ctx.entity.n10000.x4.on.vsContext`: 9.3× faster
+- `ctx.entity.n10000.x4.on.vsContextSplit`: 11.0× faster
+- `ctx.filter.n100.x1.off.vsContext`: tie (restarts disagree)
+- `ctx.filter.n100.x1.off.vsContextSplit`: 1.1× faster
+- `ctx.filter.n100.x1.on.vsContext`: 1.1× slower
+- `ctx.filter.n100.x1.on.vsContextSplit`: 1.1× faster
+- `ctx.filter.n100.x4.off.vsContext`: tie
+- `ctx.filter.n100.x4.off.vsContextSplit`: 1.2× faster
+- `ctx.filter.n100.x4.on.vsContext`: 1.04× slower
+- `ctx.filter.n100.x4.on.vsContextSplit`: 1.2× faster
+- `ctx.filter.n1000.x1.off.vsContext`: tie
+- `ctx.filter.n1000.x1.off.vsContextSplit`: 1.1× faster
+- `ctx.filter.n1000.x1.on.vsContext`: 1.1× slower
+- `ctx.filter.n1000.x1.on.vsContextSplit`: 1.1× faster
+- `ctx.filter.n1000.x4.off.vsContext`: tie
+- `ctx.filter.n1000.x4.off.vsContextSplit`: 1.1× faster
+- `ctx.filter.n1000.x4.on.vsContext`: tie (restarts disagree)
+- `ctx.filter.n1000.x4.on.vsContextSplit`: 1.1× faster
+- `ctx.filter.n10000.x1.off.vsContext`: tie (restarts disagree)
+- `ctx.filter.n10000.x1.off.vsContextSplit`: 1.1× faster
+- `ctx.filter.n10000.x1.on.vsContext`: 1.1× faster
+- `ctx.filter.n10000.x1.on.vsContextSplit`: 1.4× faster
+- `ctx.filter.n10000.x4.off.vsContext`: tie (restarts disagree)
+- `ctx.filter.n10000.x4.off.vsContextSplit`: 1.05× faster
+- `ctx.filter.n10000.x4.on.vsContext`: 1.2× faster
+- `ctx.filter.n10000.x4.on.vsContextSplit`: 1.3× faster
+- `ctx.details-inline.n100.x1.off.vsContext`: 27.2× faster
+- `ctx.details-inline.n100.x1.off.vsContextSplit`: 3.2× faster
+- `ctx.details-inline.n100.x1.on.vsContext`: 3.1× faster
+- `ctx.details-inline.n100.x1.on.vsContextSplit`: 2.1× faster
+- `ctx.details-inline.n100.x4.off.vsContext`: 22.6× faster
+- `ctx.details-inline.n100.x4.off.vsContextSplit`: 2.9× faster
+- `ctx.details-inline.n100.x4.on.vsContext`: 2.8× faster
+- `ctx.details-inline.n100.x4.on.vsContextSplit`: 1.9× faster
+- `ctx.details-inline.n1000.x1.off.vsContext`: 26.4× faster
+- `ctx.details-inline.n1000.x1.off.vsContextSplit`: 2.8× faster
+- `ctx.details-inline.n1000.x1.on.vsContext`: 3.1× faster
+- `ctx.details-inline.n1000.x1.on.vsContextSplit`: 1.9× faster
+- `ctx.details-inline.n1000.x4.off.vsContext`: 24.4× faster
+- `ctx.details-inline.n1000.x4.off.vsContextSplit`: 2.5× faster
+- `ctx.details-inline.n1000.x4.on.vsContext`: 3.0× faster
+- `ctx.details-inline.n1000.x4.on.vsContextSplit`: 1.9× faster
+- `ctx.details-inline.n10000.x1.off.vsContext`: 32.7× faster
+- `ctx.details-inline.n10000.x1.off.vsContextSplit`: 2.6× faster
+- `ctx.details-inline.n10000.x1.on.vsContext`: 3.4× faster
+- `ctx.details-inline.n10000.x1.on.vsContextSplit`: 2.0× faster
+- `ctx.details-inline.n10000.x4.off.vsContext`: 33.6× faster
+- `ctx.details-inline.n10000.x4.off.vsContextSplit`: 2.6× faster
+- `ctx.details-inline.n10000.x4.on.vsContext`: 4.0× faster
+- `ctx.details-inline.n10000.x4.on.vsContextSplit`: 2.5× faster
+- `ctx.details-component.n100.x1.off.vsContext`: 31.4× faster
+- `ctx.details-component.n100.x1.off.vsContextSplit`: 3.6× faster
+- `ctx.details-component.n100.x1.on.vsContext`: 3.0× faster
+- `ctx.details-component.n100.x1.on.vsContextSplit`: 1.9× faster
+- `ctx.details-component.n100.x4.off.vsContext`: 27.3× faster
+- `ctx.details-component.n100.x4.off.vsContextSplit`: 3.3× faster
+- `ctx.details-component.n100.x4.on.vsContext`: 3.0× faster
+- `ctx.details-component.n100.x4.on.vsContextSplit`: 2.0× faster
+- `ctx.details-component.n1000.x1.off.vsContext`: 32.1× faster
+- `ctx.details-component.n1000.x1.off.vsContextSplit`: 3.1× faster
+- `ctx.details-component.n1000.x1.on.vsContext`: 3.1× faster
+- `ctx.details-component.n1000.x1.on.vsContextSplit`: 2.1× faster
+- `ctx.details-component.n1000.x4.off.vsContext`: 31.3× faster
+- `ctx.details-component.n1000.x4.off.vsContextSplit`: 3.0× faster
+- `ctx.details-component.n1000.x4.on.vsContext`: 3.1× faster
+- `ctx.details-component.n1000.x4.on.vsContextSplit`: 1.8× faster
+- `ctx.details-component.n10000.x1.off.vsContext`: 41.6× faster
+- `ctx.details-component.n10000.x1.off.vsContextSplit`: 3.0× faster
+- `ctx.details-component.n10000.x1.on.vsContext`: 3.8× faster
+- `ctx.details-component.n10000.x1.on.vsContextSplit`: 2.0× faster
+- `ctx.details-component.n10000.x4.off.vsContext`: 43.0× faster
+- `ctx.details-component.n10000.x4.off.vsContextSplit`: 3.1× faster
+- `ctx.details-component.n10000.x4.on.vsContext`: 4.2× faster
+- `ctx.details-component.n10000.x4.on.vsContextSplit`: 2.5× faster
+- `ctx.details-churn.n100.x1.off.vsContext`: 1.01× faster
+- `ctx.details-churn.n100.x1.off.vsContextSplit`: 1.1× faster
+- `ctx.details-churn.n100.x1.on.vsContext`: 1.1× slower
+- `ctx.details-churn.n100.x1.on.vsContextSplit`: 1.1× faster
+- `ctx.details-churn.n100.x4.off.vsContext`: tie
+- `ctx.details-churn.n100.x4.off.vsContextSplit`: 1.1× faster
+- `ctx.details-churn.n100.x4.on.vsContext`: 1.1× slower
+- `ctx.details-churn.n100.x4.on.vsContextSplit`: 1.1× faster
+- `ctx.details-churn.n1000.x1.off.vsContext`: tie (restarts disagree)
+- `ctx.details-churn.n1000.x1.off.vsContextSplit`: tie (restarts disagree)
+- `ctx.details-churn.n1000.x1.on.vsContext`: 1.1× slower
+- `ctx.details-churn.n1000.x1.on.vsContextSplit`: 1.1× faster
+- `ctx.details-churn.n1000.x4.off.vsContext`: 1.03× slower
+- `ctx.details-churn.n1000.x4.off.vsContextSplit`: 1.02× faster
+- `ctx.details-churn.n1000.x4.on.vsContext`: 1.05× slower
+- `ctx.details-churn.n1000.x4.on.vsContextSplit`: 1.1× faster
+- `ctx.details-churn.n10000.x1.off.vsContext`: 1.05× slower
+- `ctx.details-churn.n10000.x1.off.vsContextSplit`: tie
+- `ctx.details-churn.n10000.x1.on.vsContext`: 1.1× faster
+- `ctx.details-churn.n10000.x1.on.vsContextSplit`: 1.3× faster
+- `ctx.details-churn.n10000.x4.off.vsContext`: 1.03× slower
+- `ctx.details-churn.n10000.x4.off.vsContextSplit`: 1.01× faster
+- `ctx.details-churn.n10000.x4.on.vsContext`: 1.1× faster
+- `ctx.details-churn.n10000.x4.on.vsContextSplit`: 1.3× faster
+- `ctx.structure.n100.x1.off.vsContext`: 1.1× faster
+- `ctx.structure.n100.x1.off.vsContextSplit`: 1.1× faster
+- `ctx.structure.n100.x1.on.vsContext`: 1.4× faster
+- `ctx.structure.n100.x1.on.vsContextSplit`: 1.7× faster
+- `ctx.structure.n100.x4.off.vsContext`: tie (restarts disagree)
+- `ctx.structure.n100.x4.off.vsContextSplit`: 1.1× faster
+- `ctx.structure.n100.x4.on.vsContext`: 1.3× faster
+- `ctx.structure.n100.x4.on.vsContextSplit`: 1.6× faster
+- `ctx.structure.n1000.x1.off.vsContext`: 1.04× faster
+- `ctx.structure.n1000.x1.off.vsContextSplit`: 1.1× faster
+- `ctx.structure.n1000.x1.on.vsContext`: 1.7× faster
+- `ctx.structure.n1000.x1.on.vsContextSplit`: 2.1× faster
+- `ctx.structure.n1000.x4.off.vsContext`: 1.1× faster
+- `ctx.structure.n1000.x4.off.vsContextSplit`: 1.1× faster
+- `ctx.structure.n1000.x4.on.vsContext`: 1.7× faster
+- `ctx.structure.n1000.x4.on.vsContextSplit`: 2.1× faster
+- `ctx.structure.n10000.x1.off.vsContext`: 1.04× faster
+- `ctx.structure.n10000.x1.off.vsContextSplit`: 1.1× faster
+- `ctx.structure.n10000.x1.on.vsContext`: 2.1× faster
+- `ctx.structure.n10000.x1.on.vsContextSplit`: 2.6× faster
+- `ctx.structure.n10000.x4.off.vsContext`: 1.04× faster
+- `ctx.structure.n10000.x4.off.vsContextSplit`: 1.1× faster
+- `ctx.structure.n10000.x4.on.vsContext`: 2.2× faster
+- `ctx.structure.n10000.x4.on.vsContextSplit`: 2.8× faster
+
+</details>
+
+### `ctx.<scenario>.n<n>.x<throttle>.compilerGain.<variant>`
+
+What the compiler buys one variant (store, context, context-split): with the compiler vs without it, same configuration ("faster" means faster with the compiler).
+
+<details><summary>126 keys</summary>
+
+- `ctx.selection.n100.x1.compilerGain.store`: 8.4× faster
+- `ctx.selection.n100.x1.compilerGain.context`: 8.8× faster
+- `ctx.selection.n100.x1.compilerGain.context-split`: 7.5× faster
+- `ctx.selection.n100.x4.compilerGain.store`: 7.7× faster
+- `ctx.selection.n100.x4.compilerGain.context`: 7.7× faster
+- `ctx.selection.n100.x4.compilerGain.context-split`: 7.2× faster
+- `ctx.selection.n1000.x1.compilerGain.store`: 10.5× faster
+- `ctx.selection.n1000.x1.compilerGain.context`: 10.5× faster
+- `ctx.selection.n1000.x1.compilerGain.context-split`: 8.7× faster
+- `ctx.selection.n1000.x4.compilerGain.store`: 10.1× faster
+- `ctx.selection.n1000.x4.compilerGain.context`: 10.1× faster
+- `ctx.selection.n1000.x4.compilerGain.context-split`: 8.2× faster
+- `ctx.selection.n10000.x1.compilerGain.store`: 13.0× faster
+- `ctx.selection.n10000.x1.compilerGain.context`: 9.6× faster
+- `ctx.selection.n10000.x1.compilerGain.context-split`: 8.5× faster
+- `ctx.selection.n10000.x4.compilerGain.store`: 12.2× faster
+- `ctx.selection.n10000.x4.compilerGain.context`: 8.3× faster
+- `ctx.selection.n10000.x4.compilerGain.context-split`: 7.7× faster
+- `ctx.entity.n100.x1.compilerGain.store`: tie
+- `ctx.entity.n100.x1.compilerGain.context`: 7.3× faster
+- `ctx.entity.n100.x1.compilerGain.context-split`: 6.2× faster
+- `ctx.entity.n100.x4.compilerGain.store`: tie
+- `ctx.entity.n100.x4.compilerGain.context`: 6.3× faster
+- `ctx.entity.n100.x4.compilerGain.context-split`: 5.8× faster
+- `ctx.entity.n1000.x1.compilerGain.store`: tie (restarts disagree)
+- `ctx.entity.n1000.x1.compilerGain.context`: 7.9× faster
+- `ctx.entity.n1000.x1.compilerGain.context-split`: 7.0× faster
+- `ctx.entity.n1000.x4.compilerGain.store`: tie
+- `ctx.entity.n1000.x4.compilerGain.context`: 7.5× faster
+- `ctx.entity.n1000.x4.compilerGain.context-split`: 6.1× faster
+- `ctx.entity.n10000.x1.compilerGain.store`: tie
+- `ctx.entity.n10000.x1.compilerGain.context`: 6.8× faster
+- `ctx.entity.n10000.x1.compilerGain.context-split`: 6.1× faster
+- `ctx.entity.n10000.x4.compilerGain.store`: tie (restarts disagree)
+- `ctx.entity.n10000.x4.compilerGain.context`: 6.0× faster
+- `ctx.entity.n10000.x4.compilerGain.context-split`: 5.5× faster
+- `ctx.filter.n100.x1.compilerGain.store`: 3.7× faster
+- `ctx.filter.n100.x1.compilerGain.context`: 3.9× faster
+- `ctx.filter.n100.x1.compilerGain.context-split`: 3.7× faster
+- `ctx.filter.n100.x4.compilerGain.store`: 3.6× faster
+- `ctx.filter.n100.x4.compilerGain.context`: 3.8× faster
+- `ctx.filter.n100.x4.compilerGain.context-split`: 3.6× faster
+- `ctx.filter.n1000.x1.compilerGain.store`: 4.2× faster
+- `ctx.filter.n1000.x1.compilerGain.context`: 4.4× faster
+- `ctx.filter.n1000.x1.compilerGain.context-split`: 4.0× faster
+- `ctx.filter.n1000.x4.compilerGain.store`: 4.2× faster
+- `ctx.filter.n1000.x4.compilerGain.context`: 4.0× faster
+- `ctx.filter.n1000.x4.compilerGain.context-split`: 4.0× faster
+- `ctx.filter.n10000.x1.compilerGain.store`: 4.3× faster
+- `ctx.filter.n10000.x1.compilerGain.context`: 3.9× faster
+- `ctx.filter.n10000.x1.compilerGain.context-split`: 3.2× faster
+- `ctx.filter.n10000.x4.compilerGain.store`: 3.7× faster
+- `ctx.filter.n10000.x4.compilerGain.context`: 3.1× faster
+- `ctx.filter.n10000.x4.compilerGain.context-split`: 2.9× faster
+- `ctx.details-inline.n100.x1.compilerGain.store`: 1.1× faster
+- `ctx.details-inline.n100.x1.compilerGain.context`: 9.9× faster
+- `ctx.details-inline.n100.x1.compilerGain.context-split`: 1.7× faster
+- `ctx.details-inline.n100.x4.compilerGain.store`: 1.1× faster
+- `ctx.details-inline.n100.x4.compilerGain.context`: 8.7× faster
+- `ctx.details-inline.n100.x4.compilerGain.context-split`: 1.6× faster
+- `ctx.details-inline.n1000.x1.compilerGain.store`: 1.2× faster
+- `ctx.details-inline.n1000.x1.compilerGain.context`: 10.6× faster
+- `ctx.details-inline.n1000.x1.compilerGain.context-split`: 1.8× faster
+- `ctx.details-inline.n1000.x4.compilerGain.store`: 1.3× faster
+- `ctx.details-inline.n1000.x4.compilerGain.context`: 10.4× faster
+- `ctx.details-inline.n1000.x4.compilerGain.context-split`: 1.8× faster
+- `ctx.details-inline.n10000.x1.compilerGain.store`: 1.2× faster
+- `ctx.details-inline.n10000.x1.compilerGain.context`: 11.5× faster
+- `ctx.details-inline.n10000.x1.compilerGain.context-split`: 1.5× faster
+- `ctx.details-inline.n10000.x4.compilerGain.store`: 1.3× faster
+- `ctx.details-inline.n10000.x4.compilerGain.context`: 11.1× faster
+- `ctx.details-inline.n10000.x4.compilerGain.context-split`: 1.3× faster
+- `ctx.details-component.n100.x1.compilerGain.store`: 1.1× slower
+- `ctx.details-component.n100.x1.compilerGain.context`: 9.6× faster
+- `ctx.details-component.n100.x1.compilerGain.context-split`: 1.7× faster
+- `ctx.details-component.n100.x4.compilerGain.store`: tie
+- `ctx.details-component.n100.x4.compilerGain.context`: 8.8× faster
+- `ctx.details-component.n100.x4.compilerGain.context-split`: 1.6× faster
+- `ctx.details-component.n1000.x1.compilerGain.store`: 1.04× faster
+- `ctx.details-component.n1000.x1.compilerGain.context`: 10.8× faster
+- `ctx.details-component.n1000.x1.compilerGain.context-split`: 1.6× faster
+- `ctx.details-component.n1000.x4.compilerGain.store`: 1.03× faster
+- `ctx.details-component.n1000.x4.compilerGain.context`: 10.4× faster
+- `ctx.details-component.n1000.x4.compilerGain.context-split`: 1.7× faster
+- `ctx.details-component.n10000.x1.compilerGain.store`: 1.04× faster
+- `ctx.details-component.n10000.x1.compilerGain.context`: 11.2× faster
+- `ctx.details-component.n10000.x1.compilerGain.context-split`: 1.6× faster
+- `ctx.details-component.n10000.x4.compilerGain.store`: 1.1× faster
+- `ctx.details-component.n10000.x4.compilerGain.context`: 11.1× faster
+- `ctx.details-component.n10000.x4.compilerGain.context-split`: 1.3× faster
+- `ctx.details-churn.n100.x1.compilerGain.store`: 5.6× faster
+- `ctx.details-churn.n100.x1.compilerGain.context`: 6.2× faster
+- `ctx.details-churn.n100.x1.compilerGain.context-split`: 5.6× faster
+- `ctx.details-churn.n100.x4.compilerGain.store`: 5.5× faster
+- `ctx.details-churn.n100.x4.compilerGain.context`: 5.9× faster
+- `ctx.details-churn.n100.x4.compilerGain.context-split`: 5.5× faster
+- `ctx.details-churn.n1000.x1.compilerGain.store`: 6.5× faster
+- `ctx.details-churn.n1000.x1.compilerGain.context`: 6.7× faster
+- `ctx.details-churn.n1000.x1.compilerGain.context-split`: 6.0× faster
+- `ctx.details-churn.n1000.x4.compilerGain.store`: 6.6× faster
+- `ctx.details-churn.n1000.x4.compilerGain.context`: 6.7× faster
+- `ctx.details-churn.n1000.x4.compilerGain.context-split`: 6.0× faster
+- `ctx.details-churn.n10000.x1.compilerGain.store`: 7.2× faster
+- `ctx.details-churn.n10000.x1.compilerGain.context`: 6.2× faster
+- `ctx.details-churn.n10000.x1.compilerGain.context-split`: 5.7× faster
+- `ctx.details-churn.n10000.x4.compilerGain.store`: 6.1× faster
+- `ctx.details-churn.n10000.x4.compilerGain.context`: 5.2× faster
+- `ctx.details-churn.n10000.x4.compilerGain.context-split`: 4.7× faster
+- `ctx.structure.n100.x1.compilerGain.store`: 6.9× faster
+- `ctx.structure.n100.x1.compilerGain.context`: 5.6× faster
+- `ctx.structure.n100.x1.compilerGain.context-split`: 4.5× faster
+- `ctx.structure.n100.x4.compilerGain.store`: 6.0× faster
+- `ctx.structure.n100.x4.compilerGain.context`: 4.9× faster
+- `ctx.structure.n100.x4.compilerGain.context-split`: 4.4× faster
+- `ctx.structure.n1000.x1.compilerGain.store`: 9.4× faster
+- `ctx.structure.n1000.x1.compilerGain.context`: 5.8× faster
+- `ctx.structure.n1000.x1.compilerGain.context-split`: 5.0× faster
+- `ctx.structure.n1000.x4.compilerGain.store`: 9.1× faster
+- `ctx.structure.n1000.x4.compilerGain.context`: 5.7× faster
+- `ctx.structure.n1000.x4.compilerGain.context-split`: 4.9× faster
+- `ctx.structure.n10000.x1.compilerGain.store`: 11.9× faster
+- `ctx.structure.n10000.x1.compilerGain.context`: 6.0× faster
+- `ctx.structure.n10000.x1.compilerGain.context-split`: 5.2× faster
+- `ctx.structure.n10000.x4.compilerGain.store`: 11.3× faster
+- `ctx.structure.n10000.x4.compilerGain.context`: 5.3× faster
+- `ctx.structure.n10000.x4.compilerGain.context-split`: 4.5× faster
+
+</details>
+
+### `ctx.tally.<compiler>.<vs>.<scope>.wins`
+
+Store vs Context at the same compiler setting, per scenario or "all": configurations store won.
+
+<details><summary>32 keys</summary>
+
+- `ctx.tally.off.vsContext.selection.wins`: 0
+- `ctx.tally.off.vsContext.entity.wins`: 6
+- `ctx.tally.off.vsContext.filter.wins`: 0
+- `ctx.tally.off.vsContext.details-inline.wins`: 6
+- `ctx.tally.off.vsContext.details-component.wins`: 6
+- `ctx.tally.off.vsContext.details-churn.wins`: 1
+- `ctx.tally.off.vsContext.structure.wins`: 5
+- `ctx.tally.off.vsContext.all.wins`: 24
+- `ctx.tally.off.vsContextSplit.selection.wins`: 6
+- `ctx.tally.off.vsContextSplit.entity.wins`: 6
+- `ctx.tally.off.vsContextSplit.filter.wins`: 6
+- `ctx.tally.off.vsContextSplit.details-inline.wins`: 6
+- `ctx.tally.off.vsContextSplit.details-component.wins`: 6
+- `ctx.tally.off.vsContextSplit.details-churn.wins`: 4
+- `ctx.tally.off.vsContextSplit.structure.wins`: 6
+- `ctx.tally.off.vsContextSplit.all.wins`: 40
+- `ctx.tally.on.vsContext.selection.wins`: 2
+- `ctx.tally.on.vsContext.entity.wins`: 6
+- `ctx.tally.on.vsContext.filter.wins`: 2
+- `ctx.tally.on.vsContext.details-inline.wins`: 6
+- `ctx.tally.on.vsContext.details-component.wins`: 6
+- `ctx.tally.on.vsContext.details-churn.wins`: 2
+- `ctx.tally.on.vsContext.structure.wins`: 6
+- `ctx.tally.on.vsContext.all.wins`: 30
+- `ctx.tally.on.vsContextSplit.selection.wins`: 6
+- `ctx.tally.on.vsContextSplit.entity.wins`: 6
+- `ctx.tally.on.vsContextSplit.filter.wins`: 6
+- `ctx.tally.on.vsContextSplit.details-inline.wins`: 6
+- `ctx.tally.on.vsContextSplit.details-component.wins`: 6
+- `ctx.tally.on.vsContextSplit.details-churn.wins`: 6
+- `ctx.tally.on.vsContextSplit.structure.wins`: 6
+- `ctx.tally.on.vsContextSplit.all.wins`: 42
+
+</details>
+
+### `ctx.tally.<compiler>.<vs>.<scope>.ties`
+
+Store vs Context at the same setting: ties.
+
+<details><summary>32 keys</summary>
+
+- `ctx.tally.off.vsContext.selection.ties`: 6
+- `ctx.tally.off.vsContext.entity.ties`: 0
+- `ctx.tally.off.vsContext.filter.ties`: 6
+- `ctx.tally.off.vsContext.details-inline.ties`: 0
+- `ctx.tally.off.vsContext.details-component.ties`: 0
+- `ctx.tally.off.vsContext.details-churn.ties`: 2
+- `ctx.tally.off.vsContext.structure.ties`: 1
+- `ctx.tally.off.vsContext.all.ties`: 15
+- `ctx.tally.off.vsContextSplit.selection.ties`: 0
+- `ctx.tally.off.vsContextSplit.entity.ties`: 0
+- `ctx.tally.off.vsContextSplit.filter.ties`: 0
+- `ctx.tally.off.vsContextSplit.details-inline.ties`: 0
+- `ctx.tally.off.vsContextSplit.details-component.ties`: 0
+- `ctx.tally.off.vsContextSplit.details-churn.ties`: 2
+- `ctx.tally.off.vsContextSplit.structure.ties`: 0
+- `ctx.tally.off.vsContextSplit.all.ties`: 2
+- `ctx.tally.on.vsContext.selection.ties`: 4
+- `ctx.tally.on.vsContext.entity.ties`: 0
+- `ctx.tally.on.vsContext.filter.ties`: 1
+- `ctx.tally.on.vsContext.details-inline.ties`: 0
+- `ctx.tally.on.vsContext.details-component.ties`: 0
+- `ctx.tally.on.vsContext.details-churn.ties`: 0
+- `ctx.tally.on.vsContext.structure.ties`: 0
+- `ctx.tally.on.vsContext.all.ties`: 5
+- `ctx.tally.on.vsContextSplit.selection.ties`: 0
+- `ctx.tally.on.vsContextSplit.entity.ties`: 0
+- `ctx.tally.on.vsContextSplit.filter.ties`: 0
+- `ctx.tally.on.vsContextSplit.details-inline.ties`: 0
+- `ctx.tally.on.vsContextSplit.details-component.ties`: 0
+- `ctx.tally.on.vsContextSplit.details-churn.ties`: 0
+- `ctx.tally.on.vsContextSplit.structure.ties`: 0
+- `ctx.tally.on.vsContextSplit.all.ties`: 0
+
+</details>
+
+### `ctx.tally.<compiler>.<vs>.<scope>.losses`
+
+Store vs Context at the same setting: losses.
+
+<details><summary>32 keys</summary>
+
+- `ctx.tally.off.vsContext.selection.losses`: 0
+- `ctx.tally.off.vsContext.entity.losses`: 0
+- `ctx.tally.off.vsContext.filter.losses`: 0
+- `ctx.tally.off.vsContext.details-inline.losses`: 0
+- `ctx.tally.off.vsContext.details-component.losses`: 0
+- `ctx.tally.off.vsContext.details-churn.losses`: 3
+- `ctx.tally.off.vsContext.structure.losses`: 0
+- `ctx.tally.off.vsContext.all.losses`: 3
+- `ctx.tally.off.vsContextSplit.selection.losses`: 0
+- `ctx.tally.off.vsContextSplit.entity.losses`: 0
+- `ctx.tally.off.vsContextSplit.filter.losses`: 0
+- `ctx.tally.off.vsContextSplit.details-inline.losses`: 0
+- `ctx.tally.off.vsContextSplit.details-component.losses`: 0
+- `ctx.tally.off.vsContextSplit.details-churn.losses`: 0
+- `ctx.tally.off.vsContextSplit.structure.losses`: 0
+- `ctx.tally.off.vsContextSplit.all.losses`: 0
+- `ctx.tally.on.vsContext.selection.losses`: 0
+- `ctx.tally.on.vsContext.entity.losses`: 0
+- `ctx.tally.on.vsContext.filter.losses`: 3
+- `ctx.tally.on.vsContext.details-inline.losses`: 0
+- `ctx.tally.on.vsContext.details-component.losses`: 0
+- `ctx.tally.on.vsContext.details-churn.losses`: 4
+- `ctx.tally.on.vsContext.structure.losses`: 0
+- `ctx.tally.on.vsContext.all.losses`: 7
+- `ctx.tally.on.vsContextSplit.selection.losses`: 0
+- `ctx.tally.on.vsContextSplit.entity.losses`: 0
+- `ctx.tally.on.vsContextSplit.filter.losses`: 0
+- `ctx.tally.on.vsContextSplit.details-inline.losses`: 0
+- `ctx.tally.on.vsContextSplit.details-component.losses`: 0
+- `ctx.tally.on.vsContextSplit.details-churn.losses`: 0
+- `ctx.tally.on.vsContextSplit.structure.losses`: 0
+- `ctx.tally.on.vsContextSplit.all.losses`: 0
+
+</details>
+
+### `ctx.tally.<compiler>.<vs>.<scope>.total`
+
+Store vs Context at the same setting: configurations compared.
+
+<details><summary>32 keys</summary>
+
+- `ctx.tally.off.vsContext.selection.total`: 6
+- `ctx.tally.off.vsContext.entity.total`: 6
+- `ctx.tally.off.vsContext.filter.total`: 6
+- `ctx.tally.off.vsContext.details-inline.total`: 6
+- `ctx.tally.off.vsContext.details-component.total`: 6
+- `ctx.tally.off.vsContext.details-churn.total`: 6
+- `ctx.tally.off.vsContext.structure.total`: 6
+- `ctx.tally.off.vsContext.all.total`: 42
+- `ctx.tally.off.vsContextSplit.selection.total`: 6
+- `ctx.tally.off.vsContextSplit.entity.total`: 6
+- `ctx.tally.off.vsContextSplit.filter.total`: 6
+- `ctx.tally.off.vsContextSplit.details-inline.total`: 6
+- `ctx.tally.off.vsContextSplit.details-component.total`: 6
+- `ctx.tally.off.vsContextSplit.details-churn.total`: 6
+- `ctx.tally.off.vsContextSplit.structure.total`: 6
+- `ctx.tally.off.vsContextSplit.all.total`: 42
+- `ctx.tally.on.vsContext.selection.total`: 6
+- `ctx.tally.on.vsContext.entity.total`: 6
+- `ctx.tally.on.vsContext.filter.total`: 6
+- `ctx.tally.on.vsContext.details-inline.total`: 6
+- `ctx.tally.on.vsContext.details-component.total`: 6
+- `ctx.tally.on.vsContext.details-churn.total`: 6
+- `ctx.tally.on.vsContext.structure.total`: 6
+- `ctx.tally.on.vsContext.all.total`: 42
+- `ctx.tally.on.vsContextSplit.selection.total`: 6
+- `ctx.tally.on.vsContextSplit.entity.total`: 6
+- `ctx.tally.on.vsContextSplit.filter.total`: 6
+- `ctx.tally.on.vsContextSplit.details-inline.total`: 6
+- `ctx.tally.on.vsContextSplit.details-component.total`: 6
+- `ctx.tally.on.vsContextSplit.details-churn.total`: 6
+- `ctx.tally.on.vsContextSplit.structure.total`: 6
+- `ctx.tally.on.vsContextSplit.all.total`: 42
+
+</details>
+
+### `ctx.tally.<compiler>.<vs>.<scope>.split`
+
+Store vs Context at the same setting: ties only because the restarts disagreed.
+
+<details><summary>32 keys</summary>
+
+- `ctx.tally.off.vsContext.selection.split`: 3
+- `ctx.tally.off.vsContext.entity.split`: 0
+- `ctx.tally.off.vsContext.filter.split`: 3
+- `ctx.tally.off.vsContext.details-inline.split`: 0
+- `ctx.tally.off.vsContext.details-component.split`: 0
+- `ctx.tally.off.vsContext.details-churn.split`: 1
+- `ctx.tally.off.vsContext.structure.split`: 1
+- `ctx.tally.off.vsContext.all.split`: 8
+- `ctx.tally.off.vsContextSplit.selection.split`: 0
+- `ctx.tally.off.vsContextSplit.entity.split`: 0
+- `ctx.tally.off.vsContextSplit.filter.split`: 0
+- `ctx.tally.off.vsContextSplit.details-inline.split`: 0
+- `ctx.tally.off.vsContextSplit.details-component.split`: 0
+- `ctx.tally.off.vsContextSplit.details-churn.split`: 1
+- `ctx.tally.off.vsContextSplit.structure.split`: 0
+- `ctx.tally.off.vsContextSplit.all.split`: 1
+- `ctx.tally.on.vsContext.selection.split`: 1
+- `ctx.tally.on.vsContext.entity.split`: 0
+- `ctx.tally.on.vsContext.filter.split`: 1
+- `ctx.tally.on.vsContext.details-inline.split`: 0
+- `ctx.tally.on.vsContext.details-component.split`: 0
+- `ctx.tally.on.vsContext.details-churn.split`: 0
+- `ctx.tally.on.vsContext.structure.split`: 0
+- `ctx.tally.on.vsContext.all.split`: 2
+- `ctx.tally.on.vsContextSplit.selection.split`: 0
+- `ctx.tally.on.vsContextSplit.entity.split`: 0
+- `ctx.tally.on.vsContextSplit.filter.split`: 0
+- `ctx.tally.on.vsContextSplit.details-inline.split`: 0
+- `ctx.tally.on.vsContextSplit.details-component.split`: 0
+- `ctx.tally.on.vsContextSplit.details-churn.split`: 0
+- `ctx.tally.on.vsContextSplit.structure.split`: 0
+- `ctx.tally.on.vsContextSplit.all.split`: 0
+
+</details>
+
+### `ctx.tally.<compiler>.<vs>.<scope>.matchOrBeat`
+
+Store vs Context at the same setting: wins + ties.
+
+<details><summary>32 keys</summary>
+
+- `ctx.tally.off.vsContext.selection.matchOrBeat`: 6
+- `ctx.tally.off.vsContext.entity.matchOrBeat`: 6
+- `ctx.tally.off.vsContext.filter.matchOrBeat`: 6
+- `ctx.tally.off.vsContext.details-inline.matchOrBeat`: 6
+- `ctx.tally.off.vsContext.details-component.matchOrBeat`: 6
+- `ctx.tally.off.vsContext.details-churn.matchOrBeat`: 3
+- `ctx.tally.off.vsContext.structure.matchOrBeat`: 6
+- `ctx.tally.off.vsContext.all.matchOrBeat`: 39
+- `ctx.tally.off.vsContextSplit.selection.matchOrBeat`: 6
+- `ctx.tally.off.vsContextSplit.entity.matchOrBeat`: 6
+- `ctx.tally.off.vsContextSplit.filter.matchOrBeat`: 6
+- `ctx.tally.off.vsContextSplit.details-inline.matchOrBeat`: 6
+- `ctx.tally.off.vsContextSplit.details-component.matchOrBeat`: 6
+- `ctx.tally.off.vsContextSplit.details-churn.matchOrBeat`: 6
+- `ctx.tally.off.vsContextSplit.structure.matchOrBeat`: 6
+- `ctx.tally.off.vsContextSplit.all.matchOrBeat`: 42
+- `ctx.tally.on.vsContext.selection.matchOrBeat`: 6
+- `ctx.tally.on.vsContext.entity.matchOrBeat`: 6
+- `ctx.tally.on.vsContext.filter.matchOrBeat`: 3
+- `ctx.tally.on.vsContext.details-inline.matchOrBeat`: 6
+- `ctx.tally.on.vsContext.details-component.matchOrBeat`: 6
+- `ctx.tally.on.vsContext.details-churn.matchOrBeat`: 2
+- `ctx.tally.on.vsContext.structure.matchOrBeat`: 6
+- `ctx.tally.on.vsContext.all.matchOrBeat`: 35
+- `ctx.tally.on.vsContextSplit.selection.matchOrBeat`: 6
+- `ctx.tally.on.vsContextSplit.entity.matchOrBeat`: 6
+- `ctx.tally.on.vsContextSplit.filter.matchOrBeat`: 6
+- `ctx.tally.on.vsContextSplit.details-inline.matchOrBeat`: 6
+- `ctx.tally.on.vsContextSplit.details-component.matchOrBeat`: 6
+- `ctx.tally.on.vsContextSplit.details-churn.matchOrBeat`: 6
+- `ctx.tally.on.vsContextSplit.structure.matchOrBeat`: 6
+- `ctx.tally.on.vsContextSplit.all.matchOrBeat`: 42
+
+</details>
+
+### `ctx.tally.<compiler>.<vs>.<scope>.range`
+
+Store vs Context at the same setting: range of speedups as text.
+
+<details><summary>32 keys</summary>
+
+- `ctx.tally.off.vsContext.selection.range`: 6 tie
+- `ctx.tally.off.vsContext.entity.range`: 20–57× faster
+- `ctx.tally.off.vsContext.filter.range`: 6 tie
+- `ctx.tally.off.vsContext.details-inline.range`: 23–34× faster
+- `ctx.tally.off.vsContext.details-component.range`: 27–43× faster
+- `ctx.tally.off.vsContext.details-churn.range`: 1.05× slower to 1.01× faster (1 faster, 2 tie, 3 slower)
+- `ctx.tally.off.vsContext.structure.range`: up to 1.1× faster (5 faster, 1 tie)
+- `ctx.tally.off.vsContext.all.range`: 1.05× slower to 57× faster (24 faster, 15 tie, 3 slower)
+- `ctx.tally.off.vsContextSplit.selection.range`: 1.1× faster
+- `ctx.tally.off.vsContextSplit.entity.range`: 22–62× faster
+- `ctx.tally.off.vsContextSplit.filter.range`: 1.05–1.2× faster
+- `ctx.tally.off.vsContextSplit.details-inline.range`: 2.5–3.2× faster
+- `ctx.tally.off.vsContextSplit.details-component.range`: 3.0–3.6× faster
+- `ctx.tally.off.vsContextSplit.details-churn.range`: up to 1.1× faster (4 faster, 2 tie)
+- `ctx.tally.off.vsContextSplit.structure.range`: 1.1× faster
+- `ctx.tally.off.vsContextSplit.all.range`: up to 62× faster (40 faster, 2 tie)
+- `ctx.tally.on.vsContext.selection.range`: up to 1.4× faster (2 faster, 4 tie)
+- `ctx.tally.on.vsContext.entity.range`: 3.1–9.3× faster
+- `ctx.tally.on.vsContext.filter.range`: 1.1× slower to 1.2× faster (2 faster, 1 tie, 3 slower)
+- `ctx.tally.on.vsContext.details-inline.range`: 2.8–4.0× faster
+- `ctx.tally.on.vsContext.details-component.range`: 3.0–4.2× faster
+- `ctx.tally.on.vsContext.details-churn.range`: 1.1× slower to 1.1× faster (2 faster, 4 slower)
+- `ctx.tally.on.vsContext.structure.range`: 1.3–2.2× faster
+- `ctx.tally.on.vsContext.all.range`: 1.1× slower to 9.3× faster (30 faster, 5 tie, 7 slower)
+- `ctx.tally.on.vsContextSplit.selection.range`: 1.2–1.7× faster
+- `ctx.tally.on.vsContextSplit.entity.range`: 3.7–11× faster
+- `ctx.tally.on.vsContextSplit.filter.range`: 1.1–1.4× faster
+- `ctx.tally.on.vsContextSplit.details-inline.range`: 1.9–2.5× faster
+- `ctx.tally.on.vsContextSplit.details-component.range`: 1.8–2.5× faster
+- `ctx.tally.on.vsContextSplit.details-churn.range`: 1.1–1.3× faster
+- `ctx.tally.on.vsContextSplit.structure.range`: 1.6–2.8× faster
+- `ctx.tally.on.vsContextSplit.all.range`: 1.1–11× faster
+
+</details>
+
+### `ctx.tally.<compiler>.<vs>.lostScenarios`
+
+Store vs Context at the same setting: scenarios with a loss, lowercase prose names, or "none".
+
+- `ctx.tally.off.vsContext.lostScenarios`: subscribe churn
+- `ctx.tally.off.vsContextSplit.lostScenarios`: none
+- `ctx.tally.on.vsContext.lostScenarios`: filter and subscribe churn
+- `ctx.tally.on.vsContextSplit.lostScenarios`: none
+
+### `ctx.tally.<compiler>.<vs>.maxLoss`
+
+Store vs Context at the same setting: the largest loss, ratio of means.
+
+- `ctx.tally.off.vsContext.maxLoss`: 1.05× slower
+- `ctx.tally.on.vsContext.maxLoss`: 1.1× slower
+
+### `ctx.tally.<compiler>.<vs>.maxLossPct`
+
+Store vs Context at the same setting: the largest loss as a percentage slower.
+
+- `ctx.tally.off.vsContext.maxLossPct`: 5%
+- `ctx.tally.on.vsContext.maxLossPct`: 11%
+
+### `ctx.tally.compilerGain.<variant>.<scope>.wins`
+
+What the compiler buys a variant, per scenario or "all": configurations faster with it.
+
+<details><summary>24 keys</summary>
+
+- `ctx.tally.compilerGain.store.selection.wins`: 6
+- `ctx.tally.compilerGain.store.entity.wins`: 0
+- `ctx.tally.compilerGain.store.filter.wins`: 6
+- `ctx.tally.compilerGain.store.details-inline.wins`: 6
+- `ctx.tally.compilerGain.store.details-component.wins`: 4
+- `ctx.tally.compilerGain.store.details-churn.wins`: 6
+- `ctx.tally.compilerGain.store.structure.wins`: 6
+- `ctx.tally.compilerGain.store.all.wins`: 34
+- `ctx.tally.compilerGain.context.selection.wins`: 6
+- `ctx.tally.compilerGain.context.entity.wins`: 6
+- `ctx.tally.compilerGain.context.filter.wins`: 6
+- `ctx.tally.compilerGain.context.details-inline.wins`: 6
+- `ctx.tally.compilerGain.context.details-component.wins`: 6
+- `ctx.tally.compilerGain.context.details-churn.wins`: 6
+- `ctx.tally.compilerGain.context.structure.wins`: 6
+- `ctx.tally.compilerGain.context.all.wins`: 42
+- `ctx.tally.compilerGain.context-split.selection.wins`: 6
+- `ctx.tally.compilerGain.context-split.entity.wins`: 6
+- `ctx.tally.compilerGain.context-split.filter.wins`: 6
+- `ctx.tally.compilerGain.context-split.details-inline.wins`: 6
+- `ctx.tally.compilerGain.context-split.details-component.wins`: 6
+- `ctx.tally.compilerGain.context-split.details-churn.wins`: 6
+- `ctx.tally.compilerGain.context-split.structure.wins`: 6
+- `ctx.tally.compilerGain.context-split.all.wins`: 42
+
+</details>
+
+### `ctx.tally.compilerGain.<variant>.<scope>.ties`
+
+What the compiler buys: ties.
+
+<details><summary>24 keys</summary>
+
+- `ctx.tally.compilerGain.store.selection.ties`: 0
+- `ctx.tally.compilerGain.store.entity.ties`: 6
+- `ctx.tally.compilerGain.store.filter.ties`: 0
+- `ctx.tally.compilerGain.store.details-inline.ties`: 0
+- `ctx.tally.compilerGain.store.details-component.ties`: 1
+- `ctx.tally.compilerGain.store.details-churn.ties`: 0
+- `ctx.tally.compilerGain.store.structure.ties`: 0
+- `ctx.tally.compilerGain.store.all.ties`: 7
+- `ctx.tally.compilerGain.context.selection.ties`: 0
+- `ctx.tally.compilerGain.context.entity.ties`: 0
+- `ctx.tally.compilerGain.context.filter.ties`: 0
+- `ctx.tally.compilerGain.context.details-inline.ties`: 0
+- `ctx.tally.compilerGain.context.details-component.ties`: 0
+- `ctx.tally.compilerGain.context.details-churn.ties`: 0
+- `ctx.tally.compilerGain.context.structure.ties`: 0
+- `ctx.tally.compilerGain.context.all.ties`: 0
+- `ctx.tally.compilerGain.context-split.selection.ties`: 0
+- `ctx.tally.compilerGain.context-split.entity.ties`: 0
+- `ctx.tally.compilerGain.context-split.filter.ties`: 0
+- `ctx.tally.compilerGain.context-split.details-inline.ties`: 0
+- `ctx.tally.compilerGain.context-split.details-component.ties`: 0
+- `ctx.tally.compilerGain.context-split.details-churn.ties`: 0
+- `ctx.tally.compilerGain.context-split.structure.ties`: 0
+- `ctx.tally.compilerGain.context-split.all.ties`: 0
+
+</details>
+
+### `ctx.tally.compilerGain.<variant>.<scope>.losses`
+
+What the compiler buys: configurations slower with it.
+
+<details><summary>24 keys</summary>
+
+- `ctx.tally.compilerGain.store.selection.losses`: 0
+- `ctx.tally.compilerGain.store.entity.losses`: 0
+- `ctx.tally.compilerGain.store.filter.losses`: 0
+- `ctx.tally.compilerGain.store.details-inline.losses`: 0
+- `ctx.tally.compilerGain.store.details-component.losses`: 1
+- `ctx.tally.compilerGain.store.details-churn.losses`: 0
+- `ctx.tally.compilerGain.store.structure.losses`: 0
+- `ctx.tally.compilerGain.store.all.losses`: 1
+- `ctx.tally.compilerGain.context.selection.losses`: 0
+- `ctx.tally.compilerGain.context.entity.losses`: 0
+- `ctx.tally.compilerGain.context.filter.losses`: 0
+- `ctx.tally.compilerGain.context.details-inline.losses`: 0
+- `ctx.tally.compilerGain.context.details-component.losses`: 0
+- `ctx.tally.compilerGain.context.details-churn.losses`: 0
+- `ctx.tally.compilerGain.context.structure.losses`: 0
+- `ctx.tally.compilerGain.context.all.losses`: 0
+- `ctx.tally.compilerGain.context-split.selection.losses`: 0
+- `ctx.tally.compilerGain.context-split.entity.losses`: 0
+- `ctx.tally.compilerGain.context-split.filter.losses`: 0
+- `ctx.tally.compilerGain.context-split.details-inline.losses`: 0
+- `ctx.tally.compilerGain.context-split.details-component.losses`: 0
+- `ctx.tally.compilerGain.context-split.details-churn.losses`: 0
+- `ctx.tally.compilerGain.context-split.structure.losses`: 0
+- `ctx.tally.compilerGain.context-split.all.losses`: 0
+
+</details>
+
+### `ctx.tally.compilerGain.<variant>.<scope>.total`
+
+What the compiler buys: configurations compared.
+
+<details><summary>24 keys</summary>
+
+- `ctx.tally.compilerGain.store.selection.total`: 6
+- `ctx.tally.compilerGain.store.entity.total`: 6
+- `ctx.tally.compilerGain.store.filter.total`: 6
+- `ctx.tally.compilerGain.store.details-inline.total`: 6
+- `ctx.tally.compilerGain.store.details-component.total`: 6
+- `ctx.tally.compilerGain.store.details-churn.total`: 6
+- `ctx.tally.compilerGain.store.structure.total`: 6
+- `ctx.tally.compilerGain.store.all.total`: 42
+- `ctx.tally.compilerGain.context.selection.total`: 6
+- `ctx.tally.compilerGain.context.entity.total`: 6
+- `ctx.tally.compilerGain.context.filter.total`: 6
+- `ctx.tally.compilerGain.context.details-inline.total`: 6
+- `ctx.tally.compilerGain.context.details-component.total`: 6
+- `ctx.tally.compilerGain.context.details-churn.total`: 6
+- `ctx.tally.compilerGain.context.structure.total`: 6
+- `ctx.tally.compilerGain.context.all.total`: 42
+- `ctx.tally.compilerGain.context-split.selection.total`: 6
+- `ctx.tally.compilerGain.context-split.entity.total`: 6
+- `ctx.tally.compilerGain.context-split.filter.total`: 6
+- `ctx.tally.compilerGain.context-split.details-inline.total`: 6
+- `ctx.tally.compilerGain.context-split.details-component.total`: 6
+- `ctx.tally.compilerGain.context-split.details-churn.total`: 6
+- `ctx.tally.compilerGain.context-split.structure.total`: 6
+- `ctx.tally.compilerGain.context-split.all.total`: 42
+
+</details>
+
+### `ctx.tally.compilerGain.<variant>.<scope>.split`
+
+What the compiler buys: ties only because the restarts disagreed.
+
+<details><summary>24 keys</summary>
+
+- `ctx.tally.compilerGain.store.selection.split`: 0
+- `ctx.tally.compilerGain.store.entity.split`: 2
+- `ctx.tally.compilerGain.store.filter.split`: 0
+- `ctx.tally.compilerGain.store.details-inline.split`: 0
+- `ctx.tally.compilerGain.store.details-component.split`: 0
+- `ctx.tally.compilerGain.store.details-churn.split`: 0
+- `ctx.tally.compilerGain.store.structure.split`: 0
+- `ctx.tally.compilerGain.store.all.split`: 2
+- `ctx.tally.compilerGain.context.selection.split`: 0
+- `ctx.tally.compilerGain.context.entity.split`: 0
+- `ctx.tally.compilerGain.context.filter.split`: 0
+- `ctx.tally.compilerGain.context.details-inline.split`: 0
+- `ctx.tally.compilerGain.context.details-component.split`: 0
+- `ctx.tally.compilerGain.context.details-churn.split`: 0
+- `ctx.tally.compilerGain.context.structure.split`: 0
+- `ctx.tally.compilerGain.context.all.split`: 0
+- `ctx.tally.compilerGain.context-split.selection.split`: 0
+- `ctx.tally.compilerGain.context-split.entity.split`: 0
+- `ctx.tally.compilerGain.context-split.filter.split`: 0
+- `ctx.tally.compilerGain.context-split.details-inline.split`: 0
+- `ctx.tally.compilerGain.context-split.details-component.split`: 0
+- `ctx.tally.compilerGain.context-split.details-churn.split`: 0
+- `ctx.tally.compilerGain.context-split.structure.split`: 0
+- `ctx.tally.compilerGain.context-split.all.split`: 0
+
+</details>
+
+### `ctx.tally.compilerGain.<variant>.<scope>.matchOrBeat`
+
+What the compiler buys: faster or tied.
+
+<details><summary>24 keys</summary>
+
+- `ctx.tally.compilerGain.store.selection.matchOrBeat`: 6
+- `ctx.tally.compilerGain.store.entity.matchOrBeat`: 6
+- `ctx.tally.compilerGain.store.filter.matchOrBeat`: 6
+- `ctx.tally.compilerGain.store.details-inline.matchOrBeat`: 6
+- `ctx.tally.compilerGain.store.details-component.matchOrBeat`: 5
+- `ctx.tally.compilerGain.store.details-churn.matchOrBeat`: 6
+- `ctx.tally.compilerGain.store.structure.matchOrBeat`: 6
+- `ctx.tally.compilerGain.store.all.matchOrBeat`: 41
+- `ctx.tally.compilerGain.context.selection.matchOrBeat`: 6
+- `ctx.tally.compilerGain.context.entity.matchOrBeat`: 6
+- `ctx.tally.compilerGain.context.filter.matchOrBeat`: 6
+- `ctx.tally.compilerGain.context.details-inline.matchOrBeat`: 6
+- `ctx.tally.compilerGain.context.details-component.matchOrBeat`: 6
+- `ctx.tally.compilerGain.context.details-churn.matchOrBeat`: 6
+- `ctx.tally.compilerGain.context.structure.matchOrBeat`: 6
+- `ctx.tally.compilerGain.context.all.matchOrBeat`: 42
+- `ctx.tally.compilerGain.context-split.selection.matchOrBeat`: 6
+- `ctx.tally.compilerGain.context-split.entity.matchOrBeat`: 6
+- `ctx.tally.compilerGain.context-split.filter.matchOrBeat`: 6
+- `ctx.tally.compilerGain.context-split.details-inline.matchOrBeat`: 6
+- `ctx.tally.compilerGain.context-split.details-component.matchOrBeat`: 6
+- `ctx.tally.compilerGain.context-split.details-churn.matchOrBeat`: 6
+- `ctx.tally.compilerGain.context-split.structure.matchOrBeat`: 6
+- `ctx.tally.compilerGain.context-split.all.matchOrBeat`: 42
+
+</details>
+
+### `ctx.tally.compilerGain.<variant>.<scope>.range`
+
+What the compiler buys: range of speedups as text.
+
+<details><summary>24 keys</summary>
+
+- `ctx.tally.compilerGain.store.selection.range`: 7.7–13× faster
+- `ctx.tally.compilerGain.store.entity.range`: 6 tie
+- `ctx.tally.compilerGain.store.filter.range`: 3.6–4.3× faster
+- `ctx.tally.compilerGain.store.details-inline.range`: 1.1–1.3× faster
+- `ctx.tally.compilerGain.store.details-component.range`: 1.1× slower to 1.1× faster (4 faster, 1 tie, 1 slower)
+- `ctx.tally.compilerGain.store.details-churn.range`: 5.5–7.2× faster
+- `ctx.tally.compilerGain.store.structure.range`: 6.0–12× faster
+- `ctx.tally.compilerGain.store.all.range`: 1.1× slower to 13× faster (34 faster, 7 tie, 1 slower)
+- `ctx.tally.compilerGain.context.selection.range`: 7.7–10× faster
+- `ctx.tally.compilerGain.context.entity.range`: 6.0–7.9× faster
+- `ctx.tally.compilerGain.context.filter.range`: 3.1–4.4× faster
+- `ctx.tally.compilerGain.context.details-inline.range`: 8.7–12× faster
+- `ctx.tally.compilerGain.context.details-component.range`: 8.8–11× faster
+- `ctx.tally.compilerGain.context.details-churn.range`: 5.2–6.7× faster
+- `ctx.tally.compilerGain.context.structure.range`: 4.9–6.0× faster
+- `ctx.tally.compilerGain.context.all.range`: 3.1–12× faster
+- `ctx.tally.compilerGain.context-split.selection.range`: 7.2–8.7× faster
+- `ctx.tally.compilerGain.context-split.entity.range`: 5.5–7.0× faster
+- `ctx.tally.compilerGain.context-split.filter.range`: 2.9–4.0× faster
+- `ctx.tally.compilerGain.context-split.details-inline.range`: 1.3–1.8× faster
+- `ctx.tally.compilerGain.context-split.details-component.range`: 1.3–1.7× faster
+- `ctx.tally.compilerGain.context-split.details-churn.range`: 4.7–6.0× faster
+- `ctx.tally.compilerGain.context-split.structure.range`: 4.4–5.2× faster
+- `ctx.tally.compilerGain.context-split.all.range`: 1.3–8.7× faster
+
+</details>
+
+### `ctx.compilerGain.storeMore.<variant>.<scope>.count`
+
+Configurations where the compiler speeds store up more than it speeds up context or context-split (ratio of the two speedups, no noise test), per scenario or "all".
+
+<details><summary>16 keys</summary>
+
+- `ctx.compilerGain.storeMore.context.selection.count`: 5
+- `ctx.compilerGain.storeMore.context.entity.count`: 0
+- `ctx.compilerGain.storeMore.context.filter.count`: 3
+- `ctx.compilerGain.storeMore.context.details-inline.count`: 0
+- `ctx.compilerGain.storeMore.context.details-component.count`: 0
+- `ctx.compilerGain.storeMore.context.details-churn.count`: 2
+- `ctx.compilerGain.storeMore.context.structure.count`: 6
+- `ctx.compilerGain.storeMore.context.all.count`: 16
+- `ctx.compilerGain.storeMore.context-split.selection.count`: 6
+- `ctx.compilerGain.storeMore.context-split.entity.count`: 0
+- `ctx.compilerGain.storeMore.context-split.filter.count`: 6
+- `ctx.compilerGain.storeMore.context-split.details-inline.count`: 0
+- `ctx.compilerGain.storeMore.context-split.details-component.count`: 0
+- `ctx.compilerGain.storeMore.context-split.details-churn.count`: 4
+- `ctx.compilerGain.storeMore.context-split.structure.count`: 6
+- `ctx.compilerGain.storeMore.context-split.all.count`: 22
+
+</details>
+
+### `ctx.compilerGain.storeMore.<variant>.<scope>.of`
+
+Configurations compared for storeMore.
+
+<details><summary>16 keys</summary>
+
+- `ctx.compilerGain.storeMore.context.selection.of`: 6
+- `ctx.compilerGain.storeMore.context.entity.of`: 6
+- `ctx.compilerGain.storeMore.context.filter.of`: 6
+- `ctx.compilerGain.storeMore.context.details-inline.of`: 6
+- `ctx.compilerGain.storeMore.context.details-component.of`: 6
+- `ctx.compilerGain.storeMore.context.details-churn.of`: 6
+- `ctx.compilerGain.storeMore.context.structure.of`: 6
+- `ctx.compilerGain.storeMore.context.all.of`: 42
+- `ctx.compilerGain.storeMore.context-split.selection.of`: 6
+- `ctx.compilerGain.storeMore.context-split.entity.of`: 6
+- `ctx.compilerGain.storeMore.context-split.filter.of`: 6
+- `ctx.compilerGain.storeMore.context-split.details-inline.of`: 6
+- `ctx.compilerGain.storeMore.context-split.details-component.of`: 6
+- `ctx.compilerGain.storeMore.context-split.details-churn.of`: 6
+- `ctx.compilerGain.storeMore.context-split.structure.of`: 6
+- `ctx.compilerGain.storeMore.context-split.all.of`: 42
+
+</details>
+
+### `ctx.compilerGain.storeMore.<variant>.everyConfig`
+
+Scenarios (lowercase prose names) where the compiler speeds store up more than the Context variant in every configuration, or "none".
+
+- `ctx.compilerGain.storeMore.context.everyConfig`: add / remove
+- `ctx.compilerGain.storeMore.context-split.everyConfig`: selection, filter, and add / remove
+
+### `ctx.memory.storeVs.<variant>.<compiler>.n<n>`
+
+Bytes per row of store / context or context-split, same compiler setting.
+
+- `ctx.memory.storeVs.context.off.n100`: 1.27×
+- `ctx.memory.storeVs.context-split.off.n100`: 1.20×
+- `ctx.memory.storeVs.context.on.n100`: 1.24×
+- `ctx.memory.storeVs.context-split.on.n100`: 1.17×
+- `ctx.memory.storeVs.context.off.n1000`: 1.40×
+- `ctx.memory.storeVs.context-split.off.n1000`: 1.34×
+- `ctx.memory.storeVs.context.on.n1000`: 1.30×
+- `ctx.memory.storeVs.context-split.on.n1000`: 1.25×
+- `ctx.memory.storeVs.context.off.n10000`: 1.47×
+- `ctx.memory.storeVs.context-split.off.n10000`: 1.41×
+- `ctx.memory.storeVs.context.on.n10000`: 1.34×
+- `ctx.memory.storeVs.context-split.on.n10000`: 1.29×
+
+### `ctx.tally.compilerGain.<variant>.lostScenarios`
+
+Scenarios where the compiler makes the variant slower, lowercase prose names, or "none".
+
+- `ctx.tally.compilerGain.store.lostScenarios`: the conditional read in a child component
+- `ctx.tally.compilerGain.context.lostScenarios`: none
+- `ctx.tally.compilerGain.context-split.lostScenarios`: none
+
+### `ctx.tally.compilerGain.<variant>.maxLoss`
+
+The largest slowdown from the compiler, ratio of means.
+
+- `ctx.tally.compilerGain.store.maxLoss`: 1.1× slower
+
+### `ctx.tally.compilerGain.<variant>.maxLossPct`
+
+The largest slowdown from the compiler as a percentage.
+
+- `ctx.tally.compilerGain.store.maxLossPct`: 9%
+
 ### `losses.all.of`
 
 Where it doesn't win: comparisons over every area.
@@ -5269,7 +6226,7 @@ Comparisons in that control.
 
 One line: what the losses table counts and which control comparisons it leaves out.
 
-- `losses.scope`: The losses table counts the headline (store + compiler vs the faster of Redux and Zustand), the granular control, the ported Redux suites, the fastest Redux setup in the fairness run, the sweeps and the shared derived data spike. It leaves out the controls (losses.control.*): store + compiler vs one context (main), store + compiler vs a context per slice (main), one store without selectors (store-single) + compiler vs the faster of Redux and Zustand (main), store vs the faster of Redux and Zustand, everything without the compiler (main), store + compiler vs the faster of Redux and Zustand on the build without the same-element bailout and store + compiler vs zustand in the fairness run with every variant.
+- `losses.scope`: The losses table counts the headline (store + compiler vs the faster of Redux and Zustand), the granular control, the ported Redux suites, the fastest Redux setup in the fairness run, the sweeps, and the shared derived data spike. It leaves out the controls (losses.control.*): store + compiler vs one context (main), store + compiler vs a context per slice (main), one store without selectors (store-single) + compiler vs the faster of Redux and Zustand (main), store vs the faster of Redux and Zustand, everything without the compiler (main), store + compiler vs the faster of Redux and Zustand on the build without the same-element bailout, and store + compiler vs zustand in the fairness run with every variant.
 
 ### `method.headlineRedux`
 
@@ -5596,7 +6553,7 @@ What the bailout buys store + compiler: the head build vs the build without it, 
 - `nobailout.main.entity.n10000.x1.bailoutGain`: tie (restarts disagree)
 - `nobailout.main.entity.n10000.x4.bailoutGain`: tie (restarts disagree)
 - `nobailout.main.filter.n1000.x1.bailoutGain`: tie (restarts disagree)
-- `nobailout.main.filter.n1000.x4.bailoutGain`: 1.0× faster
+- `nobailout.main.filter.n1000.x4.bailoutGain`: 1.05× faster
 - `nobailout.main.filter.n10000.x1.bailoutGain`: tie (restarts disagree)
 - `nobailout.main.filter.n10000.x4.bailoutGain`: tie (restarts disagree)
 - `nobailout.main.details-inline.n1000.x1.bailoutGain`: tie (restarts disagree)
@@ -5605,8 +6562,8 @@ What the bailout buys store + compiler: the head build vs the build without it, 
 - `nobailout.main.details-inline.n10000.x4.bailoutGain`: 1.1× faster
 - `nobailout.main.details-component.n1000.x1.bailoutGain`: tie
 - `nobailout.main.details-component.n1000.x4.bailoutGain`: tie
-- `nobailout.main.details-component.n10000.x1.bailoutGain`: 1.0× faster
-- `nobailout.main.details-component.n10000.x4.bailoutGain`: 1.0× faster
+- `nobailout.main.details-component.n10000.x1.bailoutGain`: 1.01× faster
+- `nobailout.main.details-component.n10000.x4.bailoutGain`: 1.04× faster
 - `nobailout.main.details-churn.n1000.x1.bailoutGain`: 1.1× faster
 - `nobailout.main.details-churn.n1000.x4.bailoutGain`: 1.2× faster
 - `nobailout.main.details-churn.n10000.x1.bailoutGain`: 1.2× faster

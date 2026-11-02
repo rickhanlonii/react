@@ -194,7 +194,7 @@ export function restartsAgree(a, b) {
 }
 
 export const VERDICT_RULE =
-  'A tie is a difference in means within two standard errors. A larger difference is a win or a loss only if every browser restart agrees on the direction (the side that is faster in the pooled means is faster in each restart, restarts paired by restart number); otherwise it is a tie.';
+  'A tie is a difference in means within two standard errors. A larger difference is a win or a loss only if every browser restart agrees on the direction (the side that is faster in the pooled means is faster in each restart, restarts paired by restart number). Otherwise it is a tie.';
 
 // stats.mjs compare, with the restart-agreement rule: a difference outside
 // two standard errors that the restarts disagree on is a tie (split: true).

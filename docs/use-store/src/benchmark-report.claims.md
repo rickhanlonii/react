@@ -248,3 +248,11 @@ Every claim in `benchmark-report.src.html`, by section, with its source: a `benc
 | M14 count | Replays 20 updates per scenario | `method.verifySteps` |
 | Pass 2 B1 | "Every number above uses the same-element bailout" holds: the no-bailout sweep sentence was removed from #sweeps (it duplicated "Keyed selection doesn't need it" in #bailout) | `nobailout.sweep.tally.store-keyed.selection.{wins,total}` cited only in #bailout |
 | (orchestrator) | line 152 fastest-Redux tally | added 'at <method.countsRows> rows' scope: fairness5 only ran at that size (pass 3 declined it as scope) |
+
+## Counting-build wording (store-vs-context audit C62)
+
+| Claim | Source |
+|---|---|
+| The counting build counts Row, RowView, DetailsView and CountView renders, not every component | `fixtures/store-bench/src/shared/views.jsx:8-14,62,80,95`; `countRender('row')` in each app's `Row` |
+| "counted renders" in What each update does and the counting-build paragraph | `counts.main.details-inline.store.on.renders` |
+| Counted components named from the source | `method.countedComponents` |

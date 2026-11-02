@@ -107,6 +107,32 @@ export const SCENARIO_PROSE = {
 };
 const prose = sc => SCENARIO_PROSE[sc] ?? sc;
 
+// The components the main app's counting build counts: top-level functions
+// that call countRender (src/shared/views.jsx). Every Row-like component
+// counts as kind 'row', so they're listed once, as Row. App, the list and
+// Details aren't counted.
+function countedComponents() {
+  const appsDir = path.join(here, 'src/apps');
+  const files = [
+    ...fs.readdirSync(appsDir).filter(f => f.endsWith('.jsx') && !f.startsWith('sweep-')).map(f => path.join(appsDir, f)),
+    path.join(here, 'src/shared/views.jsx'),
+  ];
+  const names = [];
+  for (const f of files) {
+    const blocks = fs.readFileSync(f, 'utf8').split(/\n(?=(?:export )?(?:function |const \w+ = ))/);
+    for (const block of blocks) {
+      const fn = block.match(/^(?:export )?function (\w+)\(/)?.[1];
+      const kind = block.match(/\bcountRender\('(\w+)'\)/)?.[1];
+      if (!fn || !kind) continue;
+      const shown = kind === 'row' ? 'Row' : fn;
+      if (!names.includes(shown)) names.push(shown);
+    }
+  }
+  return names;
+}
+const COUNTED = countedComponents();
+const COUNTED_TEXT = `counted renders (${listText(COUNTED)})`;
+
 // Builds stats[scenario][n][throttle][variant][on|off] = summary from update
 // results (the shape report.mjs uses).
 export function buildMainStats(updateResults) {
@@ -125,8 +151,11 @@ export function buildMainStats(updateResults) {
 
 // ---------------------------------------------------------------- formatting
 
+// Two decimals when one would read "1.0", so a near-parity ratio still says
+// which way it goes.
 export function x(value) {
-  return value >= 10 ? value.toFixed(0) : value.toFixed(1);
+  if (value >= 10) return value.toFixed(0);
+  return value.toFixed(1) === '1.0' ? value.toFixed(2) : value.toFixed(1);
 }
 
 // "1.2–1.4× faster", "up to 1.3× faster (5 faster, 1 tie)", "1.2–1.4× slower"
@@ -193,6 +222,11 @@ export function judge(left, opponent, {unread = false} = {}) {
 export function verdictText(c) {
   if (c?.noWork) return c.unread ? 'unread update' : 'no work';
   if (c?.split) return 'tie (restarts disagree)';
+  // As x(): two decimals where one would read "1.0".
+  if (c && !c.tie) {
+    const r = c.ratio < 1 ? 1 / c.ratio : c.ratio;
+    if (r.toFixed(1) === '1.0') return `${r.toFixed(2)}× ${c.ratio < 1 ? 'faster' : 'slower'}`;
+  }
   return verdict(c).replace(/<[^>]+>/g, '');
 }
 
@@ -337,7 +371,8 @@ export const PATTERNS = {
   'main.tally.<comparison>.all.matchOrBeat': 'Main suite, every scenario: wins + ties. main.tally.selectors.all.matchOrBeat is the headline.',
   'main.tally.<comparison>.all.range': 'Main suite, every scenario: range of speedups as text.',
   'main.tally.<comparison>.all.split': 'Main suite, every scenario: ties only because the restarts disagreed on the direction.',
-  'counts.<suite>.<scenario>.<variant>.<compiler>.<metric>': 'Counting build, one update (averaged where the suite averages): renders, rows (Row renders), selectors (selector calls) or derivations. Suite "main" is the main suite at N=1,000.',
+  'counts.<suite>.<scenario>.<variant>.<compiler>.<metric>': 'Counting build, one update (averaged where the suite averages): renders (counted renders: only components that call countRender; for main and fairness, method.countedComponents, so App and the list aren\'t counted), rows (Row renders), selectors (selector calls) or derivations. Suite "main" is the main suite at method.countsRows rows.',
+  'method.countedComponents': 'The components the main app\'s counting build counts in renders, e.g. "Row, RowView, DetailsView and CountView".',
   'suite.<suite>.<scenario>.x<throttle>.<variant>.<compiler>.median': 'Ported Redux suites and fairness: median ms per update.',
   'suite.<suite>.<scenario>.x<throttle>.<left>.verdict': 'Ported Redux suites and fairness: store (or store-memo) + compiler vs the fastest other library at its faster compiler setting.',
   'suite.<suite>.tally.<left>.wins': 'Suite: configurations store (or store-memo) won.',
@@ -382,6 +417,32 @@ export const PATTERNS = {
   'losses.<area>.count': 'Where it doesn\'t win: configurations the store side lost (under method.verdictRule: outside two standard errors and slower in every restart) in an area: main (vs the headline opponents), granular (main suite vs the granular control), suites, fairness (fairness5: store vs the fastest Redux setup), sweeps, spike.',
   'losses.<area>.of': 'Where it doesn\'t win: configurations compared in the area.',
   'losses.all.count': 'Where it doesn\'t win: losses over every area.',
+  'ctx.<scenario>.n<n>.x<throttle>.<compiler>.<vs>': 'Store vs Context at the SAME compiler setting (compiler off or on for both): vs is vsContext (one context) or vsContextSplit (a context per slice). Medians: main.<scenario>.n<n>.x<throttle>.<variant>.<compiler>.median.',
+  'ctx.<scenario>.n<n>.x<throttle>.compilerGain.<variant>': 'What the compiler buys one variant (store, context, context-split): with the compiler vs without it, same configuration ("faster" means faster with the compiler).',
+  'ctx.tally.<compiler>.<vs>.<scope>.wins': 'Store vs Context at the same compiler setting, per scenario or "all": configurations store won.',
+  'ctx.tally.<compiler>.<vs>.<scope>.ties': 'Store vs Context at the same setting: ties.',
+  'ctx.tally.<compiler>.<vs>.<scope>.losses': 'Store vs Context at the same setting: losses.',
+  'ctx.tally.<compiler>.<vs>.<scope>.total': 'Store vs Context at the same setting: configurations compared.',
+  'ctx.tally.<compiler>.<vs>.<scope>.split': 'Store vs Context at the same setting: ties only because the restarts disagreed.',
+  'ctx.tally.<compiler>.<vs>.<scope>.matchOrBeat': 'Store vs Context at the same setting: wins + ties.',
+  'ctx.tally.<compiler>.<vs>.<scope>.range': 'Store vs Context at the same setting: range of speedups as text.',
+  'ctx.tally.<compiler>.<vs>.lostScenarios': 'Store vs Context at the same setting: scenarios with a loss, lowercase prose names, or "none".',
+  'ctx.tally.<compiler>.<vs>.maxLoss': 'Store vs Context at the same setting: the largest loss, ratio of means.',
+  'ctx.tally.<compiler>.<vs>.maxLossPct': 'Store vs Context at the same setting: the largest loss as a percentage slower.',
+  'ctx.tally.compilerGain.<variant>.<scope>.wins': 'What the compiler buys a variant, per scenario or "all": configurations faster with it.',
+  'ctx.tally.compilerGain.<variant>.<scope>.ties': 'What the compiler buys: ties.',
+  'ctx.tally.compilerGain.<variant>.<scope>.losses': 'What the compiler buys: configurations slower with it.',
+  'ctx.tally.compilerGain.<variant>.<scope>.total': 'What the compiler buys: configurations compared.',
+  'ctx.tally.compilerGain.<variant>.<scope>.split': 'What the compiler buys: ties only because the restarts disagreed.',
+  'ctx.tally.compilerGain.<variant>.<scope>.matchOrBeat': 'What the compiler buys: faster or tied.',
+  'ctx.tally.compilerGain.<variant>.<scope>.range': 'What the compiler buys: range of speedups as text.',
+  'ctx.compilerGain.storeMore.<variant>.<scope>.count': 'Configurations where the compiler speeds store up more than it speeds up context or context-split (ratio of the two speedups, no noise test), per scenario or "all".',
+  'ctx.compilerGain.storeMore.<variant>.<scope>.of': 'Configurations compared for storeMore.',
+  'ctx.compilerGain.storeMore.<variant>.everyConfig': 'Scenarios (lowercase prose names) where the compiler speeds store up more than the Context variant in every configuration, or "none".',
+  'ctx.memory.storeVs.<variant>.<compiler>.n<n>': 'Bytes per row of store / context or context-split, same compiler setting.',
+  'ctx.tally.compilerGain.<variant>.lostScenarios': 'Scenarios where the compiler makes the variant slower, lowercase prose names, or "none".',
+  'ctx.tally.compilerGain.<variant>.maxLoss': 'The largest slowdown from the compiler, ratio of means.',
+  'ctx.tally.compilerGain.<variant>.maxLossPct': 'The largest slowdown from the compiler as a percentage.',
   'losses.all.of': 'Where it doesn\'t win: comparisons over every area.',
   'losses.control.<control>.count': 'Losses in a control comparison left out of the losses table (context, contextSplit, singleStore, noCompiler, noBailout, fairness5Zustand).',
   'losses.control.<control>.of': 'Comparisons in that control.',
@@ -706,11 +767,11 @@ export function computeReportData(sources = readSources()) {
     );
     if (rs.length > 1 && same) {
       const work = [...byCompiler.values()]
-        .map(g => `${countDisplay(g[0].renders)} component renders, ${countDisplay(g[0].rows)} Row renders ${g[0].bundle.endsWith('+compiler') ? 'compiled' : 'uncompiled'}`)
-        .join('; ');
+        .map(g => `${g[0].bundle.endsWith('+compiler') ? 'compiled' : 'uncompiled'}: ${countDisplay(g[0].renders)} counted renders, ${countDisplay(g[0].rows)} of them Row`)
+        .join(' / ');
       lowSignal[scenario] = {
         short: 'every variant does the same render work in the counting build, so it mostly measures list reconciliation, not store or selector work',
-        long: `Low signal: in the counting build every variant does the same render work for one ${scenario} update (${work}), so it mostly measures list reconciliation, not store or selector work (${loaded.counts.files.join(', ')}).`,
+        long: `Low signal: in the counting build every variant does the same render work for one ${scenario} update (${work}; ${COUNTED_TEXT}), so it mostly measures list reconciliation, not store or selector work (${loaded.counts.files.join(', ')}).`,
       };
     }
   }
@@ -960,8 +1021,145 @@ export function computeReportData(sources = readSources()) {
     all: Object.fromEntries(Object.keys(COMPARISONS).map(id => [id, roundTally(tallies[id].all)])),
   };
 
+  // -------------------------------------------------------------- store vs context
+
+  // use(store) against Context at the SAME compiler setting (store-vs-context
+  // report), and what the compiler buys each approach. Unlike
+  // main.tally.context, nobody gets their faster setting here.
+  const CTX_VARIANTS = ['store', 'context', 'context-split'];
+  const CTX_VS = {vsContext: 'context', vsContextSplit: 'context-split'};
+  const CTX_NAMES = {store: 'use(store)', context: 'one context', 'context-split': 'a context per slice'};
+  if (CTX_VARIANTS.every(v => variants.includes(v))) {
+    const ctxCells = {};
+    const byTally = {};
+    const storeMore = {};
+    const push = (key, sc, c) => ((byTally[key] ??= {})[sc] ??= []).push(c);
+    for (const [sc] of scenarios) {
+      for (const n of ns) {
+        for (const t of throttles) {
+          const byVariant = cellOf(sc, n, t);
+          if (!byVariant) continue;
+          const cell = {verdicts: {off: {}, on: {}}, gains: {}};
+          for (const c of ['off', 'on']) {
+            const store = byVariant.get(name('store', c === 'on')) ?? null;
+            for (const [vs, opp] of Object.entries(CTX_VS)) {
+              const other = byVariant.get(name(opp, c === 'on')) ?? null;
+              const v = judge(store, other);
+              cell.verdicts[c][vs] = slimVerdict(v);
+              push(`${c}|${vs}`, sc, v);
+              if (!v) continue;
+              put('ctx.<scenario>.n<n>.x<throttle>.<compiler>.<vs>', [sc, n, t, c, vs], v.ratio, {
+                unit: 'verdict',
+                display: verdictText(v),
+                source: src('main', fileList([store, other]), `stats.mjs compare(store ${c === 'on' ? '+ compiler' : 'without the compiler'}, ${opp} at the same setting; medians: main.${sc}.n${n}.x${t}.store.${c}.median and main.${sc}.n${n}.x${t}.${opp}.${c}.median), ${sc}, N=${n}, ${t}× CPU`),
+              });
+            }
+          }
+          for (const v of CTX_VARIANTS) {
+            const on = byVariant.get(name(v, true)) ?? null;
+            const off = byVariant.get(name(v, false)) ?? null;
+            const g = judge(on, off);
+            cell.gains[v] = slimVerdict(g);
+            push(`gain|${v}`, sc, g);
+            if (!g) continue;
+            put('ctx.<scenario>.n<n>.x<throttle>.compilerGain.<variant>', [sc, n, t, v], g.ratio, {
+              unit: 'verdict',
+              display: verdictText(g),
+              source: src('main', fileList([on, off]), `stats.mjs compare(${v} + compiler, ${v} without it) ("faster" means faster with the compiler), ${sc}, N=${n}, ${t}× CPU`),
+            });
+          }
+          // Does the compiler help store more than each Context variant?
+          // Speedup = mean without / mean with the compiler (no noise test:
+          // it compares two speedups).
+          const speedup = v => {
+            const on = byVariant.get(name(v, true));
+            const off = byVariant.get(name(v, false));
+            return on && off ? off.mean / on.mean : null;
+          };
+          for (const opp of ['context', 'context-split']) {
+            const a = speedup('store');
+            const b = speedup(opp);
+            if (a === null || b === null) continue;
+            ((storeMore[opp] ??= {})[sc] ??= []).push(a > b);
+          }
+          ctxCells[`${sc}|${n}|${t}`] = cell;
+        }
+      }
+    }
+    const ctxTallies = {};
+    for (const [key, byScenario] of Object.entries(byTally)) {
+      const [first, second] = key.split('|');
+      const isGain = first === 'gain';
+      const base = isGain ? `ctx.tally.compilerGain.${second}` : `ctx.tally.${first}.${second}`;
+      const label = isGain
+        ? `${second} + compiler vs ${second} without it`
+        : `store vs ${CTX_VS[second]}, both ${first === 'on' ? 'with' : 'without'} the compiler`;
+      const scopes = {...byScenario, all: Object.values(byScenario).flat()};
+      ctxTallies[key] = {};
+      for (const [scope, cs] of Object.entries(scopes)) {
+        const t = tallyOf(cs);
+        ctxTallies[key][scope] = roundTally(t);
+        if (t.total === 0) continue;
+        const source = src('main', main.files, `tally of stats.mjs compare under method.verdictRule: ${label}, ${scope === 'all' ? 'every scenario' : scope}, every size and throttle`);
+        const pattern = isGain ? 'ctx.tally.compilerGain.<variant>.<scope>' : 'ctx.tally.<compiler>.<vs>.<scope>';
+        const params = isGain ? [second, scope] : [first, second, scope];
+        for (const field of ['wins', 'ties', 'losses', 'total', 'split']) {
+          put(`${pattern}.${field}`, params, t[field], {unit: 'count', source});
+        }
+        put(`${pattern}.matchOrBeat`, params, t.wins + t.ties, {unit: 'count', source});
+        put(`${pattern}.range`, params, describe(t), {unit: 'text', source});
+      }
+      // Where the left side loses, and by how much at most.
+      const lost = scenarios.filter(([sc]) => tallyOf(byScenario[sc] ?? []).losses > 0);
+      const ratios = Object.values(byScenario).flat().filter(c => c && !c.noWork && !c.tie && c.ratio >= 1).map(c => c.ratio);
+      const lossPattern = isGain ? 'ctx.tally.compilerGain.<variant>' : 'ctx.tally.<compiler>.<vs>';
+      const lossParams = isGain ? [second] : [first, second];
+      const lossSource = src('main', main.files, `losses under method.verdictRule: ${label}, every scenario, size and throttle`);
+      put(`${lossPattern}.lostScenarios`, lossParams, lost.length ? listText(lost.map(([sc]) => prose(sc))) : 'none', {unit: 'text', source: lossSource});
+      if (ratios.length) {
+        const worst = Math.max(...ratios);
+        put(`${lossPattern}.maxLoss`, lossParams, worst, {unit: 'ratio', display: `${x(worst)}× slower`, source: lossSource + ' · max ratio of means'});
+        put(`${lossPattern}.maxLossPct`, lossParams, (worst - 1) * 100, {unit: 'count', display: `${Math.round((worst - 1) * 100)}%`, source: lossSource + ' · max ratio of means'});
+      }
+    }
+    for (const [opp, byScenario] of Object.entries(storeMore)) {
+      const source = src('main', main.files, `configurations where store's compiler speedup (mean without / mean with) is larger than ${opp}'s, same configuration; a comparison of two speedups, without a noise test`);
+      const scopes = {...byScenario, all: Object.values(byScenario).flat()};
+      for (const [scope, flags] of Object.entries(scopes)) {
+        put('ctx.compilerGain.storeMore.<variant>.<scope>.count', [opp, scope], flags.filter(Boolean).length, {unit: 'count', source});
+        put('ctx.compilerGain.storeMore.<variant>.<scope>.of', [opp, scope], flags.length, {unit: 'count', source});
+      }
+      const every = scenarios.filter(([sc]) => byScenario[sc]?.length && byScenario[sc].every(Boolean)).map(([sc]) => prose(sc));
+      put('ctx.compilerGain.storeMore.<variant>.everyConfig', [opp], every.length ? listText(every) : 'none', {unit: 'text', source: source + ', scenarios where it holds in every configuration'});
+    }
+    series.ctx = {
+      variants: CTX_VARIANTS,
+      names: CTX_NAMES,
+      vs: CTX_VS,
+      cells: ctxCells,
+      tallies: ctxTallies,
+    };
+  }
+
   // -------------------------------------------------------------- counts
 
+  // What each counter counts. renders counts only the components that call
+  // countRender, not every component (App and the list aren't counted).
+  const MAIN_APP_SUITES = new Set(['main', 'fairness']);
+  function metricText(suite, metric) {
+    if (metric === 'renders') {
+      return MAIN_APP_SUITES.has(suite)
+        ? COUNTED_TEXT
+        : suite === 'sweeps'
+          ? 'counted renders (the sweep rows and row views that call countRender)'
+          : `counted renders (the ${suite} components that call countRender)`;
+    }
+    return {rows: 'Row renders', selectors: 'selector calls', derivations: 'derivations'}[metric];
+  }
+  put('method.countedComponents', [], listText(COUNTED), {
+    unit: 'text',
+    source: 'src/apps/*.jsx (not sweep-*) and src/shared/views.jsx: top-level functions that call countRender; Row-like components (kind row) listed as Row',
+  });
   const countRows = [];
   // Every counting result, for the reasons in the losses table.
   const allCounts = new Map();
@@ -979,7 +1177,7 @@ export function computeReportData(sources = readSources()) {
           if (typeof r[metric] !== 'number') continue;
           put('counts.<suite>.<scenario>.<variant>.<compiler>.<metric>', [suite, r.scenario, variant, compiler, metric], r[metric], {
             unit: 'count',
-            source: src(set, [file], `counting build, ${metric} for one ${r.scenario} update, ${r.bundle}`),
+            source: src(set, [file], `counting build, ${metricText(suite, metric)} for one ${r.scenario} update, ${r.bundle}`),
           });
         }
         allCounts.set(`${suite}|${r.scenario}|${variant}|${compiler}`, r);
@@ -1026,13 +1224,15 @@ export function computeReportData(sources = readSources()) {
     const b = allCounts.get(`${suite}|${scenario}|${opponent.variant}|${opponent.compiler}`);
     if (!a || !b) return null;
     const fields = [
-      ['renders', 'component renders'],
+      ['renders', 'counted renders'],
       ['rows', 'Row renders'],
       ['selectors', 'selector calls'],
       ['derivations', 'derivations'],
     ].filter(([f]) => typeof a[f] === 'number' && typeof b[f] === 'number' && (a[f] !== 0 || b[f] !== 0));
     const describeCounts = r => fields.map(([f, label]) => `${countDisplay(r[f])} ${label}`).join(', ');
-    return `Counting build, one update${suite === 'main' || suite === 'fairness' || suite === 'sweeps' ? ' at N=1,000' : ''}: ${left.variant} ${describeCounts(a)}; ${opponent.variant} ${describeCounts(b)}.`;
+    const counted = MAIN_APP_SUITES.has(suite) ? ` (counted: ${listText(COUNTED)})` : '';
+    const size = (MAIN_APP_SUITES.has(suite) || suite === 'sweeps') && countsN ? ` at N=${int(Number(countsN))}` : '';
+    return `Counting build, one update${size}${counted}. ${left.variant}: ${describeCounts(a)}. ${opponent.variant}: ${describeCounts(b)}.`;
   }
 
   function noteLoss(area, c, row) {
@@ -1629,7 +1829,7 @@ export function computeReportData(sources = readSources()) {
     );
     const t = tallyOf(cs);
     const missing = SCENARIOS.map(([sc]) => sc).filter(sc => !hScenarios.includes(sc));
-    const about = `${sources.sets[set].note ?? ''} ${hScenarios.length} scenarios (${hScenarios.join(', ')}${missing.length ? `; no ${missing.join(', ')}` : ''}).`.trim();
+    const about = `${sources.sets[set].note ?? ''} ${hScenarios.length} scenarios (${hScenarios.join(', ')}${missing.length ? `, without ${missing.join(', ')}` : ''}).`.trim();
     const source = src(set, loaded[set].files, `tally of stats.mjs compare: ${COMPARISONS.selectors.label}, every scenario, size and throttle, by the same rule as main.tally.selectors.all. ${about}`);
     for (const field of ['wins', 'ties', 'losses', 'total', 'split']) {
       put(`history.final.tally.selectors.all.${field}`, [], t[field], {unit: 'count', source});
@@ -1713,7 +1913,7 @@ export function computeReportData(sources = readSources()) {
       .filter(b => b.loadGated.length)
       .map(b => [...groupBy(b.loadGated, u => `${u.set} restart ${u.file.match(/-r(\d+)-/)?.[1] ?? '?'}`).entries()].map(([k, us]) => `${k} (${us.length} files)`).join(', '))
       .join(', ');
-    const history = `Load-average gate first (start at or below a 1-minute load, re-run if the load after the unit was above: ${loadSteps.join(', then ')}${structure.length ? `; structure units re-run above ${structure.at(-1)}` : ''}), used by ${loadGatedText || 'no pinned file'}; then from ${ambientOn.at.slice(11, 16)} an ambient-CPU gate on cores used outside the benchmark (start at or below ${ambientFirst[1]}, re-run if the mean was above ${ambientFirst[2]}; set to ${start}/${discard} at ${thresholds.at.slice(11, 16)}), used by every other pinned timed file.`;
+    const history = `Load-average gate first (start at or below a 1-minute load, re-run if the load after the unit was above: ${loadSteps.join(', then ')}${structure.length ? `, with structure units re-run above ${structure.at(-1)}` : ''}), used by ${loadGatedText || 'no pinned file'}. Then from ${ambientOn.at.slice(11, 16)} an ambient-CPU gate on cores used outside the benchmark (start at or below ${ambientFirst[1]}, re-run if the mean was above ${ambientFirst[2]}, set to ${start}/${discard} at ${thresholds.at.slice(11, 16)}), used by every other pinned timed file.`;
     put('method.gate.history', [], history, {
       unit: 'text',
       source: `${logs.join(' and ')}: lines with "gate changed", "discard rule" or "ambient thresholds" (${lineSource(find(/gate changed|discard rule|ambient thresholds/))}); load-gated files: pinned timed files with no ambient record`,
@@ -1897,6 +2097,15 @@ export function computeReportData(sources = readSources()) {
       unit: 'text',
       source: src('main-memory', files, `store's place among every variant sorted by ${what}, fewest bytes first`),
     });
+    // store vs both Context variants, for the store-vs-context report.
+    for (const lib of ['context', 'context-split']) {
+      const other = rows.find(r => r.variant === lib);
+      if (!other) continue;
+      put('ctx.memory.storeVs.<variant>.<compiler>.n<n>', [lib, compiler, n], store.bytesPerRow / other.bytesPerRow, {
+        unit: 'ratio',
+        source: src('main-memory', files, `store / ${lib}, ${what}`),
+      });
+    }
     const names = {context: 'one context', redux: 'Redux', zustand: 'Zustand'};
     const more = [];
     const less = [];
@@ -1955,9 +2164,10 @@ function roundTally(t) {
   return {...rest, min: r4(t.min), max: r4(t.max), range: describe(t)};
 }
 
-// "a", "a and b", "a, b and c".
+// "a", "a and b", "a, b, and c" (serial comma, style-sheet.md).
 function listText(items) {
-  return items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
+  if (items.length <= 2) return items.join(' and ');
+  return `${items.slice(0, -1).join(', ')}, and ${items.at(-1)}`;
 }
 
 // ---------------------------------------------------------------- KEYS.md

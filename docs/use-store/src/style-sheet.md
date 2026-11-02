@@ -255,3 +255,12 @@ work in progress (noun); work-in-progress (adjective: the work-in-progress
 ## Quoted error and warning messages
 
 React's own error and warning text, quoted in prose, goes in `<q>`, copied exactly from the source (for example `<q>A store was updated before this server render.</q>`, from ReactFizzHooks.js). Describing an error without quoting it ("it throws the invalid Hook call error") needs no markup. Added at the explainer refresh, when the server section's three quoted messages were made consistent.
+
+## Store-vs-context terms
+
+Added in the store-vs-context page's editing pass on 2026-11-02.
+
+- "one context" and "a context per slice" are the prose names for `context` and `context-split`, always lowercase with the article. Together they're "either Context approach", "both Context approaches" or "the Context apps" (capital C, the feature).
+- "counted renders": renders of `Row`, `RowView`, `DetailsView` and `CountView` only, from the counting build. Never "every render" or "the work". "rows and views" is the plain gloss.
+- "at no CPU throttling" / "at four times CPU throttling" for typing results (the "at" form is a locked scope phrase on this page). Not "at no throttling".
+- "the slowest one in twenty keys (`p95`)" glosses p95 on first use.

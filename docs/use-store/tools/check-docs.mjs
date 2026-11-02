@@ -63,6 +63,7 @@ const onlySandbox = option('only', null);
 const PAGES = {
   explainer: path.join(docs, 'explainer.html'),
   'benchmark-report': path.join(docs, 'benchmark-report.html'),
+  'store-vs-context': path.join(docs, 'store-vs-context.html'),
   demo: path.join(docs, 'sandbox/demo.html'),
 };
 const REDIRECT = {

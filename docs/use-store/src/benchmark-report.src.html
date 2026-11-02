@@ -234,7 +234,7 @@
 
 <h3 id="work">What each update does, from the counting build</h3>
 
-<p>Editing an entity re-renders <span data-n="counts.main.entity.store.on.rows"></span> row with <code>use(store)</code>, while Redux makes <span data-n="counts.main.entity.redux.on.selectors"></span> selector calls to find the same row. In the inline conditional read, only expanded rows read the details store, so <code>use(store)</code> renders <span data-n="counts.main.details-inline.store.on.renders"></span> components and makes no selector calls. Redux renders as many, but makes <span data-n="counts.main.details-inline.redux.on.selectors"></span> selector calls. On selection, it goes the other way. <code>use(store)</code> renders <span data-n="counts.main.selection.store.on.rows"></span> rows, and Zustand renders <span data-n="counts.main.selection.zustand.on.rows"></span>.</p>
+<p>Editing an entity re-renders <span data-n="counts.main.entity.store.on.rows"></span> row with <code>use(store)</code>, while Redux makes <span data-n="counts.main.entity.redux.on.selectors"></span> selector calls to find the same row. In the inline conditional read, only expanded rows read the details store, so <code>use(store)</code> makes <span data-n="counts.main.details-inline.store.on.renders"></span> counted renders and no selector calls. Redux renders as many, but makes <span data-n="counts.main.details-inline.redux.on.selectors"></span> selector calls. On selection, it goes the other way. <code>use(store)</code> renders <span data-n="counts.main.selection.store.on.rows"></span> rows, and Zustand renders <span data-n="counts.main.selection.zustand.on.rows"></span>.</p>
 
 <!-- gen:counts-table --><!-- /gen:counts-table -->
 
@@ -246,7 +246,7 @@
 
 <!-- gen:scoreboard-controls --><!-- /gen:scoreboard-controls -->
 
-<p>Against Context, <code>use(store)</code> beats a context per slice in every configuration (<span data-n="main.tally.context-split.all.range"></span>). Against one context for everything, it's <span data-n="main.tally.context.all.range"></span>. It loses to one context only in these scenarios: <span data-n="main.tally.context.lostScenarios"></span>. There, the counting build shows the same renders for both, because every row reads the changed value either way. The biggest loss is <span data-n="main.tally.context.maxLoss"></span>.</p>
+<p>Against Context, <code>use(store)</code> beats a context per slice in every configuration (<span data-n="main.tally.context-split.all.range"></span>). Against one context for everything, it's <span data-n="main.tally.context.all.range"></span>. It loses to one context only in these scenarios: <span data-n="main.tally.context.lostScenarios"></span>. There, the counting build shows the same renders for both, because every row reads the changed value either way. The biggest loss is <span data-n="main.tally.context.maxLoss"></span>. <a href="store-vs-context.html">A separate page</a> compares <code>use(store)</code> and Context at each compiler setting.</p>
 
 <details>
 <summary>Every median in the main suite</summary>
@@ -509,7 +509,7 @@
 
 <h3 id="counting">The counting build: what each update did</h3>
 
-<p>The counting build is a second build of the same code, with counters for component renders, <code>Row</code> renders, selector calls, and runs of an expensive derivation. It's deterministic, so it isn't timed or gated. Before any timing, each scenario replays <span data-n="method.verifySteps"></span> updates in every variant, and the DOM must match after each one. That check runs in jsdom and in Chrome, except for the sweeps, which run it in Chrome only.</p>
+<p>The counting build is a second build of the same code with counters. It counts renders of <span data-n="method.countedComponents"></span>, not every component, with <code>Row</code> renders counted on their own too. It also counts selector calls and runs of an expensive derivation. It's deterministic, so it isn't timed or gated. Before any timing, each scenario replays <span data-n="method.verifySteps"></span> updates in every variant, and the DOM must match after each one. That check runs in jsdom and in Chrome, except for the sweeps, which run it in Chrome only.</p>
 
 <h3 id="reading">Notes for reading the scenarios</h3>
 

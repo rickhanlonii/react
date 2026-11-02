@@ -339,7 +339,9 @@ const LIB = {
         r.off ? LIB.ms(r.off.p95) : '–',
       ])
     );
-    const note = cell.verdict
+    const note = cell.note
+      ? cell.note
+      : cell.verdict
       ? `store + compiler vs ${LIB.esc(d.headline)} (${LIB.esc(cell.best)}): <strong>${LIB.esc(cell.verdict.text)}</strong>` +
         (cell.granular ? ` · vs the granular control: ${LIB.esc(cell.granular.text)}` : '')
       : '';
@@ -390,9 +392,9 @@ const LIB = {
       plot,
       table: LIB.table(head, rows),
       note:
-        'Median ms per update with the compiler; small numbers are the ratio of means to redux. store-derived is fast but tears under transitions.' +
+        'Median ms per update with the compiler. Small numbers are the ratio of means to redux. store-derived is fast but tears under transitions.' +
         (unread.length
-          ? ` ${unread.join(', ')}: an unread update (no component displays what changes, so the DOM never changes); the store variants do no work, which counts as no work, not as a win.`
+          ? ` ${unread.join(', ')}: an unread update (no component displays what changes, so the DOM never changes). The store variants do no work, which counts as no work, not as a win.`
           : ''),
     };
   },
@@ -530,7 +532,7 @@ function figure(kind, {title, controls, state, data, data: d}) {
     )
     .join('');
   return `<figure class="viz" data-viz="${kind}" data-state="${esc(JSON.stringify(state))}">
-<figcaption class="viz-title">${esc(title)}</figcaption>
+<figcaption class="viz-title">${codeify(esc(title))}</figcaption>
 <div class="viz-controls" role="group" aria-label="${esc(title)} filters">${controlHtml}</div>
 <p class="viz-note" aria-live="polite">${view.note}</p>
 <div class="viz-plot">${view.plot}</div>
@@ -544,22 +546,34 @@ function legend(items) {
   return `<div class="viz-legend">${items
     .map(
       ([cls, shape, label]) =>
-        `<span><svg width="22" height="12" aria-hidden="true"><g class="${cls}">${shape === 'line' ? '<line class="line" x1="1" x2="21" y1="6" y2="6"/>' : shape === 'ring' ? '<circle class="dot-off" cx="11" cy="6" r="4.5"/>' : shape === 'bar' ? '<rect class="bar" x="1" y="2" width="20" height="8" rx="2"/>' : '<circle class="dot-on" cx="11" cy="6" r="4.5"/>'}</g></svg>${esc(label)}</span>`
+        `<span><svg width="22" height="12" aria-hidden="true"><g class="${cls}">${shape === 'line' ? '<line class="line" x1="1" x2="21" y1="6" y2="6"/>' : shape === 'ring' ? '<circle class="dot-off" cx="11" cy="6" r="4.5"/>' : shape === 'bar' ? '<rect class="bar" x="1" y="2" width="20" height="8" rx="2"/>' : '<circle class="dot-on" cx="11" cy="6" r="4.5"/>'}</g></svg>${codeify(esc(label))}</span>`
     )
     .join('')}</div>`;
 }
 
+// "a", "a and b", "a, b, and c" (serial comma, style-sheet.md).
+function listText(items) {
+  if (items.length <= 2) return items.join(' and ');
+  return `${items.slice(0, -1).join(', ')}, and ${items.at(-1)}`;
+}
+
+// use(store) in prose is code (style-sheet.md). Takes HTML, skips ones that
+// are already in <code>.
+function codeify(html) {
+  return html.replace(/(?<!<code>)use\(store\)/g, '<code>use(store)</code>');
+}
+
 function card(inner, caption) {
-  return `<div class="viz viz-card">${inner}${caption ? `<p class="viz-caption">${caption}</p>` : ''}</div>`;
+  return `<div class="viz viz-card">${inner}${caption ? `<p class="viz-caption">${codeify(caption)}</p>` : ''}</div>`;
 }
 
 function table(head, rows, cls = '') {
   return `<div class="viz-scroll"><table class="viz-table${cls ? ' ' + cls : ''}"><thead><tr>${head
-    .map((h, i) => `<th${i ? ' class="r"' : ''}>${h}</th>`)
+    .map((h, i) => `<th${i ? ' class="r"' : ''}>${codeify(h)}</th>`)
     .join('')}</tr></thead><tbody>${rows
     .map(
       r =>
-        `<tr${r.cls ? ` class="${r.cls}"` : ''}>${(r.cells ?? r).map((c, i) => `<td${i ? ' class="r"' : ''}>${c}</td>`).join('')}</tr>`
+        `<tr${r.cls ? ` class="${r.cls}"` : ''}>${(r.cells ?? r).map((c, i) => `<td${i ? ' class="r"' : ''}>${codeify(c)}</td>`).join('')}</tr>`
     )
     .join('')}</tbody></table></div>`;
 }
@@ -835,7 +849,7 @@ function countsTable(data) {
       [
         'scenario',
         'variant',
-        'component renders',
+        'counted renders',
         'Row renders',
         'selector calls',
       ],
@@ -847,7 +861,7 @@ function countsTable(data) {
         LIB.int(r.selectors),
       ])
     ),
-    'From the counting build at N=1,000, every component compiled: work for one update.'
+    `From the counting build at ${esc(data.values['method.countsRows']?.display ?? '')} rows, every component compiled: work for one update. Counted renders are the renders of ${esc(data.values['method.countedComponents']?.display ?? 'the instrumented components')}, not every component (App and the list aren't counted). Row renders are among them.`
   );
 }
 
@@ -881,7 +895,7 @@ function suiteTable(data, suite) {
   const unread = [...new Set(s.rows.filter(r => Object.values(r.verdicts).some(v => v?.unread)).map(r => r.scenario))];
   return card(
     placeholderBanner(data) + table(head, rows),
-    `Median ms per update with the compiler; small numbers are the ratio of means to redux. ${s.lefts.length ? `Verdicts compare with the fastest of ${esc(s.opponents.join(', '))}, each at its faster compiler setting.` : ''}${s.controls?.length ? ` The control columns compare each Redux setup with redux, each at its faster compiler setting ("faster" means the control is faster).` : ''} ${esc(rule(data))}${unread.length ? ` ${esc(unread.join(', '))}: an unread update (no component displays what changes, so the DOM never changes), counted as no work, not as a win.` : ''}`
+    `Median ms per update with the compiler. Small numbers are the ratio of means to redux. ${s.lefts.length ? `Verdicts compare with the fastest of ${esc(listText(s.opponents))}, each at its faster compiler setting.` : ''}${s.controls?.length ? ` The control columns compare each Redux setup with redux, each at its faster compiler setting ("faster" means the control is faster).` : ''} ${esc(rule(data))}${unread.length ? ` ${esc(unread.join(', '))}: an unread update (no component displays what changes, so the DOM never changes), counted as no work, not as a win.` : ''}`
   );
 }
 
@@ -909,7 +923,7 @@ function fairness5Table(data) {
   });
   return card(
     placeholderBanner(data) + table(head, rows, 'scoreboard'),
-    `Median ms per update with the compiler. use(store) with the compiler against the fastest of ${esc(d.redux.join(', '))} (each at its faster compiler setting), and against Zustand. The headline itself stays defined against idiomatic RTK Redux. ${esc(rule(data))}`
+    `Median ms per update with the compiler. use(store) with the compiler against the fastest of ${esc(listText(d.redux))} (each at its faster compiler setting), and against Zustand. The headline itself stays defined against idiomatic RTK Redux. ${esc(rule(data))}`
   );
 }
 
@@ -1004,7 +1018,7 @@ function typingTable(data, which) {
           String(r.runs),
         ])
       ),
-    'Keydown to next frame while the list re-filters, over every key of every run. "List caught up" is the time from the start of typing (the click into the input) until the list shows the rows for the full typed text, so it includes the typing itself; median of runs.'
+    'Keydown to next frame while the list re-filters, over every key of every run. "List caught up" is the time from the start of typing (the click into the input) until the list shows the rows for the full typed text, so it includes the typing itself. Median of runs.'
   );
 }
 
@@ -1036,7 +1050,7 @@ function lossesTable(data) {
   const headline = data.series.main.headline ?? 'the headline opponents';
   const areas = [
     ['main', `Main suite, vs ${headline}`],
-    ['granular', 'Main suite, vs the granular control (a Zustand store per entity; not part of the headline)'],
+    ['granular', 'Main suite, vs the granular control (a Zustand store per entity, not part of the headline)'],
     ['suites', 'Ported Redux suites and fairness'],
     ['fairness', 'Fairness with every variant: store vs the fastest Redux setup (RTK, plain Redux, RTK without auto-freeze)'],
     ['sweeps', 'Sweeps: selection and compiler coverage'],
@@ -1100,7 +1114,7 @@ function nobailoutTable(data) {
   const v = data.values;
   const shown = k => esc(v[k]?.display ?? 'n/a');
   const tally = v['nobailout.main.tally.all.total']
-    ? `<p class="viz-note">Without the bailout, use(store) with the compiler matches or beats ${esc(data.series.main.headline ?? 'the headline opponents')} in ${shown('nobailout.main.tally.all.matchOrBeat')} of ${shown('nobailout.main.tally.all.total')} configurations: ${shown('nobailout.main.tally.all.range')}. With it (the head build, same configurations): ${shown('nobailout.main.tally.withBailout.matchOrBeat')} of ${shown('nobailout.main.tally.withBailout.total')}: ${shown('nobailout.main.tally.withBailout.range')}.</p>`
+    ? `<p class="viz-note">Without the bailout, <code>use(store)</code> with the compiler matches or beats ${esc(data.series.main.headline ?? 'the headline opponents')} in ${shown('nobailout.main.tally.all.matchOrBeat')} of ${shown('nobailout.main.tally.all.total')} configurations: ${shown('nobailout.main.tally.all.range')}. With it (the head build, same configurations): ${shown('nobailout.main.tally.withBailout.matchOrBeat')} of ${shown('nobailout.main.tally.withBailout.total')}: ${shown('nobailout.main.tally.withBailout.range')}.</p>`
     : '';
   let sweeps = '';
   const sw = data.series.nobailoutSweeps;
@@ -1122,6 +1136,110 @@ function nobailoutTable(data) {
   return card(
     placeholderBanner(data) + tally + table(head, rows) + sweeps,
     `React built with enableSameElementBailout off, compiler on, median ms per update. Never part of the headline. "What the bailout buys" compares store + compiler on the head build with this build in the same configuration ("faster" means faster with the bailout). ${esc(rule(data))}`,
+  );
+}
+
+// ---------------------------------------------------------------- store vs context
+
+function ctxScenarios(data) {
+  return data.series.main.scenarios;
+}
+
+function ctxScoreboard(data) {
+  const d = data.series.ctx;
+  if (!d) return card('<p class="viz-empty">No pinned Context results.</p>');
+  const cols = [
+    ['off|vsContext', 'vs one context, compiler off'],
+    ['on|vsContext', 'vs one context, compiler on'],
+    ['off|vsContextSplit', 'vs a context per slice, compiler off'],
+    ['on|vsContextSplit', 'vs a context per slice, compiler on'],
+  ];
+  const rows = ctxScenarios(data).map(s => [scenarioTitle(s), ...cols.map(([k]) => tallyCell(d.tallies[k]?.[s.key]))]);
+  rows.push({cls: 'total', cells: ['every scenario', ...cols.map(([k]) => tallyCell(d.tallies[k]?.all))]});
+  return card(
+    placeholderBanner(data) + table(['scenario', ...cols.map(([, h]) => esc(h))], rows, 'scoreboard'),
+    `use(store) against Context at the same compiler setting: both without the compiler, or both with it, over every size and CPU throttle. The bold count is configurations where use(store) matches or beats Context. ${esc(rule(data))}${esc(lowSignalNote(data))}`
+  );
+}
+
+function ctxChart(data) {
+  const d = data.series.main;
+  const c = data.series.ctx;
+  if (!c) return card('<p class="viz-empty">No pinned Context results.</p>');
+  const say = (v, label) => `${label}: ${esc(v?.text ?? 'n/a')}`;
+  const filtered = {
+    ...mainForBrowser({
+      ...d,
+      variants: c.variants,
+      cells: Object.fromEntries(
+        Object.entries(d.cells).map(([k, cell]) => [
+          k,
+          {...cell, variants: Object.fromEntries(c.variants.map(v => [v, cell.variants[v]]))},
+        ])
+      ),
+    }),
+  };
+  for (const [k, cell] of Object.entries(filtered.cells)) {
+    const v = c.cells[k]?.verdicts;
+    cell.note = v
+      ? `<code>use(store)</code> vs Context, same setting. Compiler off: ${say(v.off.vsContext, 'vs one context')}, ${say(v.off.vsContextSplit, 'vs a context per slice')}. Compiler on: ${say(v.on.vsContext, 'vs one context')}, ${say(v.on.vsContextSplit, 'vs a context per slice')}.`
+      : '';
+  }
+  const state = {
+    scenario: d.scenarios[0]?.key,
+    n: d.ns.includes(1000) ? 1000 : d.ns[0],
+    throttle: d.throttles[0],
+  };
+  return (
+    placeholderBanner(data) +
+    figure('main', {
+      title: 'use(store) and Context, with and without the compiler',
+      controls: [
+        {key: 'scenario', label: 'Scenario', options: d.scenarios.map(s => [s.key, s.title])},
+        {key: 'n', label: 'Rows', options: d.ns.map(n => [n, n.toLocaleString('en-US')])},
+        {key: 'throttle', label: 'CPU', options: d.throttles.map(t => [t, `${t}× throttle`])},
+      ],
+      state,
+      data: filtered,
+    }).replace(
+      '<div class="viz-plot">',
+      legend([
+        ['s1', 'dot', 'use(store), compiler on'],
+        ['s1', 'ring', 'use(store), compiler off'],
+        ['muted', 'dot', 'Context, compiler on'],
+        ['muted', 'ring', 'Context, compiler off'],
+      ]) + '<div class="viz-plot">'
+    )
+  );
+}
+
+function ctxCompilerGain(data) {
+  const d = data.series.ctx;
+  if (!d) return card('<p class="viz-empty">No pinned Context results.</p>');
+  const rows = ctxScenarios(data).map(s => [scenarioTitle(s), ...d.variants.map(v => tallyCell(d.tallies[`gain|${v}`]?.[s.key]))]);
+  rows.push({cls: 'total', cells: ['every scenario', ...d.variants.map(v => tallyCell(d.tallies[`gain|${v}`]?.all))]});
+  return card(
+    placeholderBanner(data) + table(['scenario', ...d.variants.map(v => esc(d.names[v] ?? v))], rows, 'scoreboard'),
+    `What the React Compiler buys each approach: the same variant with the compiler against without it, over every size and CPU throttle. "Faster" means faster with the compiler, and the bold count is configurations where the compiler matches or beats no compiler. ${esc(rule(data))}`
+  );
+}
+
+function ctxCounts(data) {
+  const d = data.series.ctx;
+  if (!d) return card('<p class="viz-empty">No pinned Context results.</p>');
+  const byKey = new Map(data.series.counts.filter(r => r.suite === 'main').map(r => [`${r.scenario}|${r.variant}|${r.compiler}`, r]));
+  const head = ['scenario', 'variant', 'counted renders, compiler off', 'Row renders, compiler off', 'counted renders, compiler on', 'Row renders, compiler on'];
+  const rows = ctxScenarios(data).flatMap(s =>
+    d.variants.map(v => {
+      const off = byKey.get(`${s.key}|${v}|off`);
+      const on = byKey.get(`${s.key}|${v}|on`);
+      const n = x => (x === null || x === undefined ? '–' : LIB.int(x));
+      return [esc(s.title), esc(d.names[v] ?? v), n(off?.renders), n(off?.rows), n(on?.renders), n(on?.rows)];
+    })
+  );
+  return card(
+    table(head, rows),
+    `Work for one update in the counting build (${esc(data.values['method.countsRows']?.display ?? '')} rows). Counted renders are the renders of ${esc(data.values['method.countedComponents']?.display ?? 'the instrumented components')}, not every component (App and the list aren't counted). Row renders are among them. Context re-renders every consumer of a changed value. With the compiler, unchanged output is skipped.`
   );
 }
 
@@ -1148,9 +1266,21 @@ export const generators = {
   'memory-chart': memoryChart,
   'losses-table': lossesTable,
   'nobailout-table': nobailoutTable,
+  'ctx-scoreboard': ctxScoreboard,
+  'ctx-chart': ctxChart,
+  'ctx-compiler-gain': ctxCompilerGain,
+  'ctx-counts': ctxCounts,
 };
 
 export const generatorDocs = {
+  'ctx-scoreboard':
+    'Store vs Context at the same compiler setting: per scenario and overall, store vs one context and vs a context per slice, compiler off and on (ctx.tally.*).',
+  'ctx-chart':
+    'Interactive dot plot of store, one context and a context per slice, compiler on and off, by scenario, rows and CPU (log axis), with the same-setting verdicts in the note and a table view.',
+  'ctx-compiler-gain':
+    'What the compiler buys store, one context and a context per slice: with vs without it, per scenario and overall (ctx.tally.compilerGain.*).',
+  'ctx-counts':
+    'Counting build, one update: counted renders (method.countedComponents) and Row renders for store, one context and a context per slice, compiler off and on, per scenario.',
   'charts-assets':
     'The chart CSS and runtime (filters, tooltips). Put it once per page, in the `<head>`.',
   'build-label':
@@ -1166,7 +1296,7 @@ export const generatorDocs = {
   'main-table':
     'Main suite medians: one table per scenario, every variant and compiler setting × size × CPU.',
   'counts-table':
-    'Work for one update at N=1,000 (counting build, compiled): component renders, Row renders, selector calls.',
+    'Work for one update in the counting build (compiled): counted renders (only the instrumented components, method.countedComponents), Row renders, selector calls.',
   'suite-derived-selectors':
     'Redux suite derived-selectors: medians and store / store-memo verdicts.',
   'suite-rapid-dispatch':
@@ -1192,7 +1322,7 @@ export const generatorDocs = {
   'nobailout-table':
     'Without the same-element bailout (react-builds/head-nobailout): the tally vs the headline opponents next to the head build, main-suite medians, store vs the headline opponents and vs the granular control, and what the bailout buys store (bailoutGain); plus the sweeps when pinned. Separate from the headline.',
   'losses-table':
-    "Where it doesn't win: every comparison the store side loses under the verdict rule (method.verdictRule), by area (main vs the headline opponents, main vs the granular control, suites, sweeps, spike), each with the counting build's renders, selector calls and derivations for both sides.",
+    "Where it doesn't win: every comparison the store side loses under the verdict rule (method.verdictRule), by area (main vs the headline opponents, main vs the granular control, suites, sweeps, spike), each with the counting build's counted renders, selector calls and derivations for both sides.",
 };
 
 // ---------------------------------------------------------------- assets

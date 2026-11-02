@@ -89,7 +89,7 @@ Rows read the details in a child component (the idiomatic pattern for selector l
 ## Reading the results
 
 - **Update cost.** The median and p95 ms per update, and the ratio to Redux (with the compiler when available).
-- **Counters** (`--counts` or `run-jsdom.mjs`). `renders` is every component render. `rows` is `Row` renders. `selectors` is selector calls. For example, `selection`:
+- **Counters** (`--counts` or `run-jsdom.mjs`). `renders` counts renders of the components that call `countRender` (`src/shared/views.jsx`), not every component. In the main app those are `Row` (and `RowWithInlineDetails`), `RowView`, `DetailsView` and `CountView`; `App`, the list and `Details` aren't counted. `rows` is `Row` renders. `selectors` is selector calls. For example, `selection`:
   - `store` without the compiler re-renders 1000 rows and 1000 `RowView`s;
   - `store` with the compiler re-renders 1000 rows but only 2 `RowView`s, because the compiled `Row` returns its cached element;
   - `redux` is expected to run about 4000 selectors (4 per row) and re-render 2 rows.

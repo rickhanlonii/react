@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>use(store) and Context</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff;
+    --panel: #f6f7f9;
+    --panel-2: #eceef2;
+    --panel2: #eceef2;
+    --text: #1c1d21;
+    --muted: #5d6370;
+    --accent: #0b6bcb;
+    --good: #1a7f37;
+    --bad: #c62828;
+    --warn: #9a5b00;
+    --border: #d9dce3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115;
+      --panel: #171a21;
+      --panel-2: #1e222b;
+      --panel2: #1e222b;
+      --text: #e6e8ee;
+      --muted: #9aa3b2;
+      --accent: #58c4dc;
+      --good: #4ade80;
+      --bad: #f87171;
+      --warn: #fbbf24;
+      --border: #2a2f3a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  a { color: var(--accent); }
+  main { max-width: 920px; margin: 0 auto; padding: 40px 24px 96px; }
+  header { margin-bottom: 24px; }
+  h1 { font-size: 40px; line-height: 1.15; margin: 0 0 12px; letter-spacing: -0.01em; }
+  h2 { font-size: 28px; line-height: 1.25; margin: 64px 0 12px; padding-top: 8px; border-top: 1px solid var(--border); }
+  h3 { font-size: 20px; margin: 36px 0 8px; }
+  p, ul, ol, dl, table { margin: 0 0 16px; }
+  li { margin: 4px 0; }
+  .lede { font-size: 19px; }
+  code { font: 0.88em/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--panel-2); padding: 1px 5px; border-radius: 5px; }
+  pre { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 0 0 16px; }
+  pre code { background: none; padding: 0; font-size: 13.5px; line-height: 1.6; }
+  div.note { border-left: 3px solid var(--accent); background: var(--panel); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 0 0 16px; }
+  div.note.warn { border-left-color: var(--warn); }
+  div.note p:last-child { margin-bottom: 0; }
+  nav.toc { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px 18px; margin: 24px 0; }
+  nav.toc ol { margin: 0; padding-left: 22px; columns: 2; column-gap: 32px; }
+  nav.toc li { margin: 2px 0; break-inside: avoid; }
+  nav.toc ol ol { columns: 1; padding-left: 18px; list-style: lower-alpha; }
+  @media (max-width: 700px) { nav.toc ol { columns: 1; } h1 { font-size: 32px; } }
+  details { border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; margin: 0 0 16px; background: var(--panel); }
+  details[open] { padding-bottom: 12px; }
+  summary { cursor: pointer; font-weight: 600; }
+  details > :not(summary):first-of-type { margin-top: 10px; }
+  details p:last-child, details ul:last-child { margin-bottom: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 13px; color: var(--muted); font-weight: 600; }
+  dl.glossary dt { font-weight: 600; margin-top: 10px; }
+  dl.glossary dd { margin: 2px 0 0 0; }
+  figure { margin: 8px 0 20px; }
+  figcaption { color: var(--muted); font-size: 14px; margin-top: 6px; }
+  .diagram { width: 100%; height: auto; display: block; }
+  .diagram .box { fill: var(--panel); stroke: var(--border); stroke-width: 1.5; }
+  .diagram .box.strong { stroke: var(--accent); }
+  .diagram .box.faded { opacity: 0.55; }
+  footer { margin-top: 64px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--border); padding-top: 16px; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  .scroll { overflow-x: auto; margin: 0 0 16px; }
+  .gen-block { margin: 0 0 16px; }
+</style>
+<!-- gen:charts-assets --><!-- /gen:charts-assets -->
+</head>
+<body>
+<main>
+
+<header>
+<h1 id="top"><code>use(store)</code> and Context</h1>
+<p class="lede">At the same compiler setting, <code>use(store)</code> matches or beats a context per slice in every configuration, with the compiler and without it. It matches or beats one context in <span data-n="ctx.tally.on.vsContext.all.matchOrBeat"></span> of <span data-n="ctx.tally.on.vsContext.all.total"></span> configurations with the compiler, and loses by at most <span data-n="ctx.tally.on.vsContext.maxLossPct"></span> in the rest. Where every row reads the value that changed, <code>use(store)</code> and one context re-render the same rows.</p>
+
+<p class="build-label"><!-- gen:build-label --><!-- /gen:build-label --></p>
+
+<p>This page compares <code>use(store)</code> with Context, with and without the React Compiler for each. It uses the same results as <a href="benchmark-report.html">the benchmark report</a>, which compares <code>use(store)</code> with Redux and Zustand, and has the full method. For how a store differs from Context, read <a href="explainer.html#differences">differences from <code>useState</code> and Context</a> in the explainer.</p>
+
+<div class="note warn">
+<p>These are synthetic benchmarks. They measure the cost of one update in small apps built to isolate one thing each. There's no data from a real app yet. <code>use(store)</code> is an experiment behind the <code>enableStore</code> flag, and nothing here has shipped.</p>
+</div>
+</header>
+
+<nav class="toc" aria-label="Contents">
+<ol>
+<li><a href="#summary">Summary</a></li>
+<li><a href="#why">Why the approaches differ</a></li>
+<li><a href="#no-compiler">Without the compiler</a></li>
+<li><a href="#compiler">With the compiler</a></li>
+<li><a href="#compiler-gain">What the compiler buys each</a></li>
+<li><a href="#typing-memory">Typing and memory</a></li>
+<li><a href="#context-wins">Where Context ties or wins</a></li>
+<li><a href="#method">Method and caveats</a></li>
+<li><a href="#reproduce">How to reproduce</a></li>
+</ol>
+</nav>
+
+<!-- ============================================================ -->
+<h2 id="summary">Summary</h2>
+
+<p>The three approaches put the same state in different places:</p>
+
+<ul>
+<li>One context (<code>context</code>) holds all the state in a <code>useReducer</code> at the root and passes it down through one Provider.</li>
+<li>A context per slice (<code>context-split</code>) gives each slice of state its own Provider, and wraps rows in <code>memo</code>, the way people usually do.</li>
+<li><code>use(store)</code> (<code>store</code>) puts each entity in its own store, with small stores for the selection, the filter, the expanded rows, and the details.</li>
+</ul>
+
+<p>Each comparison below pits <code>use(store)</code> against one Context approach at the same compiler setting: both without the compiler, or both with it.</p>
+
+<!-- gen:ctx-scoreboard --><!-- /gen:ctx-scoreboard -->
+
+<ul>
+<li>Without the compiler, <code>use(store)</code> against one context is <span data-n="ctx.tally.off.vsContext.all.range"></span>, and against a context per slice it's <span data-n="ctx.tally.off.vsContextSplit.all.range"></span>.</li>
+<li>With the compiler, against one context it's <span data-n="ctx.tally.on.vsContext.all.range"></span>, and against a context per slice it's <span data-n="ctx.tally.on.vsContextSplit.all.range"></span>.</li>
+<li>The big wins are where few components read the change: editing one entity, and the conditional reads. Where every row reads the change, they're close without the compiler. With it, <code>use(store)</code> pulls ahead on add / remove (<span data-n="ctx.tally.on.vsContext.structure.range"></span>), and one context wins some filter and subscribe churn configurations.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="why">Why the approaches differ</h2>
+
+<p>Context re-renders every component that reads a context when the context's value changes. A context per slice narrows that to the consumers of the slice that changed. <code>use(store)</code> re-renders only the components that read the store that changed. The explainer covers <a href="explainer.html#problem">the problem with Context</a> and <a href="explainer.html#performance">what re-renders</a>.</p>
+
+<p>The counting build shows the difference at <span data-n="method.countsRows"></span> rows. It counts renders of <span data-n="method.countedComponents"></span>, not every component. Editing one entity re-renders <span data-n="counts.main.entity.store.on.rows"></span> row with <code>use(store)</code>, and <span data-n="counts.main.entity.context.on.rows"></span> with one context or with a context per slice, because every row reads the entities. Changing the selection re-renders every row in all three (<span data-n="counts.main.selection.store.on.rows"></span>), because every row reads the selection.</p>
+
+<!-- gen:ctx-counts --><!-- /gen:ctx-counts -->
+
+<p>So the timing mostly follows the renders. Where <code>use(store)</code> renders fewer rows and views, it wins by a lot. Where all three render every row, the gaps are smaller, but they don't follow the render counts. With the compiler, <code>use(store)</code> is <span data-n="ctx.tally.on.vsContext.structure.range"></span> on add / remove against one context, with the same rows rendered.</p>
+
+<p>The conditional reads are the exception. A context per slice re-renders as few rows and views as <code>use(store)</code> there, and <code>use(store)</code> is still faster: <span data-n="ctx.tally.on.vsContextSplit.details-inline.range"></span> on the inline read with the compiler. When a context's value changes, React searches the tree below the Provider for its consumers. A store update goes straight to its readers (see <a href="explainer.html#performance">what re-renders</a>). I think that search is most of the difference, along with the root re-rendering to update its Providers on every change, but neither is profiled.</p>
+
+<!-- ============================================================ -->
+<h2 id="no-compiler">Without the compiler</h2>
+
+<p>Without the compiler, every component that re-renders also re-renders its children, unless they're wrapped in <code>memo</code>. That's where the difference in renders shows most.</p>
+
+<ul>
+<li>Editing an entity: <code>use(store)</code> against one context is <span data-n="ctx.tally.off.vsContext.entity.range"></span>.</li>
+<li>The inline conditional read: <span data-n="ctx.tally.off.vsContext.details-inline.range"></span> against one context, and <span data-n="ctx.tally.off.vsContextSplit.details-inline.range"></span> against a context per slice, whose rows are wrapped in <code>memo</code>.</li>
+<li>Selection and filter tie one context in every configuration (<span data-n="ctx.tally.off.vsContext.selection.ties"></span> of <span data-n="ctx.tally.off.vsContext.selection.total"></span> and <span data-n="ctx.tally.off.vsContext.filter.ties"></span> of <span data-n="ctx.tally.off.vsContext.filter.total"></span>). In both scenarios every row reads the changed value, so both apps re-render every row and its children.</li>
+<li>One context wins only in <span data-n="ctx.tally.off.vsContext.lostScenarios"></span>, by at most <span data-n="ctx.tally.off.vsContext.maxLossPct"></span>.</li>
+</ul>
+
+<p>The chart has every configuration. Pick a scenario, a size, and a CPU throttle, and compare the two compiler settings.</p>
+
+<!-- gen:ctx-chart --><!-- /gen:ctx-chart -->
+
+<!-- ============================================================ -->
+<h2 id="compiler">With the compiler</h2>
+
+<p>With the compiler, a component that re-renders returns its cached elements when their inputs didn't change, so its children don't re-render. That helps all three. It shrinks the big gaps (entity edits and the conditional reads) and widens some small ones, like add / remove.</p>
+
+<ul>
+<li>Editing an entity: <span data-n="ctx.tally.on.vsContext.entity.range"></span> against one context, and <span data-n="ctx.tally.on.vsContextSplit.entity.range"></span> against a context per slice.</li>
+<li>Selection: <span data-n="ctx.tally.on.vsContext.selection.range"></span> against one context.</li>
+<li>Add / remove: <span data-n="ctx.tally.on.vsContext.structure.range"></span> against one context. Every variant re-renders every row here, so it mostly measures list reconciliation.</li>
+<li>One context wins <span data-n="ctx.tally.on.vsContext.all.losses"></span> configurations, in <span data-n="ctx.tally.on.vsContext.lostScenarios"></span>, by at most <span data-n="ctx.tally.on.vsContext.maxLossPct"></span>. A context per slice never wins.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="compiler-gain">What the compiler buys each</h2>
+
+<p>The compiler helps Context far more than <code>use(store)</code> on entity edits and the conditional reads, where Context re-renders many more components. Where every row re-renders, it often speeds <code>use(store)</code> up more. Overall, it speeds <code>use(store)</code> up more than one context in <span data-n="ctx.compilerGain.storeMore.context.all.count"></span> of <span data-n="ctx.compilerGain.storeMore.context.all.of"></span> configurations, including every <span data-n="ctx.compilerGain.storeMore.context.everyConfig"></span> configuration (<span data-n="ctx.tally.compilerGain.store.structure.range"></span>, against <span data-n="ctx.tally.compilerGain.context.structure.range"></span> for one context). Against a context per slice it's <span data-n="ctx.compilerGain.storeMore.context-split.all.count"></span> of <span data-n="ctx.compilerGain.storeMore.context-split.all.of"></span>, including every configuration of <span data-n="ctx.compilerGain.storeMore.context-split.everyConfig"></span>. These compare two speedups without a noise test, so read them as a direction. It never makes either Context approach slower.</p>
+
+<ul>
+<li>One context: <span data-n="ctx.tally.compilerGain.context.all.range"></span>.</li>
+<li>A context per slice: <span data-n="ctx.tally.compilerGain.context-split.all.range"></span>.</li>
+<li><code>use(store)</code>: <span data-n="ctx.tally.compilerGain.store.all.range"></span>. It doesn't help on entity edits (<span data-n="ctx.tally.compilerGain.store.entity.range"></span>), because only one row re-renders anyway. It's slower in <span data-n="ctx.tally.compilerGain.store.lostScenarios"></span>, by at most <span data-n="ctx.tally.compilerGain.store.maxLossPct"></span>.</li>
+</ul>
+
+<!-- gen:ctx-compiler-gain --><!-- /gen:ctx-compiler-gain -->
+
+<p>On entity edits and the conditional reads, I think Context gains more because it re-renders more. Every component the compiler lets React skip is one that Context re-rendered, and that <code>use(store)</code> often didn't render at all.</p>
+
+<!-- ============================================================ -->
+<h2 id="typing-memory">Typing and memory</h2>
+
+<p>The typing benchmark types into the filter while <span data-n="typing.main.rows"></span> expensive rows re-filter in a transition. All three update the list in a transition, so React can interrupt the list render to handle the next key. One context also holds the input's value, so the urgent update for each key re-renders every row that reads the context. Without the compiler, at no CPU throttling, one context's slowest one in twenty keys (<code>p95</code>) took <span data-n="typing.main.context.off.x1.p95"></span> ms. <code>use(store)</code> took <span data-n="typing.main.store.off.x1.p95"></span> ms, and a context per slice <span data-n="typing.main.context-split.off.x1.p95"></span> ms.</p>
+
+<p>With the compiler, one context dropped to <span data-n="typing.main.context.on.x1.p95"></span> ms. At no CPU throttling, <code>use(store)</code> was slower with the compiler than without it, at <span data-n="typing.main.store.on.x1.p95"></span> ms. At four times CPU throttling, it was faster with it (<span data-n="typing.main.store.off.x4.p95"></span> ms without, <span data-n="typing.main.store.on.x4.p95"></span> ms with). I don't know why yet. The typing benchmark has far fewer samples than the main suite, so treat differences this small with care.</p>
+
+<p>For memory, <code>use(store)</code> uses more per row than either Context approach. At the largest size with the compiler, it uses <span data-n="ctx.memory.storeVs.context.on.n10000"></span> the bytes per row of one context, and <span data-n="ctx.memory.storeVs.context-split.on.n10000"></span> those of a context per slice. The compiler adds bytes per row for all three. The <a href="benchmark-report.html#typing-memory">benchmark report</a> has the full tables.</p>
+
+<!-- ============================================================ -->
+<h2 id="context-wins">Where Context ties or wins</h2>
+
+<ul>
+<li>One context ties <code>use(store)</code> on selection and filter without the compiler, because both re-render every row and its children (<span data-n="counts.main.selection.store.off.renders"></span> counted renders with <code>use(store)</code> on a selection change, and <span data-n="counts.main.selection.context.off.renders"></span> with one context).</li>
+<li>One context wins <span data-n="ctx.tally.on.vsContext.all.losses"></span> configurations with the compiler, in <span data-n="ctx.tally.on.vsContext.lostScenarios"></span>, by at most <span data-n="ctx.tally.on.vsContext.maxLossPct"></span>. In those scenarios every row reads the changed value with both, so they render the same components (<span data-n="counts.main.filter.store.on.renders"></span> against <span data-n="counts.main.filter.context.on.renders"></span> on a filter change). The difference is in work the render counts don't show. In subscribe churn, that includes <code>use(store)</code> subscribing and unsubscribing the details readers.</li>
+<li>Both Context approaches use less memory per row.</li>
+<li>A context per slice never beats <code>use(store)</code> at the same compiler setting.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="method">Method and caveats</h2>
+
+<p>The method is the same as the benchmark report's. It uses one frozen React build and times behind a gate on ambient CPU, except for the main suite's first restart, which ran under the load-average gate it replaced. Verdicts compare means and need every browser restart to agree. The counting build counts renders of the rows and the shared views. <a href="benchmark-report.html#method">The benchmark report's method section</a> has the details.</p>
+
+<ul>
+<li>These are synthetic benchmarks, with no data from a real app.</li>
+<li>Timing uses the production build, and each update runs inside <code>flushSync</code>. Only the typing benchmark measures what transitions do for responsiveness.</li>
+<li>Add / remove is low-signal, because it mostly measures list reconciliation.</li>
+<li>The Context apps are written the usual way: one <code>useReducer</code> and Provider, or a Provider per slice with <code>memo</code> rows. A Context app tuned with more splitting or more <code>memo</code> could do better.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="reproduce">How to reproduce</h2>
+
+<p>These results come from the same runs as the benchmark report, and its <a href="benchmark-report.html#reproduce">How to reproduce</a> section has the commands.</p>
+
+<footer>
+<p>Benchmarks: <code>fixtures/store-bench</code>. Context apps: <code>fixtures/store-bench/src/apps/context.jsx</code> and <code>context-split.jsx</code>. How it works: <a href="explainer.html">the explainer</a>. Performance against Redux and Zustand: <a href="benchmark-report.html">the benchmark report</a>.</p>
+<p><a href="#top">Back to top</a></p>
+</footer>
+
+</main>
+</body>
+</html>
