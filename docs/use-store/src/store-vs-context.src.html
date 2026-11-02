@@ -175,9 +175,9 @@
 <!-- ============================================================ -->
 <h2 id="no-compiler">Without the compiler</h2>
 
-<p>The chart has every configuration. Pick a scenario, a size, and a CPU throttle, and compare the two compiler settings.</p>
+<!-- gen:speedup-chart {"comparison": "ctx-off-vsContextSplit", "title": "Without the compiler, use(store) never loses to a context per slice"} --><!-- /gen:speedup-chart -->
 
-<!-- gen:ctx-chart --><!-- /gen:ctx-chart -->
+<!-- gen:speedup-chart {"comparison": "ctx-off-vsContext", "title": "Without the compiler, use(store) loses to one context only in subscribe churn"} --><!-- /gen:speedup-chart -->
 
 <p><strong>Without the compiler, one context wins only in <span data-n="ctx.tally.off.vsContext.lostScenarios"></span>, by at most <span data-n="ctx.tally.off.vsContext.maxLossPct"></span>.</strong></p>
 
@@ -188,12 +188,23 @@
 </ul>
 
 <details>
+<summary>Every configuration in milliseconds, both compiler settings</summary>
+<p>The chart has every configuration. Pick a scenario, a size, and a CPU throttle, and compare the two compiler settings.</p>
+
+<!-- gen:ctx-chart --><!-- /gen:ctx-chart -->
+</details>
+
+<details>
 <summary>Why</summary>
 <p>Without the compiler, every component that re-renders also re-renders its children, unless they're wrapped in <code>memo</code>. That's where the difference in renders shows most.</p>
 </details>
 
 <!-- ============================================================ -->
 <h2 id="compiler">With the compiler</h2>
+
+<!-- gen:speedup-chart {"comparison": "ctx-on-vsContextSplit", "title": "With the compiler, use(store) never loses to a context per slice"} --><!-- /gen:speedup-chart -->
+
+<!-- gen:speedup-chart {"comparison": "ctx-on-vsContext", "title": "With the compiler, use(store) loses to one context only in filter and subscribe churn"} --><!-- /gen:speedup-chart -->
 
 <p><strong>With the compiler, one context wins <span data-n="ctx.tally.on.vsContext.all.losses"></span> configurations, in <span data-n="ctx.tally.on.vsContext.lostScenarios"></span>, by at most <span data-n="ctx.tally.on.vsContext.maxLossPct"></span>. A context per slice never wins.</strong></p>
 

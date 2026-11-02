@@ -131,3 +131,12 @@ Every claim on the page, with its source. Keys are from `bench-data.json` (build
 | C-4 | "With the compiler, one context wins…" | `ctx.tally.on.vsContext.{all.losses,lostScenarios,maxLossPct}` |
 | C-5 | Compiler helps one context far more on entity edits and conditional reads; a context per slice only on entity edits | `ctx.tally.compilerGain.{context,context-split,store}.{entity,details-inline,details-component}.range` |
 | Skim polish | Typing: compiler made store slower with no throttling, faster with four times throttling | `typing.main.store.{off,on}.{x1,x4}.p95` |
+
+## Speedup chart titles
+
+| Title | Source |
+|---|---|
+| Without the compiler, use(store) never loses to a context per slice | `ctx.tally.off.vsContextSplit.all.losses` = 0 |
+| Without the compiler, use(store) loses to one context only in subscribe churn | `ctx.tally.off.vsContext.lostScenarios`. **Data-dependent** (typed in gen args) |
+| With the compiler, use(store) never loses to a context per slice | `ctx.tally.on.vsContextSplit.all.losses` = 0 |
+| With the compiler, use(store) loses to one context only in filter and subscribe churn | `ctx.tally.on.vsContext.lostScenarios`. **Data-dependent** |

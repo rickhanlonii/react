@@ -283,3 +283,17 @@ Every claim in `benchmark-report.src.html`, by section, with its source: a `benc
 | B-10 | "In the ported Redux suites," scope | `suite.*.tally.store.losses` |
 | B-T1, B-T3, B-T4 | Tile labels scoped | gen `stat-tiles` args |
 | Skim polish | Bailout bold line stands alone ("the build without the same-element bailout measured"); derived and selection bold lines tightened with scope kept; tile labels parallel; throttling phrased "with … CPU throttling" | `nobailout.main.tally.{all.total,withBailout.matchOrBeat,all.matchOrBeat}`; `spike.tally.store-memo.rangeWork`; `research/selection-floor.md` |
+
+## Speedup chart titles
+
+| Title | Source |
+|---|---|
+| Outside selection, use(store) never loses to the faster of Redux and Zustand | `main.tally.selectors.<scenario>.losses` = 0 for every scenario but selection |
+| Against the granular control, use(store) loses only in selection and subscribe churn | `main.tally.zustand-granular.lostScenarios`. **Data-dependent** |
+| Without the same-element bailout: use(store) vs the faster of Redux and Zustand | Neutral label |
+| Granular-control lead-in ("shows how much of the win comes from granularity alone… isn't part of the headline") | Existing claim from the scoreboard details |
+
+## Blocks dropped for the page budget
+
+- `main-verdicts` and the compact `verdict-grid`: the headline and granular `speedup-chart`s show the same per-configuration verdicts (marks, tooltips and table view).
+- `main-table`: `main-chart`'s embedded data and table view carry the same medians for every configuration and variant, plus the middle half and p95.

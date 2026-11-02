@@ -36,13 +36,43 @@ const LIB = {
       ? '–'
       : Math.round(v).toLocaleString('en-US');
   },
-  // Entity colors: the same library keeps its slot in every chart.
+  // The one name map: what every chart, legend, tooltip and chart table calls
+  // a variant. Variants without a name here keep their id.
+  name(v) {
+    return (
+      {
+        store: 'use(store)',
+        'store-single': 'one store',
+        context: 'one context',
+        'context-split': 'a context per slice',
+        'zustand-granular': 'Zustand, a store per entity',
+        'store-keyed': 'keyed selection',
+        'store-memo': 'weakMemo',
+        redux: 'Redux',
+        zustand: 'Zustand',
+      }[v] || v
+    );
+  },
+  // Emphasis colors: use(store) in slot 1, the use(store) pattern a chart is
+  // about (keyed selection, weakMemo) in slot 2, everything else gray. The
+  // same variant keeps its color in every chart.
   color(name) {
     if (name === 'store') return 's1';
-    if (name === 'redux') return 's2';
-    if (name === 'zustand') return 's3';
-    if (name === 'store-memo' || name === 'store-keyed') return 's4';
+    if (name === 'store-memo' || name === 'store-keyed') return 's2';
     return 'muted';
+  },
+  // A median entry as the browser gets it: [median, p25, p75, p95, count].
+  entry(a) {
+    return a ? {median: a[0], p25: a[1], p75: a[2], p95: a[3], count: a[4]} : null;
+  },
+  // Compact (card) charts are drawn about as wide as a half-width dashboard
+  // card's content, so 12px text renders at about 12px, and never grow past
+  // that width in a wider card.
+  COMPACT_W() {
+    return 584;
+  },
+  svgOpen(W, H, label, compact) {
+    return `<svg class="viz-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${LIB.esc(label)}"${compact ? ` style="max-width:${W}px"` : ''}>`;
   },
   // Log-scale ticks at 1, 2 and 5 per decade inside [lo, hi].
   logTicks(lo, hi) {
@@ -95,67 +125,82 @@ const LIB = {
     return ` tabindex="0" data-tip-value="${LIB.esc(value)}" data-tip-label="${LIB.esc(label)}"${extra ? ` data-tip-extra="${LIB.esc(extra)}"` : ''} aria-label="${LIB.esc(label + ': ' + value + (extra ? ', ' + extra : ''))}"`;
   },
 
-  // A dot plot on a log scale: one row per variant, compiler on (filled) and
-  // off (ring) with their interquartile range.
-  dots(rows, axisLabel) {
-    const W = 640;
-    const left = 150;
-    const right = 24;
-    const top = 10;
-    const rowH = 34;
-    const bottom = 44;
+  // A dot plot in two panels that share the variant rows: compiler on and
+  // compiler off, each on its own log scale so neither squashes the other.
+  // Each dot is a median with its middle half. rows: [{label, emph, on, off}].
+  dots(rows, axisLabel, compact) {
+    const W = compact ? LIB.COMPACT_W() : 680;
+    const left = 178;
+    const gap = 28;
+    const right = 12;
+    const top = 26;
+    const rowH = 28;
+    const bottom = 60;
     const H = top + rows.length * rowH + bottom;
-    const all = rows.flatMap(r =>
-      [r.on, r.off].filter(Boolean).flatMap(e => [e.p25, e.median, e.p75])
-    );
-    const [lo, hi] = LIB.logDomain(all);
-    const span = Math.log10(hi) - Math.log10(lo) || 1;
-    const x = v =>
-      left +
-      ((Math.log10(Math.max(v, lo)) - Math.log10(lo)) / span) *
-        (W - left - right);
-    let svg = `<svg class="viz-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${LIB.esc(axisLabel)}">`;
-    for (const t of LIB.logTicks(lo, hi)) {
-      svg += `<line class="grid" x1="${x(t).toFixed(1)}" x2="${x(t).toFixed(1)}" y1="${top}" y2="${H - bottom}"/>`;
-      svg += `<text class="axis" x="${x(t).toFixed(1)}" y="${H - bottom + 16}" text-anchor="middle">${LIB.tick(t)}</text>`;
-    }
-    svg += `<line class="baseline" x1="${left}" x2="${W - right}" y1="${H - bottom}" y2="${H - bottom}"/>`;
-    svg += `<text class="axis" x="${left + (W - left - right) / 2}" y="${H - 6}" text-anchor="middle">${LIB.esc(axisLabel)}</text>`;
+    const PW = (W - left - right - gap) / 2;
+    let svg = LIB.svgOpen(W, H, axisLabel, compact);
     rows.forEach((r, i) => {
       const cy = top + i * rowH + rowH / 2;
       svg += `<text class="label${r.emph ? ' emph' : ''}" x="${left - 10}" y="${cy + 4}" text-anchor="end">${LIB.esc(r.label)}</text>`;
-      for (const [which, e, dy] of [
-        ['on', r.on, -6],
-        ['off', r.off, 6],
-      ]) {
-        if (!e) continue;
-        const y = cy + dy;
-        const cls = r.emph ? 's1' : 'muted';
-        svg += `<g class="${cls}">`;
-        svg += `<line class="whisker" x1="${x(e.p25).toFixed(1)}" x2="${x(e.p75).toFixed(1)}" y1="${y}" y2="${y}"/>`;
-        svg += `<circle class="${which === 'on' ? 'dot-on' : 'dot-off'}" cx="${x(e.median).toFixed(1)}" cy="${y}" r="4.5"/>`;
-        const label = `${r.label}, compiler ${which}`;
-        const extra = `middle half ${LIB.ms(e.p25)}–${LIB.ms(e.p75)} ms · p95 ${LIB.ms(e.p95)} ms · ${LIB.int(e.count)} samples`;
-        svg += `<circle class="hit" cx="${x(e.median).toFixed(1)}" cy="${y}" r="12"${LIB.tipAttrs(LIB.ms(e.median) + ' ms', label, extra)}/>`;
-        svg += `</g>`;
-      }
     });
+    [
+      ['on', 'with the compiler'],
+      ['off', 'without the compiler'],
+    ].forEach(([which, title], pi) => {
+      const ox = left + pi * (PW + gap);
+      const all = rows
+        .map(r => r[which])
+        .filter(Boolean)
+        .flatMap(e => [e.p25, e.median, e.p75]);
+      const [lo, hi] = LIB.logDomain(all);
+      const span = Math.log10(hi) - Math.log10(lo) || 1;
+      const x = v =>
+        ox + ((Math.log10(Math.max(v, lo)) - Math.log10(lo)) / span) * PW;
+      svg += `<text class="ptitle" x="${ox}" y="14">${title}</text>`;
+      for (const t of LIB.logTicks(lo, hi)) {
+        svg += `<line class="grid" x1="${x(t).toFixed(1)}" x2="${x(t).toFixed(1)}" y1="${top}" y2="${H - bottom}"/>`;
+        svg += `<text class="axis" x="${x(t).toFixed(1)}" y="${H - bottom + 16}" text-anchor="middle">${LIB.tick(t)}</text>`;
+      }
+      svg += `<line class="baseline" x1="${ox}" x2="${ox + PW}" y1="${H - bottom}" y2="${H - bottom}"/>`;
+      rows.forEach((r, i) => {
+        const e = r[which];
+        if (!e) return;
+        const y = top + i * rowH + rowH / 2;
+        svg += `<g class="${r.emph ? 's1' : 'muted'}">`;
+        svg += `<line class="whisker" x1="${x(e.p25).toFixed(1)}" x2="${x(e.p75).toFixed(1)}" y1="${y}" y2="${y}"/>`;
+        svg += `<circle class="dot-on" cx="${x(e.median).toFixed(1)}" cy="${y}" r="4.5"/>`;
+        const extra = `middle half ${LIB.ms(e.p25)}–${LIB.ms(e.p75)} ms · p95 ${LIB.ms(e.p95)} ms · ${LIB.int(e.count)} samples`;
+        svg += `<circle class="hit" cx="${x(e.median).toFixed(1)}" cy="${y}" r="12"${LIB.tipAttrs(LIB.ms(e.median) + ' ms', r.label + ', ' + title, extra)}/>`;
+        svg += `</g>`;
+      });
+    });
+    const mid = left + (W - left - right) / 2;
+    svg += `<text class="axis" x="${mid}" y="${H - 22}" text-anchor="middle">${LIB.esc(axisLabel)}</text>`;
+    svg += `<text class="axis" x="${mid}" y="${H - 6}" text-anchor="middle">Each panel has its own scale. Compare within a panel.</text>`;
     return svg + '</svg>';
   },
 
-  // Small multiples of line charts over categorical x positions. Each panel
-  // is {title, series: [{name, values}]}; series named in LIB.color get a
-  // categorical slot and an end label, the rest are gray context.
-  lines(panels, xs, {log, yLabel, xLabel}) {
-    const cols = Math.min(panels.length, 2);
-    const PW = 320;
-    const PH = 220;
+  // Line charts over x positions, one or more panels. Each panel is
+  // {title, series: [{name, values}]}. Series named in LIB.color get their
+  // emphasis color, the rest are gray context, and every series gets an end
+  // label. opts: {log, yLabel, xLabel, cols, pw, ph, xpos}: xpos places the x
+  // values (0 to 1) when their spacing means something, else they're even.
+  lines(panels, xs, {log, yLabel, xLabel, cols: colsOpt, pw, ph, xpos, compact}) {
+    const cols = colsOpt || Math.min(panels.length, 2);
+    const PW = pw || 320;
+    const PH = ph || 220;
     const W = PW * cols;
     const rowsN = Math.ceil(panels.length / cols);
     const H = PH * rowsN;
     const left = 46;
-    const right = 92;
-    const top = 26;
+    // Room for the longest end label.
+    const right =
+      20 +
+      6.6 *
+        Math.max(
+          ...panels.flatMap(p => p.series.map(s => LIB.name(s.name).length))
+        );
+    const top = 40;
     const bottom = 42;
     const allValues = panels
       .flatMap(p => p.series.flatMap(s => s.values))
@@ -172,14 +217,14 @@ const LIB = {
       hi = ticks[ticks.length - 1];
     }
     const span = log ? Math.log10(hi) - Math.log10(lo) || 1 : hi - lo || 1;
-    let svg = `<svg class="viz-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${LIB.esc(yLabel + ' by ' + xLabel)}">`;
+    const pos = i =>
+      xpos ? xpos[i] : xs.length === 1 ? 0 : i / (xs.length - 1);
+    let svg = LIB.svgOpen(W, H, yLabel + ' by ' + xLabel, compact);
     panels.forEach((p, pi) => {
       const ox = (pi % cols) * PW;
       const oy = Math.floor(pi / cols) * PH;
-      const x = i =>
-        ox +
-        left +
-        (xs.length === 1 ? 0 : (i / (xs.length - 1)) * (PW - left - right));
+      const plotW = PW - left - right;
+      const x = i => ox + left + pos(i) * plotW;
       const y = v =>
         oy +
         top +
@@ -188,15 +233,18 @@ const LIB = {
             (log
               ? (Math.log10(Math.max(v, lo)) - Math.log10(lo)) / span
               : (v - lo) / span));
-      svg += `<text class="ptitle" x="${ox + left}" y="${oy + 14}">${LIB.esc(p.title)}</text>`;
+      if (p.title)
+        svg += `<text class="ptitle" x="${ox + 4}" y="${oy + 14}">${LIB.esc(p.title)}</text>`;
+      svg += `<text class="axis" x="${ox + 4}" y="${oy + 30}">${LIB.esc(yLabel)}</text>`;
       for (const t of ticks) {
-        svg += `<line class="grid" x1="${ox + left}" x2="${ox + PW - right}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}"/>`;
+        svg += `<line class="${t === 0 ? 'baseline' : 'grid'}" x1="${ox + left}" x2="${ox + PW - right}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}"/>`;
         svg += `<text class="axis" x="${ox + left - 6}" y="${(y(t) + 4).toFixed(1)}" text-anchor="end">${LIB.tick(t)}</text>`;
       }
       xs.forEach((label, i) => {
-        svg += `<text class="axis" x="${x(i).toFixed(1)}" y="${oy + PH - bottom + 16}" text-anchor="middle">${LIB.esc(label)}</text>`;
+        svg += `<text class="axis" x="${x(i).toFixed(1)}" y="${oy + PH - bottom + 18}" text-anchor="middle">${LIB.esc(label)}</text>`;
       });
-      svg += `<text class="axis" x="${ox + left + (PW - left - right) / 2}" y="${oy + PH - 8}" text-anchor="middle">${LIB.esc(xLabel)}</text>`;
+      svg += `<text class="axis" x="${ox + left + plotW / 2}" y="${oy + PH - 8}" text-anchor="middle">${LIB.esc(xLabel)}</text>`;
+      // Gray context first, so the emphasized lines draw on top.
       const ordered = [...p.series].sort(
         (a, b) =>
           (LIB.color(a.name) === 'muted' ? 0 : 1) -
@@ -210,12 +258,10 @@ const LIB = {
           .filter(Boolean);
         if (pts.length === 0) continue;
         svg += `<g class="${cls}"><polyline class="line" points="${pts.map(([a, b]) => `${a.toFixed(1)},${b.toFixed(1)}`).join(' ')}"/>`;
-        if (cls !== 'muted') {
-          for (const [a, b] of pts)
-            svg += `<circle class="dot-on" cx="${a.toFixed(1)}" cy="${b.toFixed(1)}" r="4"/>`;
-          const last = pts[pts.length - 1];
-          ends.push({name: s.name, x: last[0], y: last[1], cls});
-        }
+        for (const [a, b] of pts)
+          svg += `<circle class="dot-on" cx="${a.toFixed(1)}" cy="${b.toFixed(1)}" r="4"/>`;
+        const last = pts[pts.length - 1];
+        ends.push({name: LIB.name(s.name), x: last[0], y: last[1], emph: cls !== 'muted'});
         svg += `</g>`;
       }
       // End labels, pushed apart when they collide, with a leader line back
@@ -223,12 +269,12 @@ const LIB = {
       ends.sort((a, b) => a.y - b.y);
       for (const e of ends) e.ly = e.y;
       for (let i = 1; i < ends.length; i++) {
-        ends[i].ly = Math.max(ends[i].ly, ends[i - 1].ly + 13);
+        ends[i].ly = Math.max(ends[i].ly, ends[i - 1].ly + 15);
       }
       // Keep them inside the plot, clear of the x-axis labels.
       const floor = oy + PH - bottom - 4;
       for (let i = ends.length - 1; i >= 0; i--) {
-        const limit = i === ends.length - 1 ? floor : ends[i + 1].ly - 13;
+        const limit = i === ends.length - 1 ? floor : ends[i + 1].ly - 15;
         ends[i].ly = Math.min(ends[i].ly, limit);
       }
       for (const e of ends) {
@@ -236,20 +282,19 @@ const LIB = {
         if (Math.abs(ly - e.y) > 1) {
           svg += `<line class="leader" x1="${(e.x + 5).toFixed(1)}" y1="${e.y.toFixed(1)}" x2="${(e.x + 12).toFixed(1)}" y2="${ly.toFixed(1)}"/>`;
         }
-        svg += `<text class="endlabel" x="${(e.x + 14).toFixed(1)}" y="${(ly + 4).toFixed(1)}">${LIB.esc(e.name)}</text>`;
+        svg += `<text class="endlabel${e.emph ? ' emph' : ''}" x="${(e.x + 14).toFixed(1)}" y="${(ly + 4).toFixed(1)}">${LIB.esc(e.name)}</text>`;
       }
-      // One hit column per x position: the tooltip lists every series there.
+      // One hit column per x position, out to the midpoints between its
+      // neighbors: the tooltip lists every series there.
       xs.forEach((label, i) => {
-        const w =
-          xs.length === 1
-            ? PW - left - right
-            : (PW - left - right) / (xs.length - 1);
+        const a = i === 0 ? x(0) - 12 : (x(i - 1) + x(i)) / 2;
+        const b = i === xs.length - 1 ? x(i) + 12 : (x(i) + x(i + 1)) / 2;
         const rows = p.series
           .filter(s => s.values[i] !== null)
-          .map(s => [s.name, s.values[i]])
-          .sort((a, b) => a[1] - b[1])
+          .map(s => [LIB.name(s.name), s.values[i]])
+          .sort((m, n) => m[1] - n[1])
           .map(([n, v]) => `${n}: ${LIB.ms(v)} ms`);
-        svg += `<rect class="hit col" x="${(x(i) - w / 2).toFixed(1)}" y="${oy + top}" width="${w.toFixed(1)}" height="${PH - top - bottom}" data-x="${x(i).toFixed(1)}" data-y1="${oy + top}" data-y2="${oy + PH - bottom}"${LIB.tipAttrs(p.title + ' · ' + label, xLabel, rows.join('\n'))}/>`;
+        svg += `<rect class="hit col" x="${a.toFixed(1)}" y="${oy + top}" width="${(b - a).toFixed(1)}" height="${PH - top - bottom}" data-x="${x(i).toFixed(1)}" data-y1="${oy + top}" data-y2="${oy + PH - bottom}"${LIB.tipAttrs((p.title ? p.title + ' · ' : '') + label, xLabel, rows.join('\n'))}/>`;
       });
     });
     return (
@@ -259,9 +304,9 @@ const LIB = {
   },
 
   // Horizontal bars from a zero baseline, value at the tip.
-  bars(rows, axisLabel, unit) {
-    const W = 640;
-    const left = 150;
+  bars(rows, axisLabel, unit, compact) {
+    const W = compact ? LIB.COMPACT_W() : 640;
+    const left = 178;
     const right = 90;
     const top = 6;
     const rowH = 30;
@@ -270,7 +315,7 @@ const LIB = {
     const ticks = LIB.linearTicks(Math.max(...rows.map(r => r.value), 0));
     const hi = ticks[ticks.length - 1] || 1;
     const x = v => left + (v / hi) * (W - left - right);
-    let svg = `<svg class="viz-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${LIB.esc(axisLabel)}">`;
+    let svg = LIB.svgOpen(W, H, axisLabel, compact);
     for (const t of ticks) {
       svg += `<line class="grid" x1="${x(t).toFixed(1)}" x2="${x(t).toFixed(1)}" y1="${top}" y2="${H - bottom}"/>`;
       svg += `<text class="axis" x="${x(t).toFixed(1)}" y="${H - bottom + 16}" text-anchor="middle">${LIB.tick(t)}</text>`;
@@ -311,12 +356,16 @@ const LIB = {
         note: '',
       };
     const rows = d.variants.map(v => ({
-      label: v,
-      emph: v.startsWith('store'),
-      on: cell.variants[v]?.on ?? null,
-      off: cell.variants[v]?.off ?? null,
+      label: LIB.name(v),
+      emph: v === 'store',
+      on: LIB.entry(cell.variants[v]?.on),
+      off: LIB.entry(cell.variants[v]?.off),
     }));
-    const plot = LIB.dots(rows, 'ms per update, log scale (lower is better)');
+    const plot = LIB.dots(
+      rows,
+      'ms per update, log scale, lower is better',
+      d.compact
+    );
     const fmt = e => (e ? `${LIB.ms(e.median)}` : '–');
     const iqr = e => (e ? `${LIB.ms(e.p25)}–${LIB.ms(e.p75)}` : '–');
     const table = LIB.table(
@@ -339,49 +388,56 @@ const LIB = {
         r.off ? LIB.ms(r.off.p95) : '–',
       ])
     );
+    const opp = s => LIB.esc(String(s).replace(/^\S+/, id => LIB.name(id)));
     const note = cell.note
       ? cell.note
       : cell.verdict
-      ? `store + compiler vs ${LIB.esc(d.headline)} (${LIB.esc(cell.best)}): <strong>${LIB.esc(cell.verdict.text)}</strong>` +
-        (cell.granular ? ` · vs the granular control: ${LIB.esc(cell.granular.text)}` : '')
+      ? `Verdict: <strong>${LIB.esc(cell.verdict.text)}</strong> vs ${opp(cell.best)}` +
+        (cell.granular ? ` (granular control: ${LIB.esc(cell.granular.text)})` : '')
       : '';
     return {plot, table, note};
   },
 
   viewSpike(d, st) {
-    const xs = d.ks.map(k => `K=${k}`);
-    const order = ['redux', 'zustand', 'store', 'store-memo'];
-    const unread = d.unread ?? [];
-    const panels = d.families.map(f => ({
-      title: unread.includes(f) ? `${f} (unread update)` : f,
-      series: [...d.variants]
-        .sort(
-          (a, b) =>
-            (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99) ||
-            a.localeCompare(b)
-        )
-        .map(v => ({
-          name: v,
-          values: d.ks.map(
-            k =>
-              d.cells[`${f}|${k}|${st.throttle}`]?.variants[v]?.median ?? null
-          ),
-        })),
+    const xs = d.ks.map(k => `${k}`);
+    const shown = ['store', 'store-memo', 'redux'];
+    const families =
+      st.view === 'all'
+        ? d.families.filter(f => !d.unread.includes(f))
+        : [d.family];
+    const panels = families.map(f => ({
+      title: st.view === 'all' ? `${f} updates` : '',
+      series: shown.map(v => ({
+        name: v,
+        values: d.ks.map(
+          k => d.cells[`${f}|${k}|${st.throttle}`]?.variants[v]?.median ?? null
+        ),
+      })),
     }));
     const plot = LIB.lines(panels, xs, {
       log: false,
-      yLabel: 'ms per update',
+      yLabel: 'ms per update, lower is better',
       xLabel: 'readers per category',
+      cols: panels.length,
+      pw: (d.compact ? LIB.COMPACT_W() : panels.length === 1 ? 640 : 720) / panels.length,
+      ph: panels.length === 1 ? 260 : 220,
+      compact: d.compact,
     });
+    const order = ['store', 'store-memo', 'redux', 'zustand'];
+    const variants = [...d.variants].sort(
+      (a, b) =>
+        (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99) ||
+        a.localeCompare(b)
+    );
     const head = [
       'variant',
-      ...d.families.flatMap(f => d.ks.map(k => `${LIB.esc(f)} K=${k}`)),
+      ...d.families.flatMap(f => d.ks.map(k => `${LIB.esc(f)}, ${k} readers`)),
     ];
-    const rows = panels[0].series.map(s => [
-      LIB.esc(s.name),
+    const rows = variants.map(v => [
+      LIB.esc(LIB.name(v)),
       ...d.families.flatMap(f =>
         d.ks.map(k => {
-          const e = d.cells[`${f}|${k}|${st.throttle}`]?.variants[s.name];
+          const e = d.cells[`${f}|${k}|${st.throttle}`]?.variants[v];
           return e
             ? `${LIB.ms(e.median)} <small>${e.vsRedux === null ? '' : e.vsRedux.toFixed(2) + '×'}</small>`
             : '–';
@@ -392,57 +448,64 @@ const LIB = {
       plot,
       table: LIB.table(head, rows),
       note:
-        'Median ms per update with the compiler. Small numbers are the ratio of means to redux. store-derived is fast but tears under transitions.' +
-        (unread.length
-          ? ` ${unread.join(', ')}: an unread update (no component displays what changes, so the DOM never changes). The store variants do no work, which counts as no work, not as a win.`
+        `Median ms per update with the compiler, ${st.view === 'all' ? 'one panel per kind of update' : LIB.esc(d.family) + ' updates'}.` +
+        (d.unread.length
+          ? ` ${LIB.esc(d.unread.join(', '))} is only in the table: an unread update, so the store variants do no work.`
           : ''),
     };
   },
 
   viewSweep(d, st) {
-    const coverage = d.configs.filter(c => c.key.endsWith('-w8'));
+    const coverage = ['c100-w8', 'c90-w8', 'c75-w8', 'c50-w8', 'c0-w8'];
     const widths = ['c100-w4', 'c100-w8', 'c100-w16'];
-    const pick =
-      st.view === 'width'
-        ? widths.map(k => d.configs.find(c => c.key === k)).filter(Boolean)
-        : coverage;
+    const pick = (st.view === 'width' ? widths : coverage)
+      .map(k => d.configs.find(c => c.key === k))
+      .filter(Boolean);
+    const pct = c => Number(c.key.replace(/^c(\d+)-.*$/, '$1'));
     const xs = pick.map(c =>
-      st.view === 'width'
-        ? c.key.replace(/^c100-w/, '')
-        : c.key === 'c0-w8'
-          ? 'none'
-          : c.key.replace(/^c(\d+)-w8$/, '$1%')
+      st.view === 'width' ? c.key.replace(/^c100-w/, '') : `${pct(c)}%`
     );
-    const panels = d.scenarios.map(s => ({
-      title: s,
-      series: d.libraries.map(lib => ({
-        name: lib,
-        values: pick.map(
-          c =>
-            d.cells[`${s}|${st.throttle}|${c.key}`]?.libraries[lib]?.median ??
-            null
-        ),
-      })),
-    }));
+    // Coverage is placed by the share of rows compiled, so a cost that
+    // grows with each uncompiled row draws as a straight line.
+    const xpos =
+      st.view === 'width' ? null : pick.map(c => (100 - pct(c)) / 100);
+    const panels = [
+      {
+        title: '',
+        series: d.libraries.map(lib => ({
+          name: lib,
+          values: pick.map(
+            c =>
+              d.cells[`${st.scenario}|${st.throttle}|${c.key}`]?.libraries[lib]
+                ?.median ?? null
+          ),
+        })),
+      },
+    ];
     const plot = LIB.lines(panels, xs, {
-      log: true,
-      yLabel: 'ms per update, log scale',
+      log: false,
+      yLabel: 'ms per update, lower is better',
       xLabel:
         st.view === 'width'
-          ? 'props per row (all compiled)'
-          : 'rows compiled (8 props)',
+          ? 'props per row (every row compiled)'
+          : 'rows compiled (8 props per row)',
+      cols: 1,
+      pw: d.compact ? LIB.COMPACT_W() : 640,
+      ph: 260,
+      xpos,
+      compact: d.compact,
     });
     const head = [
       'scenario',
       'configuration',
-      ...d.libraries.map(LIB.esc),
-      ...d.stores.map(s => `${LIB.esc(s)} vs best`),
+      ...d.libraries.map(lib => LIB.esc(LIB.name(lib))),
+      ...d.stores.map(s => `${LIB.esc(LIB.name(s))} vs the faster of Redux and Zustand`),
     ];
     const rows = d.scenarios.flatMap(s =>
       pick.map(c => {
         const cell = d.cells[`${s}|${st.throttle}|${c.key}`];
         return [
-          LIB.esc(s),
+          LIB.esc(d.titles[s] ?? s),
           LIB.esc(c.label),
           ...d.libraries.map(lib =>
             LIB.ms(cell?.libraries[lib]?.median ?? null)
@@ -454,7 +517,7 @@ const LIB = {
     return {
       plot,
       table: LIB.table(head, rows),
-      note: 'Median ms per update at N=1,000. "vs best" compares with the faster of redux and zustand at the same configuration.',
+      note: `${LIB.esc(d.titles[st.scenario] ?? st.scenario)}, median ms per update at N=1,000.`,
     };
   },
 
@@ -462,16 +525,17 @@ const LIB = {
     const rows = d.rows
       .filter(r => r.n === st.n && r.compiler === 'on')
       .map(r => ({
-        label: r.variant,
+        label: LIB.name(r.variant),
         value: r.bytesPerRow,
-        emph: r.variant.startsWith('store'),
+        emph: r.variant === 'store',
         extra: `mount ${r.mountMs.toFixed(1)} ms · ${r.runs} ${r.runs === 1 ? 'run' : 'runs'}`,
       }));
     const plot = rows.length
       ? LIB.bars(
           rows,
-          'bytes per row after mount (compiler on)',
-          'bytes per row'
+          'bytes per row after mount, compiler on, lower is better',
+          'bytes per row',
+          d.compact
         )
       : '<p class="viz-empty">No data.</p>';
     const table = LIB.table(
@@ -479,7 +543,7 @@ const LIB = {
       d.rows
         .filter(r => r.n === st.n)
         .map(r => [
-          LIB.esc(r.variant),
+          LIB.esc(LIB.name(r.variant)),
           r.compiler,
           LIB.int(r.bytesPerRow),
           r.mountMs.toFixed(1),
@@ -505,6 +569,8 @@ const VIEWS = {
 
 const esc = LIB.esc;
 const ms = LIB.ms;
+// A variant's readable name (LIB.name), escaped for HTML.
+const vname = v => esc(LIB.name(v));
 
 function placeholderBanner(data) {
   return data.build.status === 'head'
@@ -546,7 +612,7 @@ function legend(items) {
   return `<div class="viz-legend">${items
     .map(
       ([cls, shape, label]) =>
-        `<span><svg width="22" height="12" aria-hidden="true"><g class="${cls}">${shape === 'line' ? '<line class="line" x1="1" x2="21" y1="6" y2="6"/>' : shape === 'ring' ? '<circle class="dot-off" cx="11" cy="6" r="4.5"/>' : shape === 'bar' ? '<rect class="bar" x="1" y="2" width="20" height="8" rx="2"/>' : '<circle class="dot-on" cx="11" cy="6" r="4.5"/>'}</g></svg>${codeify(esc(label))}</span>`
+        `<span><svg width="22" height="12" aria-hidden="true"><g class="${cls}">${shape === 'line' ? '<line class="line" x1="1" x2="21" y1="6" y2="6"/>' : shape === 'ring' ? '<circle class="dot-off" cx="11" cy="6" r="4.5"/>' : shape === 'bar' ? '<rect class="bar" x="1" y="2" width="20" height="8" rx="2"/>' : shape === 'diamond' ? '<path class="dot-on" d="M11 0.5L16.5 6L11 11.5L5.5 6Z"/>' : '<circle class="dot-on" cx="11" cy="6" r="4.5"/>'}</g></svg>${codeify(esc(label))}</span>`
     )
     .join('')}</div>`;
 }
@@ -642,23 +708,29 @@ function mapValues(obj, fn) {
   return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, fn(v)]));
 }
 const ENTRY = ['median', 'p25', 'p75', 'p95', 'count'];
+// Entries go to the browser as arrays (LIB.entry reads them), which keeps
+// the page under its size budget.
+function entryArray(e) {
+  return e ? ENTRY.map(k => e[k] ?? null) : null;
+}
 function mainForBrowser(d) {
   return {
-    ...d,
+    variants: d.variants,
     cells: mapValues(d.cells, c => ({
       verdict: c.verdict ? {text: c.verdict.text} : null,
       granular: c.granular ? {text: c.granular.text} : null,
       best: c.best,
       variants: mapValues(c.variants, v => ({
-        on: pick(v.on, ENTRY),
-        off: pick(v.off, ENTRY),
+        on: entryArray(v.on),
+        off: entryArray(v.off),
       })),
     })),
   };
 }
-function spikeForBrowser(d) {
+function spikeForBrowser(d, family) {
   return {
     families: d.families,
+    family,
     unread: d.unread ?? [],
     ks: d.ks,
     throttles: d.throttles,
@@ -668,13 +740,14 @@ function spikeForBrowser(d) {
     })),
   };
 }
-function sweepForBrowser(d) {
+function sweepForBrowser(d, titles) {
   return {
     scenarios: d.scenarios,
     throttles: d.throttles,
     libraries: d.libraries,
     stores: d.stores,
     configs: d.configs,
+    titles,
     cells: mapValues(d.cells, c => ({
       libraries: mapValues(c.libraries, e => pick(e, ['median'])),
       verdicts: mapValues(c.verdicts, v => (v ? {text: v.text} : null)),
@@ -751,7 +824,7 @@ function scoreboardControls(data, opts) {
   );
 }
 
-function mainChart(data) {
+function mainChart(data, opts) {
   const d = data.series.main;
   const state = {
     scenario: d.scenarios[0]?.key,
@@ -761,7 +834,7 @@ function mainChart(data) {
   return (
     placeholderBanner(data) +
     figure('main', {
-      title: 'Update cost by variant',
+      title: opts?.args?.title ?? 'Median ms per update for every variant, with and without the compiler',
       controls: [
         {
           key: 'scenario',
@@ -780,14 +853,13 @@ function mainChart(data) {
         },
       ],
       state,
-      data: mainForBrowser(d),
+      data: {...mainForBrowser(d), compact: isCompact(opts)},
     }).replace(
       '<div class="viz-plot">',
       legend([
-        ['s1', 'dot', 'use(store), compiler on'],
-        ['s1', 'ring', 'use(store), compiler off'],
-        ['muted', 'dot', 'others, compiler on'],
-        ['muted', 'ring', 'others, compiler off'],
+        ['s1', 'dot', 'use(store)'],
+        ['muted', 'dot', 'the other approaches'],
+        ['muted', 'line', 'middle half of the samples'],
       ]) + '<div class="viz-plot">'
     )
   );
@@ -831,7 +903,7 @@ function mainTable(data) {
               )
             )
             .map(c => [
-              `${esc(v)}${c === 'on' ? ' + compiler' : ''}`,
+              `${vname(v)}${c === 'on' ? ' + compiler' : ''}`,
               ...cols.map(([n, t]) =>
                 ms(
                   d.cells[`${s.key}|${n}|${t}`]?.variants[v]?.[c]?.median ??
@@ -886,7 +958,7 @@ function countsTable(data, opts) {
     ],
     ordered.map(r => [
       esc(r.scenario),
-      esc(r.variant),
+      vname(r.variant),
       LIB.int(r.renders),
       LIB.int(r.rows),
       LIB.int(r.selectors),
@@ -899,7 +971,7 @@ function countsTable(data, opts) {
     const scs = scenarios.filter(sc => ordered.some(r => r.scenario === sc));
     const cell = r => (r ? `${LIB.int(r.renders)} <small class="muted">· ${LIB.int(r.selectors)} sel.</small>` : '–');
     return compactCard(
-      table(['scenario', ...vs.map(esc)], scs.map(sc => [esc(sc), ...vs.map(v => cell(byKey.get(`${sc}|${v}`)))])),
+      table(['scenario', ...vs.map(vname)], scs.map(sc => [esc(sc), ...vs.map(v => cell(byKey.get(`${sc}|${v}`)))])),
       `Counting build, one update, compiled: counted renders · selector calls. Counted: ${esc(data.values['method.countedComponents']?.display ?? '')}.`
     );
   }
@@ -915,9 +987,9 @@ function suiteTable(data, suite, opts) {
     return card('<p class="viz-empty">No pinned results for this suite.</p>');
   const head = [
     'scenario',
-    ...s.variants.map(esc),
-    ...s.lefts.map(l => `${esc(l)} vs best`),
-    ...(s.controls ?? []).map(v => `${esc(v)} vs redux`),
+    ...s.variants.map(vname),
+    ...s.lefts.map(l => `${vname(l)} vs best`),
+    ...(s.controls ?? []).map(v => `${vname(v)} vs Redux`),
   ];
   const rows = s.rows.map(r => {
     const redux = r.cells.redux?.on;
@@ -953,7 +1025,7 @@ function fairness5Table(data, opts) {
   if (!d) return card('<p class="viz-empty">No pinned results for the fairness run with every variant.</p>');
   const head = [
     'scenario',
-    ...d.variants.map(esc),
+    ...d.variants.map(vname),
     'vs the fastest Redux',
     'vs Zustand',
   ];
@@ -984,43 +1056,64 @@ function fairness5Table(data, opts) {
   );
 }
 
-function spikeChart(data) {
+// The family the one-panel view shows: mixed interleaves the score and
+// comment updates the other panels isolate, so it stands for both.
+const SPIKE_FAMILY = 'mixed';
+
+function spikeChart(data, opts) {
   const d = data.series.spike;
   if (!d) return card('<p class="viz-empty">No pinned spike results.</p>');
+  const family = opts?.args?.family ?? (d.families.includes(SPIKE_FAMILY) ? SPIKE_FAMILY : d.families.find(f => !(d.unread ?? []).includes(f)));
   return (
     placeholderBanner(data) +
     figure('spike', {
-      title: 'Shared derived data: cost as readers per category grow',
+      title: opts?.args?.title ?? 'Shared derived data: ms per update as readers per category grow',
       controls: [
+        {
+          key: 'view',
+          label: 'Show',
+          options: [
+            ['one', `${family} updates`],
+            ['all', 'every kind of update'],
+          ],
+        },
         {
           key: 'throttle',
           label: 'CPU',
           options: d.throttles.map(t => [t, `${t}× throttle`]),
         },
       ],
-      state: {throttle: d.throttles[0]},
-      data: spikeForBrowser(d),
+      state: {view: 'one', throttle: d.throttles[0]},
+      data: {...spikeForBrowser(d, family), compact: isCompact(opts)},
     }).replace(
       '<div class="viz-plot">',
       legend([
-        ['s1', 'line', 'store (per component)'],
-        ['s2', 'line', 'redux'],
-        ['s3', 'line', 'zustand'],
-        ['s4', 'line', 'store-memo (weakMemo)'],
-        ['muted', 'line', 'other sharing options'],
+        ['s1', 'line', 'use(store)'],
+        ['s2', 'line', 'use(store) with weakMemo'],
+        ['muted', 'line', 'Redux, the reference'],
       ]) + '<div class="viz-plot">'
     )
   );
 }
 
-function sweepChart(data) {
+function sweepChart(data, opts) {
   const d = data.series.sweeps;
   if (!d) return card('<p class="viz-empty">No pinned sweep results.</p>');
+  const titles = Object.fromEntries(
+    d.scenarios.map(s => [s, data.series.main.scenarios.find(m => m.key === s)?.title ?? s])
+  );
   return (
     placeholderBanner(data) +
     figure('sweep', {
-      title: 'Selection and compiler coverage',
+      title: opts?.args?.title ?? 'Sweeps: ms per update by compiler coverage and props per row',
       controls: [
+        {
+          key: 'scenario',
+          label: 'Scenario',
+          options: [...d.scenarios]
+            .sort((a, b) => (a === 'selection' ? -1 : b === 'selection' ? 1 : 0))
+            .map(s => [s, titles[s]]),
+        },
         {
           key: 'view',
           label: 'Sweep',
@@ -1035,15 +1128,18 @@ function sweepChart(data) {
           options: d.throttles.map(t => [t, `${t}× throttle`]),
         },
       ],
-      state: {view: 'coverage', throttle: d.throttles[0]},
-      data: sweepForBrowser(d),
+      state: {
+        scenario: d.scenarios.includes('selection') ? 'selection' : d.scenarios[0],
+        view: 'coverage',
+        throttle: d.throttles[0],
+      },
+      data: {...sweepForBrowser(d, titles), compact: isCompact(opts)},
     }).replace(
       '<div class="viz-plot">',
       legend([
-        ['s1', 'line', 'store'],
-        ['s4', 'line', 'store-keyed'],
-        ['s2', 'line', 'redux'],
-        ['s3', 'line', 'zustand'],
+        ['s1', 'line', 'use(store)'],
+        ['s2', 'line', 'keyed selection'],
+        ['muted', 'line', 'Redux and Zustand'],
       ]) + '<div class="viz-plot">'
     )
   );
@@ -1059,7 +1155,7 @@ function typingTable(data, which, opts) {
       placeholderBanner(data) +
         table(
           ['variant', 'CPU', 'p50 ms', 'p95 ms'],
-          on.map(r => [`${esc(r.variant)} + compiler`, `${r.throttle}×`, r.p50.toFixed(1), r.p95.toFixed(1)])
+          on.map(r => [`${vname(r.variant)} + compiler`, `${r.throttle}×`, r.p50.toFixed(1), r.p95.toFixed(1)])
         ),
       'Keydown to next frame while the list re-filters, compiler on.'
     );
@@ -1077,7 +1173,7 @@ function typingTable(data, which, opts) {
           'runs',
         ],
         rows.map(r => [
-          `${esc(r.variant)}${r.compiler === 'on' ? ' + compiler' : ''}`,
+          `${vname(r.variant)}${r.compiler === 'on' ? ' + compiler' : ''}`,
           `${r.throttle}×`,
           r.p50.toFixed(1),
           r.p95.toFixed(1),
@@ -1090,7 +1186,7 @@ function typingTable(data, which, opts) {
   );
 }
 
-function memoryChart(data) {
+function memoryChart(data, opts) {
   const rows = data.series.memory;
   if (rows.length === 0)
     return card('<p class="viz-empty">No pinned memory results.</p>');
@@ -1098,7 +1194,7 @@ function memoryChart(data) {
   return (
     placeholderBanner(data) +
     figure('memory', {
-      title: 'Memory per row',
+      title: opts?.args?.title ?? 'Memory per row',
       controls: [
         {
           key: 'n',
@@ -1107,7 +1203,7 @@ function memoryChart(data) {
         },
       ],
       state: {n: ns[ns.length - 1]},
-      data: {rows},
+      data: {rows, compact: isCompact(opts)},
     })
   );
 }
@@ -1176,7 +1272,7 @@ function nobailoutTable(data, opts) {
   if (!d) return card('<p class="viz-empty">No pinned results without the same-element bailout.</p>');
   const head = [
     'configuration',
-    ...d.variants.map(esc),
+    ...d.variants.map(vname),
     `vs ${esc(data.series.main.headline ?? 'the headline opponents')}`,
     'vs the granular control',
     'store with the bailout',
@@ -1232,7 +1328,7 @@ function nobailoutTable(data, opts) {
           ]),
       ),
     );
-    sweeps = `<h4 class="viz-h">Sweeps without the bailout</h4>` + table(['configuration', ...sw.libraries.map(esc), ...sw.stores.map(l => `${esc(l)} vs best`)], swRows);
+    sweeps = `<h4 class="viz-h">Sweeps without the bailout</h4>` + table(['configuration', ...sw.libraries.map(vname), ...sw.stores.map(l => `${vname(l)} vs best`)], swRows);
   }
   return card(
     placeholderBanner(data) + tally + table(head, rows) + sweeps,
@@ -1266,11 +1362,11 @@ function ctxScoreboard(data, opts) {
   );
 }
 
-function ctxChart(data) {
+function ctxChart(data, opts) {
   const d = data.series.main;
   const c = data.series.ctx;
   if (!c) return card('<p class="viz-empty">No pinned Context results.</p>');
-  const say = (v, label) => `${label}: ${esc(v?.text ?? 'n/a')}`;
+  const say = (v, label) => `${esc(v?.text ?? 'n/a')} vs ${label}`;
   const filtered = {
     ...mainForBrowser({
       ...d,
@@ -1286,7 +1382,7 @@ function ctxChart(data) {
   for (const [k, cell] of Object.entries(filtered.cells)) {
     const v = c.cells[k]?.verdicts;
     cell.note = v
-      ? `<code>use(store)</code> vs Context, same setting. Compiler off: ${say(v.off.vsContext, 'vs one context')}, ${say(v.off.vsContextSplit, 'vs a context per slice')}. Compiler on: ${say(v.on.vsContext, 'vs one context')}, ${say(v.on.vsContextSplit, 'vs a context per slice')}.`
+      ? `With the compiler: ${say(v.on.vsContext, 'one context')}, ${say(v.on.vsContextSplit, 'a context per slice')}. Without: ${say(v.off.vsContext, 'one context')}, ${say(v.off.vsContextSplit, 'a context per slice')}.`
       : '';
   }
   const state = {
@@ -1297,21 +1393,20 @@ function ctxChart(data) {
   return (
     placeholderBanner(data) +
     figure('main', {
-      title: 'use(store) and Context, with and without the compiler',
+      title: opts?.args?.title ?? 'Median ms per update for use(store) and Context, with and without the compiler',
       controls: [
         {key: 'scenario', label: 'Scenario', options: d.scenarios.map(s => [s.key, s.title])},
         {key: 'n', label: 'Rows', options: d.ns.map(n => [n, n.toLocaleString('en-US')])},
         {key: 'throttle', label: 'CPU', options: d.throttles.map(t => [t, `${t}× throttle`])},
       ],
       state,
-      data: filtered,
+      data: {...filtered, compact: isCompact(opts)},
     }).replace(
       '<div class="viz-plot">',
       legend([
-        ['s1', 'dot', 'use(store), compiler on'],
-        ['s1', 'ring', 'use(store), compiler off'],
-        ['muted', 'dot', 'Context, compiler on'],
-        ['muted', 'ring', 'Context, compiler off'],
+        ['s1', 'dot', 'use(store)'],
+        ['muted', 'dot', 'one context and a context per slice'],
+        ['muted', 'line', 'middle half of the samples'],
       ]) + '<div class="viz-plot">'
     )
   );
@@ -1360,6 +1455,242 @@ function ctxCounts(data, opts) {
   return card(
     table(head, rows),
     `Work for one update in the counting build (${esc(data.values['method.countsRows']?.display ?? '')} rows). Counted renders are the renders of ${esc(data.values['method.countedComponents']?.display ?? 'the instrumented components')}, not every component (App and the list aren't counted). Row renders are among them. Context re-renders every consumer of a changed value. With the compiler, unchanged output is skipped.`
+  );
+}
+
+// ---------------------------------------------------------------- speedup
+
+// use(store)'s speedup in every configuration of one comparison, read from
+// the series: the verdict (ratio of means, tie, restarts), both medians and
+// the scenario tally. Nothing is re-judged here.
+function speedupData(data, which) {
+  const m = data.series.main;
+  const setting = c => (c === 'on' ? ' + compiler' : ' without the compiler');
+  // {median, mean} of an entry: the mean is what the verdict's ratio is
+  // made of, the median is for reference.
+  const mm = e => ({median: e?.median ?? null, mean: e?.mean ?? null});
+  const oppOf = o => (o ? {name: LIB.name(o.variant), compiler: o.compiler, label: LIB.name(o.variant) + setting(o.compiler), ...mm(o)} : null);
+  const scenarios = m.scenarios;
+  const ctx = which.match(/^ctx-(off|on)-(vsContext|vsContextSplit)$/);
+  if (ctx) {
+    const c = data.series.ctx;
+    if (!c) return null;
+    const [, set, vs] = ctx;
+    const opp = c.vs[vs];
+    const both = set === 'on' ? 'both with the compiler' : 'both without the compiler';
+    return {
+      scenarios,
+      ns: m.ns,
+      throttles: m.throttles,
+      store: `use(store)${setting(set)}`,
+      opponent: `${LIB.name(opp)}, ${both}`,
+      title: `use(store) vs ${LIB.name(opp)}, ${both}`,
+      point(s, n, t) {
+        const k = `${s}|${n}|${t}`;
+        const cell = m.cells[k];
+        const verdict = c.cells[k]?.verdicts[set][vs];
+        if (!cell || !verdict) return null;
+        return {
+          verdict,
+          store: mm(cell.variants.store?.[set]),
+          opp: {name: LIB.name(opp), compiler: set, label: LIB.name(opp) + setting(set), ...mm(cell.variants[opp]?.[set])},
+        };
+      },
+      tally: s => c.tallies[`${set}|${vs}`]?.[s],
+    };
+  }
+  if (which === 'nobailout') {
+    const nb = data.series.nobailout;
+    if (!nb) return null;
+    return {
+      scenarios: scenarios.filter(s => nb.scenarios.some(x => x.key === s.key)),
+      ns: nb.ns,
+      throttles: nb.throttles,
+      store: 'use(store) + compiler',
+      opponent: `${m.headline}, without the same-element bailout`,
+      title: `Without the same-element bailout: use(store) + compiler vs ${m.headline}`,
+      point(s, n, t) {
+        const cell = nb.cells[`${s}|${n}|${t}`];
+        if (!cell?.verdict) return null;
+        return {
+          verdict: cell.verdict,
+          store: mm(cell.variants.store),
+          opp: oppOf(cell.opp),
+        };
+      },
+      tally: s => nb.tallies[s],
+    };
+  }
+  const granular = which === 'granular';
+  const sb = data.series.scoreboard;
+  return {
+    scenarios,
+    ns: m.ns,
+    throttles: m.throttles,
+    store: 'use(store) + compiler',
+    opponent: granular ? LIB.name('zustand-granular') : m.headline,
+    title: `use(store) + compiler vs ${granular ? LIB.name('zustand-granular') : m.headline}`,
+    point(s, n, t) {
+      const cell = m.cells[`${s}|${n}|${t}`];
+      const verdict = granular ? cell?.granular : cell?.verdict;
+      if (!verdict) return null;
+      return {verdict, store: mm(cell.variants.store?.on), opp: oppOf(granular ? cell.granularOpp : cell.opp)};
+    },
+    tally: s => sb.rows.find(r => r.key === s)?.tallies[granular ? 'zustand-granular' : 'selectors'],
+  };
+}
+
+// The log-ratio axis: "2× slower" sits as far from parity as "2× faster".
+// Its ticks are 1, 2 and 5 per decade on both sides, by priority: parity,
+// the powers of ten, then the 2s and the 5s.
+const SPEEDUP_TICKS = [1, 10, 1 / 10, 100, 1 / 100, 2, 1 / 2, 20, 1 / 20, 5, 1 / 5, 50, 1 / 50];
+function speedupTick(t) {
+  return t === 1 ? 'parity' : t > 1 ? `${t}× faster` : `${Math.round(1 / t)}× slower`;
+}
+
+function speedupConfig(s, n, t) {
+  return `${s.title} · N=${n.toLocaleString('en-US')} · ${t}× CPU`;
+}
+
+// Full and compact geometry. Compact is about a half-width dashboard card's
+// content width, so its 12px text renders at about 12px.
+const SPEEDUP_GEOMETRY = {
+  full: {W: 680, plotL: 236, right: 84, laneH: 12, pad: 14},
+  compact: {W: LIB.COMPACT_W(), plotL: 150, right: 70, laneH: 12, pad: 10},
+};
+
+function speedupSvg(sd, compact) {
+  const {W, plotL, right, laneH, pad} = SPEEDUP_GEOMETRY[compact ? 'compact' : 'full'];
+  const plotR = W - right;
+  const top = 42;
+  const rowH = sd.ns.length * laneH + pad;
+  const bottom = 48;
+  const H = top + sd.scenarios.length * rowH + bottom;
+  const f = v => Number(v.toFixed(1));
+  const points = sd.scenarios.flatMap(s =>
+    sd.ns.flatMap((n, li) =>
+      sd.throttles.map((t, ti) => ({s, n, t, li, ti, p: sd.point(s.key, n, t)})).filter(x => x.p)
+    )
+  );
+  const speeds = points.filter(x => !x.p.verdict.noWork && x.p.verdict.ratio > 0).map(x => 1 / x.p.verdict.ratio);
+  const lo0 = Math.min(1 / 2.2, ...speeds.map(sp => sp / 1.15));
+  const hi0 = Math.max(2.2, ...speeds.map(sp => sp * 1.15));
+  const lo = Math.max(lo0, 1 / 100);
+  const hi = Math.min(hi0, 100);
+  const x = sp => plotL + ((Math.log(sp) - Math.log(lo)) / (Math.log(hi) - Math.log(lo))) * (plotR - plotL);
+  // Every tick gets a gridline. A label is kept only where it clears the
+  // ones already placed.
+  const ticks = SPEEDUP_TICKS.filter(t => t >= lo && t <= hi).sort((m, n) => m - n);
+  const labeled = [];
+  for (const t of SPEEDUP_TICKS) {
+    if (ticks.includes(t) && labeled.every(u => Math.abs(x(t) - x(u)) >= 64)) labeled.push(t);
+  }
+  // Marks, labels and lines that share their look are grouped, so each
+  // element only carries its position.
+  let svg = LIB.svgOpen(W, H, `${sd.store}: speedup vs ${sd.opponent} for every configuration, log scale`, compact);
+  svg += `<g class="grid">${ticks.filter(t => t !== 1).map(t => `<line x1="${f(x(t))}" x2="${f(x(t))}" y1="${top}" y2="${H - bottom}"/>`).join('')}${sd.scenarios
+    .slice(1)
+    .map((s, i) => `<line x1="0" x2="${W}" y1="${top + (i + 1) * rowH}" y2="${top + (i + 1) * rowH}"/>`)
+    .join('')}</g>`;
+  if (ticks.includes(1)) svg += `<line class="parity" x1="${f(x(1))}" x2="${f(x(1))}" y1="${top}" y2="${H - bottom}"/>`;
+  svg += `<g class="axis" text-anchor="middle">${ticks
+    .filter(t => labeled.includes(t))
+    .map(t => `<text x="${f(x(t))}" y="${H - bottom + 16}">${speedupTick(t)}</text>`)
+    .join('')}<text x="${(plotL + plotR) / 2}" y="${H - 8}">use(store)'s speedup, ratio of means, log scale</text></g>`;
+  svg += `<g class="axis" text-anchor="end">`;
+  if (x(1) - plotL >= 64) svg += `<text x="${f(x(1) - 8)}" y="${top - 8}">← slower</text>`;
+  svg += `<text x="${plotL - 8}" y="${top - 8}">rows</text><text x="${W - 2}" y="${top - 23}">matched</text><text x="${W - 2}" y="${top - 8}">or beaten</text></g>`;
+  svg += `<text class="axis" x="${f(x(1) + 8)}" y="${top - 8}">faster →</text>`;
+  let labels = '';
+  let muted = '';
+  let lanes = '';
+  let tallies = '';
+  sd.scenarios.forEach((s, i) => {
+    const y0 = top + i * rowH;
+    const cut = s.title.indexOf(' (');
+    const lines = cut > 0 ? [s.title.slice(0, cut), s.title.slice(cut + 1)] : [s.title];
+    const all = s.lowSignal ? [...lines, 'low signal'] : lines;
+    all.forEach((line, j) => {
+      const el = `<text x="0" y="${f(y0 + rowH / 2 - (all.length - 1) * 7.5 + j * 15 + 4)}">${esc(line)}</text>`;
+      if (s.lowSignal && j === all.length - 1) muted += el;
+      else labels += el;
+    });
+    sd.ns.forEach((n, li) => {
+      lanes += `<text x="${plotL - 8}" y="${f(y0 + pad / 2 + li * laneH + laneH / 2 + 3.5)}">${LIB.tick(n)}</text>`;
+    });
+    const t = sd.tally(s.key);
+    if (t) tallies += `<text x="${W - 2}" y="${f(y0 + rowH / 2 + 4)}">${t.wins + t.ties}/${t.total}</text>`;
+  });
+  svg += `<g class="label emph">${labels}</g><g class="axis">${muted}</g><g class="axis lane" text-anchor="end">${lanes}</g><g class="value" text-anchor="end">${tallies}</g>`;
+  const marks = {pos: '', neg: '', tie: ''};
+  let hits = '';
+  points.forEach(({s, n, t, li, ti, p}, row) => {
+    const vd = p.verdict;
+    if (vd.noWork || !(vd.ratio > 0)) return;
+    // Placed by the verdict's own ratio (of means), so a mark's side always
+    // matches its color.
+    const sp = 1 / vd.ratio;
+    const cls = vd.tie ? 'tie' : sp > 1 ? 'pos' : 'neg';
+    const cx = f(x(Math.min(Math.max(sp, lo), hi)));
+    const cy = f(top + sd.scenarios.indexOf(s) * rowH + pad / 2 + li * laneH + laneH / 2);
+    marks[cls] += ti === 0 ? `<circle cx="${cx}" cy="${cy}" r="4.5"/>` : `<path d="M${cx} ${f(cy - 5.5)}l5.5 5.5l-5.5 5.5l-5.5 -5.5Z"/>`;
+    // The tooltip comes from this point's row in the table view (data-i),
+    // so the page carries it once.
+    hits += `<circle cx="${cx}" cy="${cy}" r="11" tabindex="0" data-i="${row}" aria-label="${esc(`${speedupConfig(s, n, t)}: ${vd.text}`)}"/>`;
+  });
+  svg += `<g class="pos dot-on">${marks.pos}</g><g class="neg dot-on">${marks.neg}</g><g class="tie dot-off">${marks.tie}</g><g class="hits">${hits}</g>`;
+  return {svg: svg + '</svg>', points};
+}
+
+function speedupChart(data, {args = {}} = {}) {
+  const which = args.comparison ?? 'headline';
+  const sd = speedupData(data, which);
+  if (!sd) return card('<p class="viz-empty">No pinned results for this comparison.</p>');
+  const compact = Boolean(args.compact);
+  const {svg, points} = speedupSvg(sd, compact);
+  const shapes = ['dot', 'diamond'];
+  const items = [
+    ['pos', 'dot', 'use(store) faster'],
+    ['neg', 'dot', 'use(store) slower'],
+    ['tie', 'ring', 'tie'],
+    ...sd.throttles.slice(0, 2).map((t, i) => ['key', shapes[i], `${t}× CPU`]),
+  ];
+  const restarts = vd => (vd.split ? 'disagree, a tie' : vd.tie ? 'within noise, a tie' : 'agree');
+  const both = e => `${ms(e?.mean ?? null)} / ${ms(e?.median ?? null)}`;
+  // A plain table (right alignment comes from .viz-speedup CSS) to keep the
+  // page small. The opponent's name moves into the header when it doesn't
+  // change, and its compiler setting too. The verdict cell is the tooltip's
+  // value (.tip-v).
+  const opps = points.map(({p}) => p.opp);
+  const same = k => new Set(opps.map(o => o?.[k])).size === 1;
+  const oppCol = same('label') ? null : same('name') ? 'compiler' : 'label';
+  const oppHead = oppCol === null ? opps[0]?.label ?? sd.opponent : oppCol === 'compiler' ? opps[0]?.name : 'opponent';
+  const head = [
+    'configuration',
+    `${sd.store}, mean / median ms`,
+    ...(oppCol === 'compiler' ? [`${oppHead}, compiler`] : oppCol === 'label' ? ['opponent'] : []),
+    `${oppCol === 'label' ? 'opponent' : oppHead}, mean / median ms`,
+    'verdict',
+    'restarts',
+  ];
+  const tableHtml = `<div class="viz-scroll"><table class="viz-table"><thead><tr>${head.map(h => `<th>${codeify(esc(h))}</th>`).join('')}</tr></thead><tbody>${points
+    .map(
+      ({s, n, t, p}) =>
+        `<tr><td>${esc(speedupConfig(s, n, t))}</td><td>${both(p.store)}</td>${oppCol ? `<td>${esc(p.opp?.[oppCol] ?? '')}</td>` : ''}<td>${both(p.opp)}</td><td class="tip-v">${esc(p.verdict.text)}</td><td>${restarts(p.verdict)}</td></tr>`
+    )
+    .join('')}</tbody></table></div>`;
+  const caption = compact
+    ? 'Ratio of means per configuration. Right of parity is faster. Hollow: a tie.'
+    : 'One mark per configuration, placed by the ratio of means the verdict uses. Right of parity, use(store) is faster. Hollow gray: a tie (within noise, or the restarts disagree).';
+  return (
+    placeholderBanner(data) +
+    `<figure class="viz viz-card viz-speedup${compact ? ' viz-compact' : ''}">
+<figcaption class="viz-title">${codeify(esc(args.title ?? sd.title))}</figcaption>
+${legend(items)}<div class="viz-plot">${svg}</div>
+<div class="viz-tip" role="tooltip" hidden></div>
+<p class="viz-caption">${codeify(caption)}</p>
+<details class="viz-tableview"><summary>Table view</summary><div class="viz-tablebody">${tableHtml}</div></details>
+</figure>`
   );
 }
 
@@ -1475,7 +1806,7 @@ export const generators = {
   'build-label': buildLabel,
   scoreboard,
   'scoreboard-controls': scoreboardControls,
-  'main-chart': (d, o) => (isCompact(o) ? compactFigure(mainChart(d), ['scenario']) : mainChart(d)),
+  'main-chart': (d, o) => (isCompact(o) ? compactFigure(mainChart(d, o), ['scenario']) : mainChart(d, o)),
   'main-verdicts': mainVerdicts,
   'main-table': mainTable,
   'counts-table': countsTable,
@@ -1486,19 +1817,20 @@ export const generators = {
   'suite-deeptree-nested-hooks': (d, o) => suiteTable(d, 'deeptree-nested-hooks', o),
   'suite-fairness': (d, o) => suiteTable(d, 'fairness', o),
   'suite-fairness5': fairness5Table,
-  'spike-chart': (d, o) => (isCompact(o) ? compactFigure(spikeChart(d), []) : spikeChart(d)),
-  'sweep-chart': (d, o) => (isCompact(o) ? compactFigure(sweepChart(d), ['view']) : sweepChart(d)),
+  'spike-chart': (d, o) => (isCompact(o) ? compactFigure(spikeChart(d, o), ['view']) : spikeChart(d, o)),
+  'sweep-chart': (d, o) => (isCompact(o) ? compactFigure(sweepChart(d, o), ['scenario']) : sweepChart(d, o)),
   'typing-table': (d, o) => typingTable(d, 'main', o),
   'typing-suite-table': (d, o) => typingTable(d, 'suite', o),
-  'memory-chart': (d, o) => (isCompact(o) ? compactFigure(memoryChart(d), []) : memoryChart(d)),
+  'memory-chart': (d, o) => (isCompact(o) ? compactFigure(memoryChart(d, o), []) : memoryChart(d, o)),
   'losses-table': lossesTable,
   'nobailout-table': nobailoutTable,
   'ctx-scoreboard': ctxScoreboard,
-  'ctx-chart': (d, o) => (isCompact(o) ? compactFigure(ctxChart(d), ['scenario']) : ctxChart(d)),
+  'ctx-chart': (d, o) => (isCompact(o) ? compactFigure(ctxChart(d, o), ['scenario']) : ctxChart(d, o)),
   'ctx-compiler-gain': ctxCompilerGain,
   'ctx-counts': ctxCounts,
   'stat-tiles': statTiles,
   'verdict-grid': verdictGrid,
+  'speedup-chart': speedupChart,
 };
 
 export const generatorDocs = {
@@ -1509,13 +1841,15 @@ export const generatorDocs = {
   'ctx-scoreboard':
     'Store vs Context at the same compiler setting: per scenario and overall, store vs one context and vs a context per slice, compiler off and on (ctx.tally.*).',
   'ctx-chart':
-    'Interactive dot plot of store, one context and a context per slice, compiler on and off, by scenario, rows and CPU (log axis), with the same-setting verdicts in the note and a table view.',
+    'Interactive dot plot of use(store), one context and a context per slice in two panels (with and without the compiler, each on its own log axis), by scenario, rows and CPU, with the same-setting verdicts in the note and a table view. Args: {"title", "compact"}.',
+  'speedup-chart':
+    'use(store)\'s speedup in every configuration of one comparison: one row per scenario, one mark per size (lane) and CPU throttle (circle or diamond) on a symmetric log-ratio axis around parity, placed by the ratio of means the verdict uses, blue faster, red slower, hollow gray a tie under method.verdictRule, the scenario tally (matched or beaten) at the right, a tooltip with both means and medians and the restart agreement, and a table view. No controls. Args: {"comparison": "headline" | "granular" | "ctx-<off|on>-<vsContext|vsContextSplit>" | "nobailout", "title", "compact"}. Needs charts-assets {"extras": true} only in compact mode.',
   'ctx-compiler-gain':
     'What the compiler buys store, one context and a context per slice: with vs without it, per scenario and overall (ctx.tally.compilerGain.*).',
   'ctx-counts':
     'Counting build, one update: counted renders (method.countedComponents) and Row renders for store, one context and a context per slice, compiler off and on, per scenario.',
   'charts-assets':
-    'The chart CSS and runtime (filters, tooltips). Put it once per page, in the `<head>`. {"extras": true} adds the styles for stat-tiles, verdict-grid and compact cards. Compact (card) mode, {"compact": true}, works on scoreboard, scoreboard-controls, main-chart, counts-table (also {"scenarios": [...]}, and in compact {"variants": [...]}: one row per scenario), scoreboard (also {"columns": [comparison ids]}), main-verdicts (compact is the verdict grid), ctx-counts, sweep-chart, spike-chart, the suite-* tables, suite-fairness5, nobailout-table, typing-table, typing-suite-table, memory-chart, losses-table, ctx-scoreboard, ctx-chart, ctx-compiler-gain and verdict-grid.',
+    'The chart CSS and runtime (filters, tooltips). Put it once per page, in the `<head>`. {"extras": true} adds the styles for stat-tiles, verdict-grid and compact cards. Compact (card) mode, {"compact": true}, works on scoreboard, scoreboard-controls, main-chart, counts-table (also {"scenarios": [...]}, and in compact {"variants": [...]}: one row per scenario), scoreboard (also {"columns": [comparison ids]}), main-verdicts (compact is the verdict grid), ctx-counts, sweep-chart, spike-chart, the suite-* tables, suite-fairness5, nobailout-table, typing-table, typing-suite-table, memory-chart, losses-table, ctx-scoreboard, ctx-chart, ctx-compiler-gain, verdict-grid and speedup-chart. Compact charts are drawn about 584 wide (a half-width dashboard card), so their text renders at about 12px, and never grow past that.',
   'build-label':
     'The build provenance line (React version and sha, compiler hash, pin date), or a placeholder warning. G5 requires it on every page that cites numbers.',
   scoreboard:
@@ -1523,7 +1857,7 @@ export const generatorDocs = {
   'scoreboard-controls':
     'Main suite controls: store-single vs selectors, everything without the compiler, and store with vs without the compiler.',
   'main-chart':
-    'Interactive dot plot of the main suite: every variant, compiler on and off, median and middle half, filterable by scenario, rows and CPU; with the verdict and a table view.',
+    'Interactive dot plot of the main suite: every variant in two panels (with and without the compiler, each on its own log axis), median and middle half, filterable by scenario, rows and CPU, with the verdict in the note and a table view. Args: {"title", "compact"}.',
   'main-verdicts':
     'Main suite verdict grid: store + compiler vs the faster of Redux/Zustand for every scenario × size × CPU.',
   'main-table':
@@ -1543,15 +1877,15 @@ export const generatorDocs = {
   'suite-fairness5':
     'Fairness with every variant (set fairness5): medians, store + compiler vs the fastest Redux setup (redux, redux-plain, redux-nofreeze) and vs Zustand per configuration, with tallies (suite.fairness5.*).',
   'spike-chart':
-    'Shared derived data spike: ms per update vs readers per category (the pinned K values, spike.ks; K=spike.defaultK is the derived-selectors suite), small multiples per update family (role marked as an unread update), CPU filter, table view.',
+    'Shared derived data spike: a slopegraph of ms per update vs readers per category (the pinned K values, spike.ks; K=spike.defaultK is the derived-selectors suite) for use(store), weakMemo (store-memo) and Redux as the reference, for one update family (mixed by default), with a toggle to one panel per family. role (an unread update) and the other variants are only in the table view. CPU filter. Args: {"family", "title", "compact"}.',
   'sweep-chart':
-    'Sweeps at N=1,000: store, store-keyed, redux and zustand by compiler coverage or props per row, selection and entity, CPU filter, table view with verdicts.',
+    'Sweeps at N=1,000: use(store) and keyed selection (store-keyed) in color, Redux and Zustand in gray, on a linear axis from zero, by compiler coverage (placed by the share compiled) or props per row. Selection by default, entity behind the scenario filter. CPU filter, table view with verdicts. Args: {"title", "compact"}.',
   'typing-table':
     'Typing latency in the main app (p50, p95, max, and when the list caught up with the input) per variant and CPU.',
   'typing-suite-table':
     'Typing latency with the useDeferredValue variants of Redux and Zustand.',
   'memory-chart':
-    'Bytes per row after mount (bars, compiler on), filterable by rows, with mount time in the tooltip and a table view.',
+    'Bytes per row after mount (bars, compiler on), filterable by rows, with mount time in the tooltip and a table view. Args: {"title", "compact"}.',
   'nobailout-table':
     'Without the same-element bailout (react-builds/head-nobailout): the tally vs the headline opponents next to the head build, main-suite medians, store vs the headline opponents and vs the granular control, and what the bailout buys store (bailoutGain); plus the sweeps when pinned. Separate from the headline.',
   'losses-table':
@@ -1561,9 +1895,9 @@ export const generatorDocs = {
 // ---------------------------------------------------------------- assets
 
 const CSS = `
-.viz{--surface-1:#fcfcfb;--text-primary:#0b0b0b;--text-secondary:#52514e;--muted:#898781;--grid:#e1e0d9;--axis:#c3c2b7;--border:rgba(11,11,11,.10);--series-1:#2a78d6;--series-2:#eb6834;--series-3:#1baf7a;--series-4:#eda100;color-scheme:light;color:var(--text-primary);font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
-@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])) .viz{--surface-1:#1a1a19;--text-primary:#f0efec;--text-secondary:#c3c2b7;--grid:#2c2c2a;--axis:#383835;--border:rgba(255,255,255,.10);--series-1:#3987e5;--series-2:#d95926;--series-3:#199e70;--series-4:#c98500;color-scheme:dark}}
-:root[data-theme="dark"] .viz{--surface-1:#1a1a19;--text-primary:#f0efec;--text-secondary:#c3c2b7;--grid:#2c2c2a;--axis:#383835;--border:rgba(255,255,255,.10);--series-1:#3987e5;--series-2:#d95926;--series-3:#199e70;--series-4:#c98500;color-scheme:dark}
+.viz{--surface-1:#fcfcfb;--text-primary:#0b0b0b;--text-secondary:#52514e;--muted:#898781;--grid:#e1e0d9;--axis:#c3c2b7;--border:rgba(11,11,11,.10);--series-1:#2a78d6;--series-2:#eb6834;--pos:#2a78d6;--neg:#e34948;--tie:#898781;color-scheme:light;color:var(--text-primary);font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])) .viz{--surface-1:#1a1a19;--text-primary:#f0efec;--text-secondary:#c3c2b7;--grid:#2c2c2a;--axis:#383835;--border:rgba(255,255,255,.10);--series-1:#3987e5;--series-2:#d95926;--pos:#3987e5;--neg:#e66767;--tie:#c3c2b7;color-scheme:dark}}
+:root[data-theme="dark"] .viz{--surface-1:#1a1a19;--text-primary:#f0efec;--text-secondary:#c3c2b7;--grid:#2c2c2a;--axis:#383835;--border:rgba(255,255,255,.10);--series-1:#3987e5;--series-2:#d95926;--pos:#3987e5;--neg:#e66767;--tie:#c3c2b7;color-scheme:dark}
 figure.viz,.viz-card{background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin:16px 0;position:relative}
 .viz-title{font-weight:600;margin:0 0 8px}
 .viz-controls{display:flex;flex-wrap:wrap;gap:14px;margin:0 0 8px}
@@ -1582,15 +1916,21 @@ figure.viz,.viz-card{background:var(--surface-1);border:1px solid var(--border);
 .viz .ptitle{fill:var(--text-primary);font-weight:600}
 .viz .value,.viz .endlabel{fill:var(--text-secondary)}
 .viz .leader{stroke:var(--muted);stroke-width:1}
-.viz .s1{--c:var(--series-1)}.viz .s2{--c:var(--series-2)}.viz .s3{--c:var(--series-3)}.viz .s4{--c:var(--series-4)}.viz .muted{--c:var(--muted)}
+.viz .s1{--c:var(--series-1)}.viz .s2{--c:var(--series-2)}.viz .muted{--c:var(--muted)}
+.viz .pos{--c:var(--pos)}.viz .neg{--c:var(--neg)}.viz .tie{--c:var(--tie)}.viz .key{--c:var(--text-secondary)}
+.viz .parity{stroke:var(--text-secondary);stroke-width:1}
+.viz .lane,.viz .lane text{font-size:10px}
+.viz g.emph text{font-weight:600}
+.viz-speedup .viz-table td+td,.viz-speedup .viz-table th+th{text-align:right}
+.viz .endlabel.emph{fill:var(--text-primary);font-weight:600}
 .viz .whisker{stroke:var(--c);stroke-width:2;stroke-linecap:round;opacity:.45}
 .viz .dot-on{fill:var(--c);stroke:var(--surface-1);stroke-width:2}
 .viz .dot-off{fill:var(--surface-1);stroke:var(--c);stroke-width:2}
 .viz .line{fill:none;stroke:var(--c);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
 .viz g.muted .line{opacity:.55}
 .viz .bar{fill:var(--c)}
-.viz .hit{fill:transparent;cursor:default;outline:none}
-.viz .hit:focus-visible{stroke:var(--text-primary);stroke-width:1}
+.viz .hit,.viz .hits *{fill:transparent;cursor:default;outline:none}
+.viz .hit:focus-visible,.viz .hits :focus-visible{stroke:var(--text-primary);stroke-width:1}
 .viz .crosshair{stroke:var(--muted);stroke-width:1;pointer-events:none}
 .viz-tip{position:absolute;z-index:5;pointer-events:none;background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:6px 9px;box-shadow:0 2px 10px rgba(0,0,0,.12);font-size:12px;max-width:300px;white-space:pre-line}
 .viz-tip b{display:block;font-size:13px;color:var(--text-primary)}
@@ -1618,7 +1958,7 @@ figure.viz,.viz-card{background:var(--surface-1);border:1px solid var(--border);
 .viz-h{margin:14px 0 4px}
 .viz-empty{color:var(--text-secondary)}
 @media (prefers-reduced-motion:reduce){.viz *{transition:none!important;animation:none!important}}
-@media (forced-colors:active){.viz .dot-on,.viz .bar{fill:CanvasText}.viz .line,.viz .whisker,.viz .dot-off{stroke:CanvasText}}
+@media (forced-colors:active){.viz .dot-on,.viz .bar{fill:CanvasText}.viz .line,.viz .whisker,.viz .dot-off,.viz .parity{stroke:CanvasText}}
 `;
 
 // Tiles sit in one row while each gets at least TILE_MIN px, then wrap
@@ -1682,13 +2022,29 @@ function runtime() {
     var plot = fig.querySelector('.viz-plot');
     function show(el, clientX, clientY) {
       tip.textContent = '';
+      var value = el.getAttribute('data-tip-value');
+      var label = el.getAttribute('data-tip-label');
+      var extra = el.getAttribute('data-tip-extra');
+      var row = el.getAttribute('data-i');
+      if (row !== null) {
+        // A row of the table view: its first cell is the label, the .tip-v
+        // cell the value, and the other cells the lines below.
+        var tr = fig.querySelectorAll('.viz-tablebody tbody tr')[Number(row)];
+        var th = fig.querySelectorAll('.viz-tablebody thead th');
+        var lines = [];
+        if (tr) tr.querySelectorAll('td').forEach(function (td, i) {
+          if (i === 0) label = td.textContent;
+          else if (td.classList.contains('tip-v')) value = td.textContent;
+          else if (th[i]) lines.push(th[i].textContent + ': ' + td.textContent);
+        });
+        extra = lines.join('\\n');
+      }
       var b = document.createElement('b');
-      b.textContent = el.getAttribute('data-tip-value');
+      b.textContent = value;
       var s = document.createElement('span');
-      s.textContent = el.getAttribute('data-tip-label');
+      s.textContent = label;
       tip.appendChild(b);
       tip.appendChild(s);
-      var extra = el.getAttribute('data-tip-extra');
       if (extra) {
         var e = document.createElement('span');
         e.textContent = '\\n' + extra;
@@ -1722,13 +2078,13 @@ function runtime() {
       if (cross) cross.setAttribute('visibility', 'hidden');
     }
     plot.addEventListener('pointermove', function (ev) {
-      var el = ev.target.closest && ev.target.closest('[data-tip-value]');
+      var el = ev.target.closest && ev.target.closest('[data-tip-value],[data-i]');
       if (el) show(el, ev.clientX, ev.clientY);
       else hide();
     });
     plot.addEventListener('pointerleave', hide);
     plot.addEventListener('focusin', function (ev) {
-      var el = ev.target.closest && ev.target.closest('[data-tip-value]');
+      var el = ev.target.closest && ev.target.closest('[data-tip-value],[data-i]');
       if (el) show(el);
     });
     plot.addEventListener('focusout', hide);
@@ -1752,7 +2108,7 @@ function runtime() {
   function init() {
     document.querySelectorAll('figure.viz[data-viz]').forEach(setup);
     document.querySelectorAll('.viz-card').forEach(function (card) {
-      if (card.querySelector('[data-tip-value]')) tooltips(card);
+      if (card.querySelector('[data-tip-value],[data-i]')) tooltips(card);
     });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

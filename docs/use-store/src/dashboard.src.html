@@ -102,9 +102,9 @@
 <p class="explain"><a href="benchmark-report.html#main">Explain →</a></p>
 </section>
 
-<section class="card wide" aria-labelledby="card-main">
+<section class="card" aria-labelledby="card-main">
 <h3 id="card-main">It wins every conditional-read and add / remove configuration</h3>
-<div class="gen"><!-- gen:main-chart {"compact": true} --><!-- /gen:main-chart --></div>
+<div class="gen"><!-- gen:speedup-chart {"comparison": "headline", "title": "use(store) with the compiler against the faster of Redux and Zustand, every configuration", "compact": true} --><!-- /gen:speedup-chart --></div>
 <p class="takeaway">Against the faster of Redux and Zustand, adding or removing a row is <span data-n="main.tally.selectors.structure.range"></span>, and conditional reads are <span data-n="main.tally.selectors.details-inline.range"></span>. Add / remove mostly measures list reconciliation, because every variant re-renders every row.</p>
 <p class="explain"><a href="benchmark-report.html#main">Explain →</a></p>
 </section>
@@ -116,7 +116,7 @@
 <p class="explain"><a href="benchmark-report.html#controls">Explain →</a></p>
 </section>
 
-<section class="card" aria-labelledby="card-counts">
+<section class="card wide" aria-labelledby="card-counts">
 <h3 id="card-counts">Entity edits render one row, while selectors run in every row</h3>
 <div class="gen"><!-- gen:counts-table {"compact": true, "variants": ["store", "redux", "zustand"]} --><!-- /gen:counts-table --></div>
 <p class="takeaway">Editing an entity re-renders <span data-n="counts.main.entity.store.on.rows"></span> row with <code>use(store)</code>, while Redux makes <span data-n="counts.main.entity.redux.on.selectors"></span> selector calls to find the same row.</p>
@@ -183,9 +183,9 @@
 <p class="explain"><a href="store-vs-context.html#compiler-gain">Explain →</a></p>
 </section>
 
-<section class="card wide" aria-labelledby="card-ctx-chart">
+<section class="card" aria-labelledby="card-ctx-chart">
 <h3 id="card-ctx-chart">Without the compiler, one context wins only in subscribe churn</h3>
-<div class="gen"><!-- gen:ctx-chart {"compact": true} --><!-- /gen:ctx-chart --></div>
+<div class="gen"><!-- gen:speedup-chart {"comparison": "ctx-off-vsContext", "title": "use(store) against one context, both without the compiler", "compact": true} --><!-- /gen:speedup-chart --></div>
 <p class="takeaway">Without the compiler, <code>use(store)</code> against one context is <span data-n="ctx.tally.off.vsContext.all.range"></span>, and against a context per slice it's <span data-n="ctx.tally.off.vsContextSplit.all.range"></span>.</p>
 <p class="explain"><a href="store-vs-context.html#no-compiler">Explain →</a></p>
 </section>
@@ -197,7 +197,7 @@
 <p class="explain"><a href="store-vs-context.html#context-wins">Explain →</a></p>
 </section>
 
-<section class="card" aria-labelledby="card-ctx-counts">
+<section class="card wide" aria-labelledby="card-ctx-counts">
 <h3 id="card-ctx-counts">Where every row reads the change, all render the same rows</h3>
 <div class="gen"><!-- gen:ctx-counts {"compact": true} --><!-- /gen:ctx-counts --></div>
 <p class="takeaway">Where every row reads the value that changed, <code>use(store)</code> and one context re-render the same rows.</p>

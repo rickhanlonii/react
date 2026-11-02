@@ -165,16 +165,11 @@
 <!-- ============================================================ -->
 <h2 id="main">The main scenarios, configuration by configuration</h2>
 
-<!-- gen:verdict-grid {"comparison": "headline", "compact": true} --><!-- /gen:verdict-grid -->
+<!-- gen:speedup-chart {"comparison": "headline", "title": "Outside selection, use(store) never loses to the faster of Redux and Zustand"} --><!-- /gen:speedup-chart -->
 
 <p><strong>Against the faster of Redux and Zustand, the only scenario with losses is <span data-n="main.tally.selectors.lostScenarios"></span>. Every other scenario matches or beats the faster of Redux and Zustand in every configuration.</strong></p>
 
 <p>How each variant reads state: <code>use(store)</code> puts each entity in its own store, with small stores for the selection, the filter, the expanded rows, and the details. Redux and Zustand read one store with a selector per value. The granular control is Zustand with a store per entity, and <code>store-single</code> is one store without selectors. The code is in <a href="#code">the code compared</a>.</p>
-
-<details>
-<summary>Every configuration, with the granular control</summary>
-<!-- gen:main-verdicts --><!-- /gen:main-verdicts -->
-</details>
 
 <details>
 <summary>What each scenario does</summary>
@@ -196,9 +191,12 @@
 </div>
 </details>
 
+<details>
+<summary>Every configuration in milliseconds, for every variant</summary>
 <p>The chart shows every variant with the compiler on and off. Pick a scenario, a size, and a CPU throttle. The dot is the median, and the bar is the middle half of the samples. The line above the chart gives the verdict for that configuration.</p>
 
 <!-- gen:main-chart --><!-- /gen:main-chart -->
+</details>
 
 <h3 id="work">What each update does, from the counting build</h3>
 
@@ -221,6 +219,10 @@
 
 <!-- gen:scoreboard-controls {"compact": true} --><!-- /gen:scoreboard-controls -->
 
+<p>The granular control puts each entity in its own Zustand store, so it shows how much of the win comes from granularity alone. It isn't part of the headline.</p>
+
+<!-- gen:speedup-chart {"comparison": "granular", "title": "Against the granular control, use(store) loses only in selection and subscribe churn"} --><!-- /gen:speedup-chart -->
+
 <p><strong>One store holding everything, with no selectors, is the worst case for stores (<code>store-single</code>). With the compiler, it still beats the faster of Redux and Zustand in most configurations: <span data-n="main.tally.single-selectors.all.range"></span>.</strong></p>
 
 <details>
@@ -228,11 +230,6 @@
 <p>With the compiler, a row whose output didn't change still runs, but it returns its cached element, so React skips everything below it. Without the compiler, <code>use(store)</code> loses badly where its rows re-render and the selector apps' rows don't: selection (<span data-n="main.tally.nocompiler-selectors.selection.range"></span>) and subscribe churn (<span data-n="main.tally.nocompiler-selectors.details-churn.range"></span>). Where every variant re-renders every row, in add / remove, it still wins.</p>
 
 <p>Against Context, <code>use(store)</code> beats a context per slice in every configuration (<span data-n="main.tally.context-split.all.range"></span>). Against one context for everything, it's <span data-n="main.tally.context.all.range"></span>. It loses to one context only in these scenarios: <span data-n="main.tally.context.lostScenarios"></span>. There, the counting build shows the same renders for both, because every row reads the changed value either way. The biggest loss is <span data-n="main.tally.context.maxLoss"></span>. <a href="store-vs-context.html">A separate page</a> compares <code>use(store)</code> and Context at each compiler setting.</p>
-</details>
-
-<details>
-<summary>Every median in the main suite</summary>
-<!-- gen:main-table --><!-- /gen:main-table -->
 </details>
 
 <h3 id="fairness">Is Redux slow because of Redux Toolkit?</h3>
@@ -433,6 +430,8 @@
 <h2 id="bailout">What the same-element bailout contributes</h2>
 
 <p><strong>Over the <span data-n="nobailout.main.tally.all.total"></span> configurations the build without the same-element bailout measured, <code>use(store)</code> with the compiler matches or beats the faster of Redux and Zustand in <span data-n="nobailout.main.tally.withBailout.matchOrBeat"></span> with the bailout, and in <span data-n="nobailout.main.tally.all.matchOrBeat"></span> without it.</strong></p>
+
+<!-- gen:speedup-chart {"comparison": "nobailout", "title": "Without the same-element bailout: use(store) vs the faster of Redux and Zustand"} --><!-- /gen:speedup-chart -->
 
 <ul>
 <li>It helps wherever every row re-renders: selection (<span data-n="nobailout.main.bailoutGain.selection.range"></span>), subscribe churn (<span data-n="nobailout.main.bailoutGain.details-churn.range"></span>), and add / remove (<span data-n="nobailout.main.bailoutGain.structure.range"></span>). It changes <span data-n="nobailout.main.flipCount"></span> headline verdicts, <span data-n="nobailout.main.flipScenarios"></span>. These compare the run without it to the run with it, and the two runs weren't interleaved. Without it, selection is <span data-n="nobailout.main.tally.selection.range"></span>.</li>

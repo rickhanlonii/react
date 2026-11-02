@@ -268,6 +268,12 @@ function slim(s) {
   };
 }
 
+// The opponent a verdict compared with, from fastest(): which library, at
+// which compiler setting, and its median and mean (ms).
+function oppOf(best) {
+  return best ? {variant: best.variant, compiler: best.compiler, median: r4(best.entry.median), mean: r4(best.entry.mean)} : null;
+}
+
 function slimVerdict(c) {
   return c === null
     ? null
@@ -908,9 +914,11 @@ export function computeReportData(sources = readSources()) {
         const c = judge(store, best?.entry ?? null);
         cell.verdict = slimVerdict(c);
         cell.best = best?.label ?? null;
+        cell.opp = oppOf(best);
         const granular = fastest(byVariant, ['zustand-granular'], false);
         const cg = judge(store, granular?.entry ?? null);
         cell.granular = slimVerdict(cg);
+        cell.granularOpp = oppOf(granular);
         if (cg) {
           put('main.<scenario>.n<n>.x<throttle>.vsGranular', [s, n, t], cg.ratio, {
             unit: 'verdict',
@@ -1708,6 +1716,7 @@ export function computeReportData(sources = readSources()) {
           const c = judge(store ?? null, best?.entry ?? null);
           cell.verdict = slimVerdict(c);
           cell.best = best?.label ?? null;
+          cell.opp = oppOf(best);
           cs.push(c);
           if (c) {
             put('nobailout.main.<scenario>.n<n>.x<throttle>.verdict', [sc, n, t], c.ratio, {
@@ -1719,6 +1728,7 @@ export function computeReportData(sources = readSources()) {
           const granular = onOnly.get(name('zustand-granular', true));
           const cg = judge(store ?? null, granular ?? null);
           cell.granular = slimVerdict(cg);
+          cell.granularOpp = granular ? {variant: 'zustand-granular', compiler: 'on', median: r4(granular.median), mean: r4(granular.mean)} : null;
           if (cg) {
             put('nobailout.main.<scenario>.n<n>.x<throttle>.vsGranular', [sc, n, t], cg.ratio, {
               unit: 'verdict',
