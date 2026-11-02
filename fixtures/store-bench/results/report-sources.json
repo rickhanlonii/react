@@ -1,5 +1,5 @@
 {
-  "_doc": "The result files the use(store) reports are generated from (report-data.mjs). A set whose status isn't 'head' is a placeholder from an older build: check-numbers.mjs fails on it. Switch everything to the head re-run with: node report-data.mjs --pin-head Sets with their own expectBuild (nobailout-*) must come from that build; a file matches a set only when env.react has the expected sha AND frozen build dir, so head and head-nobailout files can't mix. Update expectFiles and expectBuild.sha for nobailout-* if that run's unit list or BUILD.json differ.",
+  "_doc": "The result files the use(store) reports are generated from (report-data.mjs). A set whose status isn't 'head' is a placeholder from an older build: check-numbers.mjs fails on it. Switch everything to the head re-run with: node report-data.mjs --pin-head Sets with their own expectBuild (nobailout-*) must come from that build; a file matches a set only when env.react has the expected sha AND frozen build dir, so head and head-nobailout files can't mix. Update expectFiles and expectBuild.sha for nobailout-* if that run's unit list or BUILD.json differ. A set with status 'history' (history-final) is an older run from another build, kept so the report can say how the headline moved: it is outside the build checks and the head check, and is re-pinned from its historyPattern with node report-data.mjs --pin-history. gate names, per build directory, the per-attempt ambient-CPU records and the units log the method.gate.* keys come from.",
   "expectBuild": {
     "dir": "react-builds/head",
     "sha": "a3d8e745a9089d82f0f928dfeb7e6c00cd171a44"
@@ -50,10 +50,14 @@
         "full-head-r3-selection-x1-1793592791491.json",
         "full-head-r3-selection-x4-1793592977728.json",
         "full-head-r3-structure-x1-1793594233446.json",
-        "full-head-r3-structure-x4-1793594633407.json"
+        "full-head-r3-structure-x4-1793594633407.json",
+        "full-head-r4-details-churn-x1-1793598434254.json",
+        "full-head-r4-selection-x1-1793598503567.json",
+        "full-head-r5-details-churn-x1-1793598648097.json",
+        "full-head-r5-selection-x1-1793598572879.json"
       ],
       "headPattern": "^full-head-r\\d+-(entity|selection|filter|details-inline|details-component|details-churn|structure)-x\\d+-\\d+\\.json$",
-      "expectFiles": 42
+      "expectFiles": 46
     },
     "main-typing": {
       "status": "head",
@@ -180,6 +184,16 @@
       "headPattern": "^smoke-head-q-fairness-r\\d+-\\d+\\.json$",
       "expectFiles": 3
     },
+    "fairness5": {
+      "status": "head",
+      "files": [
+        "smoke-head-q-fairness5-r1-1793600170681.json",
+        "smoke-head-q-fairness5-r2-1793600409391.json",
+        "smoke-head-q-fairness5-r3-1793600609446.json"
+      ],
+      "headPattern": "^smoke-head-q-fairness5-r\\d+-\\d+\\.json$",
+      "expectFiles": 3
+    },
     "typing-suite": {
       "status": "head",
       "files": [
@@ -266,6 +280,61 @@
       },
       "headPattern": "^smoke-headnb-q-sweeps-r\\d+-\\d+\\.json$",
       "expectFiles": 3
+    },
+    "history-final": {
+      "status": "history",
+      "files": [
+        "full-final-r1-details-component-x1-1793418786553.json",
+        "full-final-r1-details-component-x4-1793418922669.json",
+        "full-final-r1-details-inline-x1-1793418577080.json",
+        "full-final-r1-details-inline-x4-1793418726766.json",
+        "full-final-r1-entity-x1-1793417616448.json",
+        "full-final-r1-entity-x4-1793417789974.json",
+        "full-final-r1-filter-x1-1793418157209.json",
+        "full-final-r1-filter-x4-1793418517841.json",
+        "full-final-r1-selection-x1-1793417861101.json",
+        "full-final-r1-selection-x4-1793418048918.json",
+        "full-final-r1-structure-x1-1793419052134.json",
+        "full-final-r1-structure-x4-1793419484533.json",
+        "full-final-r2-details-component-x1-1793421011576.json",
+        "full-final-r2-details-component-x4-1793421343056.json",
+        "full-final-r2-details-inline-x1-1793420810072.json",
+        "full-final-r2-details-inline-x4-1793420953581.json",
+        "full-final-r2-entity-x1-1793419705365.json",
+        "full-final-r2-entity-x4-1793419893608.json",
+        "full-final-r2-filter-x1-1793420309393.json",
+        "full-final-r2-filter-x4-1793420710202.json",
+        "full-final-r2-selection-x1-1793419966948.json",
+        "full-final-r2-selection-x4-1793420177038.json",
+        "full-final-r2-structure-x1-1793421473804.json",
+        "full-final-r2-structure-x4-1793421932185.json",
+        "full-final-r3-details-component-x1-1793424427811.json",
+        "full-final-r3-details-component-x4-1793424567136.json",
+        "full-final-r3-details-inline-x1-1793424229735.json",
+        "full-final-r3-details-inline-x4-1793424370219.json",
+        "full-final-r3-entity-x1-1793422115497.json",
+        "full-final-r3-entity-x4-1793422304247.json",
+        "full-final-r3-filter-x1-1793422973104.json",
+        "full-final-r3-filter-x4-1793424169305.json",
+        "full-final-r3-selection-x1-1793422377518.json",
+        "full-final-r3-selection-x4-1793422581328.json",
+        "full-final-r3-structure-x1-1793424694244.json",
+        "full-final-r3-structure-x4-1793425138214.json"
+      ],
+      "historyPattern": "^full-final-r\\d+-(entity|selection|filter|details-inline|details-component|details-churn|structure)-x\\d+-\\d+\\.json$",
+      "note": "The old final-build main run (docs/use-store/OVERNIGHT.md, full-final-r), kept to show how the headline moved. It predates the HostRoot redesign and the benchmark fairness fix, and its files record no env.react build."
+    }
+  },
+  "gate": {
+    "head": {
+      "dir": "react-builds/head",
+      "ambient": "head-ambient.jsonl",
+      "log": "head-units.log"
+    },
+    "nobailout": {
+      "dir": "react-builds/head-nobailout",
+      "ambient": "headnb-ambient.jsonl",
+      "log": "headnb-units.log"
     }
   }
 }

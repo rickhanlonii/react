@@ -10,7 +10,9 @@
 // always in the standalone run with no page arguments):
 // 1. the pinned results aren't all from the frozen build: a set in
 //    report-sources.json that isn't 'head', or a pinned file whose env.react
-//    sha is missing or different;
+//    sha is missing or different (a 'history' set, an older run kept for
+//    comparison, is exempt: it's from another build by design, and its files
+//    only have to exist);
 // 2. regenerating bench-data.json (and KEYS.md) from the pinned results
 //    changes anything;
 // 3. a <!-- gen:NAME --> block in a page differs from generators[NAME](data),
@@ -216,9 +218,9 @@ export async function checkAll({pages, dataPath, sourcesPath, global = false}) {
   const scope = global ? '' : ` (cited by ${citing.join(', ')})`;
   const sources = readSources(sourcesPath);
 
-  // 1. Pinned results from the frozen build only.
+  // 1. Pinned results from the frozen build only (history sets aside).
   for (const [set, entry] of Object.entries(sources.sets)) {
-    if (entry.status !== 'head') {
+    if (entry.status !== 'head' && entry.status !== 'history') {
       problems.push(`report-sources.json: set "${set}" is ${entry.status}, not head${scope}`);
     }
   }
@@ -230,6 +232,7 @@ export async function checkAll({pages, dataPath, sourcesPath, global = false}) {
         problems.push(`report-sources.json: ${set} pins ${f}, which doesn't exist${scope}`);
         continue;
       }
+      if (entry.status === 'history') continue;
       const env = JSON.parse(fs.readFileSync(file, 'utf8')).env;
       if (!env?.react?.sha) {
         problems.push(`${f}: no env.react sha${scope}`);

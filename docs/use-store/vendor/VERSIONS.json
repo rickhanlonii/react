@@ -1,21 +1,19 @@
 {
   "react": {
     "dir": "fixtures/store-bench/react-builds/head",
-    "version": "0.0.0-experimental-e31a6640-20261031",
-    "sha": "e31a6640a074659dd9fb657dea99e2b0e4b642c8",
+    "version": "0.0.0-experimental-a3d8e745-20261101",
+    "sha": "a3d8e745a9089d82f0f928dfeb7e6c00cd171a44",
     "branch": "rh/use-store",
-    "dirty": [
-      "?? scripts/ponyfill-compat/"
-    ],
+    "dirty": [],
     "dirtyAffectsBuild": false,
     "channel": "oss-experimental",
-    "builtAt": "2026-11-01T15:50:03.383Z",
-    "frozenAt": "2026-11-01T16:04:36.435Z",
+    "builtAt": "2026-11-02T00:53:44.006Z",
+    "frozenAt": "2026-11-02T00:55:02.698Z",
     "hashes": {
-      "react/cjs/react.development.js": "0b229d4de7eef1f0",
-      "react/cjs/react.production.js": "eabbcfcaccd5be66",
-      "react-dom/cjs/react-dom-client.development.js": "9bea4b57d259e63f",
-      "react-dom/cjs/react-dom-client.production.js": "0683fe79ae9ff6d8",
+      "react/cjs/react.development.js": "19c624f8050e41a9",
+      "react/cjs/react.production.js": "281151d4b70cc8e2",
+      "react-dom/cjs/react-dom-client.development.js": "2558252f548de5f1",
+      "react-dom/cjs/react-dom-client.production.js": "0a2ebf9d294a327f",
       "scheduler/cjs/scheduler.production.js": "81891bbcdd78e398"
     }
   },
@@ -25,16 +23,16 @@
   },
   "bundles": {
     "react-dev.js": {
-      "bytes": 481393,
-      "sha256": "222d3270e8b628fe"
+      "bytes": 482293,
+      "sha256": "ea62d0f3b34644d6"
     },
     "react-step.js": {
-      "bytes": 481957,
-      "sha256": "4bfd618c53a516f3"
+      "bytes": 482857,
+      "sha256": "4e9f2341457f6511"
     },
     "react-server-dev.js": {
-      "bytes": 344323,
-      "sha256": "d7d888f77b384a01"
+      "bytes": 344937,
+      "sha256": "4f5c3cf3640f9840"
     },
     "sucrase.js": {
       "bytes": 289824,

@@ -145,8 +145,24 @@ export async function codeExamples() {
 
   const storeRow = extract(store.source, 'Row');
   const reduxRow = extract(redux.source, 'Row');
+  // details-inline renders this row instead: the details selector can't be
+  // conditional, so every row runs it.
+  const reduxInlineRow = extract(redux.source, 'RowWithInlineDetails');
   const zustandRow = extract(zustand.source, 'Row');
   const compiledRow = extract(store.compiled, 'Row');
+
+  // How many values a main-suite row reads, counted in the measured source:
+  // selector hooks per Row in Redux and Zustand, and the store Row's use()
+  // calls before its first branch (the rest are conditional).
+  const calls = (code, hook) => (code.match(new RegExp(`\\b${hook}\\(`, 'g')) ?? []).length;
+  const unconditional = storeRow.slice(0, storeRow.search(/\n\s*if \(/));
+  const perRow = {
+    reduxSelectors: calls(reduxRow, 'useSelector'),
+    reduxInlineSelectors: calls(reduxInlineRow, 'useSelector'),
+    zustandSelectors: calls(zustandRow, 'useBench'),
+    storeReads: calls(unconditional, 'use'),
+    storeConditionalReads: calls(storeRow, 'use') - calls(unconditional, 'use'),
+  };
 
   // The store setup and two updates, from createApp.
   const setup = store.source.match(
@@ -172,11 +188,11 @@ export async function codeExamples() {
         'use(s.details)': 'conditional: only expanded rows subscribe',
       },
     }),
-    reduxRow: block(reduxRow, {
+    reduxRow: block([reduxRow, '', reduxInlineRow].join('\n'), {
       bad: ['useSelector('],
       notes: {
-        "s.selected === id": 'runs for every row on every dispatch',
-        "detailsMode === 'inline' &&": "can't be conditional, so it always runs",
+        's.selected === id': 'runs for every row on every dispatch',
+        's.details : null': "can't be conditional, so every row runs it",
       },
     }),
     zustandRow: block(zustandRow, {bad: ['useBench(']}),
@@ -190,5 +206,6 @@ export async function codeExamples() {
       },
     }),
     storeSetup: block(storeSetup),
+    perRow,
   };
 }

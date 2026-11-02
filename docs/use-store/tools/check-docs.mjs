@@ -27,7 +27,7 @@
 //   G6 links    every anchor and relative link resolves; the old
 //               shared-derived-data page redirects into the benchmark report.
 //   G7 style    the prose (visible text, not code, sandboxes, explainer UI,
-//               gen blocks or SVG): the everwrite checker (tells.py) is clean
+//               gen blocks, data-n values or SVG): the everwrite checker (tells.py) is clean
 //               except for entries in tools/style-allow.json, which each
 //               need a reason; no em dashes or semicolons; h1-h4 in sentence
 //               case (proper nouns from style-allow.json, and code, allowed).
@@ -860,7 +860,12 @@ function extractProse(file) {
         md += node.textContent;
         plain += node.textContent;
       } else if (node.nodeType === 1) {
-        if (node.tagName === 'CODE' || node.tagName === 'KBD') {
+        if (node.hasAttribute('data-n')) {
+          // A generated value (bench-data display), like a gen block: not
+          // prose, so it's a token for tells.py and the dash checks.
+          md += '`n`';
+          plain += ' NUM ';
+        } else if (node.tagName === 'CODE' || node.tagName === 'KBD') {
           md += '`' + node.textContent.replace(/`/g, "'") + '`';
           plain += ' CODE ';
         } else if (node.tagName === 'BR') {

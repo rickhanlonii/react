@@ -9,7 +9,7 @@
 import fs from 'fs';
 import path from 'path';
 import {fileURLToPath} from 'url';
-import {median, percentile, summarize, compare, verdict, ms} from './stats.mjs';
+import {median, percentile, mean, summarize, compare, verdict, ms} from './stats.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const resultsDir = path.join(here, 'results');
@@ -114,20 +114,32 @@ export function name(variant, compiler) {
   return variant + (compiler ? ' +c' : '');
 }
 
+// The browser restart a result comes from. Each pinned file is one restart
+// (-r<R>- in its name), so restarts pair up across files and across builds by
+// R: restart R of store and of its opponent ran in the same browser session.
+export function restartOf(r) {
+  const tag = r.file?.match(/-r(\d+)-/);
+  return `${tag ? 'r' + tag[1] : (r.file ?? 'run')}#${r.restart ?? 0}`;
+}
+
 // stats[group][variant+compiler] = summary, where a group is a scenario at a
 // size and CPU throttle. Besides summarize(), each summary has the quartiles,
-// the sample count and the files the samples came from.
+// the sample count, the files the samples came from, and the mean of each
+// restart (restarts[restartOf(result)]) for the restart-agreement rule.
 export function updateStats(results) {
   const durations = new Map();
   const files = new Map();
+  const restarts = new Map();
   for (const r of results.filter(r => r.kind === 'update')) {
     const group = [r.scenario, r.n, r.throttle].join('|');
     const key = group + '|' + name(r.variant, r.compiler);
     if (!durations.has(key)) {
       durations.set(key, []);
       files.set(key, new Set());
+      restarts.set(key, {});
     }
     durations.get(key).push(...r.durations);
+    (restarts.get(key)[restartOf(r)] ??= []).push(...r.durations);
     if (r.file) {
       files.get(key).add(r.file);
     }
@@ -145,6 +157,9 @@ export function updateStats(results) {
       p75: percentile(values, 0.75),
       count: values.length,
       files: [...files.get(key)].sort(),
+      restarts: Object.fromEntries(
+        Object.entries(restarts.get(key)).map(([k, v]) => [k, mean(v)]),
+      ),
     });
   }
   return stats;
@@ -167,12 +182,34 @@ export const SHARING = new Set([
   'store-compiled-shared-site',
 ]);
 
+// The restart-agreement rule: a verdict is a win or a loss only if every
+// restart agrees on the direction. a and b are updateStats summaries; their
+// restarts pair up by restartOf. True when every paired restart has a faster
+// than b, or every one has it slower (and when no restart pairs up, so the
+// rule can't apply).
+export function restartsAgree(a, b) {
+  const paired = Object.keys(a.restarts ?? {}).filter(k => k in (b.restarts ?? {}));
+  const signs = new Set(paired.map(k => Math.sign(a.restarts[k] - b.restarts[k])));
+  return signs.size <= 1 && !signs.has(0);
+}
+
+export const VERDICT_RULE =
+  'A tie is a difference in means within two standard errors. A larger difference is a win or a loss only if every browser restart agrees on the direction (the side that is faster in the pooled means is faster in each restart, restarts paired by restart number); otherwise it is a tie.';
+
+// stats.mjs compare, with the restart-agreement rule: a difference outside
+// two standard errors that the restarts disagree on is a tie (split: true).
+export function agreedCompare(a, b) {
+  const c = compare(a, b);
+  if (c === null || c.tie || restartsAgree(a, b)) return c;
+  return {...c, tie: true, split: true};
+}
+
 export function storeVerdict(store, opponent) {
   if (store && opponent && store.median === 0) {
     // Below the timer resolution: the update didn't render anything.
     return '<span class="win">no work</span>';
   }
-  return verdict(compare(store, opponent ?? null));
+  return verdict(agreedCompare(store, opponent ?? null));
 }
 
 // The faster of a variant with and without the compiler.
@@ -252,7 +289,7 @@ function updateTable(stats, variants, {showN, spike}) {
 <tr><th>scenario</th>${header}${last.map(l => `<th>${l}</th>`).join('')}</tr>
 ${rows.join('\n')}
 </table></div>
-<p class="muted">Median ms per update, with the compiler. Small numbers are the ratio of means to redux +compiler. Verdicts compare against each library's faster configuration (with or without the compiler); "tie" is within two standard errors.</p>`;
+<p class="muted">Median ms per update, with the compiler. Small numbers are the ratio of means to redux +compiler. Verdicts compare against each library's faster configuration (with or without the compiler). ${VERDICT_RULE}</p>`;
 }
 
 function typingTable(results) {
@@ -313,7 +350,7 @@ function sweepTable(stats) {
       const rows = SWEEP_CONFIGS.map(([config, label]) => {
         const {entry, best} = sweepEntries(byVariant, config);
         const entries = SWEEP_LIBRARIES.map(entry);
-        return `<tr><td>${label}</td>${entries.map((e, i) => `<td class="r${SWEEP_STORES.includes(SWEEP_LIBRARIES[i]) ? ' storename' : ''}">${ms(e)}</td>`).join('')}${SWEEP_STORES.map(lib => `<td>${verdict(compare(entry(lib), best))}</td>`).join('')}</tr>`;
+        return `<tr><td>${label}</td>${entries.map((e, i) => `<td class="r${SWEEP_STORES.includes(SWEEP_LIBRARIES[i]) ? ' storename' : ''}">${ms(e)}</td>`).join('')}${SWEEP_STORES.map(lib => `<td>${verdict(agreedCompare(entry(lib), best))}</td>`).join('')}</tr>`;
       });
       return `<h4>${groupLabel(group)}</h4><div class="card"><table>
 <tr><th>configuration</th>${SWEEP_LIBRARIES.map(l => `<th class="r">${l}</th>`).join('')}${SWEEP_STORES.map(l => `<th>${l} vs best</th>`).join('')}</tr>
@@ -394,7 +431,7 @@ export function derivedSummary(files = defaultSuiteFiles()) {
       const left = pick(byVariant);
       const redux = bestOf(byVariant, 'redux');
       if (!left || !redux || left.median === 0) continue;
-      const c = compare(left, redux);
+      const c = agreedCompare(left, redux);
       speedups.push(1 / c.ratio);
       if (c.tie) ties++;
       else if (c.ratio < 1) wins++;
@@ -441,7 +478,7 @@ export function sweepSummary(files = defaultSuiteFiles()) {
       ((out[scenario] ??= {})[config] ??= []).push({
         throttle: Number(throttle),
         ratio: store.mean / best.mean,
-        ...compare(store, best),
+        ...agreedCompare(store, best),
       });
     }
   }

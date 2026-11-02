@@ -13,6 +13,8 @@
 #                                          the unit was > 4 (up to MAX_ATTEMPTS).
 #                                          Per-unit numbers: results/$TAG-ambient.jsonl
 #   SKIP_BUILD=1 SKIP_VERIFY=1             resume straight into timing
+#   RESTARTS=5 RESTART_FROM=4 ONLY='-(selection|details-churn)-x1$'
+#                                          extra restarts for some units only
 #   MATRIX=nobailout                       the same-element-bailout-off subset:
 #                                          REACT=react-builds/head-nobailout and
 #                                          TAG=headnb by default; main scenarios
@@ -80,6 +82,9 @@ if [ "$MATRIX" = nobailout ]; then
 else
   MAIN_FILTER=""
 fi
+# EXTRA_SUITES adds "label:suite|flags" entries (timed under the label), e.g.
+# EXTRA_SUITES='fairness5:fairness|--n=1000 --throttle=1,4 --iterations=200 --warmup=50'
+if [ -n "${EXTRA_SUITES:-}" ]; then SUITES+=("$EXTRA_SUITES"); fi
 SCENARIOS=(entity selection filter details-inline details-component details-churn structure)
 SPIKE_FAMILIES=(mixed score comment role)
 
@@ -192,7 +197,7 @@ for suite in "${COUNT_SUITES[@]}"; do
 done
 
 echo "== timing"
-for r in $(seq 1 "$RESTARTS"); do
+for r in $(seq "${RESTART_FROM:-1}" "$RESTARTS"); do
   units=()
   for s in "${SCENARIOS[@]}"; do
     for t in 1 4; do
@@ -205,7 +210,9 @@ for r in $(seq 1 "$RESTARTS"); do
   fi
   for entry in "${SUITES[@]}"; do
     IFS='|' read -r suite flags <<<"$entry"
-    units+=("smoke|$TAG-q-$suite-r$r|--suite=$suite --dist=dist-$TAG-$suite $flags")
+    name=${suite%%:*}
+    suite=${suite#*:}
+    units+=("smoke|$TAG-q-$name-r$r|--suite=$suite --dist=dist-$TAG-$suite $flags")
   done
   [ "$MATRIX" = nobailout ] && SPIKE_FAMILIES=()
   for f in ${SPIKE_FAMILIES[@]+"${SPIKE_FAMILIES[@]}"}; do
@@ -220,6 +227,7 @@ for r in $(seq 1 "$RESTARTS"); do
   fi
   for entry in "${units[@]}"; do
     IFS='|' read -r mode label flags <<<"$entry"
+    if [ -n "${ONLY:-}" ] && ! [[ "$label" =~ $ONLY ]]; then continue; fi
     # shellcheck disable=SC2086
     unit "$mode" "$label" $flags
   done

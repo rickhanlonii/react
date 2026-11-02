@@ -349,8 +349,9 @@ const LIB = {
   viewSpike(d, st) {
     const xs = d.ks.map(k => `K=${k}`);
     const order = ['redux', 'zustand', 'store', 'store-memo'];
+    const unread = d.unread ?? [];
     const panels = d.families.map(f => ({
-      title: f,
+      title: unread.includes(f) ? `${f} (unread update)` : f,
       series: [...d.variants]
         .sort(
           (a, b) =>
@@ -388,7 +389,11 @@ const LIB = {
     return {
       plot,
       table: LIB.table(head, rows),
-      note: 'Median ms per update with the compiler; small numbers are the ratio of means to redux. store-derived is fast but tears under transitions.',
+      note:
+        'Median ms per update with the compiler; small numbers are the ratio of means to redux. store-derived is fast but tears under transitions.' +
+        (unread.length
+          ? ` ${unread.join(', ')}: an unread update (no component displays what changes, so the DOM never changes); the store variants do no work, which counts as no work, not as a win.`
+          : ''),
     };
   },
 
@@ -566,11 +571,31 @@ function tallyCell(t) {
     t.wins && `${t.wins} faster`,
     t.ties && `${t.ties} tie`,
     t.losses && `${t.losses} slower`,
-    t.noWork && `${t.noWork} no work`,
+    t.noWork && (t.unread === t.noWork ? `${t.noWork} unread (no work)` : `${t.noWork} no work`),
   ].filter(Boolean);
   // The range without the counts describe() appends; they're on their own line.
-  const range = t.range.replace(/\s*\([^)]*\)$/, '').replace(/, and \d+ with no work$/, '');
+  const range = t.range
+    .replace(/, and \d+ (with no work|unread updates? \(no work\))$/, '')
+    .replace(/\s*\([^)]*\)$/, '')
+    .replace(/^(\d+ (faster|tie|slower)(, )?)+$/, '');
   return `<span class="sb-count">${t.wins + t.ties}/${t.total}</span><span class="sb-range">${esc(range)}</span><span class="sb-parts">${parts.join(' · ')}</span>`;
+}
+
+// The verdict rule (method.verdictRule), for captions.
+function rule(data) {
+  return data.series.main.verdictRule ?? data.values['method.verdictRule']?.display ?? '';
+}
+
+// "Add / remove is low signal: …" for the main-suite scenarios report-data.mjs
+// flags from the counting build.
+function lowSignalNote(data) {
+  return data.series.main.scenarios
+    .filter(s => s.lowSignal)
+    .map(s => ` ${s.title} is low signal: ${s.lowSignal}.`)
+    .join('');
+}
+function scenarioTitle(s) {
+  return s.lowSignal ? `${esc(s.title)} <small class="muted">(low signal)</small>` : esc(s.title);
 }
 
 // The parts of each series the browser needs, to keep the pages small.
@@ -599,6 +624,7 @@ function mainForBrowser(d) {
 function spikeForBrowser(d) {
   return {
     families: d.families,
+    unread: d.unread ?? [],
     ks: d.ks,
     throttles: d.throttles,
     variants: d.variants,
@@ -641,12 +667,15 @@ function scoreboard(data) {
   ];
   const head = [
     'scenario',
+    // Short headers: the caption defines the granular control.
     ...ids.map(id =>
-      esc(sb.comparisons[id].replace(/^store \+ compiler vs /, 'vs '))
+      esc(sb.comparisons[id].replace(/^store \+ compiler vs /, 'vs ').replace(/\s*\([^)]*\)$/, ''))
     ),
   ];
+  const scenarios = data.series.main.scenarios;
+  const titleOf = r => scenarioTitle(scenarios.find(s => s.key === r.key) ?? r);
   const rows = sb.rows.map(r => [
-    esc(r.title),
+    titleOf(r),
     ...ids.map(id => tallyCell(r.tallies[id])),
   ]);
   rows.push({
@@ -655,7 +684,7 @@ function scoreboard(data) {
   });
   return card(
     placeholderBanner(data) + table(head, rows, 'scoreboard'),
-    'use(store) with the compiler against each library at its faster compiler setting, over every size and CPU throttle. The bold count is configurations matched or beaten; a tie is a difference in means within two standard errors.'
+    `use(store) with the compiler against each library at its faster compiler setting, over every size and CPU throttle. The bold count is configurations matched or beaten. ${esc(rule(data))} The granular control (a Zustand store per entity) is its own column, never part of the headline.${esc(lowSignalNote(data))}`
   );
 }
 
@@ -663,8 +692,9 @@ function scoreboardControls(data) {
   const sb = data.series.scoreboard;
   const ids = ['single-selectors', 'nocompiler-selectors', 'compiler-gain'];
   const head = ['scenario', ...ids.map(id => esc(sb.comparisons[id]))];
+  const scenarios = data.series.main.scenarios;
   const rows = sb.rows.map(r => [
-    esc(r.title),
+    scenarioTitle(scenarios.find(s => s.key === r.key) ?? r),
     ...ids.map(id => tallyCell(r.tallies[id])),
   ]);
   rows.push({
@@ -673,7 +703,7 @@ function scoreboardControls(data) {
   });
   return card(
     placeholderBanner(data) + table(head, rows, 'scoreboard'),
-    'Controls: one store without selectors, everything without the compiler, and what the compiler buys use(store).'
+    `Controls: one store without selectors, everything without the compiler, and what the compiler buys use(store). ${esc(rule(data))}`
   );
 }
 
@@ -727,7 +757,7 @@ function mainVerdicts(data) {
     ...cols.map(([n, t]) => `N=${n.toLocaleString('en-US')} · ${t}×`),
   ];
   const rows = d.scenarios.map(s => [
-    esc(s.title),
+    scenarioTitle(s),
     ...cols.map(([n, t]) => {
       const c = d.cells[`${s.key}|${n}|${t}`];
       if (!c?.verdict) return '–';
@@ -737,7 +767,7 @@ function mainVerdicts(data) {
   ]);
   return card(
     placeholderBanner(data) + table(head, rows),
-    `use(store) with the compiler against ${esc(d.headline)}, each at its faster compiler setting. The small line is the granular control (a Zustand store per entity), which isn't part of the headline.`
+    `use(store) with the compiler against ${esc(d.headline)}, each at its faster compiler setting. The small line is the granular control (a Zustand store per entity), which isn't part of the headline. ${esc(rule(data))}${esc(lowSignalNote(data))}`
   );
 }
 
@@ -766,7 +796,7 @@ function mainTable(data) {
             ])
         );
         return (
-          `<h4 class="viz-h">${esc(s.title)}</h4>` +
+          `<h4 class="viz-h">${scenarioTitle(s)}</h4>` +
           card(
             table(
               [
@@ -776,7 +806,8 @@ function mainTable(data) {
                 ),
               ],
               rows
-            )
+            ),
+            s.lowSignal ? `Low signal: ${esc(s.lowSignal)}.` : undefined
           )
         );
       })
@@ -828,6 +859,7 @@ function suiteTable(data, suite) {
     'scenario',
     ...s.variants.map(esc),
     ...s.lefts.map(l => `${esc(l)} vs best`),
+    ...(s.controls ?? []).map(v => `${esc(v)} vs redux`),
   ];
   const rows = s.rows.map(r => {
     const redux = r.cells.redux?.on;
@@ -843,11 +875,41 @@ function suiteTable(data, suite) {
         return `${ms(e.median)}${rel}`;
       }),
       ...s.lefts.map(l => esc(r.verdicts[l]?.text ?? 'n/a')),
+      ...(s.controls ?? []).map(v => esc(r.controls?.[v]?.text ?? 'n/a')),
     ];
   });
+  const unread = [...new Set(s.rows.filter(r => Object.values(r.verdicts).some(v => v?.unread)).map(r => r.scenario))];
   return card(
     placeholderBanner(data) + table(head, rows),
-    `Median ms per update with the compiler; small numbers are the ratio of means to redux. Verdicts compare with the fastest of ${esc(s.opponents.join(', '))}, each at its faster compiler setting.`
+    `Median ms per update with the compiler; small numbers are the ratio of means to redux. ${s.lefts.length ? `Verdicts compare with the fastest of ${esc(s.opponents.join(', '))}, each at its faster compiler setting.` : ''}${s.controls?.length ? ` The control columns compare each Redux setup with redux, each at its faster compiler setting ("faster" means the control is faster).` : ''} ${esc(rule(data))}${unread.length ? ` ${esc(unread.join(', '))}: an unread update (no component displays what changes, so the DOM never changes), counted as no work, not as a win.` : ''}`
+  );
+}
+
+function fairness5Table(data) {
+  const d = data.series.fairness5;
+  if (!d) return card('<p class="viz-empty">No pinned results for the fairness run with every variant.</p>');
+  const head = [
+    'scenario',
+    ...d.variants.map(esc),
+    'vs the fastest Redux',
+    'vs Zustand',
+  ];
+  const rows = d.rows.map(r => [
+    `${esc(r.scenario)} · ${r.throttle}×`,
+    ...d.variants.map(v => {
+      const e = r.cells[v]?.on;
+      return e ? ms(e.median) : '–';
+    }),
+    `${esc(r.verdicts.redux?.text ?? 'n/a')}${r.best.redux ? `<br><small class="muted">vs ${esc(r.best.redux)}</small>` : ''}`,
+    esc(r.verdicts.zustand?.text ?? 'n/a'),
+  ]);
+  rows.push({
+    cls: 'total',
+    cells: ['every scenario', ...d.variants.map(() => ''), tallyCell(d.tallies.redux), tallyCell(d.tallies.zustand)],
+  });
+  return card(
+    placeholderBanner(data) + table(head, rows, 'scoreboard'),
+    `Median ms per update with the compiler. use(store) with the compiler against the fastest of ${esc(d.redux.join(', '))} (each at its faster compiler setting), and against Zustand. The headline itself stays defined against idiomatic RTK Redux. ${esc(rule(data))}`
   );
 }
 
@@ -929,7 +991,7 @@ function typingTable(data, which) {
           'p50 ms',
           'p95 ms',
           'max ms',
-          'settled after ms',
+          'list caught up after ms',
           'runs',
         ],
         rows.map(r => [
@@ -942,7 +1004,7 @@ function typingTable(data, which) {
           String(r.runs),
         ])
       ),
-    'Keydown to next frame while the list re-filters, over every key of every run.'
+    'Keydown to next frame while the list re-filters, over every key of every run. "List caught up" is the time from the start of typing (the click into the input) until the list shows the rows for the full typed text, so it includes the typing itself; median of runs.'
   );
 }
 
@@ -976,10 +1038,14 @@ function lossesTable(data) {
     ['main', `Main suite, vs ${headline}`],
     ['granular', 'Main suite, vs the granular control (a Zustand store per entity; not part of the headline)'],
     ['suites', 'Ported Redux suites and fairness'],
+    ['fairness', 'Fairness with every variant: store vs the fastest Redux setup (RTK, plain Redux, RTK without auto-freeze)'],
     ['sweeps', 'Sweeps: selection and compiler coverage'],
     ['spike', 'Shared derived data, plain store and store-memo vs Redux'],
   ];
   const head = ['where', 'store side', 'median ms', 'mean ms', 'against', 'median ms', 'mean ms', 'verdict (means)'];
+  const lowSignalLosses = data.series.main.scenarios.some(
+    s => s.lowSignal && rows.some(r => r.where.startsWith(`main · ${s.key} · `))
+  );
   const sections = areas
     .filter(([a]) => v[`losses.${a}.of`])
     .map(([a, title]) => {
@@ -993,14 +1059,14 @@ function lossesTable(data) {
                 (r.reason ? `<tr class="reason"><td colspan="${head.length}">${esc(r.reason)}</td></tr>` : ''),
             )
             .join('')
-        : `<tr><td colspan="${head.length}" class="muted">No losses outside two standard errors.</td></tr>`;
+        : `<tr><td colspan="${head.length}" class="muted">No losses.</td></tr>`;
       return `<tr class="area"><th colspan="${head.length}">${esc(title)} <small>${esc(summary)}</small></th></tr>${body}`;
     })
     .join('');
   return card(
     placeholderBanner(data) +
       `<div class="viz-scroll"><table class="viz-table losses"><thead><tr>${head.map((h, i) => `<th${i ? ' class="r"' : ''}>${h}</th>`).join('')}</tr></thead><tbody>${sections}</tbody></table></div>`,
-    'Every comparison the store side loses outside two standard errors, with what the counting build says each side did for one update of that scenario. Verdicts compare means, which include the slow tail: where a median is lower but the mean is higher, the store side has more slow updates.',
+    `Every comparison the store side loses, with what the counting build says each side did for one update of that scenario. ${esc(rule(data))} Verdicts compare means, which include the slow tail: where a median is lower but the mean is higher, the store side has more slow updates.${lowSignalLosses ? esc(lowSignalNote(data)) : ''}`,
   );
 }
 
@@ -1030,6 +1096,12 @@ function nobailoutTable(data) {
         ]),
     ),
   );
+  // The tally against the headline opponents, next to the head build's.
+  const v = data.values;
+  const shown = k => esc(v[k]?.display ?? 'n/a');
+  const tally = v['nobailout.main.tally.all.total']
+    ? `<p class="viz-note">Without the bailout, use(store) with the compiler matches or beats ${esc(data.series.main.headline ?? 'the headline opponents')} in ${shown('nobailout.main.tally.all.matchOrBeat')} of ${shown('nobailout.main.tally.all.total')} configurations: ${shown('nobailout.main.tally.all.range')}. With it (the head build, same configurations): ${shown('nobailout.main.tally.withBailout.matchOrBeat')} of ${shown('nobailout.main.tally.withBailout.total')}: ${shown('nobailout.main.tally.withBailout.range')}.</p>`
+    : '';
   let sweeps = '';
   const sw = data.series.nobailoutSweeps;
   if (sw) {
@@ -1048,8 +1120,8 @@ function nobailoutTable(data) {
     sweeps = `<h4 class="viz-h">Sweeps without the bailout</h4>` + table(['configuration', ...sw.libraries.map(esc), ...sw.stores.map(l => `${esc(l)} vs best`)], swRows);
   }
   return card(
-    placeholderBanner(data) + table(head, rows) + sweeps,
-    'React built with enableSameElementBailout off, compiler on, median ms per update. Never part of the headline. "What the bailout buys" compares store + compiler on the head build with this build in the same configuration.',
+    placeholderBanner(data) + tally + table(head, rows) + sweeps,
+    `React built with enableSameElementBailout off, compiler on, median ms per update. Never part of the headline. "What the bailout buys" compares store + compiler on the head build with this build in the same configuration ("faster" means faster with the bailout). ${esc(rule(data))}`,
   );
 }
 
@@ -1068,6 +1140,7 @@ export const generators = {
     suiteTable(d, 'many-components-same-slice'),
   'suite-deeptree-nested-hooks': d => suiteTable(d, 'deeptree-nested-hooks'),
   'suite-fairness': d => suiteTable(d, 'fairness'),
+  'suite-fairness5': fairness5Table,
   'spike-chart': spikeChart,
   'sweep-chart': sweepChart,
   'typing-table': d => typingTable(d, 'main'),
@@ -1083,7 +1156,7 @@ export const generatorDocs = {
   'build-label':
     'The build provenance line (React version and sha, compiler hash, pin date), or a placeholder warning. G5 requires it on every page that cites numbers.',
   scoreboard:
-    'Main suite scoreboard: store + compiler vs the faster of Redux/Zustand, and vs each library and context, per scenario and overall.',
+    'Main suite scoreboard: store + compiler vs the faster of Redux/Zustand, and vs each library and context, per scenario and overall; the granular control in its own last column, never in the headline. Low-signal scenarios (structure) are marked.',
   'scoreboard-controls':
     'Main suite controls: store-single vs selectors, everything without the compiler, and store with vs without the compiler.',
   'main-chart':
@@ -1103,21 +1176,23 @@ export const generatorDocs = {
   'suite-deeptree-nested-hooks':
     'Redux suite deeptree-nested-hooks: medians and the store verdict.',
   'suite-fairness':
-    'Fairness controls (redux-plain, redux-nofreeze) at N=1,000: medians and the store verdict.',
+    'Fairness controls (redux-plain, redux-nofreeze) at N=1,000: medians, and each control vs redux (suite.fairness.control.*).',
+  'suite-fairness5':
+    'Fairness with every variant (set fairness5): medians, store + compiler vs the fastest Redux setup (redux, redux-plain, redux-nofreeze) and vs Zustand per configuration, with tallies (suite.fairness5.*).',
   'spike-chart':
-    'Shared derived data spike: ms per update vs readers per category (K=5/20/50), small multiples per update family, CPU filter, table view.',
+    'Shared derived data spike: ms per update vs readers per category (the pinned K values, spike.ks; K=spike.defaultK is the derived-selectors suite), small multiples per update family (role marked as an unread update), CPU filter, table view.',
   'sweep-chart':
     'Sweeps at N=1,000: store, store-keyed, redux and zustand by compiler coverage or props per row, selection and entity, CPU filter, table view with verdicts.',
   'typing-table':
-    'Typing latency in the main app (p50, p95, max, settle) per variant and CPU.',
+    'Typing latency in the main app (p50, p95, max, and when the list caught up with the input) per variant and CPU.',
   'typing-suite-table':
     'Typing latency with the useDeferredValue variants of Redux and Zustand.',
   'memory-chart':
     'Bytes per row after mount (bars, compiler on), filterable by rows, with mount time in the tooltip and a table view.',
   'nobailout-table':
-    'Without the same-element bailout (react-builds/head-nobailout): main-suite medians, store vs the headline opponents and vs the granular control, and what the bailout buys store; plus the sweeps when pinned. Separate from the headline.',
+    'Without the same-element bailout (react-builds/head-nobailout): the tally vs the headline opponents next to the head build, main-suite medians, store vs the headline opponents and vs the granular control, and what the bailout buys store (bailoutGain); plus the sweeps when pinned. Separate from the headline.',
   'losses-table':
-    "Where it doesn't win: every comparison the store side loses outside two standard errors, by area (main vs the headline opponents, main vs the granular control, suites, sweeps, spike), each with the counting build's renders, selector calls and derivations for both sides.",
+    "Where it doesn't win: every comparison the store side loses under the verdict rule (method.verdictRule), by area (main vs the headline opponents, main vs the granular control, suites, sweeps, spike), each with the counting build's renders, selector calls and derivations for both sides.",
 };
 
 // ---------------------------------------------------------------- assets
@@ -1169,7 +1244,8 @@ figure.viz,.viz-card{background:var(--surface-1);border:1px solid var(--border);
 .viz-table tr.total td{font-weight:600;border-top:1px solid var(--axis)}
 .viz-table small,.viz .muted-text,.viz small.muted,.viz .muted:not(g){color:var(--text-secondary)}
 .viz-placeholder{border:1px solid #d03b3b;color:#d03b3b;border-radius:8px;padding:6px 10px;margin:8px 0}
-.viz-table.scoreboard td,.viz-table.scoreboard th{text-align:left}
+.viz-table.scoreboard td,.viz-table.scoreboard th{text-align:left;padding:6px 5px}
+.viz-table.scoreboard .sb-parts{white-space:normal}
 .viz .sb-count{display:block;font-weight:600;font-size:15px;color:var(--text-primary)}
 .viz .sb-range{display:block}
 .viz-scroll{overflow-x:auto}

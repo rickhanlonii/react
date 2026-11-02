@@ -19,7 +19,7 @@ Headline bar: store + compiler vs the faster of Redux and Zustand (`HEADLINE_OPP
 |---|---|
 | `charts-assets` | The chart CSS and runtime (filters, tooltips). Put it once per page, in the `<head>`. |
 | `build-label` | The build provenance line (React version and sha, compiler hash, pin date), or a placeholder warning. G5 requires it on every page that cites numbers. |
-| `scoreboard` | Main suite scoreboard: store + compiler vs the faster of Redux/Zustand, and vs each library and context, per scenario and overall. |
+| `scoreboard` | Main suite scoreboard: store + compiler vs the faster of Redux/Zustand, and vs each library and context, per scenario and overall; the granular control in its own last column, never in the headline. Low-signal scenarios (structure) are marked. |
 | `scoreboard-controls` | Main suite controls: store-single vs selectors, everything without the compiler, and store with vs without the compiler. |
 | `main-chart` | Interactive dot plot of the main suite: every variant, compiler on and off, median and middle half, filterable by scenario, rows and CPU; with the verdict and a table view. |
 | `main-verdicts` | Main suite verdict grid: store + compiler vs the faster of Redux/Zustand for every scenario × size × CPU. |
@@ -29,14 +29,15 @@ Headline bar: store + compiler vs the faster of Redux and Zustand (`HEADLINE_OPP
 | `suite-rapid-dispatch` | Redux suite rapid-dispatch: medians and the store verdict. |
 | `suite-many-components-same-slice` | Redux suite many-components-same-slice: medians and the store verdict. |
 | `suite-deeptree-nested-hooks` | Redux suite deeptree-nested-hooks: medians and the store verdict. |
-| `suite-fairness` | Fairness controls (redux-plain, redux-nofreeze) at N=1,000: medians and the store verdict. |
-| `spike-chart` | Shared derived data spike: ms per update vs readers per category (K=5/20/50), small multiples per update family, CPU filter, table view. |
+| `suite-fairness` | Fairness controls (redux-plain, redux-nofreeze) at N=1,000: medians, and each control vs redux (suite.fairness.control.*). |
+| `suite-fairness5` | Fairness with every variant (set fairness5): medians, store + compiler vs the fastest Redux setup (redux, redux-plain, redux-nofreeze) and vs Zustand per configuration, with tallies (suite.fairness5.*). |
+| `spike-chart` | Shared derived data spike: ms per update vs readers per category (the pinned K values, spike.ks; K=spike.defaultK is the derived-selectors suite), small multiples per update family (role marked as an unread update), CPU filter, table view. |
 | `sweep-chart` | Sweeps at N=1,000: store, store-keyed, redux and zustand by compiler coverage or props per row, selection and entity, CPU filter, table view with verdicts. |
-| `typing-table` | Typing latency in the main app (p50, p95, max, settle) per variant and CPU. |
+| `typing-table` | Typing latency in the main app (p50, p95, max, and when the list caught up with the input) per variant and CPU. |
 | `typing-suite-table` | Typing latency with the useDeferredValue variants of Redux and Zustand. |
 | `memory-chart` | Bytes per row after mount (bars, compiler on), filterable by rows, with mount time in the tooltip and a table view. |
-| `nobailout-table` | Without the same-element bailout (react-builds/head-nobailout): main-suite medians, store vs the headline opponents and vs the granular control, and what the bailout buys store; plus the sweeps when pinned. Separate from the headline. |
-| `losses-table` | Where it doesn't win: every comparison the store side loses outside two standard errors, by area (main vs the headline opponents, main vs the granular control, suites, sweeps, spike), each with the counting build's renders, selector calls and derivations for both sides. |
+| `nobailout-table` | Without the same-element bailout (react-builds/head-nobailout): the tally vs the headline opponents next to the head build, main-suite medians, store vs the headline opponents and vs the granular control, and what the bailout buys store (bailoutGain); plus the sweeps when pinned. Separate from the headline. |
+| `losses-table` | Where it doesn't win: every comparison the store side loses under the verdict rule (method.verdictRule), by area (main vs the headline opponents, main vs the granular control, suites, sweeps, spike), each with the counting build's renders, selector calls and derivations for both sides. |
 
 ## Comparisons (`main.tally.<comparison>`)
 
@@ -52,7 +53,9 @@ Headline bar: store + compiler vs the faster of Redux and Zustand (`HEADLINE_OPP
 | `nocompiler-selectors` | store without the compiler vs the faster of Redux and Zustand without the compiler |
 | `compiler-gain` | store + compiler vs store without the compiler |
 
-Verdicts use `stats.mjs` `compare`: a tie is a difference in means within two standard errors; otherwise the ratio of means decides. Each library is compared at its faster compiler setting unless the comparison says otherwise.
+Verdict rule (`method.verdictRule`, applied to every verdict and tally): A tie is a difference in means within two standard errors. A larger difference is a win or a loss only if every browser restart agrees on the direction (the side that is faster in the pooled means is faster in each restart, restarts paired by restart number); otherwise it is a tie. Each library is compared at its faster compiler setting unless the comparison says otherwise. An update no variant renders anything for (the counting build) is an "unread update", counted as no work, never as a win.
+
+History (`history.*`) comes from sets with status `history` in report-sources.json: older runs from other builds, kept to say how the headline moved, outside the head check. The gate keys (`method.gate.*`) come from report-sources.json `gate`: the per-attempt ambient-CPU records and the units logs.
 
 ## Keys by pattern
 
@@ -152,17 +155,503 @@ CPU throttles in the main suite, e.g. "1× and 4×".
 
 - `method.throttles`: 1× and 4×
 
-### `method.loadMax`
+### `method.verdictRule`
 
-Highest 1-minute load average recorded before or after any pinned run.
+How every store-vs-opponent verdict and tally is decided (VERDICT_RULE in report-suites.mjs): two standard errors, then the restart-agreement rule.
 
-- `method.loadMax`: 47.2
+- `method.verdictRule`: A tie is a difference in means within two standard errors. A larger difference is a win or a loss only if every browser restart agrees on the direction (the side that is faster in the pooled means is faster in each restart, restarts paired by restart number); otherwise it is a tie.
+
+### `method.gate.ambientStart`
+
+Ambient-CPU gate: a timed unit starts only when the cores in use outside the benchmark (ambient-cpu.mjs, three samples averaged) are at or below this.
+
+- `method.gate.ambientStart`: 3.5
+
+### `method.gate.ambientDiscard`
+
+Ambient-CPU gate: a timed unit is discarded and re-run when the mean ambient cores during it were above this.
+
+- `method.gate.ambientDiscard`: 4.5
+
+### `method.gate.<build>.timedFiles`
+
+Every pinned timed file (counts excluded), one gated unit each: ambientGated + loadGated. build is head or nobailout.
+
+- `method.gate.head.timedFiles`: 100
+- `method.gate.nobailout.timedFiles`: 45
+
+### `method.gate.<build>.ambientGated`
+
+Pinned timed files with an ambient-CPU record, i.e. run under the ambient gate.
+
+- `method.gate.head.ambientGated`: 86
+- `method.gate.nobailout.ambientGated`: 45
+
+### `method.restartsDefault`
+
+Main suite: the usual number of restarts per configuration.
+
+- `method.restartsDefault`: 3
+
+### `method.restartsExtra`
+
+Main suite: the scenario × throttle units with more restarts than usual, as text, or "none".
+
+- `method.restartsExtra`: selection at 1× CPU and subscribe churn at 1× CPU (5 restarts, every size)
+
+### `method.restartsExtraCount`
+
+Main suite: the restarts the extra units got (when they all got the same number).
+
+- `method.restartsExtraCount`: 5
+
+### `method.restartsExtraAdded`
+
+Main suite: restarts added to each extra unit (restartsExtraCount − restartsDefault).
+
+- `method.restartsExtraAdded`: 2
+
+### `method.verifySteps`
+
+The DOM check (run.mjs --verify): updates replayed per scenario before comparing every bundle's DOM.
+
+- `method.verifySteps`: 20
+
+### `nobailout.main.flips`
+
+Which headline verdicts the same-element bailout changes, as text: configuration, verdict without it, verdict with it.
+
+- `nobailout.main.flips`: selection at N=10,000, 1× CPU (loss without the bailout, tie with it), selection at N=10,000, 4× CPU (tie without the bailout, win with it), subscribe churn at N=1,000, 1× CPU (tie without the bailout, win with it) and subscribe churn at N=1,000, 4× CPU (loss without the bailout, win with it)
+
+### `nobailout.main.flipCount`
+
+How many headline verdicts the bailout changes.
+
+- `nobailout.main.flipCount`: 4
+
+### `nobailout.main.flipScenarios`
+
+Where the bailout changes headline verdicts, in lowercase prose names, e.g. "two in selection and two in subscribe churn".
+
+- `nobailout.main.flipScenarios`: two in selection and two in subscribe churn
+
+### `method.restartsExtraUnits`
+
+Main suite: how many scenario × throttle units had more restarts than usual.
+
+- `method.restartsExtraUnits`: 2
+
+### `main.<scenario>.n<n>.x<throttle>.bestMedian`
+
+Main suite: median ms of the exact opponent the verdict compares with (library and compiler setting in .best / .bestVariant / .bestCompiler).
+
+<details><summary>42 keys</summary>
+
+- `main.selection.n100.x1.bestMedian`: 0.018
+- `main.selection.n100.x4.bestMedian`: 0.089
+- `main.selection.n1000.x1.bestMedian`: 0.150
+- `main.selection.n1000.x4.bestMedian`: 0.633
+- `main.selection.n10000.x1.bestMedian`: 1.68
+- `main.selection.n10000.x4.bestMedian`: 11.0
+- `main.entity.n100.x1.bestMedian`: 0.019
+- `main.entity.n100.x4.bestMedian`: 0.089
+- `main.entity.n1000.x1.bestMedian`: 0.221
+- `main.entity.n1000.x4.bestMedian`: 0.950
+- `main.entity.n10000.x1.bestMedian`: 2.70
+- `main.entity.n10000.x4.bestMedian`: 16.4
+- `main.filter.n100.x1.bestMedian`: 0.075
+- `main.filter.n100.x4.bestMedian`: 0.337
+- `main.filter.n1000.x1.bestMedian`: 0.700
+- `main.filter.n1000.x4.bestMedian`: 2.95
+- `main.filter.n10000.x1.bestMedian`: 13.3
+- `main.filter.n10000.x4.bestMedian`: 62.1
+- `main.details-inline.n100.x1.bestMedian`: 0.016
+- `main.details-inline.n100.x4.bestMedian`: 0.071
+- `main.details-inline.n1000.x1.bestMedian`: 0.159
+- `main.details-inline.n1000.x4.bestMedian`: 0.667
+- `main.details-inline.n10000.x1.bestMedian`: 1.63
+- `main.details-inline.n10000.x4.bestMedian`: 9.10
+- `main.details-component.n100.x1.bestMedian`: 0.015
+- `main.details-component.n100.x4.bestMedian`: 0.067
+- `main.details-component.n1000.x1.bestMedian`: 0.154
+- `main.details-component.n1000.x4.bestMedian`: 0.633
+- `main.details-component.n10000.x1.bestMedian`: 1.45
+- `main.details-component.n10000.x4.bestMedian`: 7.80
+- `main.details-churn.n100.x1.bestMedian`: 0.032
+- `main.details-churn.n100.x4.bestMedian`: 0.150
+- `main.details-churn.n1000.x1.bestMedian`: 0.320
+- `main.details-churn.n1000.x4.bestMedian`: 1.45
+- `main.details-churn.n10000.x1.bestMedian`: 4.30
+- `main.details-churn.n10000.x4.bestMedian`: 26.1
+- `main.structure.n100.x1.bestMedian`: 0.083
+- `main.structure.n100.x4.bestMedian`: 0.363
+- `main.structure.n1000.x1.bestMedian`: 0.900
+- `main.structure.n1000.x4.bestMedian`: 3.60
+- `main.structure.n10000.x1.bestMedian`: 15.3
+- `main.structure.n10000.x4.bestMedian`: 64.3
+
+</details>
+
+### `main.<scenario>.n<n>.x<throttle>.bestVariant`
+
+Main suite: the verdict's opponent library (redux or zustand).
+
+<details><summary>42 keys</summary>
+
+- `main.selection.n100.x1.bestVariant`: zustand
+- `main.selection.n100.x4.bestVariant`: zustand
+- `main.selection.n1000.x1.bestVariant`: zustand
+- `main.selection.n1000.x4.bestVariant`: zustand
+- `main.selection.n10000.x1.bestVariant`: zustand
+- `main.selection.n10000.x4.bestVariant`: zustand
+- `main.entity.n100.x1.bestVariant`: zustand
+- `main.entity.n100.x4.bestVariant`: zustand
+- `main.entity.n1000.x1.bestVariant`: zustand
+- `main.entity.n1000.x4.bestVariant`: zustand
+- `main.entity.n10000.x1.bestVariant`: zustand
+- `main.entity.n10000.x4.bestVariant`: zustand
+- `main.filter.n100.x1.bestVariant`: zustand
+- `main.filter.n100.x4.bestVariant`: zustand
+- `main.filter.n1000.x1.bestVariant`: zustand
+- `main.filter.n1000.x4.bestVariant`: zustand
+- `main.filter.n10000.x1.bestVariant`: zustand
+- `main.filter.n10000.x4.bestVariant`: zustand
+- `main.details-inline.n100.x1.bestVariant`: zustand
+- `main.details-inline.n100.x4.bestVariant`: zustand
+- `main.details-inline.n1000.x1.bestVariant`: zustand
+- `main.details-inline.n1000.x4.bestVariant`: zustand
+- `main.details-inline.n10000.x1.bestVariant`: zustand
+- `main.details-inline.n10000.x4.bestVariant`: zustand
+- `main.details-component.n100.x1.bestVariant`: zustand
+- `main.details-component.n100.x4.bestVariant`: zustand
+- `main.details-component.n1000.x1.bestVariant`: zustand
+- `main.details-component.n1000.x4.bestVariant`: zustand
+- `main.details-component.n10000.x1.bestVariant`: zustand
+- `main.details-component.n10000.x4.bestVariant`: zustand
+- `main.details-churn.n100.x1.bestVariant`: zustand
+- `main.details-churn.n100.x4.bestVariant`: zustand
+- `main.details-churn.n1000.x1.bestVariant`: zustand
+- `main.details-churn.n1000.x4.bestVariant`: zustand
+- `main.details-churn.n10000.x1.bestVariant`: zustand
+- `main.details-churn.n10000.x4.bestVariant`: zustand
+- `main.structure.n100.x1.bestVariant`: zustand
+- `main.structure.n100.x4.bestVariant`: zustand
+- `main.structure.n1000.x1.bestVariant`: zustand
+- `main.structure.n1000.x4.bestVariant`: zustand
+- `main.structure.n10000.x1.bestVariant`: zustand
+- `main.structure.n10000.x4.bestVariant`: zustand
+
+</details>
+
+### `main.<scenario>.n<n>.x<throttle>.bestCompiler`
+
+Main suite: the verdict's opponent compiler setting, on or off.
+
+<details><summary>42 keys</summary>
+
+- `main.selection.n100.x1.bestCompiler`: on
+- `main.selection.n100.x4.bestCompiler`: on
+- `main.selection.n1000.x1.bestCompiler`: off
+- `main.selection.n1000.x4.bestCompiler`: off
+- `main.selection.n10000.x1.bestCompiler`: off
+- `main.selection.n10000.x4.bestCompiler`: on
+- `main.entity.n100.x1.bestCompiler`: off
+- `main.entity.n100.x4.bestCompiler`: off
+- `main.entity.n1000.x1.bestCompiler`: off
+- `main.entity.n1000.x4.bestCompiler`: off
+- `main.entity.n10000.x1.bestCompiler`: off
+- `main.entity.n10000.x4.bestCompiler`: off
+- `main.filter.n100.x1.bestCompiler`: on
+- `main.filter.n100.x4.bestCompiler`: on
+- `main.filter.n1000.x1.bestCompiler`: on
+- `main.filter.n1000.x4.bestCompiler`: on
+- `main.filter.n10000.x1.bestCompiler`: on
+- `main.filter.n10000.x4.bestCompiler`: on
+- `main.details-inline.n100.x1.bestCompiler`: on
+- `main.details-inline.n100.x4.bestCompiler`: on
+- `main.details-inline.n1000.x1.bestCompiler`: on
+- `main.details-inline.n1000.x4.bestCompiler`: on
+- `main.details-inline.n10000.x1.bestCompiler`: off
+- `main.details-inline.n10000.x4.bestCompiler`: off
+- `main.details-component.n100.x1.bestCompiler`: off
+- `main.details-component.n100.x4.bestCompiler`: off
+- `main.details-component.n1000.x1.bestCompiler`: off
+- `main.details-component.n1000.x4.bestCompiler`: off
+- `main.details-component.n10000.x1.bestCompiler`: off
+- `main.details-component.n10000.x4.bestCompiler`: off
+- `main.details-churn.n100.x1.bestCompiler`: on
+- `main.details-churn.n100.x4.bestCompiler`: on
+- `main.details-churn.n1000.x1.bestCompiler`: on
+- `main.details-churn.n1000.x4.bestCompiler`: on
+- `main.details-churn.n10000.x1.bestCompiler`: on
+- `main.details-churn.n10000.x4.bestCompiler`: on
+- `main.structure.n100.x1.bestCompiler`: on
+- `main.structure.n100.x4.bestCompiler`: on
+- `main.structure.n1000.x1.bestCompiler`: on
+- `main.structure.n1000.x4.bestCompiler`: on
+- `main.structure.n10000.x1.bestCompiler`: on
+- `main.structure.n10000.x4.bestCompiler`: on
+
+</details>
+
+### `method.gate.<build>.loadGated`
+
+Pinned timed files run before the ambient gate existed, under the load-average gate only (no ambient record).
+
+- `method.gate.head.loadGated`: 14
+- `method.gate.nobailout.loadGated`: 0
+
+### `method.gate.<build>.ambientMean.min`
+
+Lowest per-unit mean ambient CPU (cores) over the pinned units with an ambient record.
+
+- `method.gate.head.ambientMean.min`: 0.54
+- `method.gate.nobailout.ambientMean.min`: 1.92
+
+### `method.gate.<build>.ambientMean.median`
+
+Median per-unit mean ambient CPU (cores) over the pinned units with an ambient record.
+
+- `method.gate.head.ambientMean.median`: 2.05
+- `method.gate.nobailout.ambientMean.median`: 2.37
+
+### `method.gate.<build>.ambientMean.max`
+
+Highest per-unit mean ambient CPU (cores) over the pinned units with an ambient record.
+
+- `method.gate.head.ambientMean.max`: 3.49
+- `method.gate.nobailout.ambientMean.max`: 4.10
+
+### `method.gate.<build>.ambientPeak`
+
+Highest single ambient-CPU sample (cores) during any pinned unit.
+
+- `method.gate.head.ambientPeak`: 7.48
+- `method.gate.nobailout.ambientPeak`: 6.55
+
+### `method.gate.discards.total`
+
+Timed attempts discarded and re-run by the gate (head and nobailout logs).
+
+- `method.gate.discards.total`: 5
+
+### `method.gate.discards.loadGate`
+
+Discards that happened under the load-average gate, before the ambient gate.
+
+- `method.gate.discards.loadGate`: 5
+
+### `method.gate.discards.ambientGate`
+
+Discards under the ambient-CPU gate.
+
+- `method.gate.discards.ambientGate`: 0
+
+### `method.gate.history`
+
+One line: how the gate changed during the pinned runs, from the gate lines of the units logs.
+
+- `method.gate.history`: Load-average gate first (start at or below a 1-minute load, re-run if the load after the unit was above: 4/6, then 6/8, then 5/8; structure units re-run above 12), used by main restart 1 (14 files); then from 21:37 an ambient-CPU gate on cores used outside the benchmark (start at or below 3, re-run if the mean was above 4; set to 3.5/4.5 at 21:39), used by every other pinned timed file.
 
 ### `method.timedUpdates`
 
 Total timed update samples in the main suite.
 
-- `method.timedUpdates`: 352,800
+- `method.timedUpdates`: 386,400
+
+### `method.countsRows`
+
+Rows the counting build mounts for the main suite and fairness counts (run.mjs MODES.counts).
+
+- `method.countsRows`: 1,000
+
+### `sweep.rows`
+
+Rows in the sweeps, e.g. "1,000".
+
+- `sweep.rows`: 1,000
+
+### `nobailout.sizes`
+
+Row counts in the build without the same-element bailout, e.g. "1,000 and 10,000".
+
+- `nobailout.sizes`: 1,000 and 10,000
+
+### `nobailout.throttles`
+
+CPU throttles in the build without the same-element bailout.
+
+- `nobailout.throttles`: 1× and 4×
+
+### `spike.ks`
+
+Readers per category (K) in the pinned spike, e.g. "20 and 50".
+
+- `spike.ks`: 20 and 50
+
+### `spike.defaultK`
+
+Readers per category in the derived-selectors suite (the K the spike does not re-run).
+
+- `spike.defaultK`: 5
+
+### `spike.tally.<left>.rangeWork`
+
+Spike: the range of speedups vs Redux over the comparisons with work, without the unread-update tail.
+
+- `spike.tally.store.rangeWork`: 2.1–4.5× slower
+- `spike.tally.store-memo.rangeWork`: 1.4–1.9× faster
+- `spike.tally.sharing.rangeWork`: 1.6–2.0× faster
+
+### `spike.tally.<left>.noWork`
+
+Spike: comparisons with no work (unread updates).
+
+- `spike.tally.store.noWork`: 4
+- `spike.tally.store-memo.noWork`: 4
+- `spike.tally.sharing.noWork`: 4
+
+### `spike.tally.<left>.k<k>.rangeWork`
+
+Spike at one K: range over the comparisons with work.
+
+- `spike.tally.store.k20.rangeWork`: 2.1–2.5× slower
+- `spike.tally.store.k50.rangeWork`: 3.6–4.5× slower
+- `spike.tally.store-memo.k20.rangeWork`: 1.4–1.6× faster
+- `spike.tally.store-memo.k50.rangeWork`: 1.4–1.9× faster
+- `spike.tally.sharing.k20.rangeWork`: 1.6–1.8× faster
+- `spike.tally.sharing.k50.rangeWork`: 1.7–2.0× faster
+
+### `spike.tally.<left>.k<k>.noWork`
+
+Spike at one K: comparisons with no work.
+
+- `spike.tally.store.k20.noWork`: 2
+- `spike.tally.store.k50.noWork`: 2
+- `spike.tally.store-memo.k20.noWork`: 2
+- `spike.tally.store-memo.k50.noWork`: 2
+- `spike.tally.sharing.k20.noWork`: 2
+- `spike.tally.sharing.k50.noWork`: 2
+
+### `suite.<suite>.tally.<left>.rangeWork`
+
+Suite: range of speedups over the comparisons with work, without the unread-update tail.
+
+- `suite.derived-selectors.tally.store.rangeWork`: 1.1–1.4× slower
+- `suite.derived-selectors.tally.store-memo.rangeWork`: 1.3–1.5× faster
+- `suite.rapid-dispatch.tally.store.rangeWork`: 1.5–1.9× faster
+- `suite.many-components-same-slice.tally.store.rangeWork`: 1.2× faster
+- `suite.deeptree-nested-hooks.tally.store.rangeWork`: up to 2.2× faster (11 faster, 1 tie)
+
+### `suite.<suite>.tally.<left>.noWork`
+
+Suite: comparisons with no work (unread updates).
+
+- `suite.derived-selectors.tally.store.noWork`: 2
+- `suite.derived-selectors.tally.store-memo.noWork`: 2
+- `suite.rapid-dispatch.tally.store.noWork`: 0
+- `suite.many-components-same-slice.tally.store.noWork`: 0
+- `suite.deeptree-nested-hooks.tally.store.noWork`: 0
+
+### `suite.<suite>.control.<variant>.wins`
+
+Fairness controls: configurations where the control (redux-plain, redux-nofreeze) is faster than redux, each at its faster compiler setting.
+
+- `suite.fairness.control.redux-nofreeze.wins`: 6
+- `suite.fairness.control.redux-plain.wins`: 6
+
+### `suite.<suite>.control.<variant>.ties`
+
+Fairness controls: ties with redux.
+
+- `suite.fairness.control.redux-nofreeze.ties`: 8
+- `suite.fairness.control.redux-plain.ties`: 8
+
+### `suite.<suite>.control.<variant>.losses`
+
+Fairness controls: configurations where the control is slower than redux.
+
+- `suite.fairness.control.redux-nofreeze.losses`: 0
+- `suite.fairness.control.redux-plain.losses`: 0
+
+### `suite.<suite>.control.<variant>.total`
+
+Fairness controls: configurations compared.
+
+- `suite.fairness.control.redux-nofreeze.total`: 14
+- `suite.fairness.control.redux-plain.total`: 14
+
+### `suite.<suite>.control.<variant>.range`
+
+Fairness controls: how much the control moves Redux's time, as text ("faster" means the control is faster than redux).
+
+- `suite.fairness.control.redux-nofreeze.range`: up to 1.3× faster (6 faster, 8 tie)
+- `suite.fairness.control.redux-plain.range`: up to 1.4× faster (6 faster, 8 tie)
+
+### `nobailout.main.bailoutGain.<scope>.wins`
+
+What the bailout buys store + compiler (head build vs the build without it), per scenario or "all": configurations faster with the bailout.
+
+- `nobailout.main.bailoutGain.selection.wins`: 3
+- `nobailout.main.bailoutGain.entity.wins`: 1
+- `nobailout.main.bailoutGain.filter.wins`: 1
+- `nobailout.main.bailoutGain.details-inline.wins`: 1
+- `nobailout.main.bailoutGain.details-component.wins`: 2
+- `nobailout.main.bailoutGain.details-churn.wins`: 4
+- `nobailout.main.bailoutGain.structure.wins`: 4
+- `nobailout.main.bailoutGain.all.wins`: 16
+
+### `nobailout.main.bailoutGain.<scope>.ties`
+
+What the bailout buys: ties.
+
+- `nobailout.main.bailoutGain.selection.ties`: 1
+- `nobailout.main.bailoutGain.entity.ties`: 3
+- `nobailout.main.bailoutGain.filter.ties`: 3
+- `nobailout.main.bailoutGain.details-inline.ties`: 3
+- `nobailout.main.bailoutGain.details-component.ties`: 2
+- `nobailout.main.bailoutGain.details-churn.ties`: 0
+- `nobailout.main.bailoutGain.structure.ties`: 0
+- `nobailout.main.bailoutGain.all.ties`: 12
+
+### `nobailout.main.bailoutGain.<scope>.losses`
+
+What the bailout buys: configurations slower with the bailout.
+
+- `nobailout.main.bailoutGain.selection.losses`: 0
+- `nobailout.main.bailoutGain.entity.losses`: 0
+- `nobailout.main.bailoutGain.filter.losses`: 0
+- `nobailout.main.bailoutGain.details-inline.losses`: 0
+- `nobailout.main.bailoutGain.details-component.losses`: 0
+- `nobailout.main.bailoutGain.details-churn.losses`: 0
+- `nobailout.main.bailoutGain.structure.losses`: 0
+- `nobailout.main.bailoutGain.all.losses`: 0
+
+### `nobailout.main.bailoutGain.<scope>.total`
+
+What the bailout buys: configurations compared.
+
+- `nobailout.main.bailoutGain.selection.total`: 4
+- `nobailout.main.bailoutGain.entity.total`: 4
+- `nobailout.main.bailoutGain.filter.total`: 4
+- `nobailout.main.bailoutGain.details-inline.total`: 4
+- `nobailout.main.bailoutGain.details-component.total`: 4
+- `nobailout.main.bailoutGain.details-churn.total`: 4
+- `nobailout.main.bailoutGain.structure.total`: 4
+- `nobailout.main.bailoutGain.all.total`: 28
+
+### `nobailout.main.bailoutGain.<scope>.range`
+
+What the bailout buys: range of speedups with the bailout, as text.
+
+- `nobailout.main.bailoutGain.selection.range`: up to 1.3× faster (3 faster, 1 tie)
+- `nobailout.main.bailoutGain.entity.range`: up to 1.1× faster (1 faster, 3 tie)
+- `nobailout.main.bailoutGain.filter.range`: up to 1.1× faster (1 faster, 3 tie)
+- `nobailout.main.bailoutGain.details-inline.range`: up to 1.1× faster (1 faster, 3 tie)
+- `nobailout.main.bailoutGain.details-component.range`: up to 1.0× faster (2 faster, 2 tie)
+- `nobailout.main.bailoutGain.details-churn.range`: 1.1–1.2× faster
+- `nobailout.main.bailoutGain.structure.range`: 1.2× faster
+- `nobailout.main.bailoutGain.all.range`: up to 1.3× faster (16 faster, 12 tie)
 
 ### `lib.<package>`
 
@@ -182,11 +671,11 @@ Main suite: median ms per update.
 
 - `main.selection.n100.x1.store.on.median`: 0.020
 - `main.selection.n100.x1.store.off.median`: 0.172
-- `main.selection.n100.x1.store-single.on.median`: 0.016
-- `main.selection.n100.x1.store-single.off.median`: 0.178
+- `main.selection.n100.x1.store-single.on.median`: 0.017
+- `main.selection.n100.x1.store-single.off.median`: 0.175
 - `main.selection.n100.x1.context.on.median`: 0.019
-- `main.selection.n100.x1.context.off.median`: 0.175
-- `main.selection.n100.x1.context-split.on.median`: 0.025
+- `main.selection.n100.x1.context.off.median`: 0.172
+- `main.selection.n100.x1.context-split.on.median`: 0.024
 - `main.selection.n100.x1.context-split.off.median`: 0.189
 - `main.selection.n100.x1.redux.on.median`: 0.032
 - `main.selection.n100.x1.redux.off.median`: 0.035
@@ -217,11 +706,11 @@ Main suite: median ms per update.
 - `main.selection.n1000.x1.context-split.on.median`: 0.217
 - `main.selection.n1000.x1.context-split.off.median`: 1.88
 - `main.selection.n1000.x1.redux.on.median`: 0.250
-- `main.selection.n1000.x1.redux.off.median`: 0.250
+- `main.selection.n1000.x1.redux.off.median`: 0.244
 - `main.selection.n1000.x1.zustand.on.median`: 0.155
 - `main.selection.n1000.x1.zustand.off.median`: 0.150
 - `main.selection.n1000.x1.zustand-granular.on.median`: 0.119
-- `main.selection.n1000.x1.zustand-granular.off.median`: 0.123
+- `main.selection.n1000.x1.zustand-granular.off.median`: 0.121
 - `main.selection.n1000.x4.store.on.median`: 0.700
 - `main.selection.n1000.x4.store.off.median`: 7.30
 - `main.selection.n1000.x4.store-single.on.median`: 0.650
@@ -236,20 +725,20 @@ Main suite: median ms per update.
 - `main.selection.n1000.x4.zustand.off.median`: 0.633
 - `main.selection.n1000.x4.zustand-granular.on.median`: 0.525
 - `main.selection.n1000.x4.zustand-granular.off.median`: 0.500
-- `main.selection.n10000.x1.store.on.median`: 1.68
-- `main.selection.n10000.x1.store.off.median`: 22.5
-- `main.selection.n10000.x1.store-single.on.median`: 1.90
-- `main.selection.n10000.x1.store-single.off.median`: 22.7
+- `main.selection.n10000.x1.store.on.median`: 1.70
+- `main.selection.n10000.x1.store.off.median`: 22.2
+- `main.selection.n10000.x1.store-single.on.median`: 1.88
+- `main.selection.n10000.x1.store-single.off.median`: 22.4
 - `main.selection.n10000.x1.context.on.median`: 2.25
-- `main.selection.n10000.x1.context.off.median`: 22.1
-- `main.selection.n10000.x1.context-split.on.median`: 2.80
-- `main.selection.n10000.x1.context-split.off.median`: 24.0
-- `main.selection.n10000.x1.redux.on.median`: 3.40
-- `main.selection.n10000.x1.redux.off.median`: 3.55
-- `main.selection.n10000.x1.zustand.on.median`: 1.75
-- `main.selection.n10000.x1.zustand.off.median`: 1.70
-- `main.selection.n10000.x1.zustand-granular.on.median`: 1.48
-- `main.selection.n10000.x1.zustand-granular.off.median`: 1.50
+- `main.selection.n10000.x1.context.off.median`: 21.9
+- `main.selection.n10000.x1.context-split.on.median`: 2.75
+- `main.selection.n10000.x1.context-split.off.median`: 23.7
+- `main.selection.n10000.x1.redux.on.median`: 3.30
+- `main.selection.n10000.x1.redux.off.median`: 3.45
+- `main.selection.n10000.x1.zustand.on.median`: 1.77
+- `main.selection.n10000.x1.zustand.off.median`: 1.68
+- `main.selection.n10000.x1.zustand-granular.on.median`: 1.43
+- `main.selection.n10000.x1.zustand-granular.off.median`: 1.47
 - `main.selection.n10000.x4.store.on.median`: 7.20
 - `main.selection.n10000.x4.store.off.median`: 95.5
 - `main.selection.n10000.x4.store-single.on.median`: 8.00
@@ -604,7 +1093,7 @@ Main suite: median ms per update.
 - `main.details-churn.n100.x1.store.off.median`: 0.183
 - `main.details-churn.n100.x1.store-single.on.median`: 0.026
 - `main.details-churn.n100.x1.store-single.off.median`: 0.183
-- `main.details-churn.n100.x1.context.on.median`: 0.029
+- `main.details-churn.n100.x1.context.on.median`: 0.028
 - `main.details-churn.n100.x1.context.off.median`: 0.183
 - `main.details-churn.n100.x1.context-split.on.median`: 0.033
 - `main.details-churn.n100.x1.context-split.off.median`: 0.194
@@ -612,7 +1101,7 @@ Main suite: median ms per update.
 - `main.details-churn.n100.x1.redux.off.median`: 0.067
 - `main.details-churn.n100.x1.zustand.on.median`: 0.032
 - `main.details-churn.n100.x1.zustand.off.median`: 0.041
-- `main.details-churn.n100.x1.zustand-granular.on.median`: 0.030
+- `main.details-churn.n100.x1.zustand-granular.on.median`: 0.029
 - `main.details-churn.n100.x1.zustand-granular.off.median`: 0.039
 - `main.details-churn.n100.x4.store.on.median`: 0.140
 - `main.details-churn.n100.x4.store.off.median`: 0.750
@@ -635,7 +1124,7 @@ Main suite: median ms per update.
 - `main.details-churn.n1000.x1.context.on.median`: 0.275
 - `main.details-churn.n1000.x1.context.off.median`: 1.88
 - `main.details-churn.n1000.x1.context-split.on.median`: 0.320
-- `main.details-churn.n1000.x1.context-split.off.median`: 2.00
+- `main.details-churn.n1000.x1.context-split.off.median`: 1.98
 - `main.details-churn.n1000.x1.redux.on.median`: 0.550
 - `main.details-churn.n1000.x1.redux.off.median`: 0.667
 - `main.details-churn.n1000.x1.zustand.on.median`: 0.320
@@ -656,20 +1145,20 @@ Main suite: median ms per update.
 - `main.details-churn.n1000.x4.zustand.off.median`: 1.85
 - `main.details-churn.n1000.x4.zustand-granular.on.median`: 1.25
 - `main.details-churn.n1000.x4.zustand-granular.off.median`: 1.72
-- `main.details-churn.n10000.x1.store.on.median`: 3.40
-- `main.details-churn.n10000.x1.store.off.median`: 24.5
-- `main.details-churn.n10000.x1.store-single.on.median`: 3.25
-- `main.details-churn.n10000.x1.store-single.off.median`: 24.1
-- `main.details-churn.n10000.x1.context.on.median`: 3.85
-- `main.details-churn.n10000.x1.context.off.median`: 23.6
-- `main.details-churn.n10000.x1.context-split.on.median`: 4.30
-- `main.details-churn.n10000.x1.context-split.off.median`: 24.8
-- `main.details-churn.n10000.x1.redux.on.median`: 9.60
-- `main.details-churn.n10000.x1.redux.off.median`: 12.2
-- `main.details-churn.n10000.x1.zustand.on.median`: 4.40
-- `main.details-churn.n10000.x1.zustand.off.median`: 5.80
-- `main.details-churn.n10000.x1.zustand-granular.on.median`: 4.05
-- `main.details-churn.n10000.x1.zustand-granular.off.median`: 5.50
+- `main.details-churn.n10000.x1.store.on.median`: 3.30
+- `main.details-churn.n10000.x1.store.off.median`: 24.2
+- `main.details-churn.n10000.x1.store-single.on.median`: 3.20
+- `main.details-churn.n10000.x1.store-single.off.median`: 23.7
+- `main.details-churn.n10000.x1.context.on.median`: 3.65
+- `main.details-churn.n10000.x1.context.off.median`: 23.3
+- `main.details-churn.n10000.x1.context-split.on.median`: 4.15
+- `main.details-churn.n10000.x1.context-split.off.median`: 24.5
+- `main.details-churn.n10000.x1.redux.on.median`: 9.30
+- `main.details-churn.n10000.x1.redux.off.median`: 11.5
+- `main.details-churn.n10000.x1.zustand.on.median`: 4.30
+- `main.details-churn.n10000.x1.zustand.off.median`: 5.50
+- `main.details-churn.n10000.x1.zustand-granular.on.median`: 3.90
+- `main.details-churn.n10000.x1.zustand-granular.off.median`: 5.40
 - `main.details-churn.n10000.x4.store.on.median`: 16.9
 - `main.details-churn.n10000.x4.store.off.median`: 103.7
 - `main.details-churn.n10000.x4.store-single.on.median`: 16.0
@@ -777,11 +1266,11 @@ Main suite: store + compiler vs the headline opponents (HEADLINE_OPPONENTS in re
 
 <details><summary>42 keys</summary>
 
-- `main.selection.n100.x1.verdict`: 1.2× slower
+- `main.selection.n100.x1.verdict`: 1.1× slower
 - `main.selection.n100.x4.verdict`: tie
 - `main.selection.n1000.x1.verdict`: 1.1× slower
 - `main.selection.n1000.x4.verdict`: 1.1× slower
-- `main.selection.n10000.x1.verdict`: 1.0× faster
+- `main.selection.n10000.x1.verdict`: tie
 - `main.selection.n10000.x4.verdict`: 1.4× faster
 - `main.entity.n100.x1.verdict`: 2.5× faster
 - `main.entity.n100.x4.verdict`: 2.4× faster
@@ -879,11 +1368,11 @@ Main suite: store + compiler vs the granular control (zustand-granular, a Zustan
 
 <details><summary>42 keys</summary>
 
-- `main.selection.n100.x1.vsGranular`: 1.4× slower
+- `main.selection.n100.x1.vsGranular`: 1.3× slower
 - `main.selection.n100.x4.vsGranular`: 1.3× slower
 - `main.selection.n1000.x1.vsGranular`: 1.4× slower
 - `main.selection.n1000.x4.vsGranular`: 1.4× slower
-- `main.selection.n10000.x1.vsGranular`: 1.1× slower
+- `main.selection.n10000.x1.vsGranular`: tie (restarts disagree)
 - `main.selection.n10000.x4.vsGranular`: 1.1× slower
 - `main.entity.n100.x1.vsGranular`: 1.2× faster
 - `main.entity.n100.x4.vsGranular`: 1.2× faster
@@ -910,10 +1399,10 @@ Main suite: store + compiler vs the granular control (zustand-granular, a Zustan
 - `main.details-component.n10000.x1.vsGranular`: 2.3× faster
 - `main.details-component.n10000.x4.vsGranular`: 2.6× faster
 - `main.details-churn.n100.x1.vsGranular`: 1.1× slower
-- `main.details-churn.n100.x4.vsGranular`: 1.0× slower
-- `main.details-churn.n1000.x1.vsGranular`: tie
-- `main.details-churn.n1000.x4.vsGranular`: 1.1× faster
-- `main.details-churn.n10000.x1.vsGranular`: 1.3× faster
+- `main.details-churn.n100.x4.vsGranular`: tie (restarts disagree)
+- `main.details-churn.n1000.x1.vsGranular`: tie (restarts disagree)
+- `main.details-churn.n1000.x4.vsGranular`: tie (restarts disagree)
+- `main.details-churn.n10000.x1.vsGranular`: 1.2× faster
 - `main.details-churn.n10000.x4.vsGranular`: 1.5× faster
 - `main.structure.n100.x1.vsGranular`: 2.3× faster
 - `main.structure.n100.x4.vsGranular`: 2.2× faster
@@ -926,11 +1415,11 @@ Main suite: store + compiler vs the granular control (zustand-granular, a Zustan
 
 ### `main.tally.<comparison>.<scenario>.wins`
 
-Main suite: configurations of the scenario the left side won (outside two standard errors). Comparisons: see KEYS.md "Comparisons".
+Main suite: configurations of the scenario the left side won (outside two standard errors, and faster in every restart: method.verdictRule). Comparisons: see KEYS.md "Comparisons".
 
 <details><summary>63 keys</summary>
 
-- `main.tally.selectors.selection.wins`: 2
+- `main.tally.selectors.selection.wins`: 1
 - `main.tally.selectors.entity.wins`: 6
 - `main.tally.selectors.filter.wins`: 6
 - `main.tally.selectors.details-inline.wins`: 6
@@ -944,7 +1433,7 @@ Main suite: configurations of the scenario the left side won (outside two standa
 - `main.tally.redux.details-component.wins`: 6
 - `main.tally.redux.details-churn.wins`: 6
 - `main.tally.redux.structure.wins`: 6
-- `main.tally.zustand.selection.wins`: 2
+- `main.tally.zustand.selection.wins`: 1
 - `main.tally.zustand.entity.wins`: 6
 - `main.tally.zustand.filter.wins`: 6
 - `main.tally.zustand.details-inline.wins`: 6
@@ -956,11 +1445,11 @@ Main suite: configurations of the scenario the left side won (outside two standa
 - `main.tally.zustand-granular.filter.wins`: 6
 - `main.tally.zustand-granular.details-inline.wins`: 6
 - `main.tally.zustand-granular.details-component.wins`: 6
-- `main.tally.zustand-granular.details-churn.wins`: 3
+- `main.tally.zustand-granular.details-churn.wins`: 2
 - `main.tally.zustand-granular.structure.wins`: 6
 - `main.tally.context.selection.wins`: 2
 - `main.tally.context.entity.wins`: 6
-- `main.tally.context.filter.wins`: 3
+- `main.tally.context.filter.wins`: 2
 - `main.tally.context.details-inline.wins`: 6
 - `main.tally.context.details-component.wins`: 6
 - `main.tally.context.details-churn.wins`: 2
@@ -973,10 +1462,10 @@ Main suite: configurations of the scenario the left side won (outside two standa
 - `main.tally.context-split.details-churn.wins`: 6
 - `main.tally.context-split.structure.wins`: 6
 - `main.tally.single-selectors.selection.wins`: 3
-- `main.tally.single-selectors.entity.wins`: 3
+- `main.tally.single-selectors.entity.wins`: 2
 - `main.tally.single-selectors.filter.wins`: 6
 - `main.tally.single-selectors.details-inline.wins`: 3
-- `main.tally.single-selectors.details-component.wins`: 2
+- `main.tally.single-selectors.details-component.wins`: 0
 - `main.tally.single-selectors.details-churn.wins`: 6
 - `main.tally.single-selectors.structure.wins`: 6
 - `main.tally.nocompiler-selectors.selection.wins`: 0
@@ -987,7 +1476,7 @@ Main suite: configurations of the scenario the left side won (outside two standa
 - `main.tally.nocompiler-selectors.details-churn.wins`: 0
 - `main.tally.nocompiler-selectors.structure.wins`: 6
 - `main.tally.compiler-gain.selection.wins`: 6
-- `main.tally.compiler-gain.entity.wins`: 1
+- `main.tally.compiler-gain.entity.wins`: 0
 - `main.tally.compiler-gain.filter.wins`: 6
 - `main.tally.compiler-gain.details-inline.wins`: 6
 - `main.tally.compiler-gain.details-component.wins`: 4
@@ -998,11 +1487,11 @@ Main suite: configurations of the scenario the left side won (outside two standa
 
 ### `main.tally.<comparison>.<scenario>.ties`
 
-Main suite: configurations within two standard errors.
+Main suite: configurations within two standard errors, or outside them with restarts that disagree on the direction (method.verdictRule).
 
 <details><summary>63 keys</summary>
 
-- `main.tally.selectors.selection.ties`: 1
+- `main.tally.selectors.selection.ties`: 2
 - `main.tally.selectors.entity.ties`: 0
 - `main.tally.selectors.filter.ties`: 0
 - `main.tally.selectors.details-inline.ties`: 0
@@ -1016,23 +1505,23 @@ Main suite: configurations within two standard errors.
 - `main.tally.redux.details-component.ties`: 0
 - `main.tally.redux.details-churn.ties`: 0
 - `main.tally.redux.structure.ties`: 0
-- `main.tally.zustand.selection.ties`: 1
+- `main.tally.zustand.selection.ties`: 2
 - `main.tally.zustand.entity.ties`: 0
 - `main.tally.zustand.filter.ties`: 0
 - `main.tally.zustand.details-inline.ties`: 0
 - `main.tally.zustand.details-component.ties`: 0
 - `main.tally.zustand.details-churn.ties`: 1
 - `main.tally.zustand.structure.ties`: 0
-- `main.tally.zustand-granular.selection.ties`: 0
+- `main.tally.zustand-granular.selection.ties`: 1
 - `main.tally.zustand-granular.entity.ties`: 0
 - `main.tally.zustand-granular.filter.ties`: 0
 - `main.tally.zustand-granular.details-inline.ties`: 0
 - `main.tally.zustand-granular.details-component.ties`: 0
-- `main.tally.zustand-granular.details-churn.ties`: 1
+- `main.tally.zustand-granular.details-churn.ties`: 3
 - `main.tally.zustand-granular.structure.ties`: 0
-- `main.tally.context.selection.ties`: 3
+- `main.tally.context.selection.ties`: 4
 - `main.tally.context.entity.ties`: 0
-- `main.tally.context.filter.ties`: 0
+- `main.tally.context.filter.ties`: 1
 - `main.tally.context.details-inline.ties`: 0
 - `main.tally.context.details-component.ties`: 0
 - `main.tally.context.details-churn.ties`: 0
@@ -1044,11 +1533,11 @@ Main suite: configurations within two standard errors.
 - `main.tally.context-split.details-component.ties`: 0
 - `main.tally.context-split.details-churn.ties`: 0
 - `main.tally.context-split.structure.ties`: 0
-- `main.tally.single-selectors.selection.ties`: 1
-- `main.tally.single-selectors.entity.ties`: 0
+- `main.tally.single-selectors.selection.ties`: 2
+- `main.tally.single-selectors.entity.ties`: 1
 - `main.tally.single-selectors.filter.ties`: 0
-- `main.tally.single-selectors.details-inline.ties`: 1
-- `main.tally.single-selectors.details-component.ties`: 0
+- `main.tally.single-selectors.details-inline.ties`: 2
+- `main.tally.single-selectors.details-component.ties`: 4
 - `main.tally.single-selectors.details-churn.ties`: 0
 - `main.tally.single-selectors.structure.ties`: 0
 - `main.tally.nocompiler-selectors.selection.ties`: 0
@@ -1059,7 +1548,7 @@ Main suite: configurations within two standard errors.
 - `main.tally.nocompiler-selectors.details-churn.ties`: 0
 - `main.tally.nocompiler-selectors.structure.ties`: 0
 - `main.tally.compiler-gain.selection.ties`: 0
-- `main.tally.compiler-gain.entity.ties`: 4
+- `main.tally.compiler-gain.entity.ties`: 6
 - `main.tally.compiler-gain.filter.ties`: 0
 - `main.tally.compiler-gain.details-inline.ties`: 0
 - `main.tally.compiler-gain.details-component.ties`: 1
@@ -1095,14 +1584,14 @@ Main suite: configurations the left side lost.
 - `main.tally.zustand.details-component.losses`: 0
 - `main.tally.zustand.details-churn.losses`: 0
 - `main.tally.zustand.structure.losses`: 0
-- `main.tally.zustand-granular.selection.losses`: 6
+- `main.tally.zustand-granular.selection.losses`: 5
 - `main.tally.zustand-granular.entity.losses`: 0
 - `main.tally.zustand-granular.filter.losses`: 0
 - `main.tally.zustand-granular.details-inline.losses`: 0
 - `main.tally.zustand-granular.details-component.losses`: 0
-- `main.tally.zustand-granular.details-churn.losses`: 2
+- `main.tally.zustand-granular.details-churn.losses`: 1
 - `main.tally.zustand-granular.structure.losses`: 0
-- `main.tally.context.selection.losses`: 1
+- `main.tally.context.selection.losses`: 0
 - `main.tally.context.entity.losses`: 0
 - `main.tally.context.filter.losses`: 3
 - `main.tally.context.details-inline.losses`: 0
@@ -1116,11 +1605,11 @@ Main suite: configurations the left side lost.
 - `main.tally.context-split.details-component.losses`: 0
 - `main.tally.context-split.details-churn.losses`: 0
 - `main.tally.context-split.structure.losses`: 0
-- `main.tally.single-selectors.selection.losses`: 2
+- `main.tally.single-selectors.selection.losses`: 1
 - `main.tally.single-selectors.entity.losses`: 3
 - `main.tally.single-selectors.filter.losses`: 0
-- `main.tally.single-selectors.details-inline.losses`: 2
-- `main.tally.single-selectors.details-component.losses`: 4
+- `main.tally.single-selectors.details-inline.losses`: 1
+- `main.tally.single-selectors.details-component.losses`: 2
 - `main.tally.single-selectors.details-churn.losses`: 0
 - `main.tally.single-selectors.structure.losses`: 0
 - `main.tally.nocompiler-selectors.selection.losses`: 6
@@ -1131,7 +1620,7 @@ Main suite: configurations the left side lost.
 - `main.tally.nocompiler-selectors.details-churn.losses`: 6
 - `main.tally.nocompiler-selectors.structure.losses`: 0
 - `main.tally.compiler-gain.selection.losses`: 0
-- `main.tally.compiler-gain.entity.losses`: 1
+- `main.tally.compiler-gain.entity.losses`: 0
 - `main.tally.compiler-gain.filter.losses`: 0
 - `main.tally.compiler-gain.details-inline.losses`: 0
 - `main.tally.compiler-gain.details-component.losses`: 1
@@ -1239,14 +1728,14 @@ Main suite: wins + ties.
 - `main.tally.zustand.details-component.matchOrBeat`: 6
 - `main.tally.zustand.details-churn.matchOrBeat`: 6
 - `main.tally.zustand.structure.matchOrBeat`: 6
-- `main.tally.zustand-granular.selection.matchOrBeat`: 0
+- `main.tally.zustand-granular.selection.matchOrBeat`: 1
 - `main.tally.zustand-granular.entity.matchOrBeat`: 6
 - `main.tally.zustand-granular.filter.matchOrBeat`: 6
 - `main.tally.zustand-granular.details-inline.matchOrBeat`: 6
 - `main.tally.zustand-granular.details-component.matchOrBeat`: 6
-- `main.tally.zustand-granular.details-churn.matchOrBeat`: 4
+- `main.tally.zustand-granular.details-churn.matchOrBeat`: 5
 - `main.tally.zustand-granular.structure.matchOrBeat`: 6
-- `main.tally.context.selection.matchOrBeat`: 5
+- `main.tally.context.selection.matchOrBeat`: 6
 - `main.tally.context.entity.matchOrBeat`: 6
 - `main.tally.context.filter.matchOrBeat`: 3
 - `main.tally.context.details-inline.matchOrBeat`: 6
@@ -1260,11 +1749,11 @@ Main suite: wins + ties.
 - `main.tally.context-split.details-component.matchOrBeat`: 6
 - `main.tally.context-split.details-churn.matchOrBeat`: 6
 - `main.tally.context-split.structure.matchOrBeat`: 6
-- `main.tally.single-selectors.selection.matchOrBeat`: 4
+- `main.tally.single-selectors.selection.matchOrBeat`: 5
 - `main.tally.single-selectors.entity.matchOrBeat`: 3
 - `main.tally.single-selectors.filter.matchOrBeat`: 6
-- `main.tally.single-selectors.details-inline.matchOrBeat`: 4
-- `main.tally.single-selectors.details-component.matchOrBeat`: 2
+- `main.tally.single-selectors.details-inline.matchOrBeat`: 5
+- `main.tally.single-selectors.details-component.matchOrBeat`: 4
 - `main.tally.single-selectors.details-churn.matchOrBeat`: 6
 - `main.tally.single-selectors.structure.matchOrBeat`: 6
 - `main.tally.nocompiler-selectors.selection.matchOrBeat`: 0
@@ -1275,7 +1764,7 @@ Main suite: wins + ties.
 - `main.tally.nocompiler-selectors.details-churn.matchOrBeat`: 0
 - `main.tally.nocompiler-selectors.structure.matchOrBeat`: 6
 - `main.tally.compiler-gain.selection.matchOrBeat`: 6
-- `main.tally.compiler-gain.entity.matchOrBeat`: 5
+- `main.tally.compiler-gain.entity.matchOrBeat`: 6
 - `main.tally.compiler-gain.filter.matchOrBeat`: 6
 - `main.tally.compiler-gain.details-inline.matchOrBeat`: 6
 - `main.tally.compiler-gain.details-component.matchOrBeat`: 5
@@ -1290,37 +1779,37 @@ Main suite: the range of speedups as text, e.g. "1.2–1.4× faster" or "up to 1
 
 <details><summary>63 keys</summary>
 
-- `main.tally.selectors.selection.range`: 1.2× slower to 1.4× faster (2 faster, 1 tie, 3 slower)
+- `main.tally.selectors.selection.range`: 1.1× slower to 1.4× faster (1 faster, 2 tie, 3 slower)
 - `main.tally.selectors.entity.range`: 2.4–9.2× faster
 - `main.tally.selectors.filter.range`: 1.5–2.4× faster
 - `main.tally.selectors.details-inline.range`: 2.4–4.2× faster
 - `main.tally.selectors.details-component.range`: 2.5–4.0× faster
 - `main.tally.selectors.details-churn.range`: up to 1.5× faster (5 faster, 1 tie)
 - `main.tally.selectors.structure.range`: 2.9–7.8× faster
-- `main.tally.redux.selection.range`: 1.5–3.6× faster
+- `main.tally.redux.selection.range`: 1.4–3.6× faster
 - `main.tally.redux.entity.range`: 4.1–20× faster
 - `main.tally.redux.filter.range`: 2.9–4.4× faster
 - `main.tally.redux.details-inline.range`: 4.2–11× faster
 - `main.tally.redux.details-component.range`: 4.1–10× faster
 - `main.tally.redux.details-churn.range`: 1.7–3.6× faster
 - `main.tally.redux.structure.range`: 7.2–16× faster
-- `main.tally.zustand.selection.range`: 1.2× slower to 1.4× faster (2 faster, 1 tie, 3 slower)
+- `main.tally.zustand.selection.range`: 1.1× slower to 1.4× faster (1 faster, 2 tie, 3 slower)
 - `main.tally.zustand.entity.range`: 2.4–9.2× faster
 - `main.tally.zustand.filter.range`: 1.5–2.4× faster
 - `main.tally.zustand.details-inline.range`: 2.4–4.2× faster
 - `main.tally.zustand.details-component.range`: 2.5–4.0× faster
 - `main.tally.zustand.details-churn.range`: up to 1.5× faster (5 faster, 1 tie)
 - `main.tally.zustand.structure.range`: 2.9–7.8× faster
-- `main.tally.zustand-granular.selection.range`: 1.1–1.4× slower
+- `main.tally.zustand-granular.selection.range`: up to 1.4× slower (1 tie, 5 slower)
 - `main.tally.zustand-granular.entity.range`: 1.1–1.2× faster
 - `main.tally.zustand-granular.filter.range`: 1.5–2.4× faster
 - `main.tally.zustand-granular.details-inline.range`: 2.0–3.1× faster
 - `main.tally.zustand-granular.details-component.range`: 2.0–2.6× faster
-- `main.tally.zustand-granular.details-churn.range`: 1.1× slower to 1.5× faster (3 faster, 1 tie, 2 slower)
+- `main.tally.zustand-granular.details-churn.range`: 1.1× slower to 1.5× faster (2 faster, 3 tie, 1 slower)
 - `main.tally.zustand-granular.structure.range`: 2.2–6.9× faster
-- `main.tally.context.selection.range`: 1.1× slower to 1.4× faster (2 faster, 3 tie, 1 slower)
+- `main.tally.context.selection.range`: up to 1.4× faster (2 faster, 4 tie)
 - `main.tally.context.entity.range`: 3.1–9.3× faster
-- `main.tally.context.filter.range`: 1.1× slower to 1.2× faster (3 faster, 3 slower)
+- `main.tally.context.filter.range`: 1.1× slower to 1.2× faster (2 faster, 1 tie, 3 slower)
 - `main.tally.context.details-inline.range`: 2.8–4.0× faster
 - `main.tally.context.details-component.range`: 3.0–4.2× faster
 - `main.tally.context.details-churn.range`: 1.1× slower to 1.1× faster (2 faster, 4 slower)
@@ -1332,11 +1821,11 @@ Main suite: the range of speedups as text, e.g. "1.2–1.4× faster" or "up to 1
 - `main.tally.context-split.details-component.range`: 1.8–2.5× faster
 - `main.tally.context-split.details-churn.range`: 1.1–1.3× faster
 - `main.tally.context-split.structure.range`: 1.6–2.8× faster
-- `main.tally.single-selectors.selection.range`: 1.1× slower to 1.3× faster (3 faster, 1 tie, 2 slower)
-- `main.tally.single-selectors.entity.range`: 1.2× slower to 1.2× faster (3 faster, 3 slower)
+- `main.tally.single-selectors.selection.range`: 1.1× slower to 1.3× faster (3 faster, 2 tie, 1 slower)
+- `main.tally.single-selectors.entity.range`: 1.2× slower to 1.2× faster (2 faster, 1 tie, 3 slower)
 - `main.tally.single-selectors.filter.range`: 1.6–2.4× faster
-- `main.tally.single-selectors.details-inline.range`: 1.0× slower to 1.3× faster (3 faster, 1 tie, 2 slower)
-- `main.tally.single-selectors.details-component.range`: 1.1× slower to 1.1× faster (2 faster, 4 slower)
+- `main.tally.single-selectors.details-inline.range`: 1.0× slower to 1.3× faster (3 faster, 2 tie, 1 slower)
+- `main.tally.single-selectors.details-component.range`: up to 1.1× slower (4 tie, 2 slower)
 - `main.tally.single-selectors.details-churn.range`: 1.1–1.6× faster
 - `main.tally.single-selectors.structure.range`: 2.3–4.0× faster
 - `main.tally.nocompiler-selectors.selection.range`: 7.7–13× slower
@@ -1344,10 +1833,10 @@ Main suite: the range of speedups as text, e.g. "1.2–1.4× faster" or "up to 1
 - `main.tally.nocompiler-selectors.filter.range`: 1.1–1.4× slower
 - `main.tally.nocompiler-selectors.details-inline.range`: 2.3–3.2× faster
 - `main.tally.nocompiler-selectors.details-component.range`: 2.5–3.7× faster
-- `main.tally.nocompiler-selectors.details-churn.range`: 3.5–4.3× slower
+- `main.tally.nocompiler-selectors.details-churn.range`: 3.5–4.4× slower
 - `main.tally.nocompiler-selectors.structure.range`: 1.4–1.8× faster
 - `main.tally.compiler-gain.selection.range`: 7.7–13× faster
-- `main.tally.compiler-gain.entity.range`: 1.0× slower to 1.0× faster (1 faster, 4 tie, 1 slower)
+- `main.tally.compiler-gain.entity.range`: 6 tie
 - `main.tally.compiler-gain.filter.range`: 3.6–4.3× faster
 - `main.tally.compiler-gain.details-inline.range`: 1.1–1.3× faster
 - `main.tally.compiler-gain.details-component.range`: 1.1× slower to 1.1× faster (4 faster, 1 tie, 1 slower)
@@ -1356,33 +1845,105 @@ Main suite: the range of speedups as text, e.g. "1.2–1.4× faster" or "up to 1
 
 </details>
 
+### `main.tally.<comparison>.<scenario>.split`
+
+Main suite: ties only because the restarts disagreed on the direction (outside two standard errors in the pooled means).
+
+<details><summary>63 keys</summary>
+
+- `main.tally.selectors.selection.split`: 0
+- `main.tally.selectors.entity.split`: 0
+- `main.tally.selectors.filter.split`: 0
+- `main.tally.selectors.details-inline.split`: 0
+- `main.tally.selectors.details-component.split`: 0
+- `main.tally.selectors.details-churn.split`: 0
+- `main.tally.selectors.structure.split`: 0
+- `main.tally.redux.selection.split`: 0
+- `main.tally.redux.entity.split`: 0
+- `main.tally.redux.filter.split`: 0
+- `main.tally.redux.details-inline.split`: 0
+- `main.tally.redux.details-component.split`: 0
+- `main.tally.redux.details-churn.split`: 0
+- `main.tally.redux.structure.split`: 0
+- `main.tally.zustand.selection.split`: 0
+- `main.tally.zustand.entity.split`: 0
+- `main.tally.zustand.filter.split`: 0
+- `main.tally.zustand.details-inline.split`: 0
+- `main.tally.zustand.details-component.split`: 0
+- `main.tally.zustand.details-churn.split`: 0
+- `main.tally.zustand.structure.split`: 0
+- `main.tally.zustand-granular.selection.split`: 1
+- `main.tally.zustand-granular.entity.split`: 0
+- `main.tally.zustand-granular.filter.split`: 0
+- `main.tally.zustand-granular.details-inline.split`: 0
+- `main.tally.zustand-granular.details-component.split`: 0
+- `main.tally.zustand-granular.details-churn.split`: 3
+- `main.tally.zustand-granular.structure.split`: 0
+- `main.tally.context.selection.split`: 1
+- `main.tally.context.entity.split`: 0
+- `main.tally.context.filter.split`: 1
+- `main.tally.context.details-inline.split`: 0
+- `main.tally.context.details-component.split`: 0
+- `main.tally.context.details-churn.split`: 0
+- `main.tally.context.structure.split`: 0
+- `main.tally.context-split.selection.split`: 0
+- `main.tally.context-split.entity.split`: 0
+- `main.tally.context-split.filter.split`: 0
+- `main.tally.context-split.details-inline.split`: 0
+- `main.tally.context-split.details-component.split`: 0
+- `main.tally.context-split.details-churn.split`: 0
+- `main.tally.context-split.structure.split`: 0
+- `main.tally.single-selectors.selection.split`: 2
+- `main.tally.single-selectors.entity.split`: 1
+- `main.tally.single-selectors.filter.split`: 0
+- `main.tally.single-selectors.details-inline.split`: 1
+- `main.tally.single-selectors.details-component.split`: 4
+- `main.tally.single-selectors.details-churn.split`: 0
+- `main.tally.single-selectors.structure.split`: 0
+- `main.tally.nocompiler-selectors.selection.split`: 0
+- `main.tally.nocompiler-selectors.entity.split`: 0
+- `main.tally.nocompiler-selectors.filter.split`: 0
+- `main.tally.nocompiler-selectors.details-inline.split`: 0
+- `main.tally.nocompiler-selectors.details-component.split`: 0
+- `main.tally.nocompiler-selectors.details-churn.split`: 0
+- `main.tally.nocompiler-selectors.structure.split`: 0
+- `main.tally.compiler-gain.selection.split`: 0
+- `main.tally.compiler-gain.entity.split`: 2
+- `main.tally.compiler-gain.filter.split`: 0
+- `main.tally.compiler-gain.details-inline.split`: 0
+- `main.tally.compiler-gain.details-component.split`: 0
+- `main.tally.compiler-gain.details-churn.split`: 0
+- `main.tally.compiler-gain.structure.split`: 0
+
+</details>
+
 ### `main.tally.<comparison>.all.wins`
 
 Main suite, every scenario: wins.
 
-- `main.tally.selectors.all.wins`: 37
+- `main.tally.selectors.all.wins`: 36
 - `main.tally.redux.all.wins`: 42
-- `main.tally.zustand.all.wins`: 37
-- `main.tally.zustand-granular.all.wins`: 33
-- `main.tally.context.all.wins`: 31
+- `main.tally.zustand.all.wins`: 36
+- `main.tally.zustand-granular.all.wins`: 32
+- `main.tally.context.all.wins`: 30
 - `main.tally.context-split.all.wins`: 42
-- `main.tally.single-selectors.all.wins`: 29
+- `main.tally.single-selectors.all.wins`: 26
 - `main.tally.nocompiler-selectors.all.wins`: 24
-- `main.tally.compiler-gain.all.wins`: 35
+- `main.tally.compiler-gain.all.wins`: 34
 
 ### `main.tally.<comparison>.all.ties`
 
 Main suite, every scenario: ties.
 
-- `main.tally.selectors.all.ties`: 2
+- `main.tally.selectors.all.ties`: 3
 - `main.tally.redux.all.ties`: 0
-- `main.tally.zustand.all.ties`: 2
-- `main.tally.zustand-granular.all.ties`: 1
-- `main.tally.context.all.ties`: 3
+- `main.tally.zustand.all.ties`: 3
+- `main.tally.zustand-granular.all.ties`: 4
+- `main.tally.context.all.ties`: 5
 - `main.tally.context-split.all.ties`: 0
-- `main.tally.single-selectors.all.ties`: 2
+- `main.tally.single-selectors.all.ties`: 9
 - `main.tally.nocompiler-selectors.all.ties`: 0
-- `main.tally.compiler-gain.all.ties`: 5
+- `main.tally.compiler-gain.all.ties`: 7
 
 ### `main.tally.<comparison>.all.losses`
 
@@ -1391,12 +1952,12 @@ Main suite, every scenario: losses.
 - `main.tally.selectors.all.losses`: 3
 - `main.tally.redux.all.losses`: 0
 - `main.tally.zustand.all.losses`: 3
-- `main.tally.zustand-granular.all.losses`: 8
-- `main.tally.context.all.losses`: 8
+- `main.tally.zustand-granular.all.losses`: 6
+- `main.tally.context.all.losses`: 7
 - `main.tally.context-split.all.losses`: 0
-- `main.tally.single-selectors.all.losses`: 11
+- `main.tally.single-selectors.all.losses`: 7
 - `main.tally.nocompiler-selectors.all.losses`: 18
-- `main.tally.compiler-gain.all.losses`: 2
+- `main.tally.compiler-gain.all.losses`: 1
 
 ### `main.tally.<comparison>.all.total`
 
@@ -1419,26 +1980,40 @@ Main suite, every scenario: wins + ties. main.tally.selectors.all.matchOrBeat is
 - `main.tally.selectors.all.matchOrBeat`: 39
 - `main.tally.redux.all.matchOrBeat`: 42
 - `main.tally.zustand.all.matchOrBeat`: 39
-- `main.tally.zustand-granular.all.matchOrBeat`: 34
-- `main.tally.context.all.matchOrBeat`: 34
+- `main.tally.zustand-granular.all.matchOrBeat`: 36
+- `main.tally.context.all.matchOrBeat`: 35
 - `main.tally.context-split.all.matchOrBeat`: 42
-- `main.tally.single-selectors.all.matchOrBeat`: 31
+- `main.tally.single-selectors.all.matchOrBeat`: 35
 - `main.tally.nocompiler-selectors.all.matchOrBeat`: 24
-- `main.tally.compiler-gain.all.matchOrBeat`: 40
+- `main.tally.compiler-gain.all.matchOrBeat`: 41
 
 ### `main.tally.<comparison>.all.range`
 
 Main suite, every scenario: range of speedups as text.
 
-- `main.tally.selectors.all.range`: 1.2× slower to 9.2× faster (37 faster, 2 tie, 3 slower)
-- `main.tally.redux.all.range`: 1.5–20× faster
-- `main.tally.zustand.all.range`: 1.2× slower to 9.2× faster (37 faster, 2 tie, 3 slower)
-- `main.tally.zustand-granular.all.range`: 1.4× slower to 6.9× faster (33 faster, 1 tie, 8 slower)
-- `main.tally.context.all.range`: 1.1× slower to 9.3× faster (31 faster, 3 tie, 8 slower)
+- `main.tally.selectors.all.range`: 1.1× slower to 9.2× faster (36 faster, 3 tie, 3 slower)
+- `main.tally.redux.all.range`: 1.4–20× faster
+- `main.tally.zustand.all.range`: 1.1× slower to 9.2× faster (36 faster, 3 tie, 3 slower)
+- `main.tally.zustand-granular.all.range`: 1.4× slower to 6.9× faster (32 faster, 4 tie, 6 slower)
+- `main.tally.context.all.range`: 1.1× slower to 9.3× faster (30 faster, 5 tie, 7 slower)
 - `main.tally.context-split.all.range`: 1.1–11× faster
-- `main.tally.single-selectors.all.range`: 1.2× slower to 4.0× faster (29 faster, 2 tie, 11 slower)
+- `main.tally.single-selectors.all.range`: 1.2× slower to 4.0× faster (26 faster, 9 tie, 7 slower)
 - `main.tally.nocompiler-selectors.all.range`: 13× slower to 9.4× faster (24 faster, 18 slower)
-- `main.tally.compiler-gain.all.range`: 1.1× slower to 13× faster (35 faster, 5 tie, 2 slower)
+- `main.tally.compiler-gain.all.range`: 1.1× slower to 13× faster (34 faster, 7 tie, 1 slower)
+
+### `main.tally.<comparison>.all.split`
+
+Main suite, every scenario: ties only because the restarts disagreed on the direction.
+
+- `main.tally.selectors.all.split`: 0
+- `main.tally.redux.all.split`: 0
+- `main.tally.zustand.all.split`: 0
+- `main.tally.zustand-granular.all.split`: 4
+- `main.tally.context.all.split`: 2
+- `main.tally.context-split.all.split`: 0
+- `main.tally.single-selectors.all.split`: 8
+- `main.tally.nocompiler-selectors.all.split`: 0
+- `main.tally.compiler-gain.all.split`: 2
 
 ### `counts.<suite>.<scenario>.<variant>.<compiler>.<metric>`
 
@@ -2875,7 +3450,7 @@ Counting build, one update (averaged where the suite averages): renders, rows (R
 
 Ported Redux suites and fairness: median ms per update.
 
-<details><summary>296 keys</summary>
+<details><summary>436 keys</summary>
 
 - `suite.derived-selectors.comment.x1.redux.on.median`: 0.710
 - `suite.derived-selectors.comment.x1.redux.off.median`: 0.750
@@ -3173,6 +3748,146 @@ Ported Redux suites and fairness: median ms per update.
 - `suite.fairness.structure.x4.redux-nofreeze.off.median`: 18.1
 - `suite.fairness.structure.x4.redux-plain.on.median`: 8.20
 - `suite.fairness.structure.x4.redux-plain.off.median`: 21.0
+- `suite.fairness5.details-churn.x1.redux.on.median`: 0.583
+- `suite.fairness5.details-churn.x1.redux.off.median`: 0.683
+- `suite.fairness5.details-churn.x1.redux-nofreeze.on.median`: 0.567
+- `suite.fairness5.details-churn.x1.redux-nofreeze.off.median`: 0.650
+- `suite.fairness5.details-churn.x1.redux-plain.on.median`: 0.583
+- `suite.fairness5.details-churn.x1.redux-plain.off.median`: 0.667
+- `suite.fairness5.details-churn.x1.store.on.median`: 0.290
+- `suite.fairness5.details-churn.x1.store.off.median`: 1.92
+- `suite.fairness5.details-churn.x1.zustand.on.median`: 0.330
+- `suite.fairness5.details-churn.x1.zustand.off.median`: 0.438
+- `suite.fairness5.details-component.x1.redux.on.median`: 0.256
+- `suite.fairness5.details-component.x1.redux.off.median`: 0.244
+- `suite.fairness5.details-component.x1.redux-nofreeze.on.median`: 0.256
+- `suite.fairness5.details-component.x1.redux-nofreeze.off.median`: 0.244
+- `suite.fairness5.details-component.x1.redux-plain.on.median`: 0.250
+- `suite.fairness5.details-component.x1.redux-plain.off.median`: 0.244
+- `suite.fairness5.details-component.x1.store.on.median`: 0.052
+- `suite.fairness5.details-component.x1.store.off.median`: 0.056
+- `suite.fairness5.details-component.x1.zustand.on.median`: 0.150
+- `suite.fairness5.details-component.x1.zustand.off.median`: 0.150
+- `suite.fairness5.details-inline.x1.redux.on.median`: 0.279
+- `suite.fairness5.details-inline.x1.redux.off.median`: 0.279
+- `suite.fairness5.details-inline.x1.redux-nofreeze.on.median`: 0.271
+- `suite.fairness5.details-inline.x1.redux-nofreeze.off.median`: 0.271
+- `suite.fairness5.details-inline.x1.redux-plain.on.median`: 0.271
+- `suite.fairness5.details-inline.x1.redux-plain.off.median`: 0.271
+- `suite.fairness5.details-inline.x1.store.on.median`: 0.057
+- `suite.fairness5.details-inline.x1.store.off.median`: 0.071
+- `suite.fairness5.details-inline.x1.zustand.on.median`: 0.155
+- `suite.fairness5.details-inline.x1.zustand.off.median`: 0.168
+- `suite.fairness5.entity.x1.redux.on.median`: 0.413
+- `suite.fairness5.entity.x1.redux.off.median`: 0.375
+- `suite.fairness5.entity.x1.redux-nofreeze.on.median`: 0.370
+- `suite.fairness5.entity.x1.redux-nofreeze.off.median`: 0.310
+- `suite.fairness5.entity.x1.redux-plain.on.median`: 0.380
+- `suite.fairness5.entity.x1.redux-plain.off.median`: 0.310
+- `suite.fairness5.entity.x1.store.on.median`: 0.052
+- `suite.fairness5.entity.x1.store.off.median`: 0.055
+- `suite.fairness5.entity.x1.zustand.on.median`: 0.229
+- `suite.fairness5.entity.x1.zustand.off.median`: 0.214
+- `suite.fairness5.filter.x1.redux.on.median`: 1.35
+- `suite.fairness5.filter.x1.redux.off.median`: 2.00
+- `suite.fairness5.filter.x1.redux-nofreeze.on.median`: 1.48
+- `suite.fairness5.filter.x1.redux-nofreeze.off.median`: 2.10
+- `suite.fairness5.filter.x1.redux-plain.on.median`: 1.38
+- `suite.fairness5.filter.x1.redux-plain.off.median`: 2.00
+- `suite.fairness5.filter.x1.store.on.median`: 0.450
+- `suite.fairness5.filter.x1.store.off.median`: 1.92
+- `suite.fairness5.filter.x1.zustand.on.median`: 0.733
+- `suite.fairness5.filter.x1.zustand.off.median`: 1.35
+- `suite.fairness5.selection.x1.redux.on.median`: 0.250
+- `suite.fairness5.selection.x1.redux.off.median`: 0.243
+- `suite.fairness5.selection.x1.redux-nofreeze.on.median`: 0.250
+- `suite.fairness5.selection.x1.redux-nofreeze.off.median`: 0.243
+- `suite.fairness5.selection.x1.redux-plain.on.median`: 0.256
+- `suite.fairness5.selection.x1.redux-plain.off.median`: 0.244
+- `suite.fairness5.selection.x1.store.on.median`: 0.171
+- `suite.fairness5.selection.x1.store.off.median`: 1.80
+- `suite.fairness5.selection.x1.zustand.on.median`: 0.155
+- `suite.fairness5.selection.x1.zustand.off.median`: 0.150
+- `suite.fairness5.structure.x1.redux.on.median`: 2.05
+- `suite.fairness5.structure.x1.redux.off.median`: 4.20
+- `suite.fairness5.structure.x1.redux-nofreeze.on.median`: 1.85
+- `suite.fairness5.structure.x1.redux-nofreeze.off.median`: 3.90
+- `suite.fairness5.structure.x1.redux-plain.on.median`: 1.90
+- `suite.fairness5.structure.x1.redux-plain.off.median`: 4.30
+- `suite.fairness5.structure.x1.store.on.median`: 0.200
+- `suite.fairness5.structure.x1.store.off.median`: 1.90
+- `suite.fairness5.structure.x1.zustand.on.median`: 0.850
+- `suite.fairness5.structure.x1.zustand.off.median`: 2.85
+- `suite.fairness5.details-churn.x4.redux.on.median`: 2.55
+- `suite.fairness5.details-churn.x4.redux.off.median`: 2.90
+- `suite.fairness5.details-churn.x4.redux-nofreeze.on.median`: 2.50
+- `suite.fairness5.details-churn.x4.redux-nofreeze.off.median`: 3.05
+- `suite.fairness5.details-churn.x4.redux-plain.on.median`: 2.55
+- `suite.fairness5.details-churn.x4.redux-plain.off.median`: 2.85
+- `suite.fairness5.details-churn.x4.store.on.median`: 1.22
+- `suite.fairness5.details-churn.x4.store.off.median`: 7.90
+- `suite.fairness5.details-churn.x4.zustand.on.median`: 1.35
+- `suite.fairness5.details-churn.x4.zustand.off.median`: 1.95
+- `suite.fairness5.details-component.x4.redux.on.median`: 1.13
+- `suite.fairness5.details-component.x4.redux.off.median`: 1.08
+- `suite.fairness5.details-component.x4.redux-nofreeze.on.median`: 1.10
+- `suite.fairness5.details-component.x4.redux-nofreeze.off.median`: 1.08
+- `suite.fairness5.details-component.x4.redux-plain.on.median`: 1.08
+- `suite.fairness5.details-component.x4.redux-plain.off.median`: 1.10
+- `suite.fairness5.details-component.x4.store.on.median`: 0.233
+- `suite.fairness5.details-component.x4.store.off.median`: 0.250
+- `suite.fairness5.details-component.x4.zustand.on.median`: 0.650
+- `suite.fairness5.details-component.x4.zustand.off.median`: 0.633
+- `suite.fairness5.details-inline.x4.redux.on.median`: 1.17
+- `suite.fairness5.details-inline.x4.redux.off.median`: 1.18
+- `suite.fairness5.details-inline.x4.redux-nofreeze.on.median`: 1.15
+- `suite.fairness5.details-inline.x4.redux-nofreeze.off.median`: 1.17
+- `suite.fairness5.details-inline.x4.redux-plain.on.median`: 1.25
+- `suite.fairness5.details-inline.x4.redux-plain.off.median`: 1.15
+- `suite.fairness5.details-inline.x4.store.on.median`: 0.250
+- `suite.fairness5.details-inline.x4.store.off.median`: 0.320
+- `suite.fairness5.details-inline.x4.zustand.on.median`: 0.683
+- `suite.fairness5.details-inline.x4.zustand.off.median`: 0.717
+- `suite.fairness5.entity.x4.redux.on.median`: 1.90
+- `suite.fairness5.entity.x4.redux.off.median`: 1.75
+- `suite.fairness5.entity.x4.redux-nofreeze.on.median`: 1.67
+- `suite.fairness5.entity.x4.redux-nofreeze.off.median`: 1.40
+- `suite.fairness5.entity.x4.redux-plain.on.median`: 1.65
+- `suite.fairness5.entity.x4.redux-plain.off.median`: 1.40
+- `suite.fairness5.entity.x4.store.on.median`: 0.225
+- `suite.fairness5.entity.x4.store.off.median`: 0.225
+- `suite.fairness5.entity.x4.zustand.on.median`: 0.975
+- `suite.fairness5.entity.x4.zustand.off.median`: 0.975
+- `suite.fairness5.filter.x4.redux.on.median`: 6.10
+- `suite.fairness5.filter.x4.redux.off.median`: 8.80
+- `suite.fairness5.filter.x4.redux-nofreeze.on.median`: 5.90
+- `suite.fairness5.filter.x4.redux-nofreeze.off.median`: 8.80
+- `suite.fairness5.filter.x4.redux-plain.on.median`: 5.80
+- `suite.fairness5.filter.x4.redux-plain.off.median`: 9.00
+- `suite.fairness5.filter.x4.store.on.median`: 1.90
+- `suite.fairness5.filter.x4.store.off.median`: 8.20
+- `suite.fairness5.filter.x4.zustand.on.median`: 3.00
+- `suite.fairness5.filter.x4.zustand.off.median`: 5.80
+- `suite.fairness5.selection.x4.redux.on.median`: 1.08
+- `suite.fairness5.selection.x4.redux.off.median`: 1.10
+- `suite.fairness5.selection.x4.redux-nofreeze.on.median`: 1.08
+- `suite.fairness5.selection.x4.redux-nofreeze.off.median`: 1.05
+- `suite.fairness5.selection.x4.redux-plain.on.median`: 1.05
+- `suite.fairness5.selection.x4.redux-plain.off.median`: 1.03
+- `suite.fairness5.selection.x4.store.on.median`: 0.725
+- `suite.fairness5.selection.x4.store.off.median`: 7.70
+- `suite.fairness5.selection.x4.zustand.on.median`: 0.650
+- `suite.fairness5.selection.x4.zustand.off.median`: 0.650
+- `suite.fairness5.structure.x4.redux.on.median`: 9.10
+- `suite.fairness5.structure.x4.redux.off.median`: 19.3
+- `suite.fairness5.structure.x4.redux-nofreeze.on.median`: 8.40
+- `suite.fairness5.structure.x4.redux-nofreeze.off.median`: 17.9
+- `suite.fairness5.structure.x4.redux-plain.on.median`: 8.50
+- `suite.fairness5.structure.x4.redux-plain.off.median`: 18.3
+- `suite.fairness5.structure.x4.store.on.median`: 0.825
+- `suite.fairness5.structure.x4.store.off.median`: 7.90
+- `suite.fairness5.structure.x4.zustand.on.median`: 3.55
+- `suite.fairness5.structure.x4.zustand.off.median`: 12.9
 
 </details>
 
@@ -3186,16 +3901,16 @@ Ported Redux suites and fairness: store (or store-memo) + compiler vs the fastes
 - `suite.derived-selectors.comment.x1.store-memo.verdict`: 1.3× faster
 - `suite.derived-selectors.mixed.x1.store.verdict`: 1.1× slower
 - `suite.derived-selectors.mixed.x1.store-memo.verdict`: 1.5× faster
-- `suite.derived-selectors.role.x1.store.verdict`: no work
-- `suite.derived-selectors.role.x1.store-memo.verdict`: no work
+- `suite.derived-selectors.role.x1.store.verdict`: unread update
+- `suite.derived-selectors.role.x1.store-memo.verdict`: unread update
 - `suite.derived-selectors.score.x1.store.verdict`: 1.2× slower
 - `suite.derived-selectors.score.x1.store-memo.verdict`: 1.4× faster
 - `suite.derived-selectors.comment.x4.store.verdict`: 1.4× slower
 - `suite.derived-selectors.comment.x4.store-memo.verdict`: 1.3× faster
 - `suite.derived-selectors.mixed.x4.store.verdict`: 1.2× slower
 - `suite.derived-selectors.mixed.x4.store-memo.verdict`: 1.5× faster
-- `suite.derived-selectors.role.x4.store.verdict`: no work
-- `suite.derived-selectors.role.x4.store-memo.verdict`: no work
+- `suite.derived-selectors.role.x4.store.verdict`: unread update
+- `suite.derived-selectors.role.x4.store-memo.verdict`: unread update
 - `suite.derived-selectors.score.x4.store.verdict`: 1.3× slower
 - `suite.derived-selectors.score.x4.store-memo.verdict`: 1.4× faster
 - `suite.rapid-dispatch.listenerCascade.x1.store.verdict`: 1.6× faster
@@ -3267,10 +3982,10 @@ Suite: configurations compared.
 
 Suite: range of speedups as text.
 
-- `suite.derived-selectors.tally.store.range`: 1.1–1.4× slower, and 2 with no work
-- `suite.derived-selectors.tally.store-memo.range`: 1.3–1.5× faster, and 2 with no work
+- `suite.derived-selectors.tally.store.range`: 1.1–1.4× slower, and 2 unread updates (no work)
+- `suite.derived-selectors.tally.store-memo.range`: 1.3–1.5× faster, and 2 unread updates (no work)
 - `suite.rapid-dispatch.tally.store.range`: 1.5–1.9× faster
-- `suite.many-components-same-slice.tally.store.range`: 1.2–1.2× faster
+- `suite.many-components-same-slice.tally.store.range`: 1.2× faster
 - `suite.deeptree-nested-hooks.tally.store.range`: up to 2.2× faster (11 faster, 1 tie)
 
 ### `spike.<family>.k<k>.x<throttle>.<variant>.median`
@@ -3705,18 +4420,18 @@ Spike: store, store-memo, or the fastest correct sharing variant ("sharing") vs 
 - `spike.mixed.k20.x4.store.verdict`: 2.1× slower
 - `spike.mixed.k20.x4.store-memo.verdict`: 1.6× faster
 - `spike.mixed.k20.x4.sharing.verdict`: 1.6× faster
-- `spike.role.k50.x1.store.verdict`: no work
-- `spike.role.k50.x1.store-memo.verdict`: no work
-- `spike.role.k50.x1.sharing.verdict`: no work
-- `spike.role.k20.x1.store.verdict`: no work
-- `spike.role.k20.x1.store-memo.verdict`: no work
-- `spike.role.k20.x1.sharing.verdict`: no work
-- `spike.role.k50.x4.store.verdict`: no work
-- `spike.role.k50.x4.store-memo.verdict`: no work
-- `spike.role.k50.x4.sharing.verdict`: no work
-- `spike.role.k20.x4.store.verdict`: no work
-- `spike.role.k20.x4.store-memo.verdict`: no work
-- `spike.role.k20.x4.sharing.verdict`: no work
+- `spike.role.k50.x1.store.verdict`: unread update
+- `spike.role.k50.x1.store-memo.verdict`: unread update
+- `spike.role.k50.x1.sharing.verdict`: unread update
+- `spike.role.k20.x1.store.verdict`: unread update
+- `spike.role.k20.x1.store-memo.verdict`: unread update
+- `spike.role.k20.x1.sharing.verdict`: unread update
+- `spike.role.k50.x4.store.verdict`: unread update
+- `spike.role.k50.x4.store-memo.verdict`: unread update
+- `spike.role.k50.x4.sharing.verdict`: unread update
+- `spike.role.k20.x4.store.verdict`: unread update
+- `spike.role.k20.x4.store-memo.verdict`: unread update
+- `spike.role.k20.x4.sharing.verdict`: unread update
 - `spike.score.k20.x1.store.verdict`: 2.5× slower
 - `spike.score.k20.x1.store-memo.verdict`: 1.4× faster
 - `spike.score.k20.x1.sharing.verdict`: 1.6× faster
@@ -3793,20 +4508,20 @@ Spike: configurations compared.
 
 Spike: range of speedups vs Redux as text.
 
-- `spike.tally.store.range`: 2.1–4.5× slower, and 4 with no work
-- `spike.tally.store-memo.range`: 1.4–1.9× faster, and 4 with no work
-- `spike.tally.sharing.range`: 1.6–2.0× faster, and 4 with no work
+- `spike.tally.store.range`: 2.1–4.5× slower, and 4 unread updates (no work)
+- `spike.tally.store-memo.range`: 1.4–1.9× faster, and 4 unread updates (no work)
+- `spike.tally.sharing.range`: 1.6–2.0× faster, and 4 unread updates (no work)
 
 ### `spike.tally.<left>.k<k>.range`
 
 Spike at one K: range of speedups vs Redux as text.
 
-- `spike.tally.store.k20.range`: 2.1–2.5× slower, and 2 with no work
-- `spike.tally.store.k50.range`: 3.6–4.5× slower, and 2 with no work
-- `spike.tally.store-memo.k20.range`: 1.4–1.6× faster, and 2 with no work
-- `spike.tally.store-memo.k50.range`: 1.4–1.9× faster, and 2 with no work
-- `spike.tally.sharing.k20.range`: 1.6–1.8× faster, and 2 with no work
-- `spike.tally.sharing.k50.range`: 1.7–2.0× faster, and 2 with no work
+- `spike.tally.store.k20.range`: 2.1–2.5× slower, and 2 unread updates (no work)
+- `spike.tally.store.k50.range`: 3.6–4.5× slower, and 2 unread updates (no work)
+- `spike.tally.store-memo.k20.range`: 1.4–1.6× faster, and 2 unread updates (no work)
+- `spike.tally.store-memo.k50.range`: 1.4–1.9× faster, and 2 unread updates (no work)
+- `spike.tally.sharing.k20.range`: 1.6–1.8× faster, and 2 unread updates (no work)
+- `spike.tally.sharing.k50.range`: 1.7–2.0× faster, and 2 unread updates (no work)
 
 ### `sweep.<scenario>.x<throttle>.<config>.<library>.median`
 
@@ -4216,7 +4931,7 @@ Typing: worst latency, ms.
 
 ### `typing.<which>.<variant>.<compiler>.x<throttle>.settle`
 
-Typing: ms until the list settled after the last key (median of runs).
+Typing: ms from the start of typing (the click into the input) until the list caught up with the input, i.e. showed the rows for the full typed text, with every keydown latency recorded (median of runs). Includes the typing itself.
 
 <details><summary>40 keys</summary>
 
@@ -4379,13 +5094,129 @@ Time to mount N rows, ms (median of runs).
 
 </details>
 
+### `memory.rank.<compiler>.n<n>`
+
+Every variant by bytes per row, lowest first, e.g. "context (2,167), …".
+
+- `memory.rank.off.n100`: context (5,657), context-split (5,958), store-single (6,569), store (7,165), zustand (8,417), zustand-granular (8,690), redux (11,638)
+- `memory.rank.on.n100`: context (6,313), context-split (6,667), store-single (7,225), store (7,832), zustand (9,052), zustand-granular (9,310), redux (12,333)
+- `memory.rank.off.n1000`: context (2,062), context-split (2,152), store-single (2,480), store (2,880), zustand (4,483), zustand-granular (4,726), redux (7,204)
+- `memory.rank.on.n1000`: context (2,629), context-split (2,720), store-single (2,998), store (3,407), zustand (5,030), zustand-granular (5,257), redux (7,715)
+- `memory.rank.off.n10000`: context (1,621), context-split (1,696), store-single (1,978), store (2,383), zustand (4,022), zustand-granular (4,234), redux (6,664)
+- `memory.rank.on.n10000`: context (2,167), context-split (2,242), store-single (2,488), store (2,901), zustand (4,549), zustand-granular (4,748), redux (7,191)
+
+### `memory.order.<compiler>.n<n>`
+
+Every variant by bytes per row, fewest first, names only.
+
+- `memory.order.off.n100`: context, context-split, store-single, store, zustand, zustand-granular, redux
+- `memory.order.on.n100`: context, context-split, store-single, store, zustand, zustand-granular, redux
+- `memory.order.off.n1000`: context, context-split, store-single, store, zustand, zustand-granular, redux
+- `memory.order.on.n1000`: context, context-split, store-single, store, zustand, zustand-granular, redux
+- `memory.order.off.n10000`: context, context-split, store-single, store, zustand, zustand-granular, redux
+- `memory.order.on.n10000`: context, context-split, store-single, store, zustand, zustand-granular, redux
+
+### `memory.storeRank.<compiler>.n<n>`
+
+store's place by bytes per row, fewest first, e.g. "4th of 7".
+
+- `memory.storeRank.off.n100`: 4th of 7
+- `memory.storeRank.on.n100`: 4th of 7
+- `memory.storeRank.off.n1000`: 4th of 7
+- `memory.storeRank.on.n1000`: 4th of 7
+- `memory.storeRank.off.n10000`: 4th of 7
+- `memory.storeRank.on.n10000`: 4th of 7
+
+### `memory.storeVs.<library>.<compiler>.n<n>`
+
+Bytes per row of store (a store per entity) / the library's (context, redux, zustand).
+
+<details><summary>18 keys</summary>
+
+- `memory.storeVs.context.off.n100`: 1.27×
+- `memory.storeVs.redux.off.n100`: 0.62×
+- `memory.storeVs.zustand.off.n100`: 0.85×
+- `memory.storeVs.context.on.n100`: 1.24×
+- `memory.storeVs.redux.on.n100`: 0.64×
+- `memory.storeVs.zustand.on.n100`: 0.87×
+- `memory.storeVs.context.off.n1000`: 1.40×
+- `memory.storeVs.redux.off.n1000`: 0.40×
+- `memory.storeVs.zustand.off.n1000`: 0.64×
+- `memory.storeVs.context.on.n1000`: 1.30×
+- `memory.storeVs.redux.on.n1000`: 0.44×
+- `memory.storeVs.zustand.on.n1000`: 0.68×
+- `memory.storeVs.context.off.n10000`: 1.47×
+- `memory.storeVs.redux.off.n10000`: 0.36×
+- `memory.storeVs.zustand.off.n10000`: 0.59×
+- `memory.storeVs.context.on.n10000`: 1.34×
+- `memory.storeVs.redux.on.n10000`: 0.40×
+- `memory.storeVs.zustand.on.n10000`: 0.64×
+
+</details>
+
+### `memory.storePlace.<compiler>.n<n>`
+
+Where store (a store per entity) sits in bytes per row, as a phrase generated from the data, e.g. "more than one context, and less than either Redux or Zustand".
+
+- `memory.storePlace.off.n100`: more than one context, and less than either Redux or Zustand
+- `memory.storePlace.on.n100`: more than one context, and less than either Redux or Zustand
+- `memory.storePlace.off.n1000`: more than one context, and less than either Redux or Zustand
+- `memory.storePlace.on.n1000`: more than one context, and less than either Redux or Zustand
+- `memory.storePlace.off.n10000`: more than one context, and less than either Redux or Zustand
+- `memory.storePlace.on.n10000`: more than one context, and less than either Redux or Zustand
+
+### `memory.shownN`
+
+The size the memory chart shows first (the largest).
+
+- `memory.shownN`: 10,000
+
+### `main.tally.<comparison>.lostScenarios`
+
+Main suite: the scenarios with at least one loss under method.verdictRule, as lowercase prose names for running text ("filter and subscribe churn"), or "none".
+
+- `main.tally.selectors.lostScenarios`: selection
+- `main.tally.redux.lostScenarios`: none
+- `main.tally.zustand.lostScenarios`: selection
+- `main.tally.zustand-granular.lostScenarios`: selection and subscribe churn
+- `main.tally.context.lostScenarios`: filter and subscribe churn
+- `main.tally.context-split.lostScenarios`: none
+- `main.tally.single-selectors.lostScenarios`: selection, entity edit, the inline conditional read and the conditional read in a child component
+- `main.tally.nocompiler-selectors.lostScenarios`: selection, filter and subscribe churn
+- `main.tally.compiler-gain.lostScenarios`: the conditional read in a child component
+
+### `main.tally.<comparison>.maxLoss`
+
+Main suite: the largest loss, as a ratio of means (left / opponent), every scenario, size and throttle.
+
+- `main.tally.selectors.maxLoss`: 1.1× slower
+- `main.tally.zustand.maxLoss`: 1.1× slower
+- `main.tally.zustand-granular.maxLoss`: 1.4× slower
+- `main.tally.context.maxLoss`: 1.1× slower
+- `main.tally.single-selectors.maxLoss`: 1.2× slower
+- `main.tally.nocompiler-selectors.maxLoss`: 13× slower
+- `main.tally.compiler-gain.maxLoss`: 1.1× slower
+
+### `main.tally.<comparison>.maxLossPct`
+
+Main suite: the largest loss as a percentage slower.
+
+- `main.tally.selectors.maxLossPct`: 15%
+- `main.tally.zustand.maxLossPct`: 15%
+- `main.tally.zustand-granular.maxLossPct`: 42%
+- `main.tally.context.maxLossPct`: 11%
+- `main.tally.single-selectors.maxLossPct`: 18%
+- `main.tally.nocompiler-selectors.maxLossPct`: 1197%
+- `main.tally.compiler-gain.maxLossPct`: 9%
+
 ### `losses.<area>.count`
 
-Where it doesn't win: configurations the store side lost (outside two standard errors) in an area: main (vs the headline opponents), granular (main suite vs the granular control), suites, sweeps, spike.
+Where it doesn't win: configurations the store side lost (under method.verdictRule: outside two standard errors and slower in every restart) in an area: main (vs the headline opponents), granular (main suite vs the granular control), suites, fairness (fairness5: store vs the fastest Redux setup), sweeps, spike.
 
 - `losses.main.count`: 3
-- `losses.granular.count`: 8
+- `losses.granular.count`: 6
 - `losses.suites.count`: 6
+- `losses.fairness.count`: 0
 - `losses.sweeps.count`: 14
 - `losses.spike.count`: 12
 
@@ -4396,6 +5227,7 @@ Where it doesn't win: configurations compared in the area.
 - `losses.main.of`: 42
 - `losses.granular.of`: 42
 - `losses.suites.of`: 38
+- `losses.fairness.of`: 14
 - `losses.sweeps.of`: 56
 - `losses.spike.of`: 32
 
@@ -4403,7 +5235,156 @@ Where it doesn't win: configurations compared in the area.
 
 Where it doesn't win: losses over every area.
 
-- `losses.all.count`: 43
+- `losses.all.count`: 41
+
+### `losses.all.of`
+
+Where it doesn't win: comparisons over every area.
+
+- `losses.all.of`: 224
+
+### `losses.control.<control>.count`
+
+Losses in a control comparison left out of the losses table (context, contextSplit, singleStore, noCompiler, noBailout, fairness5Zustand).
+
+- `losses.control.context.count`: 7
+- `losses.control.contextSplit.count`: 0
+- `losses.control.singleStore.count`: 7
+- `losses.control.noCompiler.count`: 18
+- `losses.control.noBailout.count`: 4
+- `losses.control.fairness5Zustand.count`: 2
+
+### `losses.control.<control>.of`
+
+Comparisons in that control.
+
+- `losses.control.context.of`: 42
+- `losses.control.contextSplit.of`: 42
+- `losses.control.singleStore.of`: 42
+- `losses.control.noCompiler.of`: 42
+- `losses.control.noBailout.of`: 28
+- `losses.control.fairness5Zustand.of`: 14
+
+### `losses.scope`
+
+One line: what the losses table counts and which control comparisons it leaves out.
+
+- `losses.scope`: The losses table counts the headline (store + compiler vs the faster of Redux and Zustand), the granular control, the ported Redux suites, the fastest Redux setup in the fairness run, the sweeps and the shared derived data spike. It leaves out the controls (losses.control.*): store + compiler vs one context (main), store + compiler vs a context per slice (main), one store without selectors (store-single) + compiler vs the faster of Redux and Zustand (main), store vs the faster of Redux and Zustand, everything without the compiler (main), store + compiler vs the faster of Redux and Zustand on the build without the same-element bailout and store + compiler vs zustand in the fairness run with every variant.
+
+### `method.headlineRedux`
+
+Which Redux the headline is defined against (idiomatic RTK), and where the leaner setups are compared, for the Method sentence.
+
+- `method.headlineRedux`: The headline compares against idiomatic Redux: Redux Toolkit (configureStore, createSlice, Immer with auto-freeze) and react-redux, as in src/apps/redux.jsx. The leaner setups, plain Redux without RTK or Immer (redux-plain) and RTK without auto-freeze (redux-nofreeze), are compared separately (suite.fairness5.*: store against the fastest of the three).
+
+### `suite.fairness5.<scenario>.x<throttle>.vs<opponent>`
+
+Fairness with every variant (fairness5): store + compiler vs the fastest Redux setup (opponent Redux: redux, redux-plain, redux-nofreeze) or vs Zustand, each at its faster compiler setting.
+
+<details><summary>28 keys</summary>
+
+- `suite.fairness5.details-churn.x1.vsRedux`: 1.9× faster
+- `suite.fairness5.details-churn.x1.vsZustand`: 1.1× faster
+- `suite.fairness5.details-component.x1.vsRedux`: 4.6× faster
+- `suite.fairness5.details-component.x1.vsZustand`: 2.8× faster
+- `suite.fairness5.details-inline.x1.vsRedux`: 4.8× faster
+- `suite.fairness5.details-inline.x1.vsZustand`: 2.8× faster
+- `suite.fairness5.entity.x1.vsRedux`: 5.8× faster
+- `suite.fairness5.entity.x1.vsZustand`: 4.0× faster
+- `suite.fairness5.filter.x1.vsRedux`: 3.1× faster
+- `suite.fairness5.filter.x1.vsZustand`: 1.6× faster
+- `suite.fairness5.selection.x1.vsRedux`: 1.4× faster
+- `suite.fairness5.selection.x1.vsZustand`: 1.1× slower
+- `suite.fairness5.structure.x1.vsRedux`: 9.7× faster
+- `suite.fairness5.structure.x1.vsZustand`: 4.4× faster
+- `suite.fairness5.details-churn.x4.vsRedux`: 2.2× faster
+- `suite.fairness5.details-churn.x4.vsZustand`: 1.1× faster
+- `suite.fairness5.details-component.x4.vsRedux`: 4.5× faster
+- `suite.fairness5.details-component.x4.vsZustand`: 2.7× faster
+- `suite.fairness5.details-inline.x4.vsRedux`: 4.6× faster
+- `suite.fairness5.details-inline.x4.vsZustand`: 2.8× faster
+- `suite.fairness5.entity.x4.vsRedux`: 6.3× faster
+- `suite.fairness5.entity.x4.vsZustand`: 4.4× faster
+- `suite.fairness5.filter.x4.vsRedux`: 3.2× faster
+- `suite.fairness5.filter.x4.vsZustand`: 1.6× faster
+- `suite.fairness5.selection.x4.vsRedux`: 1.4× faster
+- `suite.fairness5.selection.x4.vsZustand`: 1.1× slower
+- `suite.fairness5.structure.x4.vsRedux`: 10.2× faster
+- `suite.fairness5.structure.x4.vsZustand`: 4.3× faster
+
+</details>
+
+### `suite.fairness5.<scenario>.x<throttle>.bestRedux`
+
+fairness5: which Redux setup and compiler setting was fastest.
+
+<details><summary>14 keys</summary>
+
+- `suite.fairness5.details-churn.x1.bestRedux`: redux-nofreeze + compiler
+- `suite.fairness5.details-component.x1.bestRedux`: redux-plain without the compiler
+- `suite.fairness5.details-inline.x1.bestRedux`: redux-plain + compiler
+- `suite.fairness5.entity.x1.bestRedux`: redux-plain without the compiler
+- `suite.fairness5.filter.x1.bestRedux`: redux + compiler
+- `suite.fairness5.selection.x1.bestRedux`: redux-nofreeze without the compiler
+- `suite.fairness5.structure.x1.bestRedux`: redux-nofreeze + compiler
+- `suite.fairness5.details-churn.x4.bestRedux`: redux-nofreeze + compiler
+- `suite.fairness5.details-component.x4.bestRedux`: redux without the compiler
+- `suite.fairness5.details-inline.x4.bestRedux`: redux-plain without the compiler
+- `suite.fairness5.entity.x4.bestRedux`: redux-plain without the compiler
+- `suite.fairness5.filter.x4.bestRedux`: redux-nofreeze + compiler
+- `suite.fairness5.selection.x4.bestRedux`: redux-plain without the compiler
+- `suite.fairness5.structure.x4.bestRedux`: redux-plain + compiler
+
+</details>
+
+### `suite.fairness5.tally.<opponent>.wins`
+
+fairness5: configurations store + compiler won, vs fastestRedux (the fastest of redux, redux-plain, redux-nofreeze) or zustand.
+
+- `suite.fairness5.tally.fastestRedux.wins`: 14
+- `suite.fairness5.tally.zustand.wins`: 12
+
+### `suite.fairness5.tally.<opponent>.ties`
+
+fairness5: ties.
+
+- `suite.fairness5.tally.fastestRedux.ties`: 0
+- `suite.fairness5.tally.zustand.ties`: 0
+
+### `suite.fairness5.tally.<opponent>.losses`
+
+fairness5: losses.
+
+- `suite.fairness5.tally.fastestRedux.losses`: 0
+- `suite.fairness5.tally.zustand.losses`: 2
+
+### `suite.fairness5.tally.<opponent>.total`
+
+fairness5: configurations compared.
+
+- `suite.fairness5.tally.fastestRedux.total`: 14
+- `suite.fairness5.tally.zustand.total`: 14
+
+### `suite.fairness5.tally.<opponent>.split`
+
+fairness5: ties only because the restarts disagreed on the direction.
+
+- `suite.fairness5.tally.fastestRedux.split`: 0
+- `suite.fairness5.tally.zustand.split`: 0
+
+### `suite.fairness5.tally.<opponent>.matchOrBeat`
+
+fairness5: wins + ties.
+
+- `suite.fairness5.tally.fastestRedux.matchOrBeat`: 14
+- `suite.fairness5.tally.zustand.matchOrBeat`: 12
+
+### `suite.fairness5.tally.<opponent>.range`
+
+fairness5: range of speedups as text.
+
+- `suite.fairness5.tally.fastestRedux.range`: 1.4–10× faster
+- `suite.fairness5.tally.zustand.range`: 1.1× slower to 4.4× faster (12 faster, 2 slower)
 
 ### `nobailout.main.<scenario>.n<n>.x<throttle>.<variant>.median`
 
@@ -4535,7 +5516,7 @@ Without the same-element bailout: store + compiler vs the headline opponents.
 - `nobailout.main.selection.n1000.x1.verdict`: 1.4× slower
 - `nobailout.main.selection.n1000.x4.verdict`: 1.4× slower
 - `nobailout.main.selection.n10000.x1.verdict`: 1.2× slower
-- `nobailout.main.selection.n10000.x4.verdict`: 1.2× faster
+- `nobailout.main.selection.n10000.x4.verdict`: tie (restarts disagree)
 - `nobailout.main.entity.n1000.x1.verdict`: 4.2× faster
 - `nobailout.main.entity.n1000.x4.verdict`: 4.6× faster
 - `nobailout.main.entity.n10000.x1.verdict`: 6.3× faster
@@ -4609,18 +5590,18 @@ What the bailout buys store + compiler: the head build vs the build without it, 
 - `nobailout.main.selection.n1000.x1.bailoutGain`: 1.2× faster
 - `nobailout.main.selection.n1000.x4.bailoutGain`: 1.2× faster
 - `nobailout.main.selection.n10000.x1.bailoutGain`: 1.3× faster
-- `nobailout.main.selection.n10000.x4.bailoutGain`: 1.1× faster
+- `nobailout.main.selection.n10000.x4.bailoutGain`: tie (restarts disagree)
 - `nobailout.main.entity.n1000.x1.bailoutGain`: 1.1× faster
-- `nobailout.main.entity.n1000.x4.bailoutGain`: 1.1× slower
-- `nobailout.main.entity.n10000.x1.bailoutGain`: 1.0× faster
-- `nobailout.main.entity.n10000.x4.bailoutGain`: 1.0× faster
-- `nobailout.main.filter.n1000.x1.bailoutGain`: 1.0× faster
+- `nobailout.main.entity.n1000.x4.bailoutGain`: tie (restarts disagree)
+- `nobailout.main.entity.n10000.x1.bailoutGain`: tie (restarts disagree)
+- `nobailout.main.entity.n10000.x4.bailoutGain`: tie (restarts disagree)
+- `nobailout.main.filter.n1000.x1.bailoutGain`: tie (restarts disagree)
 - `nobailout.main.filter.n1000.x4.bailoutGain`: 1.0× faster
-- `nobailout.main.filter.n10000.x1.bailoutGain`: 1.1× faster
-- `nobailout.main.filter.n10000.x4.bailoutGain`: 1.1× faster
-- `nobailout.main.details-inline.n1000.x1.bailoutGain`: 1.0× slower
-- `nobailout.main.details-inline.n1000.x4.bailoutGain`: 1.0× faster
-- `nobailout.main.details-inline.n10000.x1.bailoutGain`: 1.0× slower
+- `nobailout.main.filter.n10000.x1.bailoutGain`: tie (restarts disagree)
+- `nobailout.main.filter.n10000.x4.bailoutGain`: tie (restarts disagree)
+- `nobailout.main.details-inline.n1000.x1.bailoutGain`: tie (restarts disagree)
+- `nobailout.main.details-inline.n1000.x4.bailoutGain`: tie (restarts disagree)
+- `nobailout.main.details-inline.n10000.x1.bailoutGain`: tie (restarts disagree)
 - `nobailout.main.details-inline.n10000.x4.bailoutGain`: 1.1× faster
 - `nobailout.main.details-component.n1000.x1.bailoutGain`: tie
 - `nobailout.main.details-component.n1000.x4.bailoutGain`: tie
@@ -4628,7 +5609,7 @@ What the bailout buys store + compiler: the head build vs the build without it, 
 - `nobailout.main.details-component.n10000.x4.bailoutGain`: 1.0× faster
 - `nobailout.main.details-churn.n1000.x1.bailoutGain`: 1.1× faster
 - `nobailout.main.details-churn.n1000.x4.bailoutGain`: 1.2× faster
-- `nobailout.main.details-churn.n10000.x1.bailoutGain`: 1.1× faster
+- `nobailout.main.details-churn.n10000.x1.bailoutGain`: 1.2× faster
 - `nobailout.main.details-churn.n10000.x4.bailoutGain`: 1.2× faster
 - `nobailout.main.structure.n1000.x1.bailoutGain`: 1.2× faster
 - `nobailout.main.structure.n1000.x4.bailoutGain`: 1.2× faster
@@ -4641,7 +5622,7 @@ What the bailout buys store + compiler: the head build vs the build without it, 
 
 Without the same-element bailout: configurations store + compiler won vs the headline opponents.
 
-- `nobailout.main.tally.selection.wins`: 1
+- `nobailout.main.tally.selection.wins`: 0
 - `nobailout.main.tally.entity.wins`: 4
 - `nobailout.main.tally.filter.wins`: 4
 - `nobailout.main.tally.details-inline.wins`: 4
@@ -4653,7 +5634,7 @@ Without the same-element bailout: configurations store + compiler won vs the hea
 
 Without the same-element bailout: ties.
 
-- `nobailout.main.tally.selection.ties`: 0
+- `nobailout.main.tally.selection.ties`: 1
 - `nobailout.main.tally.entity.ties`: 0
 - `nobailout.main.tally.filter.ties`: 0
 - `nobailout.main.tally.details-inline.ties`: 0
@@ -4689,7 +5670,7 @@ Without the same-element bailout: configurations compared.
 
 Without the same-element bailout: range of speedups as text.
 
-- `nobailout.main.tally.selection.range`: 1.4× slower to 1.2× faster (1 faster, 3 slower)
+- `nobailout.main.tally.selection.range`: up to 1.4× slower (1 tie, 3 slower)
 - `nobailout.main.tally.entity.range`: 4.2–9.2× faster
 - `nobailout.main.tally.filter.range`: 1.6–2.5× faster
 - `nobailout.main.tally.details-inline.range`: 2.7–5.3× faster
@@ -4701,13 +5682,13 @@ Without the same-element bailout: range of speedups as text.
 
 Without the same-element bailout, every scenario: wins.
 
-- `nobailout.main.tally.all.wins`: 23
+- `nobailout.main.tally.all.wins`: 22
 
 ### `nobailout.main.tally.all.ties`
 
 Without the same-element bailout, every scenario: ties.
 
-- `nobailout.main.tally.all.ties`: 1
+- `nobailout.main.tally.all.ties`: 2
 
 ### `nobailout.main.tally.all.losses`
 
@@ -4725,7 +5706,115 @@ Without the same-element bailout, every scenario: configurations compared.
 
 Without the same-element bailout, every scenario: range of speedups as text.
 
-- `nobailout.main.tally.all.range`: 1.4× slower to 9.2× faster (23 faster, 1 tie, 4 slower)
+- `nobailout.main.tally.all.range`: 1.4× slower to 9.2× faster (22 faster, 2 tie, 4 slower)
+
+### `nobailout.main.tally.all.matchOrBeat`
+
+Without the same-element bailout, every scenario: wins + ties.
+
+- `nobailout.main.tally.all.matchOrBeat`: 24
+
+### `nobailout.main.tally.all.split`
+
+Without the same-element bailout, every scenario: ties only because the restarts disagreed on the direction.
+
+- `nobailout.main.tally.all.split`: 1
+
+### `nobailout.main.tally.withBailout.wins`
+
+The head build (with the bailout), over the same configurations as nobailout.main.tally.all: wins vs the headline opponents.
+
+- `nobailout.main.tally.withBailout.wins`: 25
+
+### `nobailout.main.tally.withBailout.ties`
+
+The head build over the nobailout configurations: ties.
+
+- `nobailout.main.tally.withBailout.ties`: 1
+
+### `nobailout.main.tally.withBailout.losses`
+
+The head build over the nobailout configurations: losses.
+
+- `nobailout.main.tally.withBailout.losses`: 2
+
+### `nobailout.main.tally.withBailout.total`
+
+The head build over the nobailout configurations: configurations compared.
+
+- `nobailout.main.tally.withBailout.total`: 28
+
+### `nobailout.main.tally.withBailout.matchOrBeat`
+
+The head build over the nobailout configurations: wins + ties.
+
+- `nobailout.main.tally.withBailout.matchOrBeat`: 26
+
+### `nobailout.main.tally.withBailout.range`
+
+The head build over the nobailout configurations: range of speedups as text.
+
+- `nobailout.main.tally.withBailout.range`: 1.1× slower to 9.2× faster (25 faster, 1 tie, 2 slower)
+
+### `history.final.tally.selectors.all.wins`
+
+History (the old final-build main run, sources.history-final): store + compiler vs the headline opponents, wins over every scenario.
+
+- `history.final.tally.selectors.all.wins`: 35
+
+### `history.final.tally.selectors.all.ties`
+
+History: ties.
+
+- `history.final.tally.selectors.all.ties`: 1
+
+### `history.final.tally.selectors.all.losses`
+
+History: losses.
+
+- `history.final.tally.selectors.all.losses`: 0
+
+### `history.final.tally.selectors.all.total`
+
+History: configurations compared.
+
+- `history.final.tally.selectors.all.total`: 36
+
+### `history.final.tally.selectors.all.matchOrBeat`
+
+History: wins + ties (the headline as it was).
+
+- `history.final.tally.selectors.all.matchOrBeat`: 36
+
+### `history.final.tally.selectors.all.split`
+
+History: ties only because the restarts disagreed on the direction.
+
+- `history.final.tally.selectors.all.split`: 0
+
+### `history.final.tally.selectors.all.range`
+
+History: range of speedups as text.
+
+- `history.final.tally.selectors.all.range`: up to 10× faster (35 faster, 1 tie)
+
+### `history.final.scenarios`
+
+History: scenarios in the old run.
+
+- `history.final.scenarios`: 6
+
+### `history.final.configs`
+
+History: configurations in the old run (scenarios × sizes × throttles).
+
+- `history.final.configs`: 36
+
+### `nobailout.sweep.rows`
+
+Without the same-element bailout: Rows in the sweeps, e.g. "1,000".
+
+- `nobailout.sweep.rows`: 1,000
 
 ### `nobailout.sweep.<scenario>.x<throttle>.<config>.<library>.median`
 

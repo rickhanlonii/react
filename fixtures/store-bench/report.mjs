@@ -17,8 +17,10 @@ import {
   sweepSummary,
   readSources,
   pinnedFiles,
+  agreedCompare as compare,
+  VERDICT_RULE,
 } from './report-suites.mjs';
-import {median, percentile, compare, verdict, ms} from './stats.mjs';
+import {median, percentile, verdict, ms} from './stats.mjs';
 import {
   VARIANTS,
   SCENARIOS,
@@ -73,8 +75,12 @@ env.restarts = timingFiles.reduce(
   (sum, file) => sum + (JSON.parse(fs.readFileSync(file, 'utf8')).env.restarts || 1),
   0,
 );
-const results = timingFiles.flatMap(
-  file => JSON.parse(fs.readFileSync(file, 'utf8')).results,
+// Each result remembers its file, which names its restart (restartOf).
+const results = timingFiles.flatMap(file =>
+  JSON.parse(fs.readFileSync(file, 'utf8')).results.map(r => ({
+    ...r,
+    file: path.basename(file),
+  })),
 );
 const counts = countsFile
   ? JSON.parse(fs.readFileSync(countsFile, 'utf8')).results
@@ -307,7 +313,9 @@ const noBailoutFiles = process.env.NOBAILOUT_FILES
       .map(f => path.join(resultsDir, f));
 const noBailoutStats = buildMainStats(
   noBailoutFiles
-    .flatMap(f => JSON.parse(fs.readFileSync(f, 'utf8')).results)
+    .flatMap(f =>
+      JSON.parse(fs.readFileSync(f, 'utf8')).results.map(r => ({...r, file: path.basename(f)})),
+    )
     .filter(r => r.kind === 'update'),
 );
 const noBailout = Object.keys(noBailoutStats).map(key => ({
@@ -592,7 +600,7 @@ ${workRows.map(r => `<tr><td>${r.scenario}</td><td>${r.variant === 'store' ? '<s
 }
 
 <h2>Scoreboard</h2>
-<p class="sub">use(store) + compiler vs each library's <em>best</em> configuration (with or without the compiler, whichever was faster), across ${nValues.map(n => n.toLocaleString()).join(' / ')} rows at ${throttles.map(t => t + '×').join(' and ')} CPU. "Tie" means the difference is within two standard errors.</p>
+<p class="sub">use(store) + compiler vs each library's <em>best</em> configuration (with or without the compiler, whichever was faster), across ${nValues.map(n => n.toLocaleString()).join(' / ')} rows at ${throttles.map(t => t + '×').join(' and ')} CPU. ${VERDICT_RULE}</p>
 <div class="card"><table>
 <tr><th>scenario</th>${OPPONENTS.map(o => `<th>vs ${o}</th>`).join('')}</tr>
 ${scoreboard.map(r => `<tr><td>${r.title}</td>${OPPONENTS.map(o => `<td>${range(r.tallies[o])}</td>`).join('')}</tr>`).join('')}
@@ -602,7 +610,7 @@ ${scoreboard.map(r => `<tr><td>${r.title}</td>${OPPONENTS.map(o => `<td>${range(
 <div class="callout warn">
 <ul>
 ${derived.store ? `<li><strong>Shared expensive derived data.</strong> In the Redux team's <em>derived-selectors</em> benchmark, plain use(store) is ${describe(derived.store)} vs Redux. Five components share each expensive result: <code>createSelector</code> computes it once, while the compiler memoizes per component, so use(store) computes it five times. ${derived.sharing ? `A cache keyed on store snapshots (correct under concurrency, since snapshots are immutable) fixes it: the fastest correct sharing option is ${describe(derived.sharing)} vs Redux.` : ''} That cache is an API decision, not an implementation detail.</li>` : ''}
-${sweeps?.selection?.['c100-w8'] ? `<li><strong>Selection depends on how many values each row selects.</strong> The main suite's rows read 4 stores (5 selectors in Redux and Zustand). In the sweeps, rows read only 2 (entity and selection), so the selector libraries run just 2 cheap selectors per row, and selection is ${ratioRange(sweeps.selection['c100-w8'])} for use(store) vs the faster library (4 props: ${ratioRange(sweeps.selection['c100-w4'])}; 16 props: ${ratioRange(sweeps.selection['c100-w16'])}). When every row reads a changed value that almost never changes its output, a few cheap selectors are cheaper than re-running each row and bailing out. Entity edits stay ${ratioRange(sweeps.entity?.['c100-w8'])}.</li>` : ''}
+${sweeps?.selection?.['c100-w8'] ? `<li><strong>Selection depends on how many values each row selects.</strong> The main suite's rows read ${code.perRow.storeReads} stores (${code.perRow.reduxSelectors === code.perRow.zustandSelectors ? `${code.perRow.reduxSelectors} selectors in Redux and Zustand` : `${code.perRow.reduxSelectors} selectors in Redux, ${code.perRow.zustandSelectors} in Zustand`}; the details-inline rows run ${code.perRow.reduxInlineSelectors} Redux selectors, one of them the details selector that can't be conditional). In the sweeps, rows read only 2 (entity and selection), so the selector libraries run just 2 cheap selectors per row, and selection is ${ratioRange(sweeps.selection['c100-w8'])} for use(store) vs the faster library (4 props: ${ratioRange(sweeps.selection['c100-w4'])}; 16 props: ${ratioRange(sweeps.selection['c100-w16'])}). When every row reads a changed value that almost never changes its output, a few cheap selectors are cheaper than re-running each row and bailing out. Entity edits stay ${ratioRange(sweeps.entity?.['c100-w8'])}.</li>` : ''}
 ${sweeps?.selection?.['c90-w8'] ? `<li><strong>Partial compiler coverage hurts fan-out reads a lot.</strong> With 90/75/50% of rows compiled, selection is ${['c90-w8', 'c75-w8', 'c50-w8'].map(c => ratioRange(sweeps.selection[c])).join(' / ')} for use(store) vs the faster library, because each uncompiled row re-renders its whole subtree. Entity edits don't care (${ratioRange(sweeps.entity?.['c50-w8'])} at 50%).</li>` : ''}
 <li><strong>The compiler isn't optional for fan-out reads.</strong> Without it, use(store) is ${slower(noCompilerSelection)} slower than Redux on <em>selection</em> (both without the compiler), because every Row re-renders <code>RowView</code> too. Without the compiler, treat use(store) as a granular-store API.</li>
 <li><strong>The selection result depends on <code>enableSameElementBailout</code>,</strong> a general reconciler change (behind its own flag, full test suite green, in review). ${noBailout.length > 0 ? `Without it: ${noBailout.map(r => `${r.title.toLowerCase()} ${describe(r.t)}`).join('; ')}, vs the faster of Redux and Zustand.` : 'Numbers without it are pending.'} It speeds up every compiled re-render, context included, so it isn't store-specific.</li>
@@ -615,7 +623,7 @@ ${bytesPerRow('store') !== null ? `<li><strong>Memory.</strong> At the largest s
 ${suitesHtml}
 
 <h2>By size and CPU</h2>
-<p class="sub">The individual comparisons behind the scoreboard: use(store) with the React Compiler, against each library's <em>best</em> configuration (with or without the compiler, whichever is faster). "Faster" means use(store) takes less time per update. "Tie" means the difference is within two standard errors.</p>
+<p class="sub">The individual comparisons behind the scoreboard: use(store) with the React Compiler, against each library's <em>best</em> configuration (with or without the compiler, whichever is faster). "Faster" means use(store) takes less time per update. ${VERDICT_RULE}</p>
 <div class="card"><table>
 <tr><th>N</th><th>CPU</th>${headlineHeader.map(h => `<th>${h}</th>`).join('')}</tr>
 ${headlineRows.map(r => `<tr><td>${r.n.toLocaleString()}</td><td>${r.throttle}×</td>${r.cells.map(c => `<td>${verdict(c)}</td>`).join('')}</tr>`).join('')}
@@ -660,9 +668,9 @@ ${countRows.map(c => `<tr><td>${c.scenario}</td><td>${c.bundle}</td><td class="r
 ${
   typing.length > 0
     ? `<h2>Typing during an expensive re-filter</h2>
-<p class="sub">Typing 19 characters into the filter while ${(results.find(r => r.kind === 'typing')?.n ?? 0).toLocaleString()} expensive rows re-filter. Latency is keydown → next frame. use(store) and context render the list in a transition; Redux and Zustand also call <code>startTransition</code>, but useSyncExternalStore renders synchronously anyway.</p>
+<p class="sub">Typing 19 characters into the filter while ${(results.find(r => r.kind === 'typing')?.n ?? 0).toLocaleString()} expensive rows re-filter. Latency is keydown → next frame. "List caught up" is the time from the start of typing until the list shows the rows for the full typed text, so it includes the typing itself. use(store) and context render the list in a transition; Redux and Zustand also call <code>startTransition</code>, but useSyncExternalStore renders synchronously anyway.</p>
 <div class="card"><table>
-<tr><th>variant</th><th>CPU</th><th class="r">p50 ms</th><th class="r">p95 ms</th><th class="r">max ms</th><th class="r">settled after ms</th></tr>
+<tr><th>variant</th><th>CPU</th><th class="r">p50 ms</th><th class="r">p95 ms</th><th class="r">max ms</th><th class="r">list caught up after ms</th></tr>
 ${typing.map(t => `<tr><td>${t.name}</td><td>${t.throttle}×</td><td class="r">${t.p50.toFixed(1)}</td><td class="r">${t.p95.toFixed(1)}</td><td class="r">${t.max.toFixed(1)}</td><td class="r">${t.settleMs}</td></tr>`).join('')}
 </table></div>`
     : ''
