@@ -7,7 +7,10 @@ Why use(store) + the React Compiler still loses `selection` to Zustand when each
 - **Scenario:** the `sweeps` suite at 100% compiled rows (`store-c100-w*` vs `zustand-c100-w*`), N=1000.
   - Each row reads 2 stores: its entity and the selected id.
   - Changing the selected id re-renders all 1000 rows under use(store). Under Zustand it runs 2 selectors per row and re-renders 2 rows.
-- **Result:** Zustand is faster. The main suite isn't affected: its rows read 4 stores (5 selectors under Zustand), and store wins every configuration there.
+- **Result:** Zustand is faster.
+  - **Main suite (corrected 2026-11-02):** an earlier version of this note said the main suite wasn't affected and store won every selection configuration there. That was true on the `final` build, when the selector apps' rows ran a fifth, inline-details selector in every scenario.
+  - **After the fairness fix** (4 selectors per row, and Zustand's count fixed), the head build (`a3d8e745`) loses main-suite selection at N=100 1× and N=1000 1× and 4×, ties at N=100 4× and N=10000 1×, and wins at N=10000 4×. The same floor applies: every row re-renders.
+  - **Keyed selection** (`store-keyed`) wins every selection configuration where it's timed (the sweeps). It isn't in the main suite.
   - Final build (`react-builds/final`), sweep selection, ms per update:
     - 1×: store 0.143 / 0.149 / 0.161 vs zustand 0.109 / 0.110 / 0.114 for w4 / w8 / w16, about 1.3–1.4×.
     - 4×: 0.65 / 0.71 / 0.71 vs 0.50 / 0.51 / 0.54.
