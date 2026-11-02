@@ -1,5 +1,7 @@
 // Shared (cross-component) memoization for the shared-derived-data spike. See
-// docs/use-store/research/shared-derived-data.md.
+// docs/use-store/research/shared-derived-data.md. weakMemo is the recommended
+// pattern (store-memo.jsx, and the keyed selection in sweep-store-keyed.jsx);
+// sharedCall and generationalMemo are spike options.
 //
 // Store values are immutable snapshots, so a derivation of them can be cached
 // by the identity of its arguments: two renders that read different snapshots

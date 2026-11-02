@@ -27,7 +27,7 @@ const ExpandedContext = createContext(null);
 const DetailsContext = createContext(0);
 const LabelsContext = createContext(null);
 
-const box = {setters: null, initial: null, detailsMode: 'inline'};
+const box = {setters: null, initial: null, detailsMode: 'component'};
 
 function Details() {
   return <DetailsView details={use(DetailsContext)} />;
@@ -145,7 +145,7 @@ function createApp(initialEntities, options) {
     ids: initialEntities.map(e => e.id),
     labels: initialEntities.map(e => e.label),
   };
-  box.detailsMode = options.details || 'inline';
+  box.detailsMode = options.details;
   let nextIndex = initialEntities.length;
   const added = [];
   const set = () => box.setters;

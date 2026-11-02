@@ -99,7 +99,7 @@ function createApp(initialEntities, options) {
     filterInput: createStore(''),
     expanded: createStore(new Set()),
     details: createStore(0),
-    detailsMode: options.details || 'inline',
+    detailsMode: options.details,
   };
   let nextIndex = initialEntities.length;
   const added = [];
@@ -134,6 +134,7 @@ function createApp(initialEntities, options) {
     },
     removeLast() {
       const id = added.pop();
+      s.entities.delete(id);
       s.ids.update(ids => ids.filter(other => other !== id));
       s.labels.update(labels => labels.slice(0, -1));
     },

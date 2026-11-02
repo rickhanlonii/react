@@ -17,7 +17,7 @@ import {
 import {createEntity, matchesFilter} from '../shared/data';
 
 const useShared = create(() => ({}));
-const box = {entities: null, detailsMode: 'inline'};
+const box = {entities: null, detailsMode: 'component'};
 
 function Details() {
   return <DetailsView details={useShared(counted(s => s.details))} />;
@@ -33,10 +33,32 @@ function Row({id}) {
     counted(s => matchesFilter(entity.label, s.filter))
   );
   const expanded = useShared(counted(s => s.expanded[id] === true));
-  const inlineDetails = useShared(
-    counted(s =>
-      box.detailsMode === 'inline' && s.expanded[id] === true ? s.details : null
-    )
+  return (
+    <RowView
+      label={entity.label}
+      x={entity.x}
+      y={entity.y}
+      color={entity.color}
+      selected={selected}
+      matches={matches}
+      details={null}>
+      {expanded ? <Details /> : null}
+    </RowView>
+  );
+}
+
+// The row for details-inline, which shows the details in the row itself.
+// Hooks can't be called conditionally, so every row subscribes to details,
+// and selects null when it isn't expanded.
+function RowWithInlineDetails({id}) {
+  countRender('row');
+  const entity = useStore(box.entities.get(id), selectEntity);
+  const selected = useShared(counted(s => s.selected === id));
+  const matches = useShared(
+    counted(s => matchesFilter(entity.label, s.filter))
+  );
+  const details = useShared(
+    counted(s => (s.expanded[id] === true ? s.details : null))
   );
   return (
     <RowView
@@ -46,24 +68,23 @@ function Row({id}) {
       color={entity.color}
       selected={selected}
       matches={matches}
-      details={expanded && box.detailsMode === 'inline' ? inlineDetails : null}>
-      {expanded && box.detailsMode === 'component' ? <Details /> : null}
-    </RowView>
+      details={details}
+    />
   );
 }
 
-function selectCount(state) {
+// Selects the inputs and counts in render, like the other variants. (A
+// selector that counts would run the O(N) loop on every update.)
+function Count() {
+  const labels = useShared(counted(s => s.labels));
+  const filter = useShared(counted(s => s.filter));
   let count = 0;
-  for (let i = 0; i < state.labels.length; i++) {
-    if (matchesFilter(state.labels[i], state.filter)) {
+  for (let i = 0; i < labels.length; i++) {
+    if (matchesFilter(labels[i], filter)) {
       count++;
     }
   }
-  return count;
-}
-
-function Count() {
-  return <CountView count={useShared(counted(selectCount))} />;
+  return <CountView count={count} />;
 }
 
 function onFilterChange(value) {
@@ -84,13 +105,14 @@ function Filter() {
 
 function App() {
   const ids = useShared(counted(s => s.ids));
+  const ListRow = box.detailsMode === 'inline' ? RowWithInlineDetails : Row;
   return (
     <div>
       <Filter />
       <Count />
       <ul>
         {ids.map(id => (
-          <Row key={id} id={id} />
+          <ListRow key={id} id={id} />
         ))}
       </ul>
     </div>
@@ -98,7 +120,7 @@ function App() {
 }
 
 function createApp(initialEntities, options) {
-  box.detailsMode = options.details || 'inline';
+  box.detailsMode = options.details;
   box.entities = new Map();
   for (let i = 0; i < initialEntities.length; i++) {
     box.entities.set(
@@ -155,6 +177,7 @@ function createApp(initialEntities, options) {
     },
     removeLast() {
       const id = added.pop();
+      box.entities.delete(id);
       useShared.setState(s => ({
         ids: s.ids.filter(other => other !== id),
         labels: s.labels.slice(0, -1),

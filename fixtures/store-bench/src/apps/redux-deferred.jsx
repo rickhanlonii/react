@@ -3,7 +3,8 @@
 // list reads it through useDeferredValue, so the expensive re-filter renders
 // in the background. Rows get the deferred filter as a prop, and the list is
 // memoized so the urgent render stops at the list. Only meant for the typing
-// scenario: under flushSync the deferred render hasn't happened yet.
+// scenario: under flushSync the deferred render hasn't happened yet. Details
+// are always read in a child component (no details-inline).
 
 import {memo, useDeferredValue, useMemo} from 'react';
 import {configureStore, createSlice} from '@reduxjs/toolkit';
@@ -71,7 +72,6 @@ const slice = createSlice({
 
 const a = slice.actions;
 let store = null;
-let detailsMode = 'inline';
 
 function Details() {
   return <DetailsView details={useSelector(counted(s => s.details))} />;
@@ -83,13 +83,6 @@ function Row({id, filter}) {
   const selected = useSelector(counted(s => s.selected === id));
   const matches = matchesFilter(entity.label, filter);
   const expanded = useSelector(counted(s => s.expanded[id] === true));
-  // Hooks can't be called conditionally, so every row subscribes to details,
-  // and selects null when it isn't expanded.
-  const inlineDetails = useSelector(
-    counted(s =>
-      detailsMode === 'inline' && s.expanded[id] === true ? s.details : null
-    )
-  );
   return (
     <RowView
       label={entity.label}
@@ -98,8 +91,8 @@ function Row({id, filter}) {
       color={entity.color}
       selected={selected}
       matches={matches}
-      details={expanded && detailsMode === 'inline' ? inlineDetails : null}>
-      {expanded && detailsMode === 'component' ? <Details /> : null}
+      details={null}>
+      {expanded ? <Details /> : null}
     </RowView>
   );
 }
@@ -160,8 +153,7 @@ function App() {
   );
 }
 
-function createApp(initialEntities, options) {
-  detailsMode = options.details || 'inline';
+function createApp(initialEntities) {
   store = configureStore({
     reducer: slice.reducer,
     preloadedState: createInitialState(initialEntities),

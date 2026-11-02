@@ -39,7 +39,13 @@ export function startBench(variant, createApp) {
       unmount();
       n = entityCount;
       const scenario = scenarios[scenarioName] || {};
-      app = createApp(createEntities(n), scenario.options || {});
+      // Details are read in a child component (the idiomatic pattern for
+      // selector libraries) unless the scenario says otherwise, so only
+      // details-inline pays for an inline details selector in every row.
+      app = createApp(createEntities(n), {
+        details: 'component',
+        ...scenario.options,
+      });
       container = document.createElement('div');
       container.id = 'app';
       document.body.appendChild(container);

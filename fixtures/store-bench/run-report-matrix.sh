@@ -12,6 +12,11 @@
 #   DISCARD_LIMIT=6                        re-run a unit if the load ended
 #                                          above this (up to MAX_ATTEMPTS)
 #   SKIP_BUILD=1 SKIP_VERIFY=1             resume straight into timing
+#   MATRIX=nobailout                       the same-element-bailout-off subset:
+#                                          REACT=react-builds/head-nobailout and
+#                                          TAG=headnb by default; main scenarios
+#                                          for store/redux/zustand/zustand-granular
+#                                          (compiler on, N=1k,10k) plus the sweeps
 #
 # Units, per restart (the order is reversed on even restarts, because typing
 # latency is sensitive to what ran before it):
@@ -27,8 +32,14 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-REACT=${REACT:-react-builds/head}
-TAG=${TAG:-head}
+MATRIX=${MATRIX:-full}
+if [ "$MATRIX" = nobailout ]; then
+  REACT=${REACT:-react-builds/head-nobailout}
+  TAG=${TAG:-headnb}
+else
+  REACT=${REACT:-react-builds/head}
+  TAG=${TAG:-head}
+fi
 RESTARTS=${RESTARTS:-3}
 LOAD_LIMIT=${LOAD_LIMIT:-4}
 DISCARD_LIMIT=${DISCARD_LIMIT:-6}
@@ -51,6 +62,12 @@ SUITES=(
   "typing|--typing --throttle=1,4"
   "sweeps|--n=1000 $TIMING"
 )
+if [ "$MATRIX" = nobailout ]; then
+  SUITES=("sweeps|--n=1000 $TIMING")
+  MAIN_FILTER="--variants=store,redux,zustand,zustand-granular --compiler=on --n=1000,10000"
+else
+  MAIN_FILTER=""
+fi
 SCENARIOS=(entity selection filter details-inline details-component structure)
 SPIKE_FAMILIES=(mixed score comment role)
 
@@ -93,7 +110,9 @@ if [ -z "${SKIP_BUILD:-}" ]; then
   echo "== build against $REACT"
   node build.mjs --react="$REACT" --count --out="dist-$TAG-count"
   node build.mjs --react="$REACT" --out="dist-$TAG"
-  for entry in "${SUITES[@]}" "derived-selectors-spike|"; do
+  BUILD_SUITES=("${SUITES[@]}")
+  [ "$MATRIX" = nobailout ] || BUILD_SUITES+=("derived-selectors-spike|")
+  for entry in "${BUILD_SUITES[@]}"; do
     IFS='|' read -r suite _ <<<"$entry"
     node build.mjs --suite="$suite" --react="$REACT" --count --out="dist-$TAG-$suite-count"
     node build.mjs --suite="$suite" --react="$REACT" --out="dist-$TAG-$suite"
@@ -104,7 +123,9 @@ if [ -z "${SKIP_VERIFY:-}" ]; then
   echo "== verify (jsdom, then Chrome)"
   node run-jsdom.mjs --dist="dist-$TAG-count"
   node run.mjs --verify --dist="dist-$TAG-count"
-  for entry in "${SUITES[@]}" "derived-selectors-spike|"; do
+  VERIFY_SUITES=("${SUITES[@]}")
+  [ "$MATRIX" = nobailout ] || VERIFY_SUITES+=("derived-selectors-spike|")
+  for entry in "${VERIFY_SUITES[@]}"; do
     IFS='|' read -r suite _ <<<"$entry"
     case "$suite" in
       typing) node run-jsdom.mjs --suite=typing --dist="dist-$TAG-typing-count" --scenarios=entity,selection,structure ;;
@@ -127,7 +148,9 @@ fi
 
 echo "== counts (deterministic, so not load-gated)"
 LOAD_LIMIT=1000 DISCARD_LIMIT=1000 unit counts "$TAG" --dist="dist-$TAG-count"
-for suite in derived-selectors rapid-dispatch many-components-same-slice deeptree-nested-hooks fairness sweeps derived-selectors-spike; do
+COUNT_SUITES=(derived-selectors rapid-dispatch many-components-same-slice deeptree-nested-hooks fairness sweeps derived-selectors-spike)
+[ "$MATRIX" = nobailout ] && COUNT_SUITES=(sweeps)
+for suite in "${COUNT_SUITES[@]}"; do
   extra=--n=0
   case "$suite" in fairness | sweeps) extra=--n=1000 ;; esac
   LOAD_LIMIT=1000 DISCARD_LIMIT=1000 unit counts "$TAG-q-$suite" --suite="$suite" --dist="dist-$TAG-$suite-count" "$extra"
@@ -138,16 +161,19 @@ for r in $(seq 1 "$RESTARTS"); do
   units=()
   for s in "${SCENARIOS[@]}"; do
     for t in 1 4; do
-      units+=("full|$TAG-r$r-$s-x$t|--dist=dist-$TAG --scenarios=$s --throttle=$t --no-typing --no-memory")
+      units+=("full|$TAG-r$r-$s-x$t|--dist=dist-$TAG --scenarios=$s --throttle=$t --no-typing --no-memory $MAIN_FILTER")
     done
   done
-  units+=("full|$TAG-r$r-typing|--dist=dist-$TAG --no-updates --no-memory")
-  units+=("full|$TAG-r$r-memory|--dist=dist-$TAG --no-updates --no-typing")
+  if [ "$MATRIX" != nobailout ]; then
+    units+=("full|$TAG-r$r-typing|--dist=dist-$TAG --no-updates --no-memory")
+    units+=("full|$TAG-r$r-memory|--dist=dist-$TAG --no-updates --no-typing")
+  fi
   for entry in "${SUITES[@]}"; do
     IFS='|' read -r suite flags <<<"$entry"
     units+=("smoke|$TAG-q-$suite-r$r|--suite=$suite --dist=dist-$TAG-$suite $flags")
   done
-  for f in "${SPIKE_FAMILIES[@]}"; do
+  [ "$MATRIX" = nobailout ] && SPIKE_FAMILIES=()
+  for f in ${SPIKE_FAMILIES[@]+"${SPIKE_FAMILIES[@]}"}; do
     for t in 1 4; do
       units+=("smoke|$TAG-spike-r$r-$f-x$t|--suite=derived-selectors-spike --dist=dist-$TAG-derived-selectors-spike --compiler=on --throttle=$t --iterations=100 --warmup=30 --scenarios=$f,$f-k20,$f-k50")
     done

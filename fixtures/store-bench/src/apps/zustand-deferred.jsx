@@ -3,7 +3,8 @@
 // list reads it through useDeferredValue, so the expensive re-filter renders
 // in the background. Rows get the deferred filter as a prop, and the list is
 // memoized so the urgent render stops at the list. Only meant for the typing
-// scenario: under flushSync the deferred render hasn't happened yet.
+// scenario: under flushSync the deferred render hasn't happened yet. Details
+// are always read in a child component (no details-inline).
 
 import {memo, useDeferredValue, useMemo} from 'react';
 import {create} from 'zustand';
@@ -20,7 +21,6 @@ import {matchesFilter} from '../shared/data';
 import {createInitialState, updates} from '../shared/updates';
 
 const useBench = create(() => ({}));
-let detailsMode = 'inline';
 
 function update(name, payload) {
   useBench.setState(state => updates[name](state, payload), true);
@@ -36,12 +36,6 @@ function Row({id, filter}) {
   const selected = useBench(counted(s => s.selected === id));
   const matches = matchesFilter(entity.label, filter);
   const expanded = useBench(counted(s => s.expanded[id] === true));
-  // Hooks can't be called conditionally, so every row subscribes to details.
-  const inlineDetails = useBench(
-    counted(s =>
-      detailsMode === 'inline' && s.expanded[id] === true ? s.details : null
-    )
-  );
   return (
     <RowView
       label={entity.label}
@@ -50,8 +44,8 @@ function Row({id, filter}) {
       color={entity.color}
       selected={selected}
       matches={matches}
-      details={expanded && detailsMode === 'inline' ? inlineDetails : null}>
-      {expanded && detailsMode === 'component' ? <Details /> : null}
+      details={null}>
+      {expanded ? <Details /> : null}
     </RowView>
   );
 }
@@ -106,8 +100,7 @@ function App() {
   );
 }
 
-function createApp(initialEntities, options) {
-  detailsMode = options.details || 'inline';
+function createApp(initialEntities) {
   useBench.setState(createInitialState(initialEntities), true);
   const actions = {
     editEntity: index => update('editEntity', index),

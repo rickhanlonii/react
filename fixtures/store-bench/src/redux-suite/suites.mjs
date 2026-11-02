@@ -102,7 +102,9 @@ export const suites = {
   },
   // Compiler coverage (100/90/75/50% of rows compiled, at 8 props) and row
   // width (4/8/16 props, fully compiled), from src/apps/sweep-*.jsx. The
-  // builds without the compiler are the 0% coverage point.
+  // c100-w8 build without the compiler is the 0% coverage point. The other
+  // configurations are only built with the compiler: without it, c90/c75/c50
+  // are the same app as c100, and the report doesn't use w4/w16 at 0%.
   sweeps: {
     apps: 'src/apps',
     variants: sweepVariants(),
@@ -134,6 +136,7 @@ function sweepVariants() {
         entry: 'sweep-' + library.name,
         deps: library.deps,
         define: {__COVERAGE__: String(coverage), __WIDTH__: String(width)},
+        compiled: coverage === 100 && width === 8 ? [false, true] : [true],
       });
     }
   }

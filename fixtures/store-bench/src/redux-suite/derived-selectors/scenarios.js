@@ -66,8 +66,7 @@ export const scenarios = {
 };
 
 // Not part of the port: the same scenarios with K components per category
-// instead of 5 (e.g. score-k20), for the shared-derived-data spike. They only
-// run when passed with --scenarios.
+// instead of 5 (e.g. score-k20), for the derived-selectors-spike suite.
 for (const name of ['mixed', 'score', 'comment', 'role']) {
   for (const k of [20, 50]) {
     scenarios[`${name}-k${k}`] = {...scenarios[name], k};

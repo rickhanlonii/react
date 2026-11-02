@@ -43,7 +43,8 @@ export const scenarios = {
 
   // S4b: the same, but with the details read in a child component that only
   // mounts when the row is expanded. This is the idiomatic workaround for
-  // selector libraries, so both models subscribe only the expanded rows.
+  // selector libraries, so both models subscribe only the expanded rows. The
+  // other scenarios render rows this way too (see harness.jsx).
   'details-component': {
     options: {details: 'component'},
     setup(actions, n) {
@@ -51,6 +52,17 @@ export const scenarios = {
     },
     step(actions) {
       actions.tickDetails();
+    },
+  },
+
+  // S4c: expand every 10th row, then collapse them again (all but the first).
+  // The details are read in a child component, so each step mounts or
+  // unmounts N/10 readers: subscribe and unsubscribe churn, plus every row
+  // reading the expanded state.
+  'details-churn': {
+    options: {details: 'component'},
+    step(actions, i, n) {
+      actions.expandEvery(i % 2 === 0 ? 10 : n, n);
     },
   },
 
@@ -65,5 +77,3 @@ export const scenarios = {
     },
   },
 };
-
-export const scenarioNames = Object.keys(scenarios);

@@ -14,7 +14,7 @@ import {
 import {createEntity, matchesFilter} from '../shared/data';
 
 let store = null;
-let detailsMode = 'inline';
+let detailsMode = 'component';
 
 function Details() {
   return <DetailsView details={use(store).details} />;
@@ -92,7 +92,7 @@ function createApp(initialEntities, options) {
   for (let i = 0; i < initialEntities.length; i++) {
     entities[initialEntities[i].id] = initialEntities[i];
   }
-  detailsMode = options.details || 'inline';
+  detailsMode = options.details;
   store = createStore({
     entities,
     ids: initialEntities.map(e => e.id),

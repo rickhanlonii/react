@@ -20,7 +20,7 @@ import {matchesFilter} from '../shared/data';
 import {createInitialState, reducer} from '../shared/updates';
 
 const StateContext = createContext(null);
-const box = {dispatch: null, initialState: null, detailsMode: 'inline'};
+const box = {dispatch: null, initialState: null, detailsMode: 'component'};
 
 function Details() {
   return <DetailsView details={use(StateContext).details} />;
@@ -103,7 +103,7 @@ function App() {
 
 function createApp(initialEntities, options) {
   box.initialState = createInitialState(initialEntities);
-  box.detailsMode = options.details || 'inline';
+  box.detailsMode = options.details;
   const dispatch = (type, payload) => box.dispatch({type, payload});
   const actions = {
     editEntity: index => dispatch('editEntity', index),

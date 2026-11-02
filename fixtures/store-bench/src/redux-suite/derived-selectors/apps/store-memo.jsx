@@ -1,5 +1,6 @@
-// SPIKE (docs/use-store/research/shared-derived-data.md), option 3: store.jsx
-// with the category stats memoized across components in userland. weakMemo
+// The recommended pattern for shared derived data (option 3 in
+// docs/use-store/research/shared-derived-data.md): store.jsx with the
+// category stats memoized across components in userland. weakMemo
 // caches by the identity of the arguments (posts and comments in WeakMaps,
 // the category in a Map under them), so the 5 CategoryStats that show the
 // same category share one result per snapshot. The compiler still memoizes

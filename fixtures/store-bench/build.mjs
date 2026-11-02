@@ -29,10 +29,11 @@ const reactBuild = path.resolve(
   here,
   flag('react') || path.join(repo, 'build/oss-experimental'),
 );
-const compilerPath = path.join(
-  repo,
-  'compiler/packages/babel-plugin-react-compiler/dist/index.js',
-);
+// --compiler=<file> uses another build of babel-plugin-react-compiler (e.g. a
+// copy of dist/index.js, so a yarn build in the repo can't change it).
+const compilerPath = flag('compiler')
+  ? path.resolve(here, flag('compiler'))
+  : path.join(repo, 'compiler/packages/babel-plugin-react-compiler/dist/index.js');
 
 const count = process.argv.includes('--count');
 const outDir = path.resolve(
@@ -131,7 +132,9 @@ async function main() {
       );
       continue;
     }
-    for (const compiled of [false, true]) {
+    // A suite variant can skip the build without the compiler (see the
+    // sweeps in src/redux-suite/suites.mjs).
+    for (const compiled of variant.compiled || [false, true]) {
       built.push(await buildVariant(variant, compiled));
     }
   }
@@ -158,6 +161,7 @@ async function main() {
             : {sha: null, note: 'unfrozen build: no BUILD.json'}),
         },
         compiler: {
+          path: path.relative(here, compilerPath),
           bytes: compilerSource.length,
           sha256: crypto
             .createHash('sha256')

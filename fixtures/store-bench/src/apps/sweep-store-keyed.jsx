@@ -19,8 +19,9 @@ import {weakMemo} from '../redux-suite/derived-selectors/shared-memo';
 
 let s = null;
 
-// One store per row id, holding whether that row is selected.
-const selectedStoreFor = weakMemo(id => createStore(false));
+// One store per row id, holding whether that row is selected. Created per
+// mount (createApp), so a remount doesn't see the last mount's selection.
+let selectedStoreFor = null;
 
 function Row4({id}) {
   countRender('row');
@@ -161,6 +162,7 @@ function createApp(initialEntities) {
     ids: createStore(initialEntities.map(e => e.id)),
     selectedId: null,
   };
+  selectedStoreFor = weakMemo(id => createStore(false));
   const actions = {
     editEntity(index) {
       s.entities.get('e' + index).update(e => ({...e, x: e.x + 1}));

@@ -68,7 +68,7 @@ const slice = createSlice({
 
 const a = slice.actions;
 let store = null;
-let detailsMode = 'inline';
+let detailsMode = 'component';
 
 const selectCount = createSelector(
   [state => state.labels, state => state.filter],
@@ -95,12 +95,32 @@ function Row({id}) {
     counted(s => matchesFilter(s.entities[id].label, s.filter))
   );
   const expanded = useSelector(counted(s => s.expanded[id] === true));
-  // Hooks can't be called conditionally, so every row subscribes to details,
-  // and selects null when it isn't expanded.
-  const inlineDetails = useSelector(
-    counted(s =>
-      detailsMode === 'inline' && s.expanded[id] === true ? s.details : null
-    )
+  return (
+    <RowView
+      label={entity.label}
+      x={entity.x}
+      y={entity.y}
+      color={entity.color}
+      selected={selected}
+      matches={matches}
+      details={null}>
+      {expanded ? <Details /> : null}
+    </RowView>
+  );
+}
+
+// The row for details-inline, which shows the details in the row itself.
+// Hooks can't be called conditionally, so every row subscribes to details,
+// and selects null when it isn't expanded.
+function RowWithInlineDetails({id}) {
+  countRender('row');
+  const entity = useSelector(counted(s => s.entities[id]));
+  const selected = useSelector(counted(s => s.selected === id));
+  const matches = useSelector(
+    counted(s => matchesFilter(s.entities[id].label, s.filter))
+  );
+  const details = useSelector(
+    counted(s => (s.expanded[id] === true ? s.details : null))
   );
   return (
     <RowView
@@ -110,9 +130,8 @@ function Row({id}) {
       color={entity.color}
       selected={selected}
       matches={matches}
-      details={expanded && detailsMode === 'inline' ? inlineDetails : null}>
-      {expanded && detailsMode === 'component' ? <Details /> : null}
-    </RowView>
+      details={details}
+    />
   );
 }
 
@@ -140,10 +159,11 @@ function Filter() {
 
 function List() {
   const ids = useSelector(counted(s => s.ids));
+  const ListRow = detailsMode === 'inline' ? RowWithInlineDetails : Row;
   return (
     <ul>
       {ids.map(id => (
-        <Row key={id} id={id} />
+        <ListRow key={id} id={id} />
       ))}
     </ul>
   );
@@ -162,7 +182,7 @@ function App() {
 }
 
 function createApp(initialEntities, options) {
-  detailsMode = options.details || 'inline';
+  detailsMode = options.details;
   store = configureStore({
     reducer: slice.reducer,
     preloadedState: createInitialState(initialEntities),

@@ -1,6 +1,8 @@
 // Drives the benchmark bundles in headless Chromium with Playwright.
 //
-//   node run.mjs --verify    Every variant renders the same DOM (counting build)
+//   node run.mjs --verify    Every variant renders the same DOM after each
+//                            update (--steps=20) and after typing into the
+//                            filter (counting build)
 //   node run.mjs --counts    Renders and selector calls per update (counting build)
 //   node run.mjs --smoke     Quick timing run: N=1k, no throttling
 //   node run.mjs --full      Full timing matrix, typing latency and memory
@@ -43,6 +45,7 @@ const UPDATE_SCENARIOS = [
   'filter',
   'details-inline',
   'details-component',
+  'details-churn',
   'structure',
 ];
 
@@ -215,11 +218,13 @@ function summarize(values) {
 // ---------------------------------------------------------------- pages
 
 const timerInfo = {crossOriginIsolated: null};
+let browserVersion = null;
 
 // Every page gets its own browser, so no variant inherits another's JIT or GC
 // state. (Single-process mode also only supports one page per browser.)
-async function openBundle(_browser, port, bundle, throttle) {
+async function openBundle(port, bundle, throttle) {
   const browser = await launch(['--js-flags=--expose-gc']);
+  browserVersion = browser.version();
   const page = await browser.newPage();
   const context = {close: () => browser.close()};
   page.on('pageerror', error => {
@@ -249,47 +254,140 @@ function label(bundle) {
   return `${bundle.variant}${bundle.compiler ? ' +compiler' : ''}`;
 }
 
+function shuffle(items) {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+// Typed into the filter by the typing scenario. It matches no label, so the
+// list ends up empty.
+const TYPED_TEXT = 'alpha bravo charlie';
+
+// True once the list has caught up with the filter input: every row is hidden
+// exactly when its label doesn't match, and the count agrees. Runs in the page.
+function listMatchesInput() {
+  const input = document.querySelector('input.filter');
+  const count = document.querySelector('.count');
+  if (input === null || count === null) {
+    return false;
+  }
+  const filter = input.value;
+  let visible = 0;
+  for (const row of document.querySelectorAll('li.row')) {
+    // The label text is the entity's label, ' #', and a hash.
+    const text = row.querySelector('.label').textContent;
+    const matches =
+      filter === '' || text.slice(0, text.lastIndexOf(' #')).includes(filter);
+    if (matches === row.classList.contains('hidden')) {
+      return false;
+    }
+    if (matches) {
+      visible++;
+    }
+  }
+  return count.textContent === String(visible);
+}
+
+// Sweep variants with different row widths render different DOM, so verify
+// compares bundles within a width.
+function domGroup(bundle) {
+  const match = bundle.variant.match(/-w(\d+)$/);
+  return match === null ? '' : ` (w${match[1]})`;
+}
+
 // ---------------------------------------------------------------- modes
 
-async function verify(browser, port) {
+// Checks that every bundle in a group produced the same hashes, and prints
+// the result. Returns false on a mismatch.
+function compareTraces(name, traces) {
+  let ok = true;
+  const groups = new Map();
+  for (const trace of traces) {
+    const group = domGroup(trace.bundle);
+    if (!groups.has(group)) {
+      groups.set(group, []);
+    }
+    groups.get(group).push(trace);
+  }
+  for (const [group, members] of groups) {
+    const expected = members[0].hashes;
+    const mismatches = members.filter(t => t.hashes !== expected);
+    if (mismatches.length > 0) {
+      ok = false;
+      console.log(
+        `✗ ${name}${group}: DOM differs from ${label(members[0].bundle)} in ` +
+          mismatches.map(t => label(t.bundle)).join(', '),
+      );
+    } else {
+      // A scenario whose DOM never changes would pass without testing much.
+      const unchanged = new Set(expected.split(',')).size === 1;
+      console.log(
+        `✓ ${name}${group}: ${members.length} bundles render the same DOM` +
+          (unchanged ? ' (the DOM never changes)' : ''),
+      );
+    }
+  }
+  return ok;
+}
+
+async function verify(port) {
+  const steps = Number(option('steps', 20));
   let failed = false;
   for (const scenario of scenarioList) {
     const traces = [];
     for (const bundle of bundles) {
-      const {context, page} = await openBundle(browser, port, bundle, 1);
+      const {context, page} = await openBundle(port, bundle, 1);
       await page.evaluate(
         ([n, s]) => window.__bench.mount(n, s),
         [nList[0], scenario],
       );
       const hashes = await page.evaluate(
-        s => window.__bench.trace(s, 8),
-        scenario,
+        ([s, count]) => window.__bench.trace(s, count),
+        [scenario, steps],
       );
       traces.push({bundle, hashes: hashes.join(',')});
       await context.close();
     }
-    const expected = traces[0].hashes;
-    const mismatches = traces.filter(t => t.hashes !== expected);
-    if (mismatches.length > 0) {
-      failed = true;
-      console.log(
-        `✗ ${scenario}: DOM differs from ${label(traces[0].bundle)} in ` +
-          mismatches.map(t => label(t.bundle)).join(', '),
-      );
-    } else {
-      console.log(`✓ ${scenario}: ${traces.length} bundles render the same DOM`);
+    failed = !compareTraces(scenario, traces) || failed;
+  }
+  // The typing scenario, if the apps have a filter input: type into it, wait
+  // for the list to catch up, and compare the DOM.
+  const traces = [];
+  for (const bundle of bundles) {
+    const {context, page} = await openBundle(port, bundle, 1);
+    await page.evaluate(n => window.__bench.mount(n, 'typing'), nList[0]);
+    if ((await page.$('input.filter')) === null) {
+      await context.close();
+      break;
     }
+    const before = await page.evaluate(() => window.__bench.trace(null, 0));
+    await page.click('input.filter');
+    await page.keyboard.type(TYPED_TEXT.slice(0, 4));
+    await page.waitForFunction(listMatchesInput, null, {
+      polling: 50,
+      timeout: 10000,
+    });
+    const after = await page.evaluate(() => window.__bench.trace(null, 0));
+    traces.push({bundle, hashes: [...before, ...after].join(',')});
+    await context.close();
+  }
+  if (traces.length > 0) {
+    failed = !compareTraces('typing', traces) || failed;
   }
   if (failed) {
     process.exitCode = 1;
   }
 }
 
-async function counts(browser, port) {
+async function counts(port) {
   const rows = [];
   for (const scenario of scenarioList) {
     for (const bundle of bundles) {
-      const {context, page} = await openBundle(browser, port, bundle, 1);
+      const {context, page} = await openBundle(port, bundle, 1);
       await page.evaluate(
         ([n, s]) => window.__bench.mount(n, s),
         [nList[0], scenario],
@@ -336,11 +434,10 @@ async function timing(port, results) {
     }
   }
   for (let restart = 0; restart < restarts; restart++) {
-    const browser = await launch(['--js-flags=--expose-gc']);
-    const order = [...configs].sort(() => Math.random() - 0.5);
+    const order = shuffle(configs);
     let done = 0;
     for (const {n, throttle, scenario, bundle} of order) {
-      const {context, page} = await openBundle(browser, port, bundle, throttle);
+      const {context, page} = await openBundle(port, bundle, throttle);
       const mountMs = await page.evaluate(
         ([count, s]) => window.__bench.mount(count, s),
         [n, scenario],
@@ -367,16 +464,14 @@ async function timing(port, results) {
       process.stdout.write(`\r  restart ${restart + 1}/${restarts}: ${done}/${order.length}`);
     }
     process.stdout.write('\n');
-    await browser.close();
   }
 }
 
 async function typing(port, results) {
   const n = Number(option('typing-n', 10000));
-  const browser = await launch(['--js-flags=--expose-gc']);
   for (const throttle of throttleList) {
     for (const bundle of bundles) {
-      const {context, page} = await openBundle(browser, port, bundle, throttle);
+      const {context, page} = await openBundle(port, bundle, throttle);
       await page.evaluate(count => window.__bench.mount(count, 'typing'), n);
       await page.evaluate(() => {
         // Rows are expensive in this scenario, so a synchronous re-filter
@@ -400,12 +495,20 @@ async function typing(port, results) {
       });
       const t0 = Date.now();
       await page.click('input.filter');
-      await page.keyboard.type('alpha bravo charlie', {delay: 50});
-      // Wait until the list has caught up with the input.
+      await page.keyboard.type(TYPED_TEXT, {delay: 50});
+      // settleMs: until the list has caught up with the input, and every
+      // keydown's latency is recorded.
       await page.waitForFunction(
-        () => document.querySelector('input.filter').value === 'alpha bravo charlie',
+        length =>
+          window.__latencies.length === length &&
+          document.querySelector('input.filter').value.length === length,
+        TYPED_TEXT.length,
+        {polling: 50, timeout: 120000},
       );
-      await page.waitForTimeout(500);
+      await page.waitForFunction(listMatchesInput, null, {
+        polling: 50,
+        timeout: 120000,
+      });
       const settleMs = Date.now() - t0;
       const latencies = await page.evaluate(() => window.__latencies);
       results.push({
@@ -423,14 +526,12 @@ async function typing(port, results) {
       await context.close();
     }
   }
-  await browser.close();
 }
 
 async function memory(port, results) {
-  const browser = await launch(['--js-flags=--expose-gc']);
   for (const n of nList) {
     for (const bundle of bundles) {
-      const {context, page, cdp} = await openBundle(browser, port, bundle, 1);
+      const {context, page, cdp} = await openBundle(port, bundle, 1);
       const before = await heapUsed(cdp);
       const mountMs = await page.evaluate(count => window.__bench.mount(count, 'entity'), n);
       const after = await heapUsed(cdp);
@@ -446,7 +547,6 @@ async function memory(port, results) {
       await context.close();
     }
   }
-  await browser.close();
 }
 
 function printUpdateSummary(results) {
@@ -502,15 +602,10 @@ async function main() {
     loadStart: os.loadavg(),
   };
 
-  if (mode === 'verify' || mode === 'counts') {
-    const browser = await launch();
-    env.browserVersion = browser.version();
-    if (mode === 'verify') {
-      await verify(browser, port);
-    } else {
-      results.push(...(await counts(browser, port)).map(r => ({kind: 'counts', ...r})));
-    }
-    await browser.close();
+  if (mode === 'verify') {
+    await verify(port);
+  } else if (mode === 'counts') {
+    results.push(...(await counts(port)).map(r => ({kind: 'counts', ...r})));
   } else {
     if (!flag('no-updates')) {
       await timing(port, results);
@@ -528,6 +623,7 @@ async function main() {
   if (results.length > 0) {
     fs.mkdirSync(path.join(here, 'results'), {recursive: true});
     env.loadEnd = os.loadavg();
+    env.browserVersion = browserVersion;
     const label = option('label', null);
     const out = path.join(
       here,
