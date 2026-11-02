@@ -256,3 +256,30 @@ Every claim in `benchmark-report.src.html`, by section, with its source: a `benc
 | The counting build counts Row, RowView, DetailsView and CountView renders, not every component | `fixtures/store-bench/src/shared/views.jsx:8-14,62,80,95`; `countRender('row')` in each app's `Row` |
 | "counted renders" in What each update does and the counting-build paragraph | `counts.main.details-inline.store.on.renders` |
 | Counted components named from the source | `method.countedComponents` |
+
+## Data-first restructure (takeaways added)
+
+| Takeaway (bold or new) | Source |
+|---|---|
+| "Entity edits, adding or removing a row, and conditional reads win by wide margins: …" | `main.tally.selectors.{entity,structure,details-inline}.range` (existing bullet, moved) |
+| "The only scenario with losses is selection" (twice: at a glance, main) | `main.tally.selectors.lostScenarios` |
+| "Every other scenario matches or beats the faster of Redux and Zustand in every configuration." | `main.tally.selectors.<scenario>.matchOrBeat` = `.total` for every scenario but selection |
+| "Plain use(store) loses only on derived selectors (6 configurations), and with weakMemo it wins those too." | `suite.derived-selectors.tally.store.losses`; `suite.{rapid-dispatch,many-components-same-slice,deeptree-nested-hooks}.tally.store.losses` = 0; `suite.derived-selectors.tally.store-memo.{wins,total}` |
+| How each variant reads state (paragraph at the top of the main scenarios) | `fixtures/store-bench/README.md:57-66` |
+| Callout: the headline is lower; review fixed two unfair places, and the build changed too | Same sources as "What changed" (commit 7de5a12d94; `history.final.*`) |
+| Synthetic one-liner under the scoreboard | Same as the removed header note |
+| Stat tiles | gen `stat-tiles`: `main.tally.selectors.all`, `sweep.tally.store-keyed.selection`, `spike.tally.store-memo` (sub `spike.tally.store-memo.rangeWork`), `suite.fairness5.tally.fastestRedux`, `main.tally.zustand-granular.all` |
+| Bold lines moved from existing prose: work (entity 1 row vs selector calls), controls (store-single), fairness (fastest Redux), selection (floor), sweeps (keyed wins), derived (lede), bailout (same 28 configs), typing (p95) | Their existing ledger rows |
+
+## Skim-layer audit fixes (`skim-layer.claim-ledger.md`)
+
+| Item | Now | Source |
+|---|---|---|
+| B-1/B-2 | Opening takeaway names the comparison and adds the add / remove low-signal caveat; "against them, the only scenario with losses" | `main.tally.selectors.*`; `README.md:85` |
+| B-3 | Callout gives both tallies | `main.tally.selectors.all.{matchOrBeat,total}`, `history.final.tally.selectors.all.{matchOrBeat,total}` |
+| B-6 | store-single line says "with the compiler" | `main.tally.single-selectors.all.range` (compiler on) |
+| B-7 | Fairness line restores "at 1,000 rows" | `method.countsRows`; `run-report-matrix.sh:86` |
+| B-8 | Selection line carries the SE1 profile scope | `research/selection-floor.md:16-46` |
+| B-10 | "In the ported Redux suites," scope | `suite.*.tally.store.losses` |
+| B-T1, B-T3, B-T4 | Tile labels scoped | gen `stat-tiles` args |
+| Skim polish | Bailout bold line stands alone ("the build without the same-element bailout measured"); derived and selection bold lines tightened with scope kept; tile labels parallel; throttling phrased "with … CPU throttling" | `nobailout.main.tally.{all.total,withBailout.matchOrBeat,all.matchOrBeat}`; `spike.tally.store-memo.rangeWork`; `research/selection-floor.md` |

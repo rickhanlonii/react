@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>use(store) benchmarks at a glance</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff;
+    --panel: #f6f7f9;
+    --panel-2: #eceef2;
+    --text: #1c1d21;
+    --muted: #5d6370;
+    --accent: #0b6bcb;
+    --warn: #9a5b00;
+    --border: #d9dce3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115;
+      --panel: #171a21;
+      --panel-2: #1e222b;
+      --text: #e6e8ee;
+      --muted: #9aa3b2;
+      --accent: #58c4dc;
+      --warn: #fbbf24;
+      --border: #2a2f3a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  a { color: var(--accent); }
+  main { max-width: 1360px; margin: 0 auto; padding: 32px 24px 64px; }
+  header { margin-bottom: 20px; max-width: 920px; }
+  h1 { font-size: 32px; line-height: 1.2; margin: 0 0 8px; letter-spacing: -0.01em; }
+  h2 { font-size: 22px; line-height: 1.3; margin: 40px 0 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  h3 { font-size: 16px; line-height: 1.35; margin: 0 0 4px; }
+  p { margin: 0 0 12px; }
+  .lede { font-size: 17px; }
+  code { font: 0.88em/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--panel-2); padding: 1px 5px; border-radius: 5px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; }
+  details { margin: 8px 0 0; }
+  summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  .card details.gen { flex: 0 0 auto; margin: 8px 0; }
+  .card details.gen[open] summary { margin-bottom: 4px; }
+
+
+  /* Cards */
+  .cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  @media (min-width: 1100px) {
+    .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .card.wide { grid-column: 1 / -1; }
+  }
+  .card { min-width: 0; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px 12px; display: flex; flex-direction: column; }
+  .card .gen { min-width: 0; overflow-x: auto; flex: 1 0 auto; }
+  .card .viz-card, .card figure.viz { margin: 8px 0; padding: 0; border: 0; background: transparent; }
+  .takeaway { margin: 8px 0 4px; font-size: 14px; }
+  .explain { font-size: 13px; margin: 0; }
+  .explain a { text-decoration: none; }
+  .explain a:hover, .explain a:focus-visible { text-decoration: underline; }
+
+  footer { margin-top: 40px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--border); padding-top: 12px; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; animation: none !important; } }
+</style>
+<!-- gen:charts-assets {"extras": true} --><!-- /gen:charts-assets -->
+</head>
+<body>
+<main>
+
+<header>
+<h1 id="top"><code>use(store)</code> benchmarks at a glance</h1>
+<p class="lede">Every <code>use(store)</code> benchmark result on one page. The <a href="benchmark-report.html">benchmark report</a> and <a href="store-vs-context.html">the Context comparison</a> explain each one.</p>
+<p class="build-label"><!-- gen:build-label --><!-- /gen:build-label --></p>
+</header>
+
+<!-- gen:stat-tiles {"tiles":[{"label":"Main suite, matches or beats","value":"main.tally.selectors.all.matchOrBeat","of":"main.tally.selectors.all.total","note":"configurations, against the faster of Redux and Zustand, with the compiler","href":"#card-scoreboard"},{"label":"Main suite, losses","value":"main.tally.selectors.all.losses","note":"all of them in selection, when every row reads the selection","href":"#card-verdicts"},{"label":"Selection sweeps, keyed selection wins","value":"sweep.tally.store-keyed.selection.wins","of":"sweep.tally.store-keyed.selection.total","note":"configurations won (it isn't timed in the main suite)","href":"#card-sweeps"},{"label":"Derived-data spike, weakMemo wins","value":"spike.tally.store-memo.wins","of":"spike.tally.store-memo.total","note":"configurations that do any work, won against Redux","href":"#card-spike"},{"label":"One context, matches or beats","value":"ctx.tally.on.vsContext.all.matchOrBeat","of":"ctx.tally.on.vsContext.all.total","note":"configurations with the compiler, and a context per slice never wins","href":"#card-ctx-scoreboard"},{"label":"Counted results, losses","value":"losses.all.count","of":"losses.all.of","note":"across the headline, the granular control, the ported Redux suites, the fairness run against Redux, the sweeps, and the spike (the controls aren't counted)","href":"#card-losses"}]} --><!-- /gen:stat-tiles -->
+
+<!-- ============================================================ -->
+<h2 id="selectors">How does <code>use(store)</code> compare to selector libraries?</h2>
+<div class="cards">
+
+<section class="card" aria-labelledby="card-scoreboard">
+<h3 id="card-scoreboard"><code>use(store)</code> matches or beats the faster selector library outside selection</h3>
+<div class="gen"><!-- gen:scoreboard {"compact": true, "columns": ["selectors", "zustand-granular"]} --><!-- /gen:scoreboard --></div>
+<p class="takeaway">Editing one entity re-renders one row instead of running a selector in every row (<span data-n="main.tally.selectors.entity.range"></span>).</p>
+<p class="explain"><a href="benchmark-report.html#claim">Explain →</a></p>
+</section>
+
+<section class="card" aria-labelledby="card-verdicts">
+<h3 id="card-verdicts">Its only headline losses are selection configurations</h3>
+<div class="gen"><!-- gen:verdict-grid {"comparison": "headline", "compact": true} --><!-- /gen:verdict-grid --></div>
+<p class="takeaway">All of its losses are when the selection changes: <span data-n="main.tally.selectors.selection.losses"></span> of the <span data-n="main.tally.selectors.selection.total"></span> selection configurations, <span data-n="main.tally.selectors.selection.range"></span>.</p>
+<p class="explain"><a href="benchmark-report.html#main">Explain →</a></p>
+</section>
+
+<section class="card wide" aria-labelledby="card-main">
+<h3 id="card-main">It wins every conditional-read and add / remove configuration</h3>
+<div class="gen"><!-- gen:main-chart {"compact": true} --><!-- /gen:main-chart --></div>
+<p class="takeaway">Against the faster of Redux and Zustand, adding or removing a row is <span data-n="main.tally.selectors.structure.range"></span>, and conditional reads are <span data-n="main.tally.selectors.details-inline.range"></span>. Add / remove mostly measures list reconciliation, because every variant re-renders every row.</p>
+<p class="explain"><a href="benchmark-report.html#main">Explain →</a></p>
+</section>
+
+<section class="card" aria-labelledby="card-controls">
+<h3 id="card-controls">With the compiler, even one store wins most configurations</h3>
+<div class="gen"><!-- gen:scoreboard-controls {"compact": true} --><!-- /gen:scoreboard-controls --></div>
+<p class="takeaway">With the compiler, one store holding everything, with no selectors, still beats the faster of Redux and Zustand in most configurations: <span data-n="main.tally.single-selectors.all.range"></span>.</p>
+<p class="explain"><a href="benchmark-report.html#controls">Explain →</a></p>
+</section>
+
+<section class="card" aria-labelledby="card-counts">
+<h3 id="card-counts">Entity edits render one row, while selectors run in every row</h3>
+<div class="gen"><!-- gen:counts-table {"compact": true, "variants": ["store", "redux", "zustand"]} --><!-- /gen:counts-table --></div>
+<p class="takeaway">Editing an entity re-renders <span data-n="counts.main.entity.store.on.rows"></span> row with <code>use(store)</code>, while Redux makes <span data-n="counts.main.entity.redux.on.selectors"></span> selector calls to find the same row.</p>
+<p class="explain"><a href="benchmark-report.html#work">Explain →</a></p>
+</section>
+
+</div>
+
+<!-- ============================================================ -->
+<h2 id="losses">Where does it lose, and what fixes it?</h2>
+<div class="cards">
+
+<section class="card" aria-labelledby="card-sweeps">
+<h3 id="card-sweeps">Keyed selection wins every selection sweep</h3>
+<div class="gen"><!-- gen:sweep-chart {"compact": true} --><!-- /gen:sweep-chart --></div>
+<p class="takeaway">Keyed selection wins every selection configuration (<span data-n="sweep.tally.store-keyed.selection.wins"></span> of <span data-n="sweep.tally.store-keyed.selection.total"></span>), and every entity configuration (<span data-n="sweep.tally.store-keyed.entity.wins"></span> of <span data-n="sweep.tally.store-keyed.entity.total"></span>).</p>
+<p class="explain"><a href="benchmark-report.html#sweeps">Explain →</a></p>
+</section>
+
+<section class="card" aria-labelledby="card-losses">
+<h3 id="card-losses">Almost every counted loss is selection or unshared derived data</h3>
+<div class="gen"><!-- gen:losses-table {"compact": true} --><!-- /gen:losses-table --></div>
+<p class="takeaway">Main suite against the faster of Redux and Zustand: <span data-n="losses.main.count"></span> of <span data-n="losses.main.of"></span>, all selection. Keyed selection is the pattern for this, but it isn't timed in the main suite.</p>
+<p class="explain"><a href="benchmark-report.html#losses">Explain →</a></p>
+</section>
+
+</div>
+
+<!-- ============================================================ -->
+<h2 id="derived">Shared derived data</h2>
+<div class="cards">
+
+<section class="card" aria-labelledby="card-derived">
+<h3 id="card-derived"><code>weakMemo</code> turns the derived-data losses into wins</h3>
+<div class="gen"><!-- gen:suite-derived-selectors {"compact": true} --><!-- /gen:suite-derived-selectors --></div>
+<p class="takeaway">Plain <code>use(store)</code> is <span data-n="suite.derived-selectors.tally.store.rangeWork"></span> against the fastest of Redux and Zustand. With <code>weakMemo</code> (<code>store-memo</code>) it's <span data-n="suite.derived-selectors.tally.store-memo.rangeWork"></span>.</p>
+<p class="explain"><a href="benchmark-report.html#derived-results">Explain →</a></p>
+</section>
+
+<section class="card" aria-labelledby="card-spike">
+<h3 id="card-spike">With more readers, plain <code>use(store)</code> falls further behind</h3>
+<div class="gen"><!-- gen:spike-chart {"compact": true} --><!-- /gen:spike-chart --></div>
+<p class="takeaway"><code>store-memo</code> stays ahead of Redux (<span data-n="spike.tally.store-memo.rangeWork"></span>), and plain <code>use(store)</code> falls further behind as the readers grow.</p>
+<p class="explain"><a href="benchmark-report.html#derived-results">Explain →</a></p>
+</section>
+
+</div>
+
+<!-- ============================================================ -->
+<h2 id="context">Compared with Context</h2>
+<div class="cards">
+
+<section class="card" aria-labelledby="card-ctx-scoreboard">
+<h3 id="card-ctx-scoreboard">A context per slice never wins at the same setting</h3>
+<div class="gen"><!-- gen:ctx-scoreboard {"compact": true} --><!-- /gen:ctx-scoreboard --></div>
+<p class="takeaway">With the compiler, <code>use(store)</code> matches or beats one context in <span data-n="ctx.tally.on.vsContext.all.matchOrBeat"></span> of <span data-n="ctx.tally.on.vsContext.all.total"></span> configurations, and loses by at most <span data-n="ctx.tally.on.vsContext.maxLossPct"></span> in the rest.</p>
+<p class="explain"><a href="store-vs-context.html#summary">Explain →</a></p>
+</section>
+
+<section class="card" aria-labelledby="card-ctx-gain">
+<h3 id="card-ctx-gain">On entity edits, the compiler helps Context far more</h3>
+<div class="gen"><!-- gen:ctx-compiler-gain {"compact": true} --><!-- /gen:ctx-compiler-gain --></div>
+<p class="takeaway">The compiler helps one context far more than <code>use(store)</code> on entity edits and the conditional reads, where one context re-renders many more components. It helps a context per slice far more only on entity edits.</p>
+<p class="explain"><a href="store-vs-context.html#compiler-gain">Explain →</a></p>
+</section>
+
+<section class="card wide" aria-labelledby="card-ctx-chart">
+<h3 id="card-ctx-chart">Without the compiler, one context wins only in subscribe churn</h3>
+<div class="gen"><!-- gen:ctx-chart {"compact": true} --><!-- /gen:ctx-chart --></div>
+<p class="takeaway">Without the compiler, <code>use(store)</code> against one context is <span data-n="ctx.tally.off.vsContext.all.range"></span>, and against a context per slice it's <span data-n="ctx.tally.off.vsContextSplit.all.range"></span>.</p>
+<p class="explain"><a href="store-vs-context.html#no-compiler">Explain →</a></p>
+</section>
+
+<section class="card" aria-labelledby="card-ctx-verdicts">
+<h3 id="card-ctx-verdicts">With the compiler, one context wins only filter and subscribe churn</h3>
+<div class="gen"><!-- gen:verdict-grid {"comparison": "ctx-on-vsContext", "compact": true} --><!-- /gen:verdict-grid --></div>
+<p class="takeaway">One context wins <span data-n="ctx.tally.on.vsContext.all.losses"></span> configurations with the compiler, in <span data-n="ctx.tally.on.vsContext.lostScenarios"></span>, by at most <span data-n="ctx.tally.on.vsContext.maxLossPct"></span>.</p>
+<p class="explain"><a href="store-vs-context.html#context-wins">Explain →</a></p>
+</section>
+
+<section class="card" aria-labelledby="card-ctx-counts">
+<h3 id="card-ctx-counts">Where every row reads the change, all render the same rows</h3>
+<div class="gen"><!-- gen:ctx-counts {"compact": true} --><!-- /gen:ctx-counts --></div>
+<p class="takeaway">Where every row reads the value that changed, <code>use(store)</code> and one context re-render the same rows.</p>
+<p class="explain"><a href="store-vs-context.html#why">Explain →</a></p>
+</section>
+
+</div>
+
+<!-- ============================================================ -->
+<h2 id="redux-suites">Ported Redux benchmarks and fairness</h2>
+<div class="cards">
+
+<section class="card" aria-labelledby="card-rapid">
+<h3 id="card-rapid"><code>use(store)</code> wins every rapid-dispatch configuration</h3>
+<div class="gen"><!-- gen:suite-rapid-dispatch {"compact": true} --><!-- /gen:suite-rapid-dispatch --></div>
+<p class="takeaway">Rapid dispatch (bursts of dispatches per task, including a Redux Toolkit listener cascade), against the fastest of Redux and Zustand: <span data-n="suite.rapid-dispatch.tally.store.range"></span>.</p>
+<p class="explain"><a href="benchmark-report.html#redux-suites">Explain →</a></p>
+</section>
+
+<section class="card" aria-labelledby="card-same-slice">
+<h3 id="card-same-slice"><code>use(store)</code> wins with many components reading one counter</h3>
+<div class="gen"><!-- gen:suite-many-components-same-slice {"compact": true} --><!-- /gen:suite-many-components-same-slice --></div>
+<p class="takeaway">Many components reading the same counter, against the fastest of Redux and Zustand: <span data-n="suite.many-components-same-slice.tally.store.range"></span>.</p>
+<p class="explain"><a href="benchmark-report.html#redux-suites">Explain →</a></p>
+</section>
+
+<section class="card" aria-labelledby="card-deeptree">
+<h3 id="card-deeptree"><code>use(store)</code> matches or beats every deep-tree configuration</h3>
+<div class="gen"><!-- gen:suite-deeptree-nested-hooks {"compact": true} --><!-- /gen:suite-deeptree-nested-hooks --></div>
+<p class="takeaway">A deep tree with nested Hooks and counters at the leaves, against the fastest of Redux and Zustand: <span data-n="suite.deeptree-nested-hooks.tally.store.range"></span>.</p>
+<p class="explain"><a href="benchmark-report.html#redux-suites">Explain →</a></p>
+</section>
+
+<section class="card" aria-labelledby="card-fairness">
+<h3 id="card-fairness">Leaner Redux setups are sometimes faster than Redux Toolkit</h3>
+<div class="gen"><!-- gen:suite-fairness {"compact": true} --><!-- /gen:suite-fairness --></div>
+<p class="takeaway">Against Redux Toolkit, the hand-written reducer is <span data-n="suite.fairness.control.redux-plain.range"></span>, and turning off auto-freeze is <span data-n="suite.fairness.control.redux-nofreeze.range"></span>.</p>
+<p class="explain"><a href="benchmark-report.html#fairness">Explain →</a></p>
+</section>
+
+<section class="card wide" aria-labelledby="card-fairness5">
+<h3 id="card-fairness5">At <span data-n="method.countsRows"></span> rows, a leaner Redux flips no verdict</h3>
+<div class="gen"><!-- gen:suite-fairness5 {"compact": true} --><!-- /gen:suite-fairness5 --></div>
+<p class="takeaway">At <span data-n="method.countsRows"></span> rows, against the fastest Redux setup in each configuration, <code>use(store)</code> matches or beats it in <span data-n="suite.fairness5.tally.fastestRedux.matchOrBeat"></span> of <span data-n="suite.fairness5.tally.fastestRedux.total"></span>.</p>
+<p class="explain"><a href="benchmark-report.html#fairness">Explain →</a></p>
+</section>
+
+</div>
+
+<!-- ============================================================ -->
+<h2 id="bailout">Without the same-element bailout</h2>
+<div class="cards">
+
+<section class="card wide" aria-labelledby="card-bailout">
+<h3 id="card-bailout">The bailout helps most on selection, subscribe churn, and add / remove</h3>
+<div class="gen"><!-- gen:nobailout-table {"compact": true} --><!-- /gen:nobailout-table --></div>
+<p class="takeaway">Over the <span data-n="nobailout.main.tally.all.total"></span> configurations the build without the bailout measured, <code>use(store)</code> with the compiler matches or beats the faster of Redux and Zustand in <span data-n="nobailout.main.tally.withBailout.matchOrBeat"></span> with the bailout, and in <span data-n="nobailout.main.tally.all.matchOrBeat"></span> without it.</p>
+<p class="explain"><a href="benchmark-report.html#bailout">Explain →</a></p>
+</section>
+
+</div>
+
+<!-- ============================================================ -->
+<h2 id="typing-memory">Typing and memory</h2>
+<div class="cards">
+
+<section class="card" aria-labelledby="card-typing">
+<h3 id="card-typing">Store updates in a transition let typing interrupt the list</h3>
+<div class="gen"><!-- gen:typing-table {"compact": true} --><!-- /gen:typing-table --></div>
+<p class="takeaway">With four times CPU throttling and the compiler, the slowest one in twenty keys (<code>p95</code>) took <span data-n="typing.main.store.on.x4.p95"></span> ms with <code>use(store)</code>, <span data-n="typing.main.zustand.on.x4.p95"></span> ms with Zustand, and <span data-n="typing.main.redux.on.x4.p95"></span> ms with Redux.</p>
+<p class="explain"><a href="benchmark-report.html#typing">Explain →</a></p>
+</section>
+
+<section class="card" aria-labelledby="card-typing-suite">
+<h3 id="card-typing-suite">With <code>useDeferredValue</code>, selector libraries are competitive with no CPU throttling</h3>
+<div class="gen"><!-- gen:typing-suite-table {"compact": true} --><!-- /gen:typing-suite-table --></div>
+<p class="takeaway">With the compiler and no CPU throttling, the slowest one in twenty keys (<code>p95</code>) took <span data-n="typing.suite.store.on.x1.p95"></span> ms with <code>use(store)</code>, <span data-n="typing.suite.zustand-deferred.on.x1.p95"></span> ms for Zustand with <code>useDeferredValue</code>, and <span data-n="typing.suite.redux-deferred.on.x1.p95"></span> ms for Redux with it. With four times CPU throttling, it was <span data-n="typing.suite.store.on.x4.p95"></span>, <span data-n="typing.suite.zustand-deferred.on.x4.p95"></span>, and <span data-n="typing.suite.redux-deferred.on.x4.p95"></span> ms.</p>
+<p class="explain"><a href="benchmark-report.html#typing">Explain →</a></p>
+</section>
+
+<section class="card wide" aria-labelledby="card-memory">
+<h3 id="card-memory"><code>use(store)</code> uses less memory per row than Redux or Zustand</h3>
+<div class="gen"><!-- gen:memory-chart {"compact": true} --><!-- /gen:memory-chart --></div>
+<p class="takeaway">With the compiler at the largest size, <code>use(store)</code> uses <span data-n="memory.store.on.n10000.bytesPerRow"></span> bytes per row, against <span data-n="memory.zustand.on.n10000.bytesPerRow"></span> for Zustand and <span data-n="memory.redux.on.n10000.bytesPerRow"></span> for Redux.</p>
+<p class="explain"><a href="benchmark-report.html#memory">Explain →</a></p>
+</section>
+
+</div>
+
+<footer>
+<p>These are synthetic benchmarks, small apps built to isolate one thing each, with no data from a real app yet. <a href="benchmark-report.html#method">How the numbers were measured</a>.</p>
+</footer>
+
+</main>
+</body>
+</html>

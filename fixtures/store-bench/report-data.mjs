@@ -388,6 +388,7 @@ export const PATTERNS = {
   'spike.tally.<left>.ties': 'Spike: ties vs Redux.',
   'spike.tally.<left>.losses': 'Spike: losses vs Redux.',
   'spike.tally.<left>.total': 'Spike: configurations compared.',
+  'spike.tally.<left>.matchOrBeat': 'Spike: wins + ties vs Redux (unread updates excluded).',
   'spike.tally.<left>.range': 'Spike: range of speedups vs Redux as text.',
   'spike.tally.<left>.k<k>.range': 'Spike at one K: range of speedups vs Redux as text.',
   'sweep.<scenario>.x<throttle>.<config>.<library>.median': 'Sweeps (N=1,000): median ms per update. Configs: c100/c90/c75/c50-w8 (% of rows compiled, 8 props), c0-w8 (no compiler), c100-w4, c100-w16 (props per row).',
@@ -397,6 +398,8 @@ export const PATTERNS = {
   'sweep.tally.<library>.<scenario>.ties': 'Sweeps: ties.',
   'sweep.tally.<library>.<scenario>.losses': 'Sweeps: losses.',
   'sweep.tally.<library>.<scenario>.total': 'Sweeps: configs compared.',
+  'sweep.tally.<library>.<scenario>.matchOrBeat': 'Sweeps: wins + ties.',
+  'sweep.tally.<library>.<scenario>.range': 'Sweeps: range of speedups as text.',
   'typing.<which>.<variant>.<compiler>.x<throttle>.p50': 'Typing (which = main or suite): median keydown-to-frame latency, ms.',
   'typing.<which>.<variant>.<compiler>.x<throttle>.p95': 'Typing: 95th percentile latency, ms.',
   'typing.<which>.<variant>.<compiler>.x<throttle>.max': 'Typing: worst latency, ms.',
@@ -1433,7 +1436,7 @@ export function computeReportData(sources = readSources()) {
     }
     series.fairness5 = {variants: f5Variants, redux: FAIRNESS_REDUX, rows, tallies};
   }
-  put('method.headlineRedux', [], `The headline compares against idiomatic Redux: Redux Toolkit (configureStore, createSlice, Immer with auto-freeze) and react-redux, as in src/apps/redux.jsx. The leaner setups, plain Redux without RTK or Immer (redux-plain) and RTK without auto-freeze (redux-nofreeze), are compared separately${f5 ? ' (suite.fairness5.*: store against the fastest of the three)' : ''}.`, {
+  put('method.headlineRedux', [], `The headline compares against idiomatic Redux: Redux Toolkit (configureStore, createSlice, Immer with auto-freeze) and react-redux, as in src/apps/redux.jsx. The leaner setups, plain Redux without RTK or Immer (redux-plain) and RTK without auto-freeze (redux-nofreeze), are compared separately${f5 ? ', in the fairness run with every variant, against the fastest of the three' : ''}.`, {
     unit: 'text',
     source: 'report-data.mjs HEADLINE_OPPONENTS and src/apps/redux.jsx, redux-plain.jsx, redux-nofreeze.jsx imports',
   });
@@ -1525,6 +1528,7 @@ export function computeReportData(sources = readSources()) {
         put(`spike.tally.<left>.${field}`, [left], t[field], {unit: 'count', source});
       }
       put('spike.tally.<left>.range', [left], describe(t), {unit: 'text', source});
+      put('spike.tally.<left>.matchOrBeat', [left], t.wins + t.ties, {unit: 'count', source});
       put('spike.tally.<left>.rangeWork', [left], describe({...t, noWork: 0, unread: 0}), {unit: 'text', source});
       put('spike.tally.<left>.noWork', [left], t.noWork, {unit: 'count', source});
       for (const [k, cs] of Object.entries(byLeftK[left])) {
@@ -1648,6 +1652,8 @@ export function computeReportData(sources = readSources()) {
         for (const field of ['wins', 'ties', 'losses', 'total']) {
           put(`${prefix}sweep.tally.<library>.<scenario>.${field}`, [lib, scenario], t[field], {unit: 'count', source});
         }
+        put(`${prefix}sweep.tally.<library>.<scenario>.matchOrBeat`, [lib, scenario], t.wins + t.ties, {unit: 'count', source});
+        put(`${prefix}sweep.tally.<library>.<scenario>.range`, [lib, scenario], describe(t), {unit: 'text', source});
       }
     }
     series[seriesKey] = {
@@ -1990,7 +1996,7 @@ export function computeReportData(sources = readSources()) {
     sweeps: 'the sweeps',
     spike: 'the shared derived data spike',
   };
-  put('losses.scope', [], `The losses table counts ${listText(areaOrder.filter(a => lossTotals[a]).map(a => areaLabels[a]))}. It leaves out the controls (losses.control.*): ${listText(controls.map(([, label]) => label))}.`, {
+  put('losses.scope', [], `The losses table counts ${listText(areaOrder.filter(a => lossTotals[a]).map(a => areaLabels[a]))}. It leaves out the controls: ${listText(controls.map(([, label]) => label))}.`, {
     unit: 'text',
     source: 'report-data.mjs areaOrder (noteLoss areas) and the control tallies',
   });

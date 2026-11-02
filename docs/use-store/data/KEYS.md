@@ -17,11 +17,13 @@ Headline bar: store + compiler vs the faster of Redux and Zustand (`HEADLINE_OPP
 
 | name | what it draws |
 |---|---|
+| `stat-tiles` | A row of 3–5 hero numbers. Args: {"keys": [...], "labels": [...], "hrefs": [...], "subs": [...]}. A tally base key (e.g. main.tally.selectors.all) shows matchOrBeat/total with its range (subs "range", the default) or "split" (faster · tie · slower), plus a status icon and words for its losses; any other key shows its display, with an optional sub-line key. Or {"tiles": [{"label", "value", "of", "note", "href"}]}: value and of are keys ("value/of"), note is a key or digit-free words. Needs charts-assets {"extras": true}. |
+| `verdict-grid` | Win / tie / loss (icon and words) for every scenario × size × throttle. Args: {"comparison": "headline" | "granular" | "ctx-<off|on>-<vsContext|vsContextSplit>", "compact": true}. Needs charts-assets {"extras": true}. |
 | `ctx-scoreboard` | Store vs Context at the same compiler setting: per scenario and overall, store vs one context and vs a context per slice, compiler off and on (ctx.tally.*). |
 | `ctx-chart` | Interactive dot plot of store, one context and a context per slice, compiler on and off, by scenario, rows and CPU (log axis), with the same-setting verdicts in the note and a table view. |
 | `ctx-compiler-gain` | What the compiler buys store, one context and a context per slice: with vs without it, per scenario and overall (ctx.tally.compilerGain.*). |
 | `ctx-counts` | Counting build, one update: counted renders (method.countedComponents) and Row renders for store, one context and a context per slice, compiler off and on, per scenario. |
-| `charts-assets` | The chart CSS and runtime (filters, tooltips). Put it once per page, in the `<head>`. |
+| `charts-assets` | The chart CSS and runtime (filters, tooltips). Put it once per page, in the `<head>`. {"extras": true} adds the styles for stat-tiles, verdict-grid and compact cards. Compact (card) mode, {"compact": true}, works on scoreboard, scoreboard-controls, main-chart, counts-table (also {"scenarios": [...]}, and in compact {"variants": [...]}: one row per scenario), scoreboard (also {"columns": [comparison ids]}), main-verdicts (compact is the verdict grid), ctx-counts, sweep-chart, spike-chart, the suite-* tables, suite-fairness5, nobailout-table, typing-table, typing-suite-table, memory-chart, losses-table, ctx-scoreboard, ctx-chart, ctx-compiler-gain and verdict-grid. |
 | `build-label` | The build provenance line (React version and sha, compiler hash, pin date), or a placeholder warning. G5 requires it on every page that cites numbers. |
 | `scoreboard` | Main suite scoreboard: store + compiler vs the faster of Redux/Zustand, and vs each library and context, per scenario and overall; the granular control in its own last column, never in the headline. Low-signal scenarios (structure) are marked. |
 | `scoreboard-controls` | Main suite controls: store-single vs selectors, everything without the compiler, and store with vs without the compiler. |
@@ -4514,6 +4516,14 @@ Spike: configurations compared.
 - `spike.tally.store-memo.total`: 12
 - `spike.tally.sharing.total`: 12
 
+### `spike.tally.<left>.matchOrBeat`
+
+Spike: wins + ties vs Redux (unread updates excluded).
+
+- `spike.tally.store.matchOrBeat`: 0
+- `spike.tally.store-memo.matchOrBeat`: 12
+- `spike.tally.sharing.matchOrBeat`: 12
+
 ### `spike.tally.<left>.range`
 
 Spike: range of speedups vs Redux as text.
@@ -4791,6 +4801,24 @@ Sweeps: configs compared.
 - `sweep.tally.store.selection.total`: 14
 - `sweep.tally.store-keyed.entity.total`: 14
 - `sweep.tally.store-keyed.selection.total`: 14
+
+### `sweep.tally.<library>.<scenario>.matchOrBeat`
+
+Sweeps: wins + ties.
+
+- `sweep.tally.store.entity.matchOrBeat`: 14
+- `sweep.tally.store.selection.matchOrBeat`: 0
+- `sweep.tally.store-keyed.entity.matchOrBeat`: 14
+- `sweep.tally.store-keyed.selection.matchOrBeat`: 14
+
+### `sweep.tally.<library>.<scenario>.range`
+
+Sweeps: range of speedups as text.
+
+- `sweep.tally.store.entity.range`: 2.4–2.8× faster
+- `sweep.tally.store.selection.range`: 1.3–19× slower
+- `sweep.tally.store-keyed.entity.range`: 2.3–2.8× faster
+- `sweep.tally.store-keyed.selection.range`: 1.8–2.1× faster
 
 ### `typing.<which>.<variant>.<compiler>.x<throttle>.p50`
 
@@ -6226,13 +6254,13 @@ Comparisons in that control.
 
 One line: what the losses table counts and which control comparisons it leaves out.
 
-- `losses.scope`: The losses table counts the headline (store + compiler vs the faster of Redux and Zustand), the granular control, the ported Redux suites, the fastest Redux setup in the fairness run, the sweeps, and the shared derived data spike. It leaves out the controls (losses.control.*): store + compiler vs one context (main), store + compiler vs a context per slice (main), one store without selectors (store-single) + compiler vs the faster of Redux and Zustand (main), store vs the faster of Redux and Zustand, everything without the compiler (main), store + compiler vs the faster of Redux and Zustand on the build without the same-element bailout, and store + compiler vs zustand in the fairness run with every variant.
+- `losses.scope`: The losses table counts the headline (store + compiler vs the faster of Redux and Zustand), the granular control, the ported Redux suites, the fastest Redux setup in the fairness run, the sweeps, and the shared derived data spike. It leaves out the controls: store + compiler vs one context (main), store + compiler vs a context per slice (main), one store without selectors (store-single) + compiler vs the faster of Redux and Zustand (main), store vs the faster of Redux and Zustand, everything without the compiler (main), store + compiler vs the faster of Redux and Zustand on the build without the same-element bailout, and store + compiler vs zustand in the fairness run with every variant.
 
 ### `method.headlineRedux`
 
 Which Redux the headline is defined against (idiomatic RTK), and where the leaner setups are compared, for the Method sentence.
 
-- `method.headlineRedux`: The headline compares against idiomatic Redux: Redux Toolkit (configureStore, createSlice, Immer with auto-freeze) and react-redux, as in src/apps/redux.jsx. The leaner setups, plain Redux without RTK or Immer (redux-plain) and RTK without auto-freeze (redux-nofreeze), are compared separately (suite.fairness5.*: store against the fastest of the three).
+- `method.headlineRedux`: The headline compares against idiomatic Redux: Redux Toolkit (configureStore, createSlice, Immer with auto-freeze) and react-redux, as in src/apps/redux.jsx. The leaner setups, plain Redux without RTK or Immer (redux-plain) and RTK without auto-freeze (redux-nofreeze), are compared separately, in the fairness run with every variant, against the fastest of the three.
 
 ### `suite.fairness5.<scenario>.x<throttle>.vs<opponent>`
 
@@ -7031,4 +7059,22 @@ Without the same-element bailout: Sweeps: configs compared.
 - `nobailout.sweep.tally.store.selection.total`: 14
 - `nobailout.sweep.tally.store-keyed.entity.total`: 14
 - `nobailout.sweep.tally.store-keyed.selection.total`: 14
+
+### `nobailout.sweep.tally.<library>.<scenario>.matchOrBeat`
+
+Without the same-element bailout: Sweeps: wins + ties.
+
+- `nobailout.sweep.tally.store.entity.matchOrBeat`: 14
+- `nobailout.sweep.tally.store.selection.matchOrBeat`: 0
+- `nobailout.sweep.tally.store-keyed.entity.matchOrBeat`: 14
+- `nobailout.sweep.tally.store-keyed.selection.matchOrBeat`: 14
+
+### `nobailout.sweep.tally.<library>.<scenario>.range`
+
+Without the same-element bailout: Sweeps: range of speedups as text.
+
+- `nobailout.sweep.tally.store.entity.range`: 2.5–3.1× faster
+- `nobailout.sweep.tally.store.selection.range`: 1.6–20× slower
+- `nobailout.sweep.tally.store-keyed.entity.range`: 2.4–3.0× faster
+- `nobailout.sweep.tally.store-keyed.selection.range`: 1.9–2.1× faster
 

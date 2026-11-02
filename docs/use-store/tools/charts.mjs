@@ -567,6 +567,26 @@ function card(inner, caption) {
   return `<div class="viz viz-card">${inner}${caption ? `<p class="viz-caption">${codeify(caption)}</p>` : ''}</div>`;
 }
 
+// Compact (card) mode: {"compact": true} on a generator. A smaller card with a
+// one-line caption, fewer columns or controls, and the legend and table view
+// kept. Without it every generator's output is unchanged.
+function isCompact(opts) {
+  return Boolean(opts?.args?.compact);
+}
+function compactCard(inner, caption) {
+  return `<div class="viz viz-card viz-compact">${inner}${caption ? `<p class="viz-caption">${codeify(caption)}</p>` : ''}</div>`;
+}
+// Keeps only the columns at the given indexes (rows may be {cls, cells}).
+function pickCols(head, rows, keep) {
+  return [keep.map(i => head[i]), rows.map(r => (Array.isArray(r) ? keep.map(i => r[i]) : {...r, cells: keep.map(i => r.cells[i])}))];
+}
+// A figure in compact mode: the compact class, and only the listed controls.
+function compactFigure(html, keepControls) {
+  return html
+    .replace('<figure class="viz"', '<figure class="viz viz-compact"')
+    .replace(/<label>[^<]*<select data-control="([^"]+)">[\s\S]*?<\/select><\/label>/g, (all, key) => (keepControls.includes(key) ? all : ''));
+}
+
 function table(head, rows, cls = '') {
   return `<div class="viz-scroll"><table class="viz-table${cls ? ' ' + cls : ''}"><thead><tr>${head
     .map((h, i) => `<th${i ? ' class="r"' : ''}>${codeify(h)}</th>`)
@@ -578,7 +598,7 @@ function table(head, rows, cls = '') {
     .join('')}</tbody></table></div>`;
 }
 
-function tallyCell(t) {
+function tallyCell(t, compact = false) {
   if (!t || (t.total === 0 && !t.noWork))
     return '<span class="muted">no data</span>';
   const parts = [
@@ -592,6 +612,7 @@ function tallyCell(t) {
     .replace(/, and \d+ (with no work|unread updates? \(no work\))$/, '')
     .replace(/\s*\([^)]*\)$/, '')
     .replace(/^(\d+ (faster|tie|slower)(, )?)+$/, '');
+  if (compact) return `<span class="sb-count">${t.wins + t.ties}/${t.total}</span><span class="sb-parts">${parts.join(' · ')}</span>`;
   return `<span class="sb-count">${t.wins + t.ties}/${t.total}</span><span class="sb-range">${esc(range)}</span><span class="sb-parts">${parts.join(' · ')}</span>`;
 }
 
@@ -668,10 +689,12 @@ function buildLabel(data) {
   return `<p class="viz-build" data-build-status="${esc(b.status)}" data-build-sha="${esc(b.shortSha)}">${esc(b.label)}</p>`;
 }
 
-function scoreboard(data) {
+function scoreboard(data, opts) {
+  const compact = isCompact(opts);
   const sb = data.series.scoreboard;
   // The granular control last: it's reported, but it isn't the headline.
-  const ids = [
+  // {"columns": [...]} picks comparisons (ids from KEYS.md "Comparisons").
+  const ids = opts?.args?.columns ?? [
     'selectors',
     'redux',
     'zustand',
@@ -690,31 +713,38 @@ function scoreboard(data) {
   const titleOf = r => scenarioTitle(scenarios.find(s => s.key === r.key) ?? r);
   const rows = sb.rows.map(r => [
     titleOf(r),
-    ...ids.map(id => tallyCell(r.tallies[id])),
+    ...ids.map(id => tallyCell(r.tallies[id], compact)),
   ]);
   rows.push({
     cls: 'total',
-    cells: ['every scenario', ...ids.map(id => tallyCell(sb.all[id]))],
+    cells: ['every scenario', ...ids.map(id => tallyCell(sb.all[id], compact))],
   });
+  if (compact) {
+    return compactCard(placeholderBanner(data) + table(head, rows, 'scoreboard'), 'use(store) with the compiler vs each library at its faster setting. Bold: matched or beaten.');
+  }
   return card(
     placeholderBanner(data) + table(head, rows, 'scoreboard'),
     `use(store) with the compiler against each library at its faster compiler setting, over every size and CPU throttle. The bold count is configurations matched or beaten. ${esc(rule(data))} The granular control (a Zustand store per entity) is its own column, never part of the headline.${esc(lowSignalNote(data))}`
   );
 }
 
-function scoreboardControls(data) {
+function scoreboardControls(data, opts) {
+  const compact = isCompact(opts);
   const sb = data.series.scoreboard;
   const ids = ['single-selectors', 'nocompiler-selectors', 'compiler-gain'];
   const head = ['scenario', ...ids.map(id => esc(sb.comparisons[id]))];
   const scenarios = data.series.main.scenarios;
   const rows = sb.rows.map(r => [
     scenarioTitle(scenarios.find(s => s.key === r.key) ?? r),
-    ...ids.map(id => tallyCell(r.tallies[id])),
+    ...ids.map(id => tallyCell(r.tallies[id], compact)),
   ]);
   rows.push({
     cls: 'total',
-    cells: ['every scenario', ...ids.map(id => tallyCell(sb.all[id]))],
+    cells: ['every scenario', ...ids.map(id => tallyCell(sb.all[id], compact))],
   });
+  if (compact) {
+    return compactCard(placeholderBanner(data) + table(head, rows, 'scoreboard'), 'Controls: one store, no compiler, and what the compiler buys use(store).');
+  }
   return card(
     placeholderBanner(data) + table(head, rows, 'scoreboard'),
     `Controls: one store without selectors, everything without the compiler, and what the compiler buys use(store). ${esc(rule(data))}`
@@ -763,8 +793,9 @@ function mainChart(data) {
   );
 }
 
-function mainVerdicts(data) {
+function mainVerdicts(data, opts) {
   const d = data.series.main;
+  if (isCompact(opts)) return verdictGrid(data, {args: {comparison: 'headline', compact: true}});
   const cols = d.ns.flatMap(n => d.throttles.map(t => [n, t]));
   const head = [
     'scenario',
@@ -829,9 +860,10 @@ function mainTable(data) {
   );
 }
 
-function countsTable(data) {
+function countsTable(data, opts) {
+  const only = opts?.args?.scenarios;
   const rows = data.series.counts.filter(
-    r => r.suite === 'main' && r.compiler === 'on'
+    r => r.suite === 'main' && r.compiler === 'on' && (!only || only.includes(r.scenario))
   );
   const scenarios = data.series.main.scenarios.map(s => s.key);
   const variants = data.series.main.variants.length
@@ -844,28 +876,40 @@ function countsTable(data) {
         scenarios.indexOf(a.scenario) - scenarios.indexOf(b.scenario) ||
         variants.indexOf(a.variant) - variants.indexOf(b.variant)
     );
+  const countsHtml = table(
+    [
+      'scenario',
+      'variant',
+      'counted renders',
+      'Row renders',
+      'selector calls',
+    ],
+    ordered.map(r => [
+      esc(r.scenario),
+      esc(r.variant),
+      LIB.int(r.renders),
+      LIB.int(r.rows),
+      LIB.int(r.selectors),
+    ])
+  );
+  if (isCompact(opts)) {
+    // One row per scenario, one column per variant ({"variants": [...]}).
+    const vs = opts.args.variants ?? variants;
+    const byKey = new Map(ordered.map(r => [`${r.scenario}|${r.variant}`, r]));
+    const scs = scenarios.filter(sc => ordered.some(r => r.scenario === sc));
+    const cell = r => (r ? `${LIB.int(r.renders)} <small class="muted">· ${LIB.int(r.selectors)} sel.</small>` : '–');
+    return compactCard(
+      table(['scenario', ...vs.map(esc)], scs.map(sc => [esc(sc), ...vs.map(v => cell(byKey.get(`${sc}|${v}`)))])),
+      `Counting build, one update, compiled: counted renders · selector calls. Counted: ${esc(data.values['method.countedComponents']?.display ?? '')}.`
+    );
+  }
   return card(
-    table(
-      [
-        'scenario',
-        'variant',
-        'counted renders',
-        'Row renders',
-        'selector calls',
-      ],
-      ordered.map(r => [
-        esc(r.scenario),
-        esc(r.variant),
-        LIB.int(r.renders),
-        LIB.int(r.rows),
-        LIB.int(r.selectors),
-      ])
-    ),
+    countsHtml,
     `From the counting build at ${esc(data.values['method.countsRows']?.display ?? '')} rows, every component compiled: work for one update. Counted renders are the renders of ${esc(data.values['method.countedComponents']?.display ?? 'the instrumented components')}, not every component (App and the list aren't counted). Row renders are among them.`
   );
 }
 
-function suiteTable(data, suite) {
+function suiteTable(data, suite, opts) {
   const s = data.series.suites.find(x => x.suite === suite);
   if (!s)
     return card('<p class="viz-empty">No pinned results for this suite.</p>');
@@ -893,13 +937,18 @@ function suiteTable(data, suite) {
     ];
   });
   const unread = [...new Set(s.rows.filter(r => Object.values(r.verdicts).some(v => v?.unread)).map(r => r.scenario))];
+  if (isCompact(opts)) {
+    const keep = [0, ...head.map((h, i) => i).filter(i => i > s.variants.length)];
+    const [h, rr] = pickCols(head, rows, keep);
+    return compactCard(placeholderBanner(data) + table(h, rr), `Verdicts with the compiler, under the restart rule.${unread.length ? ` ${esc(unread.join(', '))}: unread update (no work).` : ''}`);
+  }
   return card(
     placeholderBanner(data) + table(head, rows),
     `Median ms per update with the compiler. Small numbers are the ratio of means to redux. ${s.lefts.length ? `Verdicts compare with the fastest of ${esc(listText(s.opponents))}, each at its faster compiler setting.` : ''}${s.controls?.length ? ` The control columns compare each Redux setup with redux, each at its faster compiler setting ("faster" means the control is faster).` : ''} ${esc(rule(data))}${unread.length ? ` ${esc(unread.join(', '))}: an unread update (no component displays what changes, so the DOM never changes), counted as no work, not as a win.` : ''}`
   );
 }
 
-function fairness5Table(data) {
+function fairness5Table(data, opts) {
   const d = data.series.fairness5;
   if (!d) return card('<p class="viz-empty">No pinned results for the fairness run with every variant.</p>');
   const head = [
@@ -919,8 +968,16 @@ function fairness5Table(data) {
   ]);
   rows.push({
     cls: 'total',
-    cells: ['every scenario', ...d.variants.map(() => ''), tallyCell(d.tallies.redux), tallyCell(d.tallies.zustand)],
+    cells: ['every scenario', ...d.variants.map(() => ''), tallyCell(d.tallies.redux, isCompact(opts)), tallyCell(d.tallies.zustand, isCompact(opts))],
   });
+  if (isCompact(opts)) {
+    // The verdict text only (the fastest setup's name is in the full table).
+    rows.forEach((r, i) => {
+      if (Array.isArray(r)) r[head.length - 2] = esc(d.rows[i].verdicts.redux?.text ?? 'n/a');
+    });
+    const [h, rr] = pickCols(head, rows, [0, head.length - 2, head.length - 1]);
+    return compactCard(placeholderBanner(data) + table(h, rr, 'scoreboard'), 'use(store) with the compiler vs the fastest Redux setup and vs Zustand.');
+  }
   return card(
     placeholderBanner(data) + table(head, rows, 'scoreboard'),
     `Median ms per update with the compiler. use(store) with the compiler against the fastest of ${esc(listText(d.redux))} (each at its faster compiler setting), and against Zustand. The headline itself stays defined against idiomatic RTK Redux. ${esc(rule(data))}`
@@ -992,10 +1049,21 @@ function sweepChart(data) {
   );
 }
 
-function typingTable(data, which) {
+function typingTable(data, which, opts) {
   const rows = data.series.typing[which] ?? [];
   if (rows.length === 0)
     return card('<p class="viz-empty">No pinned typing results.</p>');
+  if (isCompact(opts)) {
+    const on = rows.filter(r => r.compiler === 'on');
+    return compactCard(
+      placeholderBanner(data) +
+        table(
+          ['variant', 'CPU', 'p50 ms', 'p95 ms'],
+          on.map(r => [`${esc(r.variant)} + compiler`, `${r.throttle}×`, r.p50.toFixed(1), r.p95.toFixed(1)])
+        ),
+      'Keydown to next frame while the list re-filters, compiler on.'
+    );
+  }
   return card(
     placeholderBanner(data) +
       table(
@@ -1044,7 +1112,8 @@ function memoryChart(data) {
   );
 }
 
-function lossesTable(data) {
+function lossesTable(data, opts) {
+  const compact = isCompact(opts);
   const rows = data.series.losses;
   const v = data.values;
   const headline = data.series.main.headline ?? 'the headline opponents';
@@ -1065,7 +1134,9 @@ function lossesTable(data) {
     .map(([a, title]) => {
       const list = rows.filter(r => r.area === a);
       const summary = `${v[`losses.${a}.count`].display} of ${v[`losses.${a}.of`].display} lost`;
-      const body = list.length
+      const body = list.length && compact
+        ? list.map(r => `<tr><td>${esc(r.where)}</td><td class="r">${esc(r.left)}</td><td class="r">${esc(r.opponent)}</td><td class="r">${esc(r.text)}</td></tr>`).join('')
+        : list.length
         ? list
             .map(
               r =>
@@ -1073,10 +1144,26 @@ function lossesTable(data) {
                 (r.reason ? `<tr class="reason"><td colspan="${head.length}">${esc(r.reason)}</td></tr>` : ''),
             )
             .join('')
-        : `<tr><td colspan="${head.length}" class="muted">No losses.</td></tr>`;
-      return `<tr class="area"><th colspan="${head.length}">${esc(title)} <small>${esc(summary)}</small></th></tr>${body}`;
+        : `<tr><td colspan="${compact ? 4 : head.length}" class="muted">No losses.</td></tr>`;
+      return `<tr class="area"><th colspan="${compact ? 4 : head.length}">${esc(title)} <small>${esc(summary)}</small></th></tr>${body}`;
     })
     .join('');
+  if (compact) {
+    // A count per area, with every loss behind a disclosure.
+    const summary = areas
+      .filter(([a]) => v[`losses.${a}.of`])
+      .map(([a, title]) => {
+        const worst = rows.filter(r => r.area === a).sort((x, y) => y.ratio - x.ratio)[0];
+        return [esc(title), `${esc(v[`losses.${a}.count`].display)} of ${esc(v[`losses.${a}.of`].display)}`, worst ? esc(worst.text) : '–'];
+      });
+    const h = ['where', 'store side', 'against', 'verdict (means)'];
+    return compactCard(
+      placeholderBanner(data) +
+        table(['area', 'lost', 'worst'], summary) +
+        `<details class="viz-tableview"><summary>Every loss</summary><div class="viz-scroll"><table class="viz-table losses"><thead><tr>${h.map((x, i) => `<th${i ? ' class="r"' : ''}>${x}</th>`).join('')}</tr></thead><tbody>${sections}</tbody></table></div></details>`,
+      'Comparisons use(store) loses, by area, under the restart rule.'
+    );
+  }
   return card(
     placeholderBanner(data) +
       `<div class="viz-scroll"><table class="viz-table losses"><thead><tr>${head.map((h, i) => `<th${i ? ' class="r"' : ''}>${h}</th>`).join('')}</tr></thead><tbody>${sections}</tbody></table></div>`,
@@ -1084,7 +1171,7 @@ function lossesTable(data) {
   );
 }
 
-function nobailoutTable(data) {
+function nobailoutTable(data, opts) {
   const d = data.series.nobailout;
   if (!d) return card('<p class="viz-empty">No pinned results without the same-element bailout.</p>');
   const head = [
@@ -1116,6 +1203,20 @@ function nobailoutTable(data) {
   const tally = v['nobailout.main.tally.all.total']
     ? `<p class="viz-note">Without the bailout, <code>use(store)</code> with the compiler matches or beats ${esc(data.series.main.headline ?? 'the headline opponents')} in ${shown('nobailout.main.tally.all.matchOrBeat')} of ${shown('nobailout.main.tally.all.total')} configurations: ${shown('nobailout.main.tally.all.range')}. With it (the head build, same configurations): ${shown('nobailout.main.tally.withBailout.matchOrBeat')} of ${shown('nobailout.main.tally.withBailout.total')}: ${shown('nobailout.main.tally.withBailout.range')}.</p>`
     : '';
+  if (isCompact(opts)) {
+    // One row per scenario: the tally without the bailout, and what it buys.
+    const vv = data.values;
+    const shownKey = k => esc(vv[k]?.display ?? 'n/a');
+    const perScenario = d.scenarios.map(sc => [
+      esc(sc.title),
+      `${shownKey(`nobailout.main.tally.${sc.key}.wins`)} faster · ${shownKey(`nobailout.main.tally.${sc.key}.ties`)} tie · ${shownKey(`nobailout.main.tally.${sc.key}.losses`)} slower`,
+      shownKey(`nobailout.main.bailoutGain.${sc.key}.range`),
+    ]);
+    return compactCard(
+      placeholderBanner(data) + tally + table(['scenario', `without the bailout, vs ${esc(data.series.main.headline ?? 'the headline opponents')}`, 'what the bailout buys'], perScenario),
+      'Without the same-element bailout, compiler on. Never part of the headline.'
+    );
+  }
   let sweeps = '';
   const sw = data.series.nobailoutSweeps;
   if (sw) {
@@ -1145,7 +1246,7 @@ function ctxScenarios(data) {
   return data.series.main.scenarios;
 }
 
-function ctxScoreboard(data) {
+function ctxScoreboard(data, opts) {
   const d = data.series.ctx;
   if (!d) return card('<p class="viz-empty">No pinned Context results.</p>');
   const cols = [
@@ -1154,8 +1255,11 @@ function ctxScoreboard(data) {
     ['off|vsContextSplit', 'vs a context per slice, compiler off'],
     ['on|vsContextSplit', 'vs a context per slice, compiler on'],
   ];
-  const rows = ctxScenarios(data).map(s => [scenarioTitle(s), ...cols.map(([k]) => tallyCell(d.tallies[k]?.[s.key]))]);
-  rows.push({cls: 'total', cells: ['every scenario', ...cols.map(([k]) => tallyCell(d.tallies[k]?.all))]});
+  const rows = ctxScenarios(data).map(s => [scenarioTitle(s), ...cols.map(([k]) => tallyCell(d.tallies[k]?.[s.key], isCompact(opts)))]);
+  rows.push({cls: 'total', cells: ['every scenario', ...cols.map(([k]) => tallyCell(d.tallies[k]?.all, isCompact(opts)))]});
+  if (isCompact(opts)) {
+    return compactCard(placeholderBanner(data) + table(['scenario', ...cols.map(([, h]) => esc(h))], rows, 'scoreboard'), 'use(store) vs Context at the same compiler setting. Bold: matched or beaten.');
+  }
   return card(
     placeholderBanner(data) + table(['scenario', ...cols.map(([, h]) => esc(h))], rows, 'scoreboard'),
     `use(store) against Context at the same compiler setting: both without the compiler, or both with it, over every size and CPU throttle. The bold count is configurations where use(store) matches or beats Context. ${esc(rule(data))}${esc(lowSignalNote(data))}`
@@ -1213,21 +1317,37 @@ function ctxChart(data) {
   );
 }
 
-function ctxCompilerGain(data) {
+function ctxCompilerGain(data, opts) {
   const d = data.series.ctx;
   if (!d) return card('<p class="viz-empty">No pinned Context results.</p>');
-  const rows = ctxScenarios(data).map(s => [scenarioTitle(s), ...d.variants.map(v => tallyCell(d.tallies[`gain|${v}`]?.[s.key]))]);
-  rows.push({cls: 'total', cells: ['every scenario', ...d.variants.map(v => tallyCell(d.tallies[`gain|${v}`]?.all))]});
+  const rows = ctxScenarios(data).map(s => [scenarioTitle(s), ...d.variants.map(v => tallyCell(d.tallies[`gain|${v}`]?.[s.key], isCompact(opts)))]);
+  rows.push({cls: 'total', cells: ['every scenario', ...d.variants.map(v => tallyCell(d.tallies[`gain|${v}`]?.all, isCompact(opts)))]});
+  if (isCompact(opts)) {
+    return compactCard(placeholderBanner(data) + table(['scenario', ...d.variants.map(v => esc(d.names[v] ?? v))], rows, 'scoreboard'), 'What the compiler buys each approach. Bold: faster or tied with it.');
+  }
   return card(
     placeholderBanner(data) + table(['scenario', ...d.variants.map(v => esc(d.names[v] ?? v))], rows, 'scoreboard'),
     `What the React Compiler buys each approach: the same variant with the compiler against without it, over every size and CPU throttle. "Faster" means faster with the compiler, and the bold count is configurations where the compiler matches or beats no compiler. ${esc(rule(data))}`
   );
 }
 
-function ctxCounts(data) {
+function ctxCounts(data, opts) {
   const d = data.series.ctx;
   if (!d) return card('<p class="viz-empty">No pinned Context results.</p>');
   const byKey = new Map(data.series.counts.filter(r => r.suite === 'main').map(r => [`${r.scenario}|${r.variant}|${r.compiler}`, r]));
+  if (isCompact(opts)) {
+    const cols = d.variants.flatMap(v => ['off', 'on'].map(c => [v, c]));
+    return compactCard(
+      table(
+        ['scenario', ...cols.map(([v, c]) => `${esc(d.names[v] ?? v)}, compiler ${c}`)],
+        ctxScenarios(data).map(s => [scenarioTitle(s), ...cols.map(([v, c]) => {
+          const r = byKey.get(`${s.key}|${v}|${c}`);
+          return r ? LIB.int(r.renders) : '–';
+        })])
+      ),
+      `Counted renders for one update (${esc(data.values['method.countedComponents']?.display ?? '')}).`
+    );
+  }
   const head = ['scenario', 'variant', 'counted renders, compiler off', 'Row renders, compiler off', 'counted renders, compiler on', 'Row renders, compiler on'];
   const rows = ctxScenarios(data).flatMap(s =>
     d.variants.map(v => {
@@ -1243,36 +1363,149 @@ function ctxCounts(data) {
   );
 }
 
+// ---------------------------------------------------------------- tiles and grids
+
+// One verdict as an icon and words: ✓ win, = tie, ✗ loss, – no work.
+function verdictMark(v) {
+  if (!v) return {cls: 'none', icon: '·', text: 'n/a'};
+  if (v.noWork) return {cls: 'nowork', icon: '–', text: v.text};
+  if (v.tie) return {cls: 'tie', icon: '=', text: v.split ? 'tie*' : 'tie'};
+  return v.ratio < 1 ? {cls: 'win', icon: '✓', text: v.text} : {cls: 'loss', icon: '✗', text: v.text};
+}
+
+// A row of hero numbers. args: {keys, labels, hrefs?, subs?}. A key is either
+// a tally base ("main.tally.selectors.all": shown as matchOrBeat/total, with
+// the range below and a status from the losses) or any value key (shown as
+// its display). subs[i] picks the sub-line: "range" (default for tallies),
+// "split" (wins · ties · losses), a value key, or "" for none.
+function statTiles(data, {args = {}} = {}) {
+  const v = data.values;
+  // {"tiles": [{label, value, of, note, href}]}: value (and of) are keys, shown
+  // as "value/of"; note is a key or plain digit-free words.
+  if (args.tiles) {
+    const shown = k => {
+      if (!v[k]) throw new Error(`stat-tiles: no key ${k}`);
+      return esc(v[k].display);
+    };
+    const items = args.tiles.map(t => {
+      const value = t.of ? `${shown(t.value)}/${shown(t.of)}` : shown(t.value);
+      const note = t.note ? (v[t.note] ? esc(v[t.note].display) : esc(t.note)) : '';
+      const body = `<p class="viz-tile-label">${codeify(esc(t.label ?? ''))}</p><p class="viz-tile-value">${value}</p>${note ? `<p class="viz-tile-sub">${codeify(note)}</p>` : ''}`;
+      return `<li class="viz-tile">${t.href ? `<a href="${esc(t.href)}">${body}</a>` : body}</li>`;
+    });
+    return placeholderBanner(data) + `<div class="viz-tiles-wrap"><ul class="viz viz-tiles" role="list" data-n="${items.length}" style="--n:${items.length}">${items.join('')}</ul></div>`;
+  }
+  const keys = args.keys ?? [];
+  const tiles = keys.map((key, i) => {
+    if (args.labels?.[i] === undefined) throw new Error(`stat-tiles: no label for ${key}`);
+    const label = esc(args.labels[i]);
+    const isTally = v[`${key}.total`] && v[`${key}.matchOrBeat`];
+    let value;
+    let sub = '';
+    let status = '';
+    if (isTally) {
+      value = `${esc(v[`${key}.matchOrBeat`].display)}/${esc(v[`${key}.total`].display)}`;
+      const pick = args.subs?.[i] ?? 'range';
+      const parts = [
+        v[`${key}.wins`] && `${v[`${key}.wins`].display} faster`,
+        v[`${key}.ties`] && `${v[`${key}.ties`].display} tie`,
+        v[`${key}.losses`] && `${v[`${key}.losses`].display} slower`,
+      ].filter(Boolean);
+      sub = pick === 'range' ? esc(v[`${key}.range`]?.display ?? '') : pick === 'split' ? esc(parts.join(' · ')) : pick ? esc(v[pick]?.display ?? '') : '';
+      const losses = v[`${key}.losses`]?.value;
+      if (losses !== undefined) {
+        status =
+          losses === 0
+            ? `<span class="viz-status good"><span class="icon" aria-hidden="true">✓</span>no losses</span>`
+            : `<span class="viz-status serious"><span class="icon" aria-hidden="true">✗</span>${esc(v[`${key}.losses`].display)} slower</span>`;
+      }
+    } else {
+      if (!v[key]) throw new Error(`stat-tiles: no key ${key} (or ${key}.total/.matchOrBeat)`);
+      value = esc(v[key].display);
+      const pick = args.subs?.[i];
+      sub = pick ? esc(v[pick]?.display ?? '') : '';
+    }
+    const body = `<p class="viz-tile-label">${codeify(label)}</p><p class="viz-tile-value">${value}</p>${sub ? `<p class="viz-tile-sub">${codeify(sub)}</p>` : ''}${status}`;
+    const href = args.hrefs?.[i];
+    return `<li class="viz-tile">${href ? `<a href="${esc(href)}">${body}</a>` : body}</li>`;
+  });
+  return placeholderBanner(data) + `<div class="viz-tiles-wrap"><ul class="viz viz-tiles" role="list" data-n="${tiles.length}" style="--n:${tiles.length}">${tiles.join('')}</ul></div>`;
+}
+
+// Win / tie / loss for every scenario × size × throttle. args.comparison:
+// "headline" (default: store + compiler vs the faster of Redux and Zustand),
+// "granular", or "ctx-<off|on>-<vsContext|vsContextSplit>" (same setting).
+function verdictGrid(data, {args = {}} = {}) {
+  const d = data.series.main;
+  const which = args.comparison ?? 'headline';
+  const ctx = which.match(/^ctx-(off|on)-(vsContext|vsContextSplit)$/);
+  if (ctx && !data.series.ctx) return card('<p class="viz-empty">No pinned Context results.</p>');
+  const verdictOf = key =>
+    ctx ? data.series.ctx.cells[key]?.verdicts[ctx[1]][ctx[2]] : which === 'granular' ? d.cells[key]?.granular : d.cells[key]?.verdict;
+  const cols = d.ns.flatMap(n => d.throttles.map(t => [n, t]));
+  let anySplit = false;
+  const rows = d.scenarios.map(s => [
+    scenarioTitle(s),
+    ...cols.map(([n, t]) => {
+      const m = verdictMark(verdictOf(`${s.key}|${n}|${t}`));
+      if (m.text === 'tie*') anySplit = true;
+      if (args.compact) {
+        // Short: the icon and the ratio, with the direction in words for
+        // screen readers.
+        const short = m.text.replace(/ (faster|slower)$/, '');
+        const word = m.cls === 'win' ? 'faster' : m.cls === 'loss' ? 'slower' : '';
+        return `<span class="${m.cls}"><span class="icon" aria-hidden="true">${m.icon}</span>${esc(short)}${word ? `<span class="viz-sr"> ${word}</span>` : ''}</span>`;
+      }
+      return `<span class="${m.cls}"><span class="icon" aria-hidden="true">${m.icon}</span>${esc(m.text)}</span>`;
+    }),
+  ]);
+  const what = ctx
+    ? `use(store) vs ${ctx[2] === 'vsContext' ? 'one context' : 'a context per slice'}, both ${ctx[1] === 'on' ? 'with' : 'without'} the compiler`
+    : which === 'granular'
+      ? 'use(store) with the compiler vs the granular control'
+      : `use(store) with the compiler vs ${d.headline}, each at its faster compiler setting`;
+  return `<div class="viz viz-card viz-grid${args.compact ? ' viz-compact' : ''}">${placeholderBanner(data)}${table(
+    ['scenario', ...cols.map(([n, t]) => `N=${n.toLocaleString('en-US')} · ${t}×`)],
+    rows
+  ).replace('<table class="viz-table">', '<table class="viz-table"><caption class="viz-caption" style="caption-side:bottom;text-align:left">' + codeify(esc(what)) + `. ✓ faster, = tie${anySplit ? ' (tie*: the restarts disagreed)' : ''}, ✗ slower. A difference counts only outside two standard errors and when every restart agrees.</caption>`)}</div>`;
+}
+
 export const generators = {
-  'charts-assets': () => assets(),
+  'charts-assets': (data, {args = {}} = {}) => assets(args),
   'build-label': buildLabel,
   scoreboard,
   'scoreboard-controls': scoreboardControls,
-  'main-chart': mainChart,
+  'main-chart': (d, o) => (isCompact(o) ? compactFigure(mainChart(d), ['scenario']) : mainChart(d)),
   'main-verdicts': mainVerdicts,
   'main-table': mainTable,
   'counts-table': countsTable,
-  'suite-derived-selectors': d => suiteTable(d, 'derived-selectors'),
-  'suite-rapid-dispatch': d => suiteTable(d, 'rapid-dispatch'),
-  'suite-many-components-same-slice': d =>
-    suiteTable(d, 'many-components-same-slice'),
-  'suite-deeptree-nested-hooks': d => suiteTable(d, 'deeptree-nested-hooks'),
-  'suite-fairness': d => suiteTable(d, 'fairness'),
+  'suite-derived-selectors': (d, o) => suiteTable(d, 'derived-selectors', o),
+  'suite-rapid-dispatch': (d, o) => suiteTable(d, 'rapid-dispatch', o),
+  'suite-many-components-same-slice': (d, o) =>
+    suiteTable(d, 'many-components-same-slice', o),
+  'suite-deeptree-nested-hooks': (d, o) => suiteTable(d, 'deeptree-nested-hooks', o),
+  'suite-fairness': (d, o) => suiteTable(d, 'fairness', o),
   'suite-fairness5': fairness5Table,
-  'spike-chart': spikeChart,
-  'sweep-chart': sweepChart,
-  'typing-table': d => typingTable(d, 'main'),
-  'typing-suite-table': d => typingTable(d, 'suite'),
-  'memory-chart': memoryChart,
+  'spike-chart': (d, o) => (isCompact(o) ? compactFigure(spikeChart(d), []) : spikeChart(d)),
+  'sweep-chart': (d, o) => (isCompact(o) ? compactFigure(sweepChart(d), ['view']) : sweepChart(d)),
+  'typing-table': (d, o) => typingTable(d, 'main', o),
+  'typing-suite-table': (d, o) => typingTable(d, 'suite', o),
+  'memory-chart': (d, o) => (isCompact(o) ? compactFigure(memoryChart(d), []) : memoryChart(d)),
   'losses-table': lossesTable,
   'nobailout-table': nobailoutTable,
   'ctx-scoreboard': ctxScoreboard,
-  'ctx-chart': ctxChart,
+  'ctx-chart': (d, o) => (isCompact(o) ? compactFigure(ctxChart(d), ['scenario']) : ctxChart(d)),
   'ctx-compiler-gain': ctxCompilerGain,
   'ctx-counts': ctxCounts,
+  'stat-tiles': statTiles,
+  'verdict-grid': verdictGrid,
 };
 
 export const generatorDocs = {
+  'stat-tiles':
+    'A row of 3–5 hero numbers. Args: {"keys": [...], "labels": [...], "hrefs": [...], "subs": [...]}. A tally base key (e.g. main.tally.selectors.all) shows matchOrBeat/total with its range (subs "range", the default) or "split" (faster · tie · slower), plus a status icon and words for its losses; any other key shows its display, with an optional sub-line key. Or {"tiles": [{"label", "value", "of", "note", "href"}]}: value and of are keys ("value/of"), note is a key or digit-free words. Needs charts-assets {"extras": true}.',
+  'verdict-grid':
+    'Win / tie / loss (icon and words) for every scenario × size × throttle. Args: {"comparison": "headline" | "granular" | "ctx-<off|on>-<vsContext|vsContextSplit>", "compact": true}. Needs charts-assets {"extras": true}.',
   'ctx-scoreboard':
     'Store vs Context at the same compiler setting: per scenario and overall, store vs one context and vs a context per slice, compiler off and on (ctx.tally.*).',
   'ctx-chart':
@@ -1282,7 +1515,7 @@ export const generatorDocs = {
   'ctx-counts':
     'Counting build, one update: counted renders (method.countedComponents) and Row renders for store, one context and a context per slice, compiler off and on, per scenario.',
   'charts-assets':
-    'The chart CSS and runtime (filters, tooltips). Put it once per page, in the `<head>`.',
+    'The chart CSS and runtime (filters, tooltips). Put it once per page, in the `<head>`. {"extras": true} adds the styles for stat-tiles, verdict-grid and compact cards. Compact (card) mode, {"compact": true}, works on scoreboard, scoreboard-controls, main-chart, counts-table (also {"scenarios": [...]}, and in compact {"variants": [...]}: one row per scenario), scoreboard (also {"columns": [comparison ids]}), main-verdicts (compact is the verdict grid), ctx-counts, sweep-chart, spike-chart, the suite-* tables, suite-fairness5, nobailout-table, typing-table, typing-suite-table, memory-chart, losses-table, ctx-scoreboard, ctx-chart, ctx-compiler-gain and verdict-grid.',
   'build-label':
     'The build provenance line (React version and sha, compiler hash, pin date), or a placeholder warning. G5 requires it on every page that cites numbers.',
   scoreboard:
@@ -1388,6 +1621,55 @@ figure.viz,.viz-card{background:var(--surface-1);border:1px solid var(--border);
 @media (forced-colors:active){.viz .dot-on,.viz .bar{fill:CanvasText}.viz .line,.viz .whisker,.viz .dot-off{stroke:CanvasText}}
 `;
 
+// Tiles sit in one row while each gets at least TILE_MIN px, then wrap
+// evenly: half the count per row (rounded up), then two, then one.
+const TILE_MIN = 140;
+const TILE_GAP = 12;
+const fits = cols => cols * TILE_MIN + (cols - 1) * TILE_GAP;
+const TILE_QUERIES = [2, 3, 4, 5, 6]
+  .flatMap(n =>
+    [...new Set([Math.ceil(n / 2), 2, 1])]
+      .filter(cols => cols < n)
+      .map(cols => `@container viz-tiles (max-width:${fits(cols + (cols === Math.ceil(n / 2) ? n - cols : 1)) - 1}px){.viz-tiles[data-n="${n}"]{grid-template-columns:repeat(${cols},minmax(0,1fr))}}`)
+  )
+  .join('\n');
+
+// Stat tiles, the verdict grid and compact cards (charts-assets {"extras": true}).
+// Status colors (palette.md): an icon carries the color, the words stay in
+// text ink, so state never rests on color alone.
+const EXTRA_CSS = `
+.viz{--good:#006300;--serious:#b8461b}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])) .viz{--good:#0ca30c;--serious:#ec835a}}
+:root[data-theme="dark"] .viz{--good:#0ca30c;--serious:#ec835a}
+.viz-tiles-wrap{container:viz-tiles/inline-size;margin:16px 0}
+.viz-tiles{display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr));gap:12px;margin:0;padding:0}
+${TILE_QUERIES}
+.viz-tile{background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin:0;list-style:none;display:flex;flex-direction:column;gap:2px}
+.viz-tile a{color:inherit;text-decoration:none}
+.viz-tile a:hover .viz-tile-label,.viz-tile a:focus-visible .viz-tile-label{text-decoration:underline}
+.viz-tile-label{color:var(--text-secondary);font-size:13px;margin:0}
+.viz-tile-value{color:var(--text-primary);font-size:32px;font-weight:600;line-height:1.15;margin:0;font-variant-numeric:proportional-nums}
+.viz-tile-sub{color:var(--text-secondary);font-size:12px;margin:0}
+.viz-status{display:inline-flex;align-items:center;gap:4px;color:var(--text-secondary);font-size:12px}
+.viz-status .icon{font-weight:700}
+.viz-status.good .icon{color:var(--good)}
+.viz-status.serious .icon{color:var(--serious)}
+.viz-status.neutral .icon{color:var(--muted)}
+.viz-grid .viz-table td,.viz-grid .viz-table th{text-align:left;white-space:nowrap}
+.viz-grid.viz-compact .viz-table th,.viz-grid.viz-compact .viz-table td:first-child{white-space:normal}
+.viz-grid.viz-compact .viz-table{font-size:12px}
+.viz-grid .viz-table caption.viz-caption{white-space:normal}
+.viz-grid .icon{font-weight:700;margin-right:3px}
+.viz-grid .win .icon{color:var(--good)}
+.viz-grid .loss .icon{color:var(--serious)}
+.viz-grid .tie .icon,.viz-grid .nowork .icon{color:var(--muted)}
+.viz-compact{padding:10px 12px;margin:10px 0}
+.viz-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.viz-compact .viz-caption{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.viz-compact .viz-table th,.viz-compact .viz-table td{padding:4px 5px}
+@media (forced-colors:active){.viz-status .icon,.viz-grid .icon{color:CanvasText}}
+`;
+
 function runtime() {
   const lib = `{${Object.values(LIB)
     .map(f => f.toString())
@@ -1478,6 +1760,9 @@ function runtime() {
 })();`;
 }
 
-function assets() {
-  return `<style>${CSS}</style>\n<script>${runtime()}</script>`;
+// {"extras": true} adds the styles for stat tiles, the verdict grid and
+// compact cards. Off by default, so pages that don't use them keep the same
+// bytes.
+function assets({extras = false} = {}) {
+  return `<style>${CSS}${extras ? EXTRA_CSS : ''}</style>\n<script>${runtime()}</script>`;
 }

@@ -1450,7 +1450,7 @@
   "lib.zustand": {"value":"5.0.16","display":"5.0.16","unit":"text","source":"fixtures/store-bench/node_modules/zustand/package.json"},
   "losses.all.count": {"value":0,"display":"0","unit":"count","source":"sum of losses.<area>.count"},
   "losses.all.of": {"value":0,"display":"0","unit":"count","source":"sum of losses.<area>.of"},
-  "losses.scope": {"value":"The losses table counts . It leaves out the controls (losses.control.*): .","display":"The losses table counts . It leaves out the controls (losses.control.*): .","unit":"text","source":"report-data.mjs areaOrder (noteLoss areas) and the control tallies"},
+  "losses.scope": {"value":"The losses table counts . It leaves out the controls: .","display":"The losses table counts . It leaves out the controls: .","unit":"text","source":"report-data.mjs areaOrder (noteLoss areas) and the control tallies"},
   "main.tally.compiler-gain.lostScenarios": {"value":"none","display":"none","unit":"text","source":"main:  · scenarios with a loss under method.verdictRule: store + compiler vs store without the compiler, every size and throttle"},
   "main.tally.context-split.lostScenarios": {"value":"none","display":"none","unit":"text","source":"main:  · scenarios with a loss under method.verdictRule: store + compiler vs a context per slice, every size and throttle"},
   "main.tally.context.lostScenarios": {"value":"none","display":"none","unit":"text","source":"main:  · scenarios with a loss under method.verdictRule: store + compiler vs one context, every size and throttle"},

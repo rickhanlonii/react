@@ -112,3 +112,22 @@ Every claim on the page, with its source. Keys are from `bench-data.json` (build
 | Note | The audit's C55 wording kept "what each render costs"; dropped per the orchestrator as unsupported | team lead, store-vs-context fixes item 8 |
 | C36 (data-eng-2 keys) | The compiler speeds store up more than one context in 16 of 42 configurations (every add / remove), and more than a context per slice in 22 of 42 (every selection, filter and add / remove); two speedups, no noise test | `ctx.compilerGain.storeMore.{context,context-split}.all.{count,of}`, `.everyConfig` |
 | C62 | Counted components named from the source | `method.countedComponents` |
+
+## Data-first restructure
+
+| Takeaway | Source |
+|---|---|
+| Bold lines are existing claims, moved: "The big wins are where few components read the change…", "So the timing mostly follows the renders…", "One context wins only in subscribe churn…", "One context wins 7 configurations…", "The compiler helps Context far more…", the typing p95 sentence | Their existing ledger rows |
+| Synthetic one-liner under the scoreboard | Same as the removed header note |
+| Stat tiles | gen `stat-tiles`: `ctx.tally.{on,off}.{vsContextSplit,vsContext}.all` |
+
+## Skim-layer audit fixes (`skim-layer.claim-ledger.md`)
+
+| Item | Now | Source |
+|---|---|---|
+| C-1 | "Against one context, the big wins…" | `ctx.tally.*.vsContext.{entity,details-inline}.range` |
+| C-2 | Dropped "So" (the line now precedes the counts) | wording |
+| C-3 | "Without the compiler, one context wins only in…" | `ctx.tally.off.vsContext.{lostScenarios,maxLossPct}` |
+| C-4 | "With the compiler, one context wins…" | `ctx.tally.on.vsContext.{all.losses,lostScenarios,maxLossPct}` |
+| C-5 | Compiler helps one context far more on entity edits and conditional reads; a context per slice only on entity edits | `ctx.tally.compilerGain.{context,context-split,store}.{entity,details-inline,details-component}.range` |
+| Skim polish | Typing: compiler made store slower with no throttling, faster with four times throttling | `typing.main.store.{off,on}.{x1,x4}.p95` |

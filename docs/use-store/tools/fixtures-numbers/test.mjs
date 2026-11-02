@@ -81,6 +81,7 @@ for (const [label, needle] of [
   ['unknown generator', 'unknown generator gen:not-a-generator'],
   ['unfilled gen block', 'gen:scoreboard has no'],
   ['missing build label', 'no build label'],
+  ['key name printed as text', 'key name "method.verdictRule" printed as text'],
 ]) {
   expect(`bad page: ${label}`, badProblems.some(p => p.includes(needle)), badProblems);
 }

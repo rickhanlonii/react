@@ -23,6 +23,10 @@
 //    <pre>, <script>, <style>, <svg>, comments, elements with a data-lit
 //    attribute, and the allowlist below (plus any page-level
 //    <meta name="check-numbers-allow" content="regex;;regex">);
+// 7. a bench-data key name shows up as text (a key, or a key prefix such as
+//    "method.verdictRule" or "losses.control.*") anywhere a reader sees it,
+//    including gen blocks: a generator or prose that printed the name
+//    instead of the value. Code, pre, script, style and comments are skipped.
 // 6. a page that cites benchmark numbers (a data-n span, or a gen block other
 //    than code:*, sandbox-build and charts-assets) doesn't show the build label
 //    (<!-- gen:build-label --> or <span data-n="build.label">).
@@ -96,11 +100,39 @@ function fillNumbers(html, data) {
 // build-docs.mjs built-ins, checked by its own --check rather than here.
 const BUILT_IN = name => name.startsWith('code:') || name === 'sandbox-build';
 
+// Every key and key prefix with a dot, for check 7.
+const prefixCache = new WeakMap();
+function keyPrefixes(data) {
+  if (!prefixCache.has(data)) {
+    prefixCache.set(
+      data,
+      new Set(Object.keys(data.values ?? {}).flatMap(k => k.split('.').slice(1).map((_, i, a) => k.split('.').slice(0, i + 2).join('.')))),
+    );
+  }
+  return prefixCache.get(data);
+}
+
 export async function checkPage(file, html, data, generators) {
   const problems = [];
   const rel = path.relative(process.cwd(), file);
   const page = path.basename(file, '.html');
   let text = html;
+
+  // 7. Key names printed instead of values (gen blocks included).
+  {
+    const prefixes = keyPrefixes(data);
+    let seen = html;
+    seen = blankAll(seen, /<!--[\s\S]*?-->/g);
+    for (const tag of ['script', 'style', 'pre', 'code', 'textarea', 'template', 'head']) {
+      seen = blankAll(seen, new RegExp(`<${tag}\\b[\\s\\S]*?</${tag}>`, 'gi'));
+    }
+    seen = blankAll(seen, /<[^>]*>/g);
+    for (const m of seen.matchAll(/\b[a-z]+(?:\.[a-zA-Z0-9-]+)+(?:\.\*)?/g)) {
+      if (prefixes.has(m[0].replace(/\.\*$/, ''))) {
+        problems.push(`${rel}:${lineOf(html, m.index)}: key name "${m[0]}" printed as text (show its value, or put it in <code>)`);
+      }
+    }
+  }
 
   // Gen blocks: <!-- gen:NAME {args} -->…<!-- /gen:NAME -->.
   const genRe = /<!--\s*gen:(\S+?)(?:\s+(\{[\s\S]*?\}))?\s*-->([\s\S]*?)<!--\s*\/gen:\1\s*-->/g;
