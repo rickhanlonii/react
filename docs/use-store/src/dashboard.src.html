@@ -172,7 +172,7 @@
 <section class="card" aria-labelledby="card-ctx-scoreboard">
 <h3 id="card-ctx-scoreboard">A context per slice never wins at the same setting</h3>
 <div class="gen"><!-- gen:ctx-scoreboard {"compact": true} --><!-- /gen:ctx-scoreboard --></div>
-<p class="takeaway">With the compiler, <code>use(store)</code> matches or beats one context in <span data-n="ctx.tally.on.vsContext.all.matchOrBeat"></span> of <span data-n="ctx.tally.on.vsContext.all.total"></span> configurations, and loses by at most <span data-n="ctx.tally.on.vsContext.maxLossPct"></span> in the rest.</p>
+<p class="takeaway"><code>use(store)</code> matches or beats a context per slice in every configuration, with the compiler (<span data-n="ctx.tally.on.vsContextSplit.all.matchOrBeat"></span> of <span data-n="ctx.tally.on.vsContextSplit.all.total"></span>) and without it (<span data-n="ctx.tally.off.vsContextSplit.all.matchOrBeat"></span> of <span data-n="ctx.tally.off.vsContextSplit.all.total"></span>). Against one context with the compiler, it matches or beats <span data-n="ctx.tally.on.vsContext.all.matchOrBeat"></span> of <span data-n="ctx.tally.on.vsContext.all.total"></span> and loses by at most <span data-n="ctx.tally.on.vsContext.maxLossPct"></span> in the rest.</p>
 <p class="explain"><a href="store-vs-context.html#summary">Explain →</a></p>
 </section>
 

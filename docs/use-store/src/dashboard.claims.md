@@ -76,3 +76,4 @@ Every heading is the answer, as a statement. Checked against the keys on 2026-11
 | Claim | Source |
 |---|---|
 | Synthetic benchmarks, small apps built to isolate one thing each, no data from a real app yet | report header note and `#caveats` |
+| (orchestrator, reviewer fix) | card-ctx-scoreboard takeaway | now supports its heading: per-slice 42/42 on and off (ctx.tally.{on,off}.vsContextSplit.all), one-context line kept second |
