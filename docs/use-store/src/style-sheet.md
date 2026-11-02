@@ -124,7 +124,7 @@ Lowercase in prose, with the id in `<code>` in the scenario table: selection, en
 
 - "configuration" always (35 to 0, no "config"). A configuration is one scenario at one size and one CPU throttle.
 - "size" or "N rows" (from a span). "At 1,000 rows" stays exactly as a scope phrase when it's in a claim.
-- CPU throttle in prose: "with no CPU throttling" for 1×, "with four times CPU throttling" for 4× (always the preposition "with"), "a CPU throttle" for the control. The digit forms "1× CPU" and "4× CPU" appear only in generated labels, tables and `data-n` values (G5).
+- CPU throttle in prose: "with no CPU slowdown" for 1×, "with a four times CPU slowdown" for 4× (always the preposition "with"; matches the results tables' "CPU slowdown"), "a CPU throttle" for the control. The digit forms "1× CPU" and "4× CPU" appear only in generated labels, tables and `data-n` values (G5).
 - "the compiler on / off" for the setting, "its faster compiler setting" when a library is compared at whichever is faster.
 
 ### Verdict wording
@@ -262,5 +262,5 @@ Added in the store-vs-context page's editing pass on 2026-11-02.
 
 - "one context" and "a context per slice" are the prose names for `context` and `context-split`, always lowercase with the article. Together they're "either Context approach", "both Context approaches" or "the Context apps" (capital C, the feature).
 - "counted renders": renders of `Row`, `RowView`, `DetailsView` and `CountView` only, from the counting build. Never "every render" or "the work". "rows and views" is the plain gloss.
-- "with no CPU throttling" / "with four times CPU throttling" for typing results too, the same as everywhere else (changed from "at" in the skim polish). Not "at no throttling".
+- "with no CPU slowdown" / "with a four times CPU slowdown" for typing results too, the same as everywhere else (changed from "throttling" for the results tables). Not "at no throttling".
 - "the slowest one in twenty keys (`p95`)" glosses p95 on first use.

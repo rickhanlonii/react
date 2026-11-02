@@ -91,7 +91,7 @@
   }
   .gen-block { margin: 0 0 16px; }
 </style>
-<!-- gen:charts-assets {"extras": true} --><!-- /gen:charts-assets -->
+<!-- gen:charts-assets {"extras": true, "results": true} --><!-- /gen:charts-assets -->
 </head>
 <body>
 <main>
@@ -110,8 +110,6 @@
 
 <!-- gen:stat-tiles {"keys": ["main.tally.selectors.all", "sweep.tally.store-keyed.selection", "spike.tally.store-memo", "suite.fairness5.tally.fastestRedux", "main.tally.zustand-granular.all"], "labels": ["Main suite, vs the faster of Redux and Zustand", "Selection sweeps, keyed selection vs the faster of Redux and Zustand", "Spike, weakMemo vs Redux (configurations that do work)", "Fairness run, vs the fastest Redux setup", "Main suite, vs the granular control (a Zustand store per entity)"], "hrefs": ["#main", "#sweeps", "#derived", "#fairness", "#losses"], "subs": ["range", "range", "spike.tally.store-memo.rangeWork", "range", "range"]} --><!-- /gen:stat-tiles -->
 
-<!-- gen:scoreboard {"compact": true} --><!-- /gen:scoreboard -->
-
 <p><strong>Against the faster of Redux and Zustand, entity edits, adding or removing a row, and conditional reads win by wide margins: <span data-n="main.tally.selectors.entity.range"></span>, <span data-n="main.tally.selectors.structure.range"></span>, and <span data-n="main.tally.selectors.details-inline.range"></span>.</strong> Add / remove mostly measures list reconciliation (see <a href="#caveats">caveats</a>). Against them, the only scenario with losses is <span data-n="main.tally.selectors.lostScenarios"></span> (see <a href="#selection">selection</a>).</p>
 
 <p class="small">These are synthetic benchmarks with no data from a real app yet, and <code>use(store)</code> is an experiment that hasn't shipped (see <a href="#caveats">caveats</a>).</p>
@@ -121,10 +119,10 @@
 </div>
 
 <details>
-<summary>What the scoreboard compares</summary>
+<summary>What the comparisons mean</summary>
 <p>The claim I'm testing: with the compiler, re-rendering only the components that read a changed store costs less than running every mounted selector on every update. Selector libraries like <code>react-redux</code> and Zustand subscribe each component with a selector. Every selector runs on every update to decide whether its component re-renders. <code>use(store)</code> has no selectors. A store update re-renders the components that read that store, and the compiler skips the parts of their output that didn't change.</p>
 
-<p>The headline compares <code>use(store)</code> with the compiler against the faster of Redux and Zustand in each configuration, with each library at its own faster compiler setting. The counting build that explains each result runs at <span data-n="method.countsRows"></span> rows. A configuration is one scenario at one size and one CPU throttle. The other columns compare against each library on its own, against Context, and against a granular control (Zustand with a store per entity).</p>
+<p>The headline compares <code>use(store)</code> with the compiler against the faster of Redux and Zustand in each configuration, with each library at its own faster compiler setting. A configuration is one scenario at one list size and one CPU speed. The counting build that explains each result runs at <span data-n="method.countsRows"></span> rows. The other comparisons are against each library on its own, against Context, and against a granular control (Zustand with a store per entity).</p>
 
 <ul>
 <li>Editing one entity re-renders one row instead of running a selector in every row (<span data-n="main.tally.selectors.entity.range"></span>). Adding or removing a row is <span data-n="main.tally.selectors.structure.range"></span>, and conditional reads are <span data-n="main.tally.selectors.details-inline.range"></span>.</li>
@@ -132,7 +130,7 @@
 <li>The granular control has its own column (it isn't part of the headline). It puts each entity in its own Zustand store, to show how much of the win comes from granularity alone. <code>use(store)</code> loses <span data-n="losses.granular.count"></span> of <span data-n="losses.granular.of"></span> configurations to it, mostly on selection.</li>
 </ul>
 
-<p>Two things aren't in the scoreboard. Keyed selection, the recommended pattern for selection, is measured in the <a href="#sweeps">sweeps</a>, not the main suite. The build without the same-element bailout has <a href="#bailout">its own section</a>.</p>
+<p>Two things aren't in the headline. Keyed selection, the recommended pattern for selection, is measured in the <a href="#sweeps">sweeps</a>, not the main benchmark. The build without the same-element bailout has <a href="#bailout">its own section</a>.</p>
 </details>
 
 <p>This page is for people who know React but not its internals. It covers how fast <code>use(store)</code> is. If you haven't read <a href="explainer.html">how <code>use(store)</code> works</a>, start there. It explains what a store is, what a reader is, and why every reader of a changed store re-renders.</p>
@@ -140,7 +138,7 @@
 <nav class="toc" aria-label="Contents">
 <ol>
 <li><a href="#claim">At a glance</a></li>
-<li><a href="#main">The main scenarios, configuration by configuration</a>
+<li><a href="#main">The main benchmark</a>
 <ol><li><a href="#work">What each update does, from the counting build</a></li>
 <li><a href="#controls">Controls: one store, no compiler, and Context</a></li>
 <li><a href="#fairness">Is Redux slow because of Redux Toolkit?</a></li></ol></li>
@@ -163,11 +161,15 @@
 </nav>
 
 <!-- ============================================================ -->
-<h2 id="main">The main scenarios, configuration by configuration</h2>
+<h2 id="main">The main benchmark</h2>
 
-<!-- gen:speedup-chart {"comparison": "headline", "title": "Outside selection, use(store) never loses to the faster of Redux and Zustand"} --><!-- /gen:speedup-chart -->
+<p>The main benchmark is a list of rows with a selection, a filter with a count, and rows that expand to show details. Each scenario makes one kind of update, at three list sizes and two CPU speeds. This table shows the middle size, <span data-n="method.countsRows"></span> rows, for every variant with the compiler and without it.</p>
 
-<p><strong>Against the faster of Redux and Zustand, the only scenario with losses is <span data-n="main.tally.selectors.lostScenarios"></span>. Every other scenario matches or beats the faster of Redux and Zustand in every configuration.</strong></p>
+<!-- gen:results-table {"suite": "main", "rows": {"sizes": [1000]}, "title": "The main benchmark at 1,000 rows"} --><!-- /gen:results-table -->
+
+<p><strong>Against the faster of Redux and Zustand, the only scenario with losses is <span data-n="main.tally.selectors.lostScenarios"></span>. Every other scenario matches or beats the faster of Redux and Zustand in every configuration, at every size.</strong> In the table, compare the <code>use(store)</code> column with the Redux and Zustand columns. The number in parentheses is how many times slower a cell is than the fastest cell in its row with the same compiler setting.</p>
+
+<p class="more"><a href="dashboard.html#main">All the data →</a></p>
 
 <p>How each variant reads state: <code>use(store)</code> puts each entity in its own store, with small stores for the selection, the filter, the expanded rows, and the details. Redux and Zustand read one store with a selector per value. The granular control is Zustand with a store per entity, and <code>store-single</code> is one store without selectors. The code is in <a href="#code">the code compared</a>.</p>
 
@@ -191,13 +193,6 @@
 </div>
 </details>
 
-<details>
-<summary>Every configuration in milliseconds, for every variant</summary>
-<p>The chart shows every variant with the compiler on and off. Pick a scenario, a size, and a CPU throttle. The dot is the median, and the bar is the middle half of the samples. The line above the chart gives the verdict for that configuration.</p>
-
-<!-- gen:main-chart --><!-- /gen:main-chart -->
-</details>
-
 <h3 id="work">What each update does, from the counting build</h3>
 
 <p><strong>Editing an entity re-renders <span data-n="counts.main.entity.store.on.rows"></span> row with <code>use(store)</code>, while Redux makes <span data-n="counts.main.entity.redux.on.selectors"></span> selector calls to find the same row.</strong></p>
@@ -217,11 +212,7 @@
 
 <h3 id="controls">Controls: one store, no compiler, and Context</h3>
 
-<!-- gen:scoreboard-controls {"compact": true} --><!-- /gen:scoreboard-controls -->
-
 <p>The granular control puts each entity in its own Zustand store, so it shows how much of the win comes from granularity alone. It isn't part of the headline.</p>
-
-<!-- gen:speedup-chart {"comparison": "granular", "title": "Against the granular control, use(store) loses only in selection and subscribe churn"} --><!-- /gen:speedup-chart -->
 
 <p><strong>One store holding everything, with no selectors, is the worst case for stores (<code>store-single</code>). With the compiler, it still beats the faster of Redux and Zustand in most configurations: <span data-n="main.tally.single-selectors.all.range"></span>.</strong></p>
 
@@ -234,7 +225,11 @@
 
 <h3 id="fairness">Is Redux slow because of Redux Toolkit?</h3>
 
-<p><strong>At <span data-n="method.countsRows"></span> rows, against the fastest Redux setup in each configuration, <code>use(store)</code> matches or beats it in <span data-n="suite.fairness5.tally.fastestRedux.matchOrBeat"></span> of <span data-n="suite.fairness5.tally.fastestRedux.total"></span>, by <span data-n="suite.fairness5.tally.fastestRedux.range"></span>.</strong></p>
+<p><strong>At <span data-n="method.countsRows"></span> rows, against the fastest Redux setup in each configuration, <code>use(store)</code> matches or beats it in <span data-n="suite.fairness5.tally.fastestRedux.matchOrBeat"></span> of <span data-n="suite.fairness5.tally.fastestRedux.total"></span>, : <span data-n="suite.fairness5.tally.fastestRedux.range"></span>.</strong></p>
+
+<!-- gen:results-table {"suite": "fairness5", "columns": ["store+on", "zustand+on", "redux+on", "redux-plain+on", "redux-nofreeze+on"], "title": "use(store), Zustand, and three Redux setups in one run"} --><!-- /gen:results-table -->
+
+<p class="more"><a href="dashboard.html#fairness5">All the data →</a></p>
 
 <details>
 <summary>How Redux Toolkit's defaults were checked</summary>
@@ -242,18 +237,10 @@
 
 <p>It does cost something. Against Redux Toolkit, the hand-written reducer is <span data-n="suite.fairness.control.redux-plain.range"></span>, and turning off auto-freeze is <span data-n="suite.fairness.control.redux-nofreeze.range"></span>. This only moves the Redux column, because the faster of Redux and Zustand is Zustand in every main-suite configuration.</p>
 
-<details>
-<summary>Medians for the two leaner Redux setups</summary>
-<!-- gen:suite-fairness --><!-- /gen:suite-fairness -->
-</details>
-
 <p>To check whether a leaner Redux changes any verdict, a second run timed <code>use(store)</code>, Zustand, and all three Redux setups together, at <span data-n="method.countsRows"></span> rows. Against Zustand in the same run, it's <span data-n="suite.fairness5.tally.zustand.range"></span>, the same selection losses as the main suite.</p>
 </details>
 
-<details>
-<summary>Every Redux setup, <code>use(store)</code>, and Zustand in one run</summary>
-<!-- gen:suite-fairness5 --><!-- /gen:suite-fairness5 -->
-</details>
+
 
 <!-- ============================================================ -->
 <h2 id="selection">Selection: where it loses, and the fix</h2>
@@ -261,6 +248,14 @@
 <p><strong>Selection is where <code>use(store)</code> loses, and that's the floor of a model without selectors, not a bug. A profile of two-store rows (below) puts the gap in running the component, not in the store.</strong> The fix is keyed selection, and it wins every configuration where it was measured.</p>
 
 <h3 id="selection-floor">Why selection loses</h3>
+
+<!-- gen:results-table {"suite": "main", "columns": ["store", "redux", "zustand", "zustand-granular"], "rows": {"scenarios": ["selection"]}, "title": "Selection at every size"} --><!-- /gen:results-table -->
+
+<p>Compare the <code>use(store)</code> column with Zustand and the granular control. Against the faster of Redux and Zustand, <code>use(store)</code> is <span data-n="main.tally.selectors.selection.range"></span>. At the largest size with a four times CPU slowdown, it's <span data-n="main.selection.n10000.x4.verdict"></span>. Against the granular control it loses at every size: <span data-n="main.tally.zustand-granular.selection.range"></span>.</p>
+
+<p class="more"><a href="dashboard.html#main">All the data →</a></p>
+
+<p>In the main suite, the store variant selects without keys: every <code>Row</code> reads the selected id. Here's one selection update at <span data-n="method.countsRows"></span> rows, with no CPU slowdown. Zustand is shown at its faster compiler setting, which is the one the verdict uses.</p>
 
 <div class="scroll">
 <table>
@@ -273,8 +268,6 @@
 </tbody>
 </table>
 </div>
-
-<p>In the main suite, the store variant selects without keys: every <code>Row</code> reads the selected id. Here's one selection update at <span data-n="method.countsRows"></span> rows, with no CPU throttling. Zustand is shown at its faster compiler setting, which is the one the verdict uses.</p>
 
 <details>
 <summary>Why</summary>
@@ -300,11 +293,13 @@
 
 <h3 id="sweeps">The sweeps: compiler coverage and props per row</h3>
 
-<p>The chart has both sweeps. Pick one and a CPU throttle, then compare <code>store-keyed</code> with plain <code>use(store)</code>.</p>
+<p>The table has both sweeps, entity edits and selection, for each amount of compiler coverage and each row width. Compare <code>store-keyed</code> with plain <code>use(store)</code>.</p>
 
-<!-- gen:sweep-chart --><!-- /gen:sweep-chart -->
+<!-- gen:results-table {"suite": "sweeps", "title": "Rows that read two stores: entity edits and selection"} --><!-- /gen:results-table -->
 
 <p><strong>Keyed selection wins every selection configuration (<span data-n="sweep.tally.store-keyed.selection.wins"></span> of <span data-n="sweep.tally.store-keyed.selection.total"></span>), and every entity configuration (<span data-n="sweep.tally.store-keyed.entity.wins"></span> of <span data-n="sweep.tally.store-keyed.entity.total"></span>).</strong></p>
+
+<p class="more"><a href="dashboard.html#sweeps">All the data →</a></p>
 
 <details>
 <summary>What the sweeps vary, and plain <code>use(store)</code></summary>
@@ -336,16 +331,19 @@
 <p>I wrote the main suite for this experiment, so it could be built to favor stores. These four scenarios come from <a href="https://github.com/reduxjs/react-redux-benchmarks">react-redux-benchmarks</a>, which the Redux team maintains. The Redux variant keeps their code as written. The <code>use(store)</code> variants follow the explainer's patterns, and the Zustand variants follow Zustand's docs. Random numbers and timestamps are seeded so every variant renders the same thing, and each update is timed in <code>flushSync</code>.</p>
 </details>
 
-<details>
-<summary>Medians and verdicts for each suite</summary>
-<p>The tables below give the medians and the verdict for the first three, in list order.</p>
+<p>Each table compares <code>use(store)</code>, Redux, and Zustand with the compiler.</p>
 
-<!-- gen:suite-rapid-dispatch --><!-- /gen:suite-rapid-dispatch -->
+<!-- gen:results-table {"suite": "rapid-dispatch", "columns": ["store+on", "redux+on", "zustand+on"], "title": "Rapid dispatch"} --><!-- /gen:results-table -->
 
-<!-- gen:suite-many-components-same-slice --><!-- /gen:suite-many-components-same-slice -->
+<p class="more"><a href="dashboard.html#rapid-dispatch">All the rapid dispatch data →</a></p>
 
-<!-- gen:suite-deeptree-nested-hooks --><!-- /gen:suite-deeptree-nested-hooks -->
-</details>
+<!-- gen:results-table {"suite": "many-components-same-slice", "columns": ["store+on", "redux+on", "zustand+on"], "title": "Many components reading one counter"} --><!-- /gen:results-table -->
+
+<p class="more"><a href="dashboard.html#many-components-same-slice">All the data for one shared counter →</a></p>
+
+<!-- gen:results-table {"suite": "deeptree-nested-hooks", "columns": ["store+on", "redux+on", "zustand+on"], "title": "A deep tree with nested Hooks"} --><!-- /gen:results-table -->
+
+<p class="more"><a href="dashboard.html#deeptree-nested-hooks">All the deep tree data →</a></p>
 
 <!-- ============================================================ -->
 <h2 id="derived">Shared derived data: every reader computes it unless you share it</h2>
@@ -354,18 +352,19 @@
 
 <h3 id="derived-results">Results with and without <code>weakMemo</code></h3>
 
-<p>The chart plots the time per update against readers per category, with one panel per kind of update.</p>
+<p>The table shows the spike at <span data-n="spike.ks"></span> readers per category, for each kind of update. Compare the <code>weakMemo</code> column with plain <code>use(store)</code> and Redux.</p>
 
-<!-- gen:spike-chart --><!-- /gen:spike-chart -->
+<!-- gen:results-table {"suite": "spike", "columns": ["store", "store-memo", "redux", "zustand"], "title": "Shared derived data with more readers per category"} --><!-- /gen:results-table -->
+
+<p class="more"><a href="dashboard.html#spike">All the data →</a></p>
 
 <p>The spike grows the readers per category. Plain <code>use(store)</code> falls further behind as they grow: <span data-n="spike.tally.store.k20.rangeWork"></span> with fewer readers, and <span data-n="spike.tally.store.k50.rangeWork"></span> with more. <code>store-memo</code> stays ahead of Redux (<span data-n="spike.tally.store-memo.rangeWork"></span>). The fastest correct sharing option in each configuration is <span data-n="spike.tally.sharing.rangeWork"></span>. That's a little ahead of <code>store-memo</code>, which is what you'd expect from taking the best of several. These ranges leave out the <span data-n="spike.tally.store.noWork"></span> <code>role</code> configurations, where nothing reads the update.</p>
 
 <p>In the ported derived-selectors benchmark, plain <code>use(store)</code> is <span data-n="suite.derived-selectors.tally.store.rangeWork"></span> against the fastest of Redux and Zustand. With <code>weakMemo</code> (<code>store-memo</code>) it's <span data-n="suite.derived-selectors.tally.store-memo.rangeWork"></span>. Neither count includes the <span data-n="suite.derived-selectors.tally.store.noWork"></span> <code>role</code> configurations, which are unread updates with no work for any store variant.</p>
 
-<details>
-<summary>Every configuration of the ported benchmark</summary>
-<!-- gen:suite-derived-selectors --><!-- /gen:suite-derived-selectors -->
-</details>
+<!-- gen:results-table {"suite": "derived-selectors", "columns": ["store", "store-memo", "redux", "zustand"], "title": "Derived selectors, from the Redux team's suite"} --><!-- /gen:results-table -->
+
+<p class="more"><a href="dashboard.html#derived-selectors">All the data →</a></p>
 
 <details>
 <summary>Why every reader computes it, and the options</summary>
@@ -431,8 +430,6 @@
 
 <p><strong>Over the <span data-n="nobailout.main.tally.all.total"></span> configurations the build without the same-element bailout measured, <code>use(store)</code> with the compiler matches or beats the faster of Redux and Zustand in <span data-n="nobailout.main.tally.withBailout.matchOrBeat"></span> with the bailout, and in <span data-n="nobailout.main.tally.all.matchOrBeat"></span> without it.</strong></p>
 
-<!-- gen:speedup-chart {"comparison": "nobailout", "title": "Without the same-element bailout: use(store) vs the faster of Redux and Zustand"} --><!-- /gen:speedup-chart -->
-
 <ul>
 <li>It helps wherever every row re-renders: selection (<span data-n="nobailout.main.bailoutGain.selection.range"></span>), subscribe churn (<span data-n="nobailout.main.bailoutGain.details-churn.range"></span>), and add / remove (<span data-n="nobailout.main.bailoutGain.structure.range"></span>). It changes <span data-n="nobailout.main.flipCount"></span> headline verdicts, <span data-n="nobailout.main.flipScenarios"></span>. These compare the run without it to the run with it, and the two runs weren't interleaved. Without it, selection is <span data-n="nobailout.main.tally.selection.range"></span>.</li>
 <li>Keyed selection doesn't need it - it wins <span data-n="nobailout.sweep.tally.store-keyed.selection.wins"></span> of <span data-n="nobailout.sweep.tally.store-keyed.selection.total"></span> selection sweeps without the bailout, the same as with it.</li>
@@ -447,44 +444,50 @@
 
 <h3 id="bailout-table">The results without the bailout</h3>
 
-<details>
-<summary>Every configuration without the bailout</summary>
-<p>The tables give the tally without the bailout next to the tally with it, the medians without it, and what the bailout buys <code>use(store)</code>. The sweeps come last.</p>
+<p>The table shows the build without the bailout at <span data-n="nobailout.sizes"></span> rows, in the three scenarios where every row re-renders.</p>
 
-<!-- gen:nobailout-table --><!-- /gen:nobailout-table -->
-</details>
+<!-- gen:results-table {"suite": "nobailout", "rows": {"scenarios": ["selection", "details-churn", "structure"]}, "title": "Without the same-element bailout"} --><!-- /gen:results-table -->
+
+<p class="more"><a href="dashboard.html#nobailout">All the data →</a></p>
 
 <!-- ============================================================ -->
 <h2 id="typing-memory">Typing and memory</h2>
 
 <h3 id="typing">Typing during an expensive re-filter</h3>
 
-<p><strong>With four times CPU throttling and the compiler, the slowest one in twenty keys (<code>p95</code>) took <span data-n="typing.main.store.on.x4.p95"></span> ms with <code>use(store)</code>, <span data-n="typing.main.zustand.on.x4.p95"></span> ms with Zustand, and <span data-n="typing.main.redux.on.x4.p95"></span> ms with Redux.</strong> In the table, "list caught up after" runs from the start of typing until the list shows the rows for the full typed text, so it includes the typing itself.</p>
+<p><strong>With a four times CPU slowdown and the compiler, the slowest one in twenty keys (<code>p95</code>) took <span data-n="typing.main.store.on.x4.p95"></span> ms with <code>use(store)</code>, <span data-n="typing.main.zustand.on.x4.p95"></span> ms with Zustand, and <span data-n="typing.main.redux.on.x4.p95"></span> ms with Redux.</strong> In the table, "list caught up after" runs from the start of typing until the list shows the rows for the full typed text, so it includes the typing itself.</p>
 
-<p>Selector libraries can avoid this with <code>useDeferredValue</code>, so the typing suite adds that version of each. It closes most of the gap. With the same throttling, the <code>p95</code> is <span data-n="typing.suite.store.on.x4.p95"></span> ms for <code>use(store)</code>, <span data-n="typing.suite.zustand-deferred.on.x4.p95"></span> ms for Zustand with <code>useDeferredValue</code>, and <span data-n="typing.suite.redux-deferred.on.x4.p95"></span> ms for Redux with it. The difference is that <code>use(store)</code> gets this from <code>startTransition</code>, the same as <code>useState</code>, without a deferred copy of the value.</p>
+<!-- gen:results-table {"suite": "typing", "title": "Typing while the list re-filters"} --><!-- /gen:results-table -->
+
+<p class="more"><a href="dashboard.html#typing">All the data →</a></p>
+
+<p>Selector libraries can avoid this with <code>useDeferredValue</code>, so the typing suite adds that version of each. It closes most of the gap. With the same slowdown, the <code>p95</code> is <span data-n="typing.suite.store.on.x4.p95"></span> ms for <code>use(store)</code>, <span data-n="typing.suite.zustand-deferred.on.x4.p95"></span> ms for Zustand with <code>useDeferredValue</code>, and <span data-n="typing.suite.redux-deferred.on.x4.p95"></span> ms for Redux with it. The difference is that <code>use(store)</code> gets this from <code>startTransition</code>, the same as <code>useState</code>, without a deferred copy of the value.</p>
 
 <details>
-<summary>How typing was measured, and every variant</summary>
+<summary>How typing was measured</summary>
 <p>This benchmark types <span data-n="typing.main.keys"></span> keys into the filter while <span data-n="typing.main.rows"></span> expensive rows re-filter. Every variant updates the input right away and the list in a transition. A store update in a transition is a transition update, so React can interrupt the list render to handle the next key. Redux and Zustand read through <code>useSyncExternalStore</code>, which renders synchronously even inside a transition, so the list blocks the input.</p>
 
 <p>Latency is keydown to the next frame, over every key of every run.</p>
 
-<!-- gen:typing-table --><!-- /gen:typing-table -->
 </details>
 
 <details>
 <summary>The <code>useDeferredValue</code> variants</summary>
-<!-- gen:typing-suite-table --><!-- /gen:typing-suite-table -->
+<!-- gen:results-table {"suite": "typing-suite", "title": "Typing, with useDeferredValue for Redux and Zustand"} --><!-- /gen:results-table -->
 </details>
 
 <h3 id="memory">Memory and mount time</h3>
 
-<!-- gen:memory-chart --><!-- /gen:memory-chart -->
+<!-- gen:results-table {"suite": "memory", "title": "Memory per row and mount time"} --><!-- /gen:results-table -->
+
+<p class="more"><a href="dashboard.html#memory">All the data →</a></p>
 
 <p>This measures how much the heap grows when the rows mount, after garbage collection, divided by the row count. With the compiler at the largest size, <code>use(store)</code> uses <span data-n="memory.store.on.n10000.bytesPerRow"></span> bytes per row, against <span data-n="memory.zustand.on.n10000.bytesPerRow"></span> for Zustand and <span data-n="memory.redux.on.n10000.bytesPerRow"></span> for Redux. One context uses the least, <span data-n="memory.context.on.n10000.bytesPerRow"></span>. A store per entity costs <span data-n="memory.storePlace.on.n10000"></span>. Mounting takes <span data-n="memory.store.on.n10000.mountMs"></span> ms with <code>use(store)</code> and <span data-n="memory.redux.on.n10000.mountMs"></span> ms with Redux.</p>
 
 <!-- ============================================================ -->
 <h2 id="losses">Where it doesn't win</h2>
+
+<p>I count the headline, the granular control, the ported suites, the fairness run against Redux, the sweeps, and the spike as results. Across them, the store side loses <span data-n="losses.all.count"></span> of <span data-n="losses.all.of"></span>. The controls (one store, no compiler, Context, and no bailout) have their own sections and aren't counted here. For shared derived data, the recommended pattern wins in the same configurations. For selection, keyed selection wins every sweep, but it wasn't timed in the main suite or against the granular control:</p>
 
 <ul>
 <li>Main suite against the faster of Redux and Zustand: <span data-n="losses.main.count"></span> of <span data-n="losses.main.of"></span>, all selection. Keyed selection is the pattern for this, but it isn't timed in the main suite (see <a href="#selection">selection</a>).</li>
@@ -495,7 +498,7 @@
 <li>The shared-derived-data spike: <span data-n="losses.spike.count"></span> of <span data-n="losses.spike.of"></span>, all with plain <code>use(store)</code>. With <code>weakMemo</code> it wins <span data-n="spike.tally.store-memo.wins"></span> of <span data-n="spike.tally.store-memo.total"></span>.</li>
 </ul>
 
-<p>I count the headline, the granular control, the ported suites, the fairness run against Redux, the sweeps, and the spike as results. Across them, the store side loses <span data-n="losses.all.count"></span> of <span data-n="losses.all.of"></span>. The controls (one store, no compiler, Context, and no bailout) have their own sections and aren't counted here. For shared derived data, the recommended pattern wins in the same configurations. For selection, keyed selection wins every sweep, but it wasn't timed in the main suite or against the granular control:</p>
+
 
 <details>
 <summary>Every loss, with what each side did</summary>
@@ -585,7 +588,7 @@
 
 <h3 id="timing">Timing and the ambient CPU gate</h3>
 
-<p>Each update is timed as one browser task inside <code>flushSync</code>, so every library renders synchronously and the selector work during dispatch is counted. The main suite has <span data-n="method.configs"></span> configurations: seven scenarios, at <span data-n="method.sizes"></span> rows, with <span data-n="method.throttles"></span> CPU throttling. Each configuration gets <span data-n="method.warmup"></span> warm-up updates and then <span data-n="method.iterations"></span> timed ones, with the order shuffled. Each configuration runs in <span data-n="method.restartsDefault"></span> browser restarts, except <span data-n="method.restartsExtra"></span>. Those got extra restarts because their first three disagreed close to parity, and two of the three headline losses are in them. The rule that every restart must agree (see <a href="#verdicts">how a win is decided</a>) applies to all of their restarts. That's <span data-n="method.timedUpdates"></span> timed updates in the main suite.</p>
+<p>Each update is timed as one browser task inside <code>flushSync</code>, so every library renders synchronously and the selector work during dispatch is counted. The main suite has <span data-n="method.configs"></span> configurations: seven scenarios, at <span data-n="method.sizes"></span> rows, with a <span data-n="method.throttles"></span> CPU slowdown. Each configuration gets <span data-n="method.warmup"></span> warm-up updates and then <span data-n="method.iterations"></span> timed ones, with the order shuffled. Each configuration runs in <span data-n="method.restartsDefault"></span> browser restarts, except <span data-n="method.restartsExtra"></span>. Those got extra restarts because their first three disagreed close to parity, and two of the three headline losses are in them. The rule that every restart must agree (see <a href="#verdicts">how a win is decided</a>) applies to all of their restarts. That's <span data-n="method.timedUpdates"></span> timed updates in the main suite.</p>
 
 <p>Other work on the machine slows a benchmark down. So timing ran in small units behind a gate on ambient CPU, the cores used by processes outside the benchmark's own process tree. A unit started only when ambient CPU was at or below <span data-n="method.gate.ambientStart"></span> cores. It was thrown away and re-run if the mean during the unit was above <span data-n="method.gate.ambientDiscard"></span>. The frozen build has <span data-n="method.gate.head.timedFiles"></span> timing units. Ambient CPU is logged for every unit that ran under this gate, <span data-n="method.gate.head.ambientGated"></span> of them. Across those, the mean ambient CPU per unit was <span data-n="method.gate.head.ambientMean.median"></span> cores at the median and <span data-n="method.gate.head.ambientMean.max"></span> at most.</p>
 
@@ -596,13 +599,11 @@
 
 <h3 id="verdicts">How a win is decided</h3>
 
-<p>Verdicts compare means. Differences within two standard errors are ties. Anything bigger counts as a win or a loss only if every browser restart agrees on which side is faster, and otherwise it's a tie too. The ratio in a verdict, like <q data-lit>1.4× faster</q>, is the ratio of the means. The tables show medians too, because they're easier to read. But a median can be lower on the side that's slower overall, when that side has more slow updates.</p>
+<p>Verdicts compare average times. Differences within two standard errors are ties. Anything bigger counts as a win or a loss only if every browser restart agrees on which side is faster, and otherwise it's a tie too. A verdict like <q data-lit>1.4× faster</q> means the other side's average time is that many times longer. The tables also show medians and spreads. A median can be lower on the side that's slower overall, when that side has more slow updates.</p>
 
 <p>Each library is compared at its own faster compiler setting. So "the faster of Redux and Zustand" can be Zustand without the compiler in one configuration, and with it in the next.</p>
 
 <p>Redux in the headline is idiomatic Redux, the setup the <code>react-redux</code> docs recommend: Redux Toolkit's <code>configureStore</code> and <code>createSlice</code>, with Immer's auto-freeze on, read through <code>react-redux</code>. Two leaner setups (a hand-written reducer, and auto-freeze off) are timed against it in the <a href="#fairness">fairness controls</a>. Even against the fastest of the three in each configuration, at <span data-n="method.countsRows"></span> rows, <code>use(store)</code> matches or beats Redux in <span data-n="suite.fairness5.tally.fastestRedux.matchOrBeat"></span> of <span data-n="suite.fairness5.tally.fastestRedux.total"></span>.</p>
-
-<p>The build, the timing, and the counting build are in <a href="#method">how the numbers were measured</a>, after the results.</p>
 
 <h3 id="counting">The counting build: what each update did</h3>
 

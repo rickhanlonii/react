@@ -268,6 +268,21 @@ function slim(s) {
   };
 }
 
+// slim(), plus what the browser needs to apply the verdict rule exactly to
+// any pair (the results table's compare mode): mean and sem at 6 significant
+// digits, and each restart's mean (restartOf tag -> mean), as restartsAgree
+// reads them.
+const r6 = v => (v === null || v === undefined ? null : Number(v.toPrecision(6)));
+function slimExact(s) {
+  if (!s) return null;
+  return {
+    ...slim(s),
+    mean: r6(s.mean),
+    sem: r6(s.sem),
+    restarts: Object.fromEntries(Object.entries(s.restarts ?? {}).map(([k, v]) => [k, r6(v)])),
+  };
+}
+
 // The opponent a verdict compared with, from fastest(): which library, at
 // which compiler setting, and its median and mean (ms).
 function oppOf(best) {
@@ -899,7 +914,7 @@ export function computeReportData(sources = readSources()) {
         for (const v of variants) {
           const on = byVariant.get(name(v, true));
           const off = byVariant.get(name(v, false));
-          cell.variants[v] = {on: slim(on), off: slim(off)};
+          cell.variants[v] = {on: slimExact(on), off: slimExact(off)};
           for (const [c, e] of [['on', on], ['off', off]]) {
             if (!e) continue;
             const what = `${v}${c === 'on' ? ' + compiler' : ' without the compiler'}, ${s}, N=${n}, ${t}× CPU`;
@@ -1283,7 +1298,7 @@ export function computeReportData(sources = readSources()) {
       for (const v of suiteVariants) {
         const on = byVariant.get(name(v, true));
         const off = byVariant.get(name(v, false));
-        row.cells[v] = {on: slim(on), off: slim(off)};
+        row.cells[v] = {on: slimExact(on), off: slimExact(off)};
         for (const [c, e] of [['on', on], ['off', off]]) {
           if (!e) continue;
           put('suite.<suite>.<scenario>.x<throttle>.<variant>.<compiler>.median', [suite, scenario, t, v, c], e.median, {
@@ -1386,7 +1401,7 @@ export function computeReportData(sources = readSources()) {
       for (const v of f5Variants) {
         const on = byVariant.get(name(v, true));
         const off = byVariant.get(name(v, false));
-        row.cells[v] = {on: slim(on), off: slim(off)};
+        row.cells[v] = {on: slimExact(on), off: slimExact(off)};
         for (const [c, e] of [['on', on], ['off', off]]) {
           if (!e) continue;
           put('suite.<suite>.<scenario>.x<throttle>.<variant>.<compiler>.median', [set, scenario, t, v, c], e.median, {
@@ -1475,7 +1490,7 @@ export function computeReportData(sources = readSources()) {
         const e = byVariant.get(name(v, true));
         if (!e) continue;
         const rel = redux ? e.mean / redux.mean : null;
-        cell.variants[v] = {...slim(e), vsRedux: r4(rel)};
+        cell.variants[v] = {...slimExact(e), vsRedux: r4(rel)};
         put('spike.<family>.k<k>.x<throttle>.<variant>.median', [family, k, t, v], e.median, {
           unit: 'ms',
           source: src('spike', e.files, `median of ${e.count} samples, ${v} + compiler, ${scenario}, ${t}× CPU`),
@@ -1598,7 +1613,7 @@ export function computeReportData(sources = readSources()) {
         const cell = {libraries: {}, verdicts: {}};
         for (const lib of SWEEP_LIBRARIES) {
           const e = entry(lib);
-          cell.libraries[lib] = slim(e);
+          cell.libraries[lib] = slimExact(e);
           if (!e) continue;
           put(prefix + 'sweep.<scenario>.x<throttle>.<config>.<library>.median', [scenario, t, configKey, lib], e.median, {
             unit: 'ms',
@@ -1702,7 +1717,7 @@ export function computeReportData(sources = readSources()) {
           const cell = {variants: {}};
           for (const v of nbVariants) {
             const e = byVariant.get(name(v, true));
-            cell.variants[v] = slim(e);
+            cell.variants[v] = slimExact(e);
             if (!e) continue;
             put('nobailout.main.<scenario>.n<n>.x<throttle>.<variant>.median', [sc, n, t, v], e.median, {
               unit: 'ms',
@@ -1739,7 +1754,7 @@ export function computeReportData(sources = readSources()) {
           // The same configuration on the head build, with the bailout.
           const withBailout = cellOf(sc, n, t)?.get(name('store', true)) ?? null;
           const gain = judge(withBailout, store ?? null);
-          cell.withBailout = slim(withBailout);
+          cell.withBailout = slimExact(withBailout);
           cell.gain = slimVerdict(gain);
           (gains[sc] ??= []).push(gain);
           if (gain) {
@@ -2032,6 +2047,11 @@ export function computeReportData(sources = readSources()) {
         p95: r4(percentile(latencies, 0.95)),
         max: r4(Math.max(...latencies)),
         settle: Math.round(median(group.map(g => g.settleMs))),
+        // Each run's value (the row shows the median over keys or runs), for
+        // a min–max range.
+        p50Runs: group.map(g => r4(median(g.latencies))).sort((a, b) => a - b),
+        p95Runs: group.map(g => r4(percentile(g.latencies, 0.95))).sort((a, b) => a - b),
+        settleRuns: group.map(g => Math.round(g.settleMs)).sort((a, b) => a - b),
         runs: group.length,
         keys: latencies.length,
       };
@@ -2074,6 +2094,8 @@ export function computeReportData(sources = readSources()) {
       compiler,
       n: r.n,
       bytesPerRow: Math.round(median(group.map(g => g.bytesPerRow))),
+      // Each run's value (the row shows the median), for a spread.
+      bytesPerRowRuns: group.map(g => Math.round(g.bytesPerRow)).sort((a, b) => a - b),
       mountMs: r4(median(group.map(g => g.mountMs))),
       runs: group.length,
     };

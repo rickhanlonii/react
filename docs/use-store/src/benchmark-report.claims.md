@@ -297,3 +297,15 @@ Every claim in `benchmark-report.src.html`, by section, with its source: a `benc
 
 - `main-verdicts` and the compact `verdict-grid`: the headline and granular `speedup-chart`s show the same per-configuration verdicts (marks, tooltips and table view).
 - `main-table`: `main-chart`'s embedded data and table view carry the same medians for every configuration and variant, plus the middle half and p95.
+
+## Results-table rebuild
+
+| Change | Evidence now |
+|---|---|
+| Charts removed (speedup, main, sweep, spike, memory, verdict grids) and the scoreboards; results tables added per section | gen `results-table` with the args in the src; the same pinned data (`bench-data.json` series) |
+| Main section table at 1,000 rows; the bold claim covers every size | `main.tally.selectors.<scenario>.losses`; table shows `method.countsRows` rows only (stated in the lead sentence) |
+| Selection: new key-backed lines (vs the faster of Redux and Zustand range, the largest size with a four times CPU slowdown, the granular control at every size) | `main.tally.selectors.selection.range`, `main.selection.n10000.x4.verdict`, `main.tally.zustand-granular.selection.range` |
+| Table column subsets (spike, derived-selectors, ported suites with the compiler, fairness5 with the compiler, nobailout's three re-render scenarios) | gen args; the full tables are on `dashboard.html` (each section links "All the data") |
+| Fairness control table dropped; fairness5 includes all three Redux setups | `suite.fairness.control.*` ranges still cited in prose |
+| Verdict paragraph in plain words ("average times", "that many times longer") | `method.verdictRule` |
+| Throttle wording: "CPU slowdown", matching the tables | style sheet |

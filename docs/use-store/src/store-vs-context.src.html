@@ -91,7 +91,7 @@
   }
   .gen-block { margin: 0 0 16px; }
 </style>
-<!-- gen:charts-assets {"extras": true} --><!-- /gen:charts-assets -->
+<!-- gen:charts-assets {"extras": true, "results": true} --><!-- /gen:charts-assets -->
 </head>
 <body>
 <main>
@@ -175,9 +175,11 @@
 <!-- ============================================================ -->
 <h2 id="no-compiler">Without the compiler</h2>
 
-<!-- gen:speedup-chart {"comparison": "ctx-off-vsContextSplit", "title": "Without the compiler, use(store) never loses to a context per slice"} --><!-- /gen:speedup-chart -->
+<p>The table has every scenario at every list size and CPU speed, for the three approaches without the compiler. The number in parentheses is how many times slower a cell is than the fastest of the three in its row.</p>
 
-<!-- gen:speedup-chart {"comparison": "ctx-off-vsContext", "title": "Without the compiler, use(store) loses to one context only in subscribe churn"} --><!-- /gen:speedup-chart -->
+<!-- gen:results-table {"suite": "main", "columns": ["store+off", "context+off", "context-split+off"], "title": "use(store) and Context without the compiler, every size"} --><!-- /gen:results-table -->
+
+<p class="more"><a href="dashboard.html#main">All the data →</a></p>
 
 <p><strong>Without the compiler, one context wins only in <span data-n="ctx.tally.off.vsContext.lostScenarios"></span>, by at most <span data-n="ctx.tally.off.vsContext.maxLossPct"></span>.</strong></p>
 
@@ -188,13 +190,6 @@
 </ul>
 
 <details>
-<summary>Every configuration in milliseconds, both compiler settings</summary>
-<p>The chart has every configuration. Pick a scenario, a size, and a CPU throttle, and compare the two compiler settings.</p>
-
-<!-- gen:ctx-chart --><!-- /gen:ctx-chart -->
-</details>
-
-<details>
 <summary>Why</summary>
 <p>Without the compiler, every component that re-renders also re-renders its children, unless they're wrapped in <code>memo</code>. That's where the difference in renders shows most.</p>
 </details>
@@ -202,9 +197,11 @@
 <!-- ============================================================ -->
 <h2 id="compiler">With the compiler</h2>
 
-<!-- gen:speedup-chart {"comparison": "ctx-on-vsContextSplit", "title": "With the compiler, use(store) never loses to a context per slice"} --><!-- /gen:speedup-chart -->
+<p>The table has every scenario at every list size and CPU speed, for the three approaches with the compiler. The number in parentheses is how many times slower a cell is than the fastest of the three in its row.</p>
 
-<!-- gen:speedup-chart {"comparison": "ctx-on-vsContext", "title": "With the compiler, use(store) loses to one context only in filter and subscribe churn"} --><!-- /gen:speedup-chart -->
+<!-- gen:results-table {"suite": "main", "columns": ["store+on", "context+on", "context-split+on"], "title": "use(store) and Context with the compiler, every size"} --><!-- /gen:results-table -->
+
+<p class="more"><a href="dashboard.html#main">All the data →</a></p>
 
 <p><strong>With the compiler, one context wins <span data-n="ctx.tally.on.vsContext.all.losses"></span> configurations, in <span data-n="ctx.tally.on.vsContext.lostScenarios"></span>, by at most <span data-n="ctx.tally.on.vsContext.maxLossPct"></span>. A context per slice never wins.</strong></p>
 
@@ -242,16 +239,24 @@
 <!-- ============================================================ -->
 <h2 id="typing-memory">Typing and memory</h2>
 
-<p><strong>Without the compiler and with no CPU throttling, one context's slowest one in twenty keys (<code>p95</code>) took <span data-n="typing.main.context.off.x1.p95"></span> ms. <code>use(store)</code> took <span data-n="typing.main.store.off.x1.p95"></span> ms, and a context per slice <span data-n="typing.main.context-split.off.x1.p95"></span> ms.</strong></p>
+<p><strong>Without the compiler and with no CPU slowdown, one context's slowest one in twenty keys (<code>p95</code>) took <span data-n="typing.main.context.off.x1.p95"></span> ms. <code>use(store)</code> took <span data-n="typing.main.store.off.x1.p95"></span> ms, and a context per slice <span data-n="typing.main.context-split.off.x1.p95"></span> ms.</strong></p>
 
-<p>The compiler brought one context down to <span data-n="typing.main.context.on.x1.p95"></span> ms. For <code>use(store)</code>, the compiler made typing slower with no CPU throttling (<span data-n="typing.main.store.on.x1.p95"></span> ms) and faster with four times CPU throttling (<span data-n="typing.main.store.off.x4.p95"></span> ms without it, <span data-n="typing.main.store.on.x4.p95"></span> ms with it). I don't know why yet. The typing benchmark has far fewer samples than the main suite, so treat differences this small with care.</p>
+<!-- gen:results-table {"suite": "typing", "columns": ["store", "context", "context-split"], "title": "Typing while the list re-filters"} --><!-- /gen:results-table -->
+
+<p class="more"><a href="dashboard.html#typing">All the data →</a></p>
+
+<p>The compiler brought one context down to <span data-n="typing.main.context.on.x1.p95"></span> ms. For <code>use(store)</code>, the compiler made typing slower with no CPU slowdown (<span data-n="typing.main.store.on.x1.p95"></span> ms) and faster with a four times CPU slowdown (<span data-n="typing.main.store.off.x4.p95"></span> ms without it, <span data-n="typing.main.store.on.x4.p95"></span> ms with it). I don't know why yet. The typing benchmark has far fewer samples than the main suite, so treat differences this small with care.</p>
 
 <details>
 <summary>How typing was measured</summary>
 <p>The typing benchmark types into the filter while <span data-n="typing.main.rows"></span> expensive rows re-filter in a transition. All three update the list in a transition, so React can interrupt the list render to handle the next key. One context also holds the input's value, so the urgent update for each key re-renders every row that reads the context.</p>
 </details>
 
+<!-- gen:results-table {"suite": "memory", "columns": ["store", "context", "context-split"], "title": "Memory per row and mount time"} --><!-- /gen:results-table -->
+
 <p>For memory, <code>use(store)</code> uses more per row than either Context approach. At the largest size with the compiler, it uses <span data-n="ctx.memory.storeVs.context.on.n10000"></span> the bytes per row of one context, and <span data-n="ctx.memory.storeVs.context-split.on.n10000"></span> those of a context per slice. The compiler adds bytes per row for all three. The <a href="benchmark-report.html#typing-memory">benchmark report</a> has the full tables.</p>
+
+<p class="more"><a href="dashboard.html#memory">All the data →</a></p>
 
 <!-- ============================================================ -->
 <h2 id="context-wins">Where Context ties or wins</h2>

@@ -140,3 +140,11 @@ Every claim on the page, with its source. Keys are from `bench-data.json` (build
 | Without the compiler, use(store) loses to one context only in subscribe churn | `ctx.tally.off.vsContext.lostScenarios`. **Data-dependent** (typed in gen args) |
 | With the compiler, use(store) never loses to a context per slice | `ctx.tally.on.vsContextSplit.all.losses` = 0 |
 | With the compiler, use(store) loses to one context only in filter and subscribe churn | `ctx.tally.on.vsContext.lostScenarios`. **Data-dependent** |
+
+## Results-table rebuild
+
+| Change | Evidence now |
+|---|---|
+| Speedup charts and the ms chart removed; results tables for the three approaches without and with the compiler, at every size | gen `results-table` (`main`, columns `store+off/on`, `context+off/on`, `context-split+off/on`); titles in the ledger rows above still hold from `ctx.tally.*` |
+| Typing and memory tables for the three approaches | gen `results-table` (`typing`, `memory`) |
+| Throttle wording: "CPU slowdown" | style sheet |

@@ -16,6 +16,13 @@
 // subject, hairline grids, 2px lines, a legend for 2+ series, direct labels,
 // tooltips on hover and focus, and a table view for every chart.
 
+import fs from 'fs';
+import path from 'path';
+import {fileURLToPath} from 'url';
+
+// The repository root, for the results tables' links to each app's source.
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+
 // The functions the browser needs too. They only use their arguments and
 // LIB, because the runtime script is made from their source.
 const LIB = {
@@ -1694,6 +1701,497 @@ ${legend(items)}<div class="viz-plot">${svg}</div>
   );
 }
 
+// ---------------------------------------------------------------- results tables
+
+// Results tables, modeled on js-framework-benchmark's: implementations in
+// columns, configurations in rows grouped by scenario, each cell the mean ±
+// a 95% confidence interval (1.96 standard errors of the pooled samples) and
+// the slowdown against the fastest cell in its row with the same compiler
+// setting. One renderer, and one builder per suite that turns its series
+// into a spec (resultsSpec).
+
+// Plain-language names and descriptions of every scenario, per suite. The
+// main suite's come from fixtures/store-bench/src/shared/scenarios.js, the
+// ported Redux suites' from src/redux-suite/<suite>/scenarios.js.
+const RESULTS_SCENARIOS = {
+  main: {
+    selection: ['select row', 'change which row is selected. Every row reads the selection.'],
+    entity: ['edit row', "change one row's data."],
+    filter: ['toggle filter', 'switch a filter on and off. Every row checks whether it matches, and the header counts the matches.'],
+    'details-inline': ['update details, read in the row', 'change a value that only the expanded rows show (one row in a hundred), read in the row component itself.'],
+    'details-component': ['update details, read in a child', 'the same update, read in a child component that mounts only when its row is expanded.'],
+    'details-churn': ['expand and collapse', 'expand every tenth row, then collapse them again, so readers mount and unmount.'],
+    structure: ['add and remove row', 'add a row, then remove it.'],
+  },
+  'derived-selectors': {
+    mixed: ['mixed updates', 'the update mix of the original benchmark: mostly post scores, then new comments, then user roles.'],
+    score: ['change a score', "change a post's score. The stats per category, which several components show, change too."],
+    comment: ['add a comment', 'add a comment to a post. The stats per category change too.'],
+    role: ['change a role', "change a user's role. Nothing on screen reads it, so the store variants do no work."],
+  },
+  'rapid-dispatch': {
+    mixed: ['mixed dispatches', 'the mix of the original benchmark: synchronous bursts, bursts split by a timeout, and listener cascades.'],
+    syncBurst: ['synchronous burst', 'five dispatches in a row, the last of which starts a listener cascade.'],
+    thunkBurst: ['burst with a timeout', 'one dispatch now and two more in a timeout, timed as two steps.'],
+    listenerCascade: ['listener cascade', 'one dispatch whose listeners dispatch four more, synchronously.'],
+  },
+  'many-components-same-slice': {
+    increment: ['increment', 'increment a counter that every component on the page reads.'],
+  },
+  'deeptree-nested-hooks': {
+    mixed: ['mixed clicks', "all five buttons, in the order the original benchmark's timers fire."],
+    incrementRandom: ['update a random counter', 'increment one counter deep in the tree.'],
+    incrementFifth: ['update a fifth of the counters', 'increment every fifth counter.'],
+    incrementThird: ['update a third of the counters', 'increment every third counter.'],
+    appendRandomCharacter: ['append a character', 'append a random character to one string.'],
+    appendMany: ['append to many strings', 'append a character to every fourth string.'],
+  },
+  spike: {
+    mixed: ['mixed updates', 'post scores and new comments, interleaved.'],
+    score: ['change a score', "change a post's score. The stats per category change too."],
+    comment: ['add a comment', 'add a comment to a post. The stats per category change too.'],
+    role: ['change a role', 'nothing reads this update, so the store variants do no work.'],
+  },
+};
+// One line on how each variant is written (the header comment of its app).
+// Per-suite entries override the shared ones.
+const RESULTS_NOTES = {
+  '*': {
+    store: 'a store per row, plus small shared stores',
+    'store-single': 'one store, no selectors',
+    context: 'one provider with useReducer',
+    'context-split': 'a provider per slice, memoized rows',
+    redux: 'Redux Toolkit, useSelector',
+    zustand: 'one store, a selector per component',
+    'zustand-granular': 'a store per row, like use(store)',
+    'redux-plain': 'plain Redux, no Redux Toolkit or Immer',
+    'redux-nofreeze': 'Redux Toolkit with auto-freeze off',
+    'redux-deferred': 'Redux, the list reads useDeferredValue',
+    'zustand-deferred': 'Zustand, the list reads useDeferredValue',
+    'store-keyed': 'each row reads its own selected flag',
+    'store-bailout': 'the same app, built with the bailout',
+  },
+  'derived-selectors': {
+    store: 'a store per collection, every reader derives its stats',
+    'store-derived': 'the stats computed in the update, in their own store',
+    'store-memo': 'weakMemo shares the stats between readers',
+    zustand: 'one store, selectors with useShallow',
+  },
+  spike: {
+    store: 'a store per collection, every reader derives its stats',
+    'store-derived': 'the stats computed in the update, in their own store',
+    'store-derived-lazy': 'the stats computed by the first reader after a change',
+    'store-memo': 'weakMemo shares the stats between readers',
+    'store-reselect': "reselect's weakMapMemoize shares the stats",
+    'store-cache-gen': 'a render cache that keeps two generations',
+    'store-cache-render': 'a render cache cleared every commit',
+    'store-compiled': "the compiler's output, checked in",
+    'store-compiled-shared': 'compiler output that shares memoized calls',
+    'store-compiled-shared-site': 'the same, with a cache per call site',
+    zustand: 'one store, selectors with useShallow',
+  },
+};
+// The slowdown color: green at 1 (the fastest), through yellow, to red at
+// HEAT_MAX and beyond, on a log scale, in HEAT_STEPS + 1 classes.
+const HEAT_MAX = 2.5;
+const HEAT_STEPS = 20;
+function heatClass(s) {
+  if (!(s >= 1)) return 'h0';
+  return `h${Math.round(Math.min(1, Math.log(s) / Math.log(HEAT_MAX)) * HEAT_STEPS)}`;
+}
+// Decimals that give the row's fastest value three significant figures.
+function rowDecimals(min) {
+  return min > 0 ? Math.max(0, 2 - Math.floor(Math.log10(min))) : 3;
+}
+// A slowdown: two decimals, or one from 10 up, so columns stay narrow.
+function slowText(s) {
+  return s.toFixed(s >= 10 ? 1 : 2);
+}
+function geomean(xs) {
+  return xs.length ? Math.exp(xs.reduce((a, x) => a + Math.log(x), 0) / xs.length) : null;
+}
+function throttleText(t) {
+  return t === 1 ? 'no CPU slowdown' : `${t}× CPU slowdown`;
+}
+function sizeText(n) {
+  return `${n.toLocaleString('en-US')} rows`;
+}
+const SETTING = {on: '+ compiler', off: 'no compiler', all: ''};
+// A column: {id: "store+on", v, c, href}. c is the compiler setting, or
+// "all" when the suite doesn't vary it.
+function resultsCol(v, c, href) {
+  return {id: c === 'all' ? v : `${v}+${c}`, v, c, href};
+}
+// A measured entry as a cell: {m, s, r} (mean, standard error, per-restart
+// means), {noWork: true} when the median is 0 (below the timer: nothing
+// rendered, as in an unread update), or null for no data.
+function ciCell(e) {
+  if (!e) return null;
+  if (e.median === 0 || !(e.mean > 0)) return {noWork: true};
+  return {m: e.mean, s: e.sem ?? null, r: e.restarts ?? null};
+}
+function appHref(file) {
+  const rel = `fixtures/store-bench/src/${file}`;
+  return fs.existsSync(path.join(repoRoot, rel)) ? `../../${rel}` : null;
+}
+function scenarioRows(suite, scenarios, rowsOf) {
+  return scenarios.map(key => {
+    const [name, what] = RESULTS_SCENARIOS[suite]?.[key] ?? [key, ''];
+    return {key, name, what, rows: rowsOf(key)};
+  });
+}
+
+// suite => {title, note, kind: "ci" | "range" | "value", unit, cols, groups:
+// [{key, name, what, rows: [{label, scenario, size, throttle, cells}]}]}.
+function resultsSpec(data, suite) {
+  const S = data.series;
+  const m = S.main;
+  const lowOf = key => m.scenarios.find(s => s.key === key)?.lowSignal;
+  const mainWhat = (key, what) => (lowOf(key) ? `${what} Low signal: ${lowOf(key)}.` : what);
+  const both = (variants, hrefOf) => ['on', 'off'].flatMap(c => variants.map(v => resultsCol(v, c, hrefOf(v))));
+  const mainHref = v => appHref(`apps/${v}.jsx`);
+  if (suite === 'main' || suite === 'nobailout') {
+    const nb = suite === 'nobailout' ? S.nobailout : null;
+    if (suite === 'nobailout' && !nb) return null;
+    const cols = nb
+      ? [...nb.variants.map(v => resultsCol(v, 'on', mainHref(v))), resultsCol('store-bailout', 'on', mainHref('store'))]
+      : both(m.variants, mainHref);
+    const ns = nb ? nb.ns : m.ns;
+    return {
+      kind: 'ci',
+      unit: 'ms',
+      title: nb ? 'Without the same-element bailout: duration in milliseconds ± 95% confidence interval' : 'Duration in milliseconds ± 95% confidence interval',
+      cols,
+      groups: scenarioRows('main', m.scenarios.map(s => s.key).filter(k => !nb || nb.scenarios.some(x => x.key === k)), key =>
+        ns.flatMap(n =>
+          m.throttles.map(t => {
+            const k = `${key}|${n}|${t}`;
+            const cells = nb
+              ? cols.map(c => ciCell(c.v === 'store-bailout' ? nb.cells[k]?.withBailout : nb.cells[k]?.variants[c.v]))
+              : cols.map(c => ciCell(m.cells[k]?.variants[c.v]?.[c.c]));
+            return {label: `${sizeText(n)}, ${throttleText(t)}`, scenario: key, size: n, throttle: t, cells};
+          })
+        )
+      ).map(g => ({...g, what: mainWhat(g.key, g.what)})),
+    };
+  }
+  if (suite === 'memory') {
+    const rows = S.memory;
+    const cols = both(m.variants, mainHref);
+    const ns = [...new Set(rows.map(r => r.n))].sort((a, b) => a - b);
+    const runs = [...new Set(rows.map(r => r.runs))];
+    return {
+      kind: 'range',
+      unit: 'KB',
+      title: 'Memory per row in kilobytes, median and range of the runs',
+      note: `Heap growth after mounting the rows and a garbage collection, divided by the row count. Each cell is the median of ${runs.length === 1 ? `${runs[0]} runs` : 'its runs'} with their range below it, too few runs for a confidence interval.`,
+      cols,
+      groups: [
+        {
+          key: 'memory',
+          name: 'mount rows',
+          what: 'mount the list, then measure the heap.',
+          rows: ns.map(n => ({
+            label: `${sizeText(n)} mounted`,
+            size: n,
+            cells: cols.map(c => {
+              const r = rows.find(x => x.n === n && x.variant === c.v && x.compiler === c.c);
+              if (!r) return null;
+              const runsKb = (r.bytesPerRowRuns ?? []).map(b => b / 1024);
+              return {v: r.bytesPerRow / 1024, lo: runsKb.length > 1 ? Math.min(...runsKb) : null, hi: runsKb.length > 1 ? Math.max(...runsKb) : null};
+            }),
+          })),
+        },
+      ],
+    };
+  }
+  if (suite === 'typing' || suite === 'typing-suite') {
+    const rows = S.typing[suite === 'typing' ? 'main' : 'suite'] ?? [];
+    if (rows.length === 0) return null;
+    const variants = [...new Set(rows.map(r => r.variant))];
+    const order = [...m.variants, 'redux-deferred', 'zustand-deferred'];
+    variants.sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
+    const cols = both(variants, mainHref);
+    const throttles = [...new Set(rows.map(r => r.throttle))].sort((a, b) => a - b);
+    const metrics = [
+      ['p50', 'key press to next frame, median', 'the time from a key press to the next frame, for the median key.'],
+      ['p95', 'key press to next frame, p95', 'the same time for the slowest one in twenty keys.'],
+      ['max', 'key press to next frame, slowest', 'the same time for the slowest key.'],
+      ['settle', 'list caught up', 'the time from the first key until the list shows the rows for the full text, typing included.'],
+    ];
+    return {
+      kind: 'range',
+      unit: 'ms',
+      title: suite === 'typing' ? 'Typing latency in milliseconds' : 'Typing latency with useDeferredValue, in milliseconds',
+      note: "Typing into the filter while the list re-filters. The key press times are over every key of every run, and the small line is the range of the runs' own values, so a pooled value can sit just outside it. List caught up is the median of the runs. Too few runs for a confidence interval.",
+      cols,
+      groups: metrics.map(([k, name, what]) => ({
+        key: k,
+        name,
+        what,
+        rows: throttles.map(t => ({
+          label: throttleText(t),
+          throttle: t,
+          cells: cols.map(c => {
+            const r = rows.find(x => x.variant === c.v && x.compiler === c.c && x.throttle === t);
+            if (!r) return null;
+            const runs = r[`${k}Runs`] ?? [];
+            return {v: r[k], lo: runs.length > 1 ? Math.min(...runs) : null, hi: runs.length > 1 ? Math.max(...runs) : null};
+          }),
+        })),
+      })),
+    };
+  }
+  if (suite === 'fairness5') {
+    const f = S.fairness5;
+    if (!f) return null;
+    const cols = both(f.variants, mainHref);
+    const scenarios = m.scenarios.map(s => s.key).filter(k => f.rows.some(r => r.scenario === k));
+    return {
+      kind: 'ci',
+      unit: 'ms',
+      title: 'Fairness: every Redux setup, duration in milliseconds ± 95% confidence interval, at 1,000 rows',
+      cols,
+      groups: scenarioRows('main', scenarios, key =>
+        f.rows
+          .filter(r => r.scenario === key)
+          .sort((a, b) => a.throttle - b.throttle)
+          .map(r => ({label: throttleText(r.throttle), scenario: key, throttle: r.throttle, cells: cols.map(c => ciCell(r.cells[c.v]?.[c.c]))}))
+      ).map(g => ({...g, what: mainWhat(g.key, g.what)})),
+    };
+  }
+  if (suite === 'sweeps') {
+    const sw = S.sweeps;
+    if (!sw) return null;
+    const cols = sw.libraries.map(lib => resultsCol(lib, 'all', appHref(`apps/sweep-${lib}.jsx`)));
+    const coverage = sw.configs.filter(c => /-w8$/.test(c.key));
+    const widths = sw.configs.filter(c => /^c100-/.test(c.key) && c.key !== 'c100-w8');
+    const configText = c => {
+      const [, pct, w] = c.key.match(/^c(\d+)-w(\d+)$/);
+      return `${pct === '0' ? 'no rows' : pct === '100' ? 'every row' : `${pct}% of rows`} compiled, ${w} props per row`;
+    };
+    return {
+      kind: 'ci',
+      unit: 'ms',
+      title: 'Sweeps: duration in milliseconds ± 95% confidence interval, at 1,000 rows',
+      note: 'The compiler setting is part of each row here: how many rows the compiler compiled, and how many props each row has.',
+      cols,
+      groups: sw.scenarios.map(key => {
+        const [name, what] = RESULTS_SCENARIOS.main[key] ?? [key, ''];
+        return {
+          key,
+          name,
+          what,
+          rows: [...coverage, ...widths].flatMap(c =>
+            sw.throttles.map(t => ({
+              label: `${configText(c)}, ${throttleText(t)}`,
+              scenario: key,
+              throttle: t,
+              config: c.key,
+              cells: cols.map(col => ciCell(sw.cells[`${key}|${t}|${c.key}`]?.libraries[col.v])),
+            }))
+          ),
+        };
+      }),
+    };
+  }
+  if (suite === 'spike') {
+    const sp = S.spike;
+    if (!sp) return null;
+    const order = ['store', 'store-memo', 'redux', 'zustand'];
+    const variants = [...sp.variants].sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99) || a.localeCompare(b));
+    const cols = variants.map(v => resultsCol(v, 'all', appHref(`redux-suite/derived-selectors/apps/${v}.jsx`)));
+    return {
+      kind: 'ci',
+      unit: 'ms',
+      title: 'Shared derived data: duration in milliseconds ± 95% confidence interval, with the compiler',
+      note: 'The derived-selectors benchmark with more components reading each category. Every variant is compiled.',
+      cols,
+      notesSuite: 'spike',
+      groups: scenarioRows('spike', sp.families, key =>
+        sp.ks.flatMap(k =>
+          sp.throttles.map(t => ({
+            label: `${k} readers per category, ${throttleText(t)}`,
+            scenario: key,
+            throttle: t,
+            cells: cols.map(c => ciCell(sp.cells[`${key}|${k}|${t}`]?.variants[c.v])),
+          }))
+        )
+      ),
+    };
+  }
+  const s = S.suites.find(x => x.suite === suite);
+  if (s) {
+    const isRedux = suite !== 'fairness';
+    const cols = both(s.variants, v => appHref(isRedux ? `redux-suite/${suite}/apps/${v}.jsx` : `apps/${v}.jsx`));
+    const scenarios = [...new Set(s.rows.map(r => r.scenario))];
+    const tableName = isRedux ? suite : 'main';
+    return {
+      kind: 'ci',
+      unit: 'ms',
+      title: isRedux
+        ? `${suite}, from the Redux benchmarks: duration in milliseconds ± 95% confidence interval`
+        : 'Fairness controls: duration in milliseconds ± 95% confidence interval, at 1,000 rows',
+      note: isRedux ? 'Ported from reduxjs/react-redux-benchmarks, with seeded data so every variant applies the same updates.' : undefined,
+      cols,
+      notesSuite: suite,
+      groups: scenarioRows(tableName, isRedux ? scenarios : m.scenarios.map(x => x.key).filter(k => scenarios.includes(k)), key =>
+        s.rows
+          .filter(r => r.scenario === key)
+          .sort((a, b) => a.throttle - b.throttle)
+          .map(r => ({label: throttleText(r.throttle), scenario: key, throttle: r.throttle, cells: cols.map(c => ciCell(r.cells[c.v]?.[c.c]))}))
+      ),
+    };
+  }
+  return null;
+}
+
+// Pages can show a subset: {"columns": ["store", "context+off"], "rows":
+// {"scenarios": [...], "throttle": [...], "sizes": [...]}}. A column id
+// without "+on" or "+off" picks the variant at both settings.
+function filterSpec(spec, args) {
+  let {cols, groups} = spec;
+  let keep = cols.map((c, j) => j);
+  if (args.columns) {
+    keep = keep.filter(j => args.columns.includes(cols[j].id) || args.columns.includes(cols[j].v));
+  }
+  const want = args.rows ?? {};
+  const ok = r =>
+    (!want.scenarios || want.scenarios.includes(r.scenario)) &&
+    (!want.throttle || want.throttle.includes(r.throttle)) &&
+    (!want.sizes || want.sizes.includes(r.size));
+  groups = groups
+    .map(g => ({...g, rows: g.rows.filter(ok).map(r => ({...r, cells: keep.map(j => r.cells[j])}))}))
+    .filter(g => g.rows.length);
+  return {...spec, cols: keep.map(j => cols[j]), groups};
+}
+
+function resultsTable(data, {args = {}} = {}) {
+  const suite = args.suite ?? 'main';
+  const base = resultsSpec(data, suite);
+  if (!base) return card(`<p class="viz-empty">No pinned results for ${esc(suite)}.</p>`);
+  const spec = filterSpec(base, args);
+  const {cols, groups, kind} = spec;
+  const ci = kind === 'ci';
+  const notes = {...RESULTS_NOTES['*'], ...(RESULTS_NOTES[spec.notesSuite] ?? {})};
+  const settings = [...new Set(cols.map(c => c.c))];
+  const perSetting = settings.length > 1 || settings[0] !== 'all';
+  // The slowdown basis: the fastest cell in the row with the same compiler
+  // setting.
+  const val = e => (e && !e.noWork ? (ci ? e.m : e.v) : null);
+  const rows = groups.flatMap(g => g.rows);
+  for (const r of rows) {
+    r.min = {};
+    for (const c of settings) {
+      const vs = cols.map((col, j) => (col.c === c ? val(r.cells[j]) : null)).filter(v => v > 0);
+      r.min[c] = vs.length ? Math.min(...vs) : null;
+    }
+    const mins = Object.values(r.min).filter(v => v > 0);
+    r.dec = rowDecimals(mins.length ? Math.min(...mins) : 0);
+  }
+  const slow = (r, j) => (val(r.cells[j]) > 0 && r.min[cols[j].c] ? val(r.cells[j]) / r.min[cols[j].c] : null);
+  const cellHtml = (r, j) => {
+    const e = r.cells[j];
+    if (!e) return '<td class="rt-none">–</td>';
+    if (e.noWork) return '<td class="rt-none">no work</td>';
+    const s = slow(r, j);
+    let second = '';
+    if (ci && e.s > 0) {
+      // The interval to one significant figure, so it never shows as ±0.
+      const w = 1.96 * e.s;
+      second = `<small>±${w.toFixed(Math.max(0, -Math.floor(Math.log10(w))))}</small> `;
+    } else if (!ci && e.lo !== null && e.lo !== undefined) {
+      second = `<small class="rt-range">${e.lo.toFixed(r.dec)}–${e.hi.toFixed(r.dec)}</small>`;
+    }
+    return `<td class="${heatClass(s)}"><b>${val(e).toFixed(r.dec)}</b>${second}<i>(${slowText(s)})</i></td>`;
+  };
+  const gmRow = (subset, label) => {
+    const cells = cols.map((c, j) => {
+      const g = geomean(subset.map(r => slow(r, j)).filter(x => x !== null));
+      return g === null ? '<td class="rt-none">–</td>' : `<td class="${heatClass(g)}"><b>${slowText(g)}</b></td>`;
+    });
+    return `<tr class="rt-gm"><th scope="row">${esc(label)}</th>${cells.join('')}</tr>`;
+  };
+  let ri = 0;
+  const bodies = groups
+    .map(g => `<tbody><tr class="rt-group"><th scope="rowgroup" colspan="${cols.length + 1}"><span><b>${esc(g.name)}</b>: ${esc(g.what)}</span></th></tr>${g.rows
+      .map(r => {
+        const i = ri++;
+        return `<tr data-r="${i}"><th scope="row"><button type="button" class="rt-sort" data-r="${i}" aria-pressed="false"><b>${esc(g.name)}</b><span>${esc(r.label)}</span></button></th>${cols.map((c, j) => cellHtml(r, j)).join('')}</tr>`;
+      })
+      .join('')}</tbody>`)
+    .join('');
+  // The geometric means: every row, and when there's more than one size,
+  // the 1,000-row rows without a CPU slowdown.
+  const sizes = [...new Set(rows.map(r => r.size).filter(Boolean))];
+  const n0 = sizes.includes(1000) ? 1000 : null;
+  const sub = n0 ? rows.filter(r => r.size === n0 && r.throttle === 1) : [];
+  const foot =
+    rows.length > 1
+      ? `<tbody class="rt-foot">${gmRow(rows, 'geometric mean of slowdowns, every row')}${sizes.length > 1 && sub.length > 1 ? gmRow(sub, `geometric mean of slowdowns, ${sizeText(n0)}, ${throttleText(1)}`) : ''}</tbody>`
+      : '';
+  const runs = settings.map(c => [c, cols.filter(col => col.c === c).length]);
+  const groupRow = perSetting && settings.length > 1 ? `<tr class="rt-colgroups">${runs.map(([c, n]) => `<th scope="colgroup" colspan="${n}">${c === 'on' ? 'With the React Compiler' : 'Without the compiler'}</th>`).join('')}</tr>` : '';
+  const headRows = (groupRow ? 1 : 0) + 3;
+  const name = c => LIB.name(c.v === 'store-bailout' ? 'store' : c.v);
+  const sub2 = c => (c.v === 'store-bailout' ? 'with the bailout' : SETTING[c.c]);
+  const corner = `<th scope="col" class="rt-corner" rowspan="${headRows}">implementation</th>`;
+  const thead = `<thead>${groupRow ? groupRow.replace('<tr class="rt-colgroups">', `<tr class="rt-colgroups">${corner}`) : ''}<tr class="rt-names">${groupRow ? '' : corner}${cols
+    .map((c, j) => `<th scope="col" data-c="${j}">${codeify(esc(name(c)))}${sub2(c) ? `<small>${esc(sub2(c))}</small>` : ''}</th>`)
+    .join('')}</tr><tr class="rt-notes">${cols.map((c, j) => `<td data-c="${j}">${codeify(esc(notes[c.v] ?? ''))}</td>`).join('')}</tr><tr class="rt-tools">${cols
+    .map(
+      (c, j) =>
+        `<td data-c="${j}">${c.href ? `<a href="${c.href}">code</a>` : ''}${ci ? `<button type="button" class="rt-cmp" data-c="${j}" aria-pressed="false" aria-label="Compare every column with ${esc(`${name(c)} ${sub2(c)}`.trim())}">compare</button>` : ''}</td>`
+    )
+    .join('')}</tr></thead>`;
+  // What the browser needs to sort and compare: column names, the restart
+  // keys, and per cell [e, mean, standard error, per-restart means by key],
+  // the numbers as integers times 10^e (six significant figures of the
+  // mean), which keeps the page small without losing precision.
+  const rk = [...new Set(rows.flatMap(r => r.cells.flatMap(e => (e?.r ? Object.keys(e.r) : []))))].sort();
+  const enc = e => {
+    const x = Math.floor(Math.log10(e.m)) - 5;
+    const q = v => (v === null || v === undefined ? null : Math.round(v / 10 ** x));
+    return [x, q(e.m), q(e.s), e.r ? rk.map(k => q(e.r[k])) : null];
+  };
+  const json = {
+    cols: cols.map(c => `${name(c)} ${sub2(c)}`.trim()),
+    rk,
+    rows: rows.map(r => r.cells.map(e => (e && !e.noWork ? (ci ? enc(e) : [0, val(e)]) : null))),
+  };
+  const ticks = [
+    [1, '1.0'],
+    [1.25, '1.25'],
+    [1.6, '1.6'],
+    [2, '2.0'],
+    [HEAT_MAX, `${HEAT_MAX}+`],
+  ];
+  const basis = perSetting ? 'fastest with the same compiler setting' : 'fastest in the row';
+  const scale = `<div class="rt-scale"><span>slowdown</span><span class="rt-bar" aria-hidden="true">${ticks
+    .map(([t, label]) => `<i style="left:${((Math.log(t) / Math.log(HEAT_MAX)) * 100).toFixed(1)}%">${label}</i>`)
+    .join('')}</span><span>1.0 is the ${basis}. Color follows the slowdown number in each cell.</span></div>`;
+  const measure = suite === 'memory' ? 'Memory' : suite.startsWith('typing') ? 'Latency' : 'Duration';
+  const title = args.title ?? `${spec.title} (Slowdown = ${measure.toLowerCase()} / ${basis})`;
+  const how = [
+    spec.note,
+    args.note,
+    'Lower is better. Click a benchmark name to sort the columns by it, and again to reset.',
+    ci ? 'Press compare under a column to test every other column against it.' : '',
+    cols.length > 8 ? 'Scroll sideways to see every implementation.' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const cellText = ci ? 'mean, ± the 95% confidence interval, and the slowdown in parentheses' : 'the value, the range of the runs when there is one, and the slowdown in parentheses';
+  return `${placeholderBanner(data)}<section class="viz viz-card rt" aria-label="${esc(title)}">
+<h3 class="viz-title">${codeify(esc(title))}</h3>
+<p class="viz-note">${codeify(esc(how))}</p>
+${scale}
+<p class="rt-cmp-legend" aria-live="polite" hidden></p>
+<div class="rt-scroll" tabindex="0" role="region" aria-label="${esc(title)}, scrollable"><table class="rt-table"><caption class="viz-sr">${esc(title)}. Each cell: ${cellText}.</caption>${thead}${bodies}${foot}</table></div>
+<script type="application/json" class="rt-data">${JSON.stringify(json).replace(/</g, '\\u003c')}</script>
+</section>`;
+}
+
 // ---------------------------------------------------------------- tiles and grids
 
 // One verdict as an icon and words: ✓ win, = tie, ✗ loss, – no work.
@@ -1831,6 +2329,7 @@ export const generators = {
   'stat-tiles': statTiles,
   'verdict-grid': verdictGrid,
   'speedup-chart': speedupChart,
+  'results-table': resultsTable,
 };
 
 export const generatorDocs = {
@@ -1842,6 +2341,8 @@ export const generatorDocs = {
     'Store vs Context at the same compiler setting: per scenario and overall, store vs one context and vs a context per slice, compiler off and on (ctx.tally.*).',
   'ctx-chart':
     'Interactive dot plot of use(store), one context and a context per slice in two panels (with and without the compiler, each on its own log axis), by scenario, rows and CPU, with the same-setting verdicts in the note and a table view. Args: {"title", "compact"}.',
+  'results-table':
+    'js-framework-benchmark style results. Args: {"suite": "main" | "nobailout" | "memory" | "typing" | "typing-suite" | "fairness5" | "fairness" | "derived-selectors" | "rapid-dispatch" | "many-components-same-slice" | "deeptree-nested-hooks" | "sweeps" | "spike", "columns": [variant ids, or "store+on" / "store+off" for one compiler setting], "rows": {"scenarios": [...], "throttle": [...], "sizes": [...]}, "title", "note"}. Implementations in columns (grouped by compiler setting), configurations in rows grouped by scenario with plain-language descriptions, each cell the mean ± 95% confidence interval (1.96 standard errors of the pooled samples; median and run range for memory and typing) and the slowdown against the fastest cell in its row with the same compiler setting, colored by slowdown (green to red, with a scale), geometric means of the slowdowns at the bottom. Click a row to sort the columns by it; compare under a column tests the others against it with the verdict rule (two standard errors and restart agreement where restart data exists). Needs charts-assets {"extras": true, "results": true}.',
   'speedup-chart':
     'use(store)\'s speedup in every configuration of one comparison: one row per scenario, one mark per size (lane) and CPU throttle (circle or diamond) on a symmetric log-ratio axis around parity, placed by the ratio of means the verdict uses, blue faster, red slower, hollow gray a tie under method.verdictRule, the scenario tally (matched or beaten) at the right, a tooltip with both means and medians and the restart agreement, and a table view. No controls. Args: {"comparison": "headline" | "granular" | "ctx-<off|on>-<vsContext|vsContextSplit>" | "nobailout", "title", "compact"}. Needs charts-assets {"extras": true} only in compact mode.',
   'ctx-compiler-gain':
@@ -2116,9 +2617,292 @@ function runtime() {
 })();`;
 }
 
+// The results table's slowdown colors: OKLCH stops (green, yellow, red),
+// lighter to darker in light mode and darker to lighter in dark mode so the
+// order also reads in lightness, interpolated into HEAT_STEPS + 1 classes.
+// Cell text is the primary ink, which stays readable on every step.
+const HEAT_STOPS = {
+  light: [[0.93, 0.07, 145], [0.87, 0.1, 90], [0.77, 0.11, 25]],
+  dark: [[0.31, 0.06, 150], [0.39, 0.07, 80], [0.47, 0.1, 25]],
+};
+function oklchHex(L, C, h) {
+  const a = C * Math.cos((h * Math.PI) / 180);
+  const b = C * Math.sin((h * Math.PI) / 180);
+  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+  const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+  const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
+  const rgb = [
+    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
+  ];
+  const gamma = c => (c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055);
+  return '#' + rgb.map(c => Math.round(Math.min(1, Math.max(0, gamma(c))) * 255).toString(16).padStart(2, '0')).join('');
+}
+function heatColors(mode) {
+  const [g, y, r] = HEAT_STOPS[mode];
+  const lerp = (p, q, t) => p.map((v, i) => v + (q[i] - v) * t);
+  return Array.from({length: HEAT_STEPS + 1}, (_, i) => {
+    const t = i / HEAT_STEPS;
+    return oklchHex(...(t < 0.5 ? lerp(g, y, t * 2) : lerp(y, r, (t - 0.5) * 2)));
+  });
+}
+function heatRules(mode, scope) {
+  const cs = heatColors(mode);
+  return `${cs.map((c, i) => `${scope} .h${i}{background:${c}}`).join('')}${scope} .rt-bar{background:linear-gradient(90deg,${cs.join(',')})}${scope} .rt-faster{background:${cs[0]}}${scope} .rt-slower{background:${cs[HEAT_STEPS]}}`;
+}
+const RESULTS_CSS = `
+.rt{--rt-tie:#ecebe7;--rt-head:#f4f3f0}
+${heatRules('light', '.rt')}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])) .rt{--rt-tie:#2c2c2a;--rt-head:#222221}${heatRules('dark', ':root:where(:not([data-theme="light"])) .rt')}}
+:root[data-theme="dark"] .rt{--rt-tie:#2c2c2a;--rt-head:#222221}${heatRules('dark', ':root[data-theme="dark"] .rt')}
+.rt-scroll{border:1px solid var(--grid);border-radius:8px;margin-top:8px}
+.rt-scroll.rt-wide{overflow-x:auto}
+.rt-table tr.rt-rep th{background:var(--rt-head);position:static;text-align:center;font-weight:600;white-space:normal}
+.rt-table tr.rt-rep small{display:block;font-weight:400;color:var(--text-secondary)}
+.rt-table{border-collapse:separate;border-spacing:0;font-size:12px;line-height:1.35;font-variant-numeric:tabular-nums;color:var(--text-primary)}
+.rt-table th,.rt-table td{padding:5px 6px;border-right:1px solid var(--grid);border-bottom:1px solid var(--grid);text-align:right;vertical-align:top;white-space:nowrap}
+.rt-table thead th,.rt-table thead td{background:var(--rt-head);text-align:center;position:sticky;z-index:2}
+.rt-table thead tr > *{top:var(--rt-top,0)}
+.rt-table th[scope=colgroup]{font-weight:600}
+.rt-table .rt-names th{font-weight:600;width:68px;white-space:normal}
+.rt-table .rt-names small{display:block;font-weight:400;color:var(--text-secondary)}
+.rt-table .rt-notes td{white-space:normal;width:68px;font-size:11px;color:var(--text-secondary)}
+.rt-table .rt-tools a{display:block;margin-bottom:3px}
+.rt-table tbody th[scope=row],.rt-table .rt-corner{position:sticky;left:0;z-index:1;background:var(--surface-1);text-align:left}
+.rt-table .rt-corner{z-index:3;background:var(--rt-head);vertical-align:bottom;color:var(--text-secondary);font-weight:600}
+.rt-table td b{font-weight:600;display:block}
+.rt-table td small{font-size:10.5px;display:block}
+.rt-table td i{font-style:normal;white-space:nowrap;display:block}
+.rt-table .rt-range{display:block}
+.rt-table .rt-group th{text-align:left;background:var(--surface-1);font-weight:400;padding-top:12px;white-space:normal}
+.rt-table .rt-group th > span{position:sticky;left:9px;display:inline-block;max-width:760px}
+.rt-table .rt-gm th{font-weight:600;white-space:normal}
+.rt-table tbody th[scope=row]{white-space:normal;min-width:140px;max-width:170px}
+.rt-table .rt-foot tr:first-child > *{border-top:2px solid var(--axis)}
+.rt-table .rt-none{color:var(--text-secondary)}
+.rt button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;text-align:left}
+.rt .rt-sort{display:block}
+.rt .rt-sort b{display:block;font-weight:600}
+.rt .rt-sort span{color:var(--text-secondary)}
+.rt .rt-sort[aria-pressed=true] b{text-decoration:underline}
+.rt .rt-cmp{border:1px solid var(--border);border-radius:5px;padding:1px 6px;font-size:11.5px;color:var(--text-secondary)}
+.rt .rt-cmp[aria-pressed=true]{background:var(--text-primary);color:var(--surface-1)}
+.rt button:focus-visible,.rt a:focus-visible,.rt-scroll:focus-visible{outline:2px solid var(--series-1);outline-offset:1px}
+.rt.rt-sorted .rt-colgroups th[scope=colgroup]{visibility:hidden}
+.rt .rt-same{background:var(--rt-tie)}
+.rt .rt-base{box-shadow:inset 0 0 0 2px var(--text-primary)}
+.rt-scale{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:12px;color:var(--text-secondary);margin:6px 0 4px}
+.rt .rt-bar{position:relative;display:inline-block;width:220px;height:12px;border-radius:3px;margin-bottom:14px}
+.rt .rt-bar i{position:absolute;top:13px;transform:translateX(-50%);font-style:normal;font-size:11px;color:var(--text-secondary)}
+.rt .rt-bar i:first-child{transform:none}.rt .rt-bar i:last-child{transform:translateX(-100%)}
+.rt-cmp-legend{font-size:12.5px;margin:6px 0}
+.rt-cmp-legend button{text-decoration:underline}
+@media (forced-colors:active){.rt-table td{forced-color-adjust:auto}}
+`;
+
+// The results table's sorting and compare mode. Plain browser code.
+function resultsRuntime() {
+  return `(function () {
+  // Per-restart means are arrays by restart key, paired where both have one.
+  function restartsAgree(a, b) {
+    if (!a || !b) return null;
+    var signs = {};
+    var paired = 0;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] === null || b[i] === null) continue;
+      paired++;
+      signs[Math.sign(a[i] - b[i])] = true;
+    }
+    if (paired === 0) return null;
+    var list = Object.keys(signs);
+    return list.length === 1 && list[0] !== '0';
+  }
+  function setup(root) {
+    var data = JSON.parse(root.querySelector('script.rt-data').textContent);
+    // Cells arrive as [e, mean, sem, restarts] in integers times 10^e.
+    data.rows = data.rows.map(function (row) {
+      return row.map(function (c) {
+        if (!c) return null;
+        var f = Math.pow(10, c[0]);
+        var q = function (v) { return v === null || v === undefined ? null : v * f; };
+        return [q(c[1]), q(c[2]), c[3] ? c[3].map(q) : null];
+      });
+    });
+    var table = root.querySelector('table');
+    var legend = root.querySelector('.rt-cmp-legend');
+    var n = data.cols.length;
+    // Body cells carry their column index from here on, so sorting can move
+    // them.
+    table.querySelectorAll('tbody tr').forEach(function (tr) {
+      var tds = tr.querySelectorAll(':scope > td');
+      if (tds.length === n) tds.forEach(function (td, j) { td.setAttribute('data-c', j); });
+    });
+    var sortRow = null;
+    var base = null;
+    function rows() { return table.querySelectorAll('tbody tr[data-r]'); }
+    function order(ix) {
+      table.querySelectorAll('tr').forEach(function (tr) {
+        var cells = Array.prototype.slice.call(tr.querySelectorAll(':scope > [data-c]'));
+        if (cells.length !== n) return;
+        var byCol = [];
+        cells.forEach(function (td) { byCol[Number(td.getAttribute('data-c'))] = td; });
+        ix.forEach(function (j) { tr.appendChild(byCol[j]); });
+      });
+    }
+    function sortBy(r) {
+      var ix = [];
+      for (var j = 0; j < n; j++) ix.push(j);
+      if (r !== null) {
+        var cells = data.rows[r];
+        ix.sort(function (a, b) {
+          var x = cells[a] ? cells[a][0] : Infinity;
+          var y = cells[b] ? cells[b][0] : Infinity;
+          return x - y || a - b;
+        });
+      }
+      order(ix);
+      root.classList.toggle('rt-sorted', r !== null);
+      root.querySelectorAll('.rt-sort').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(Number(b.getAttribute('data-r')) === r));
+      });
+      sortRow = r;
+    }
+    function remember(td) {
+      if (!td.hasAttribute('data-h')) {
+        td.setAttribute('data-h', td.className);
+        var s = td.querySelector('i');
+        if (s) td.setAttribute('data-s', s.textContent);
+      }
+    }
+    function restore(td) {
+      if (!td.hasAttribute('data-h')) return;
+      td.className = td.getAttribute('data-h');
+      var s = td.querySelector('i');
+      if (s) s.textContent = td.getAttribute('data-s');
+    }
+    function compare(j) {
+      var anyRestarts = false;
+      var allRestarts = true;
+      rows().forEach(function (tr) {
+        var r = data.rows[Number(tr.getAttribute('data-r'))];
+        var b = r[j];
+        tr.querySelectorAll('td[data-c]').forEach(function (td) {
+          var k = Number(td.getAttribute('data-c'));
+          var a = r[k];
+          if (!a) return;
+          remember(td);
+          var s = td.querySelector('i');
+          if (j === null) return restore(td);
+          if (k === j) {
+            td.className = 'rt-base';
+            s.textContent = '(baseline)';
+            return;
+          }
+          if (!b) { td.className = 'rt-same'; s.textContent = '(n/a)'; return; }
+          var outside = Math.abs(a[0] - b[0]) > 2 * Math.sqrt((a[1] || 0) * (a[1] || 0) + (b[1] || 0) * (b[1] || 0));
+          var agree = restartsAgree(a[2], b[2]);
+          if (agree === null) allRestarts = false; else anyRestarts = true;
+          var sig = outside && agree !== false;
+          var word = !sig ? 'tie' : a[0] < b[0] ? 'faster' : 'slower';
+          td.className = word === 'tie' ? 'rt-same' : word === 'faster' ? 'rt-faster' : 'rt-slower';
+          s.textContent = '(' + (a[0] / b[0]).toFixed(2) + ', ' + word + ')';
+        });
+      });
+      table.querySelectorAll('.rt-gm td[data-c]').forEach(function (td) {
+        remember(td);
+        if (j === null) return restore(td);
+        td.className = 'rt-same';
+      });
+      root.querySelectorAll('.rt-cmp').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(Number(b.getAttribute('data-c')) === j));
+      });
+      base = j;
+      root.classList.toggle('rt-comparing', j !== null);
+      if (j === null) {
+        legend.hidden = true;
+        legend.textContent = '';
+        return;
+      }
+      legend.textContent = '';
+      var text = document.createElement('span');
+      text.textContent =
+        'Compared with ' + data.cols[j] + ' (outlined). Green: faster, red: slower, gray: a tie. In parentheses: the ratio to the baseline. A difference counts when it is outside two standard errors' +
+        (allRestarts ? ' and every restart agrees on its direction (the verdict rule). ' : anyRestarts ? ' and every restart agrees where restart data exists (the two-standard-error test alone elsewhere). ' : '. There is no restart data here, so this is the two-standard-error test alone. ') +
+        'The geometric means are uncolored in this mode. ';
+      var reset = document.createElement('button');
+      reset.type = 'button';
+      reset.className = 'rt-reset';
+      reset.textContent = 'Reset to slowdown colors';
+      legend.appendChild(text);
+      legend.appendChild(reset);
+      legend.hidden = false;
+    }
+    root.addEventListener('click', function (ev) {
+      var b = ev.target.closest && ev.target.closest('button');
+      if (!b || !root.contains(b)) return;
+      if (b.classList.contains('rt-sort')) {
+        var r = Number(b.getAttribute('data-r'));
+        sortBy(sortRow === r ? null : r);
+      } else if (b.classList.contains('rt-cmp')) {
+        var c = Number(b.getAttribute('data-c'));
+        compare(base === c ? null : c);
+      } else if (b.classList.contains('rt-reset')) {
+        compare(null);
+      }
+      layout();
+    });
+    layout();
+    window.addEventListener('resize', layout);
+    // The table takes its full height in the page. When it fits its column,
+    // the header rows stick to the top of the window as the page scrolls.
+    // When it's wider, it scrolls sideways in its own box (the first column
+    // stays put), which ends page-level sticky, so the column names repeat
+    // under each scenario heading instead. Run again whenever sorting or
+    // compare changes the widths.
+    function layout() {
+      var box = table.parentElement;
+      box.classList.remove('rt-wide');
+      var wide = table.scrollWidth > box.clientWidth + 1;
+      box.classList.toggle('rt-wide', wide);
+      table.querySelectorAll('tr.rt-rep').forEach(function (tr) { tr.remove(); });
+      if (wide) {
+        var names = table.querySelector('thead tr.rt-names');
+        table.querySelectorAll('tbody tr.rt-group').forEach(function (g) {
+          var rep = document.createElement('tr');
+          rep.className = 'rt-rep';
+          rep.setAttribute('aria-hidden', 'true');
+          var corner = document.createElement('th');
+          corner.className = 'rt-corner';
+          rep.appendChild(corner);
+          names.querySelectorAll(':scope > th[data-c]').forEach(function (th) {
+            var c = th.cloneNode(true);
+            c.removeAttribute('scope');
+            rep.appendChild(c);
+          });
+          g.after(rep);
+        });
+      }
+      measure();
+    }
+    // Sticky header rows stack at their measured heights.
+    function measure() {
+      var top = 0;
+      table.querySelectorAll('thead tr').forEach(function (tr) {
+        tr.style.setProperty('--rt-top', top + 'px');
+        top += tr.getBoundingClientRect().height;
+      });
+    }
+  }
+  function init() { document.querySelectorAll('.rt').forEach(function (root) { if (root.querySelector('script.rt-data')) setup(root); }); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();`;
+}
+
 // {"extras": true} adds the styles for stat tiles, the verdict grid and
 // compact cards. Off by default, so pages that don't use them keep the same
 // bytes.
-function assets({extras = false} = {}) {
-  return `<style>${CSS}${extras ? EXTRA_CSS : ''}</style>\n<script>${runtime()}</script>`;
+function assets({extras = false, results = false} = {}) {
+  return `<style>${CSS}${extras ? EXTRA_CSS : ''}${results ? RESULTS_CSS : ''}</style>\n<script>${runtime()}</script>${results ? `\n<script>${resultsRuntime()}</script>` : ''}`;
 }
