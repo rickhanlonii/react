@@ -175,7 +175,7 @@ function Count() {
 <li><code>store.update</code> is bound to its store when it's created, so you can pass it around. It takes one argument. Passing a second callback argument warns in development, like <code>setState</code> does.</li>
 <li>You can update a store from anywhere: before the first render, in an event handler, an effect, an async action, a timer, or code outside React. An update inside <code>startTransition</code> is a transition. Inside <code>startGestureTransition</code>, <code>update()</code> throws.</li>
 <li><code>use(store)</code> reads the store while rendering a function component or a custom Hook. Called outside a function component, it throws the invalid Hook call error. In <code>useMemo</code>, a reducer, or an effect, it gets the same warning or error as calling any Hook there.</li>
-<li>There's no way to read a store outside render, so there's no <code>store.get()</code>. In an event handler, use the value from render or pass an updater. This is still being decided (see <a href="#limits">limits</a>).</li>
+<li>There's no way to read a store outside render, so there's no <code>store.get()</code>. In an event handler, use the value from render or pass an updater. That's decided for the first version (<a href="#dcp-21">DCP-21</a>), and whether to ever add a read of the latest value is still open (see <a href="#limits">limits</a>).</li>
 <li>There are no selectors. Read granular stores instead (like a store per entity, or a store of stores), and let the React Compiler memoize what you compute from them (see <a href="#performance">what re-renders</a>).</li>
 </ul>
 
@@ -345,7 +345,7 @@ function Count() {
 
 <p>A store update batches with other updates in the same event. An update inside <code>startTransition</code> is a transition, and a sync update is rebased over a pending transition, the same as <code>useState</code>.</p>
 
-<p>Async actions work the same way they do with <code>useState</code>. Updates before and after an <code>await</code> commit together when the action finishes. A component whose value comes from a pending action suspends until the action is done. There's a sandbox in <a href="#async-actions">patterns</a>.</p>
+<p>Async actions work the same way they do with <code>useState</code>. Updates before and after an <code>await</code> commit together when the action finishes. A component whose value comes from a pending action suspends until the action is done. If no component reads the store, the HostRoot suspends on the action instead, so a reader that mounts later doesn't see the update early. There's a sandbox in <a href="#async-actions">patterns</a>.</p>
 
 <h3 id="queue">The queue, step by step</h3>
 
@@ -397,9 +397,11 @@ function Count() {
 <ul>
 <li>The held update waits on the store with its lane. An urgent update dispatched after it is held too, so it's rebased on top, like <code>useReducer</code>.</li>
 <li>When a root starts reading the store, it takes the held updates into its record as if they'd been dispatched to it. It schedules their lanes on its HostRoot and entangles the transitions (<a href="#dcp-20">DCP-20</a>).</li>
-<li>An update whose transition is done is applied to the latest value. That's checked at every commit and when a root starts reading the store.</li>
+<li>An update whose transition is done is applied to the latest value, once. That's checked at every commit and when a root starts reading the store.</li>
+<li>A transition that has nothing else to render is done at the end of its event, unless it's a pending async action. So a transition that only updates an unread store doesn't hide its update.</li>
 <li>A component that mounts in the same transition sees the held update.</li>
-<li>One limit: with several roots, "done" is judged on the root that's committing. A transition that's still pending on another root can be applied there early. That matches the rule that a root that starts reading a store starts from the latest value.</li>
+<li>With several roots, "done" is judged on the root that's committing, so a transition that's still pending on another root can be applied there early. That's how transitions already work across roots: each root commits its part on its own.</li>
+<li>With several renderers on one page, like <code>react-dom</code> and <code>react-art</code>, a held update is shared by all of them. Each renderer takes it over or applies it with its own lanes.</li>
 </ul>
 <p>Without a record, there's no queue to put the update in. At first the store applied it right away, and a component that mounted urgently during the transition saw it before everything else. The port of the <code>react-concurrent-store</code> ponyfill found that problem.</p>
 </details>
@@ -453,10 +455,11 @@ function Count() {
 <ul>
 <li>It's the <code>useSyncExternalStore</code> model, with the initial value as the server snapshot (<a href="#dcp-4">DCP-4</a>).</li>
 <li>A hydrating reader still computes the client value. If a transition is pending, it joins it. If the client value differs from the initial value, it renders again at the sync lane after the commit (<a href="#dcp-12">DCP-12</a>).</li>
-<li>Updates on the server aren't rendered. To server render a different value, create the store with it (for example, from data you serialize on both sides).</li>
-<li>Updating a store during a server render doesn't warn. It only changes the latest value, so it can't change this request's HTML or another request's.</li>
+<li>Updates on the server aren't rendered. To server render a different value, create the store with it (for example, from data you serialize on both sides), or pass a store per request through context.</li>
+<li>In development, the server warns once per store if the store was updated before the server render: <q>A store was updated before this server render.</q> The server renders the store's initial value, so the update isn't in the HTML, and it can't change another request's HTML either.</li>
+<li>A hydrating reader doesn't throw a pending reducer error. It renders the initial value, and the error is reported at commit instead.</li>
 <li>A store update isn't routed into a boundary that hasn't hydrated yet. The server HTML stays until the boundary hydrates with the initial value, and then the reader catches up.</li>
-<li>Server Components can't read stores. They throw "Cannot read a store from a Server Component."</li>
+<li>Server Components can't read stores. They throw <q>Cannot read a store from a Server Component.</q> Passing a store as a prop to a Client Component throws too: <q>Stores can't be passed from a Server Component to a Client Component.</q> Create the store in a Client Component module instead.</li>
 </ul>
 </details>
 
@@ -571,7 +574,7 @@ function Count() {
 <p>Five components show stats for two categories, and the console shows the stats computed twice. Add a post, and all five re-render with a new snapshot, but the stats are still computed once per category.</p>
 
 <ul>
-<li>Read the store first, then call the function. The compiler doesn't memoize <code>f(use(a), use(b))</code> written inline yet. Hoisted reads work.</li>
+<li>The compiler memoizes a call like <code>f(use(a), use(b))</code> on both values, inline or not. It doesn't memoize a value you build across <code>use()</code> calls, like an array filled with <code>push(use(a))</code> or built in a loop that reads stores.</li>
 <li>Don't derive outside render from several stores (for example, in an update or a subscription). A value computed that way can tear with a pending transition.</li>
 <li>How React should share derived data is still open. A client <code>cache()</code> scoped to a render is the leading option. <code>weakMemo</code> is the userland version the benchmarks measure.</li>
 </ul>
@@ -630,7 +633,7 @@ function Avatar() {
 <tr><th scope="row">What changes it</th><td>The Provider re-rendering with a new value</td><td><code>store.update()</code>, from anywhere</td></tr>
 <tr><th scope="row">Who re-renders</th><td>Every consumer of the context</td><td>Only the components that read that store</td></tr>
 <tr><th scope="row">Suspense retries</th><td>Every boundary below the Provider showing a fallback</td><td>Only boundaries waiting on the store</td></tr>
-<tr><th scope="row">Several roots</th><td>Each root has its own Providers</td><td>Every root that reads the store shares it, and each root commits updates on its own schedule</td></tr>
+<tr><th scope="row">Several roots</th><td>Each root has its own Providers</td><td>Every root that reads the store shares it, and each root commits updates on its own schedule. Several renderers on one page each keep their own records.</td></tr>
 <tr><th scope="row">DevTools</th><td>Reports a context change</td><td>Shows a <code>Store</code> Hook, and reports it as a changed Hook</td></tr>
 </tbody>
 </table>
@@ -641,12 +644,12 @@ function Avatar() {
 <p>These are the known limits, and the things that aren't decided yet.</p>
 
 <ul>
-<li>Consistency across roots isn't guaranteed. A root that starts reading a store starts from the latest value, even if another root hasn't committed some updates yet.</li>
+<li>Roots aren't kept in sync. A root that starts reading a store starts from the latest value, including updates from transitions that are still pending in another root. That's how transitions already work across roots: each root commits its part on its own. Within a root, every reader agrees.</li>
 <li>Stores assume one render in progress per root. <code>use(store)</code> finds the root's work-in-progress tree directly. <a href="#dcp-17">DCP-17</a> found nothing else that depends on there being one, but that hasn't been tested.</li>
-<li>The compiler doesn't memoize <code>f(use(a), use(b))</code> written inline. Hoisted reads work. I think this needs a compiler fix before people learn the inline form.</li>
+<li>The compiler memoizes <code>f(use(a), use(b))</code> on both values. It doesn't memoize a value that's still being built when <code>use()</code> runs, like an array filled with <code>push(use(a))</code> or built in a loop over <code>use()</code> calls. That's because the scope that contains <code>use()</code> is flattened.</li>
 <li>Shared derived data isn't decided. A render-scoped client <code>cache()</code> is the leading option. <code>weakMemo</code> works today.</li>
-<li>Reading outside render isn't decided. The recommendation is to not ship a way to read the latest value outside render.</li>
-<li>DevTools has gaps. Store values can't be edited from DevTools. <code>const x = use(store)</code> doesn't get a Hook name, which is also true for <code>use(context)</code>. The Profiler's detail view can fall back to a short description for store changes.</li>
+<li>The first version has no read outside render: no <code>getSnapshot()</code>, <code>getState()</code>, or <code>subscribe()</code> (<a href="#dcp-21">DCP-21</a>). Whether to ever add a read of the latest value is still open.</li>
+<li>DevTools has gaps. Store values can't be edited from DevTools. <code>const x = use(store)</code> doesn't get a Hook name, which is also true for <code>use(context)</code>. The Profiler does report store changes: <q>Why did this render?</q> lists changed Hooks by id, plus the store reads that changed.</li>
 <li>The same-element bailout needs its own review. It isn't specific to stores, so it'll get its own PR (<a href="#dcp-10">DCP-10</a>).</li>
 <li>There's no real-app data yet. The plan is to try it on a store-heavy surface and measure renders and interaction latency.</li>
 <li>Not in the first version: optimistic stores, and interop with external sources and observables.</li>
@@ -658,12 +661,13 @@ function Avatar() {
 <ul>
 <li>Logged errors are matched by identity. If two stores throw the same object in one commit and a boundary logs one, it's reported once.</li>
 <li>A boundary in a hidden Activity that caught the error counts as handled, but React logs it only when it's revealed. If the hidden tree is deleted first, it's never logged. Getting there needs a store update processed in an offscreen render, which in practice means an update during render.</li>
+<li>Where some reducer errors should go is still open. A store has no component that owns its state, so no boundary drops its whole queue the way unmounting a <code>useReducer</code> does. For example, an urgent update that only throws because a pending transition was skipped can be dropped when that transition is waiting on data.</li>
 </ul>
 </details>
 
 <h3 id="dcp-index">Decision index</h3>
 
-<p>Each design change is recorded in <a href="DECISIONS.md">DECISIONS.md</a>, with the tests that pin it. Later decisions amend or replace parts of earlier ones, and the status column says which. <a href="#dcp-17">DCP-17</a> to <a href="#dcp-20">DCP-20</a> don't have a status line in <a href="DECISIONS.md">DECISIONS.md</a>. They're in the code today, so they're listed as implemented.</p>
+<p>Each design change is recorded in <a href="DECISIONS.md">DECISIONS.md</a>, with the tests that pin it. Later decisions amend or replace parts of earlier ones, and the status column says which. <a href="#dcp-17">DCP-17</a> to <a href="#dcp-20">DCP-20</a> don't have a status line in <a href="DECISIONS.md">DECISIONS.md</a>. They're in the code today, so they're listed as implemented. <a href="#dcp-21">DCP-21</a> decides what the API leaves out, so it's listed as decided.</p>
 
 <table class="dcp-index">
 <thead><tr><th scope="col">Decision</th><th scope="col">What it says</th><th scope="col">Status</th><th scope="col">Entry</th></tr></thead>
@@ -688,6 +692,7 @@ function Avatar() {
 <tr id="dcp-18"><td>DCP-18</td><td>Transition updates to a store no root reads are held until the transition is done.</td><td>Implemented, amended by <a href="#dcp-20">DCP-20</a>.</td><td><a href="DECISIONS.md">DECISIONS.md</a></td></tr>
 <tr id="dcp-19"><td>DCP-19</td><td>A reducer error is reported unless a committed error boundary logs it.</td><td>Implemented. Amends <a href="#dcp-14">DCP-14</a>.</td><td><a href="DECISIONS.md">DECISIONS.md</a></td></tr>
 <tr id="dcp-20"><td>DCP-20</td><td>When a root takes over held updates, it schedules and entangles their lanes.</td><td>Implemented. Amends <a href="#dcp-18">DCP-18</a>.</td><td><a href="DECISIONS.md">DECISIONS.md</a></td></tr>
+<tr id="dcp-21"><td>DCP-21</td><td>No public read outside render in the first version. A handler uses its render's value, and read-then-write uses an updater or the reducer.</td><td>Decided. A read of the latest value is still open.</td><td><a href="DECISIONS.md">DECISIONS.md</a></td></tr>
 </tbody>
 </table>
 

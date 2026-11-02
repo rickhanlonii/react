@@ -251,3 +251,7 @@ work in progress (noun); work-in-progress (adjective: the work-in-progress
 | `setState` vs `useState` as the comparison | "the same as `useState`" (concurrency) and "the same as `setState`" (async actions) | Both are accurate. The setter and the Hook are different referents |
 | "fastest of Redux and Zustand" in the ported derived-selectors results | One use. The opponent is every non-store variant at each compiler setting, so "fastest" may be deliberate | Left as written. Author to confirm |
 | Serial comma | The page uses none ("transitions, entanglement and rebasing"). Ricky's profile says "Oxford comma usually" | Decided by the orchestrator: use the serial comma in both reports (Ricky's profile). Applied in the voice pass |
+
+## Quoted error and warning messages
+
+React's own error and warning text, quoted in prose, goes in `<q>`, copied exactly from the source (for example `<q>A store was updated before this server render.</q>`, from ReactFizzHooks.js). Describing an error without quoting it ("it throws the invalid Hook call error") needs no markup. Added at the explainer refresh, when the server section's three quoted messages were made consistent.

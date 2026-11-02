@@ -34,10 +34,10 @@ Status: **V** verified in code or a test, **L** shown live by a sandbox (G3 step
 | With a reducer, the argument is passed as the action, even a function | RS:121 (reducer used as-is, no function check) | V |
 | Reducer fixed at creation, which lets React replay updates on any version (rebasing) | RS:111-121 comment; DESIGN "The reducer is fixed when the store is created" | V |
 | No lazy initializer | DESIGN "No lazy initializer" | D |
-| `store.update` is bound to the store, one argument | RS:135 `updateStore.bind(store)`; UST "store.update has an arity of 1, like a setState function" | V |
+| `store.update` is bound to the store, one argument | RS:135 `updateStore.bind(store)`; UST "warns about a second callback argument to store.update" (asserts `update.length`) | V |
 | A second callback argument warns in DEV | RS:22-31; UST "warns about a second callback argument to store.update" | V |
 | Update from anywhere, incl. before first render | UST "reads updates made before the first render"; RS:47-66 (no-record path) | V |
-| `update()` inside `startGestureTransition` throws | RS:33-44; UST "a store update that throws inside a gesture transition does not change the store" | V |
+| `update()` inside `startGestureTransition` throws | RS:33-44; UST "a store update inside a gesture transition throws and does not change the store" | V |
 | `use(store)` outside a function component throws the invalid Hook call error | FH:1197-1199; UST "throws an invalid hook call error when read outside a function component" | V |
 | In `useMemo`/reducer/effect: same warning or error as other Hooks | DESIGN "Differences from context: Disallowed reads" | D |
 | No way to read outside render; recommendation still a decision | RS (store has no read method, RS:117-135); NEXT_STEPS D5 | V D |
@@ -59,7 +59,7 @@ Status: **V** verified in code or a test, **L** shown live by a sandbox (G3 step
 | Commit is a pointer swap; reducer doesn't run again | `commitStoreState` FS:1013-1021; `commitStoreStates` FS:1050-1066 ("Nothing is computed again"); DCP-17 | V |
 | Two components in one commit can't show different versions | UST "never commits readers showing different versions of the store"; tearing G4 | V L |
 | Store keeps the latest value in dispatch order; a new root starts from it, plus held transition updates (FS:239-305; DESIGN Model "With no records"; reviewer fix 4) | RS:122-124 `_head` comment; `getStoreRecord` FS:208-221; DESIGN "A root that starts reading a store starts from _head" | V |
-| Latest value computed lazily; reducer runs about as often as useReducer | DCP-6; RS:67-70 comment; UST "runs the reducer as often as useReducer" | V |
+| Latest value computed lazily; reducer runs about as often as useReducer | DCP-6; RS:67-70 comment; UST "runs each updater as often through an interruption and a rebase" | V |
 | Glossary: record contents (pending, lanes, readers) | `StoreRecord` FS:131-165 | V |
 | Glossary: base state / base queue / skipped lanes | `StoreState` FS:85-110 | V |
 | Glossary: eager state is per root (record has nothing pending); same value dropped without rendering | FS:740-758 (`hasPendingStoreUpdates(record)`); DESIGN Model "Dispatch" ("when the record has nothing pending"); reviewer fix 2; DESIGN "Eager computation and bailout"; UST "bails out when the value does not change" | V |
@@ -75,7 +75,7 @@ Status: **V** verified in code or a test, **L** shown live by a sandbox (G3 step
 | Reads stored as record (per root)/value pairs, compared with previous render; change = update; else bail out | FH:1266-1278 (`storeReads.push(record, value)`); DESIGN Readers; reviewer fix 7; `compareStoreReads` FH:1314-1347; DESIGN Readers | V |
 | One insertion effect per component, pushed only when the set changes | DCP-8; FH:1349-1355, FH:1390-1396 | V |
 | Subscribes in the commit before layout effects, so layout-effect updates aren't missed | DCP-2 ("Insertion effects run synchronously in the mutation phase"); UST "does not miss updates dispatched in a layout effect before the reader subscribes" | V |
-| Deletion unsubscribes | `unsubscribeFromStoresOnDeletion` FS:878, called at ReactFiberCommitWork.js:1682; UST "unsubscribes on unmount after re-rendering with the same stores" | V |
+| Deletion unsubscribes | `unsubscribeFromStoresOnDeletion` FS:878, called at ReactFiberCommitWork.js:1682; UST "stops updating unmounted readers and releases the root" | V |
 | On subscribe, marked with every pending lane | `subscribeToStores` FS:809-826; DCP-15 | V |
 | Record dropped in the same commit once no readers and nothing pending | `flushStoreSubscriptions` FS:1201-1223; DCP-11; UST "stops updating unmounted readers and releases the root"; DST "releases the root when it unmounts, without another store update" | V |
 | Subscriptions explainer: records and subscribed components read from internals; no record when nothing reads | README `subscriptions`; src/demos/frames/subscriptions.js header; G4 "reader counts" | L |
@@ -85,18 +85,18 @@ Status: **V** verified in code or a test, **L** shown live by a sandbox (G3 step
 | Claim | Source | Status |
 |---|---|---|
 | Batches with other updates in the same event | UST "batches updates to the store with state updates in the same event" | V |
-| Transition update is a transition; sync rebased over a pending transition | UST "renders a transition update without blocking", "a sync update interrupts a transition and is rebased" | V |
+| Transition update is a transition; sync rebased over a pending transition | UST "renders a transition update without blocking", "rebases an urgent update over a pending transition" | V |
 | Queue explainer: real React, mock scheduler, preview checked vs React on random sequences | README queue + G4 "queue preview matches React: 200 seeds" | L |
 | Try-this numbers: T +1 then S ×2 shows `1 * 2 = 2`, step shows `(1 + 1) * 2 = 4` | `processStoreRecord` rules; queue explainer starts at `1` (queue-ui.js reset `initial: 1`); same shape as UST "(2 + 1) * 2" | V |
 | Experimental-only default flush when a transition is dispatched with default updates waiting | README "Notes for authors"; queue-ui.js log text | D |
 | No tearing: one state per render from the HostRoot; updates during render wait | DCP-17; FS:771-775 comment | V |
 | Tearing demo script and four outcomes | README tearing; tearing-ui.js strings; G4 notes (global tears, uSES de-opts, default lane transition-first, click update-first) | L |
-| A reader mounting mid-transition shows the committed value, then updates with the transition in one commit | UST "a reader that mounts during a transition shows the committed value, then updates with the transition", "...non-blocked transition joins it"; sandbox `join-demo` | V L |
+| A reader mounting mid-transition shows the committed value, then updates with the transition in one commit | UST "a reader that mounts during a transition shows the committed value, then updates with the transition", "a reader that mounts while a transition is rendering joins it"; sandbox `join-demo` | V L |
 | Mechanism: skipped lanes merged into the fiber, like updateReducerImpl, no extra render/fixup | DCP-3; FH:1240-1247 | V |
 | A component that mounts as part of the transition reads the new value | UST "a reader that mounts as part of the transition that updates the store reads the new value" | V |
 | Async actions: before/after `await` commit together | UST "async actions batch store updates with updates after await"; sandbox `async-action-demo` | V L |
 | A component whose value comes from a pending action suspends until it's done | FH:1279-1306; DESIGN Readers | V |
-| Held: transition update to an unread store held until done; urgent mount doesn't see it | DCP-18; `dispatchUnreadStoreUpdate` FS:316-344; UST "a reader that mounts urgently does not see a transition update to a store no root read yet"; sandbox `held-demo` | V L |
+| Held: transition update to an unread store held until done; urgent mount doesn't see it | DCP-18; `dispatchUnreadStoreUpdate` FS:316-344; UST "a reader that mounts after the last reader unmounted does not see a pending transition early" (closest current test; the urgent-mount case is shown live by sandbox `held-demo`); sandbox `held-demo` | V L |
 | Originally applied right away; found by the react-concurrent-store port | DCP-18 "Bug" | D |
 | Urgent update after a held one is held too and rebased | FS:316-320 comment, FS:327-342; UST "an urgent update behind a held update is rebased on top of it" | V |
 | A root that starts reading takes held updates into its record, schedules lanes on HostRoot, entangles | FS:239-305; DCP-20 | V |
@@ -118,7 +118,7 @@ Status: **V** verified in code or a test, **L** shown live by a sandbox (G3 step
 | Children that don't read the store aren't retried; Provider change retries every boundary showing a fallback | DESIGN "Differences from context: Suspense retries" | D |
 | Hidden Activity readers stay subscribed, update in background at offscreen priority, reveal with latest | UST "readers in a hidden Activity update in the background"; DCP-2 (not disconnected by Activity); sandbox `activity-demo` | V L |
 | A click is sync | `requestStoreUpdateLane` ReactFiberWorkLoop.js:930 (`eventPriorityToLane`), API.md §2 step | V |
-| Scoped: when a transition's store update commits at the root before the hidden tree renders, the hidden reader renders the committed value; `useState` renders the older value first | ActivitySuspense-test.js "updates at multiple priorities that suspend inside hidden tree" (store-semantics note ~line 683); DCP-17 "Observable differences"; DESIGN "Hidden trees" still says "never", page scoped per reviewer | V |
+| Scoped: when a transition's store update commits at the root before the hidden tree renders, the hidden reader renders the committed value; `useState` renders the older value first | UST "a hidden reader renders the value committed at the root, not an intermediate value" (DESIGN now cites it); DCP-17 "Observable differences"; DESIGN "Hidden trees" still says "never", page scoped per reviewer | V |
 | Revealed-tree readers read the same version (root lanes, not subtree lanes) | FH:1233-1239; DCP-13; UST "readers inside a revealed Activity read the same version as the rest of the tree" | V |
 | Server renders the initial value; client hydrates with it; readers re-render with latest after hydrating; no mismatch | DCP-4, DCP-12; FH:1249-1258; DST "hydrates with the initial value of the store"; sandbox `hydration-demo` (logs light, light, dark; no recoverable error) | V L |
 | uSES model with the initial value as server snapshot | DCP-4 | D |
@@ -139,12 +139,12 @@ Status: **V** verified in code or a test, **L** shown live by a sandbox (G3 step
 | Reducer runs outside any component; Hook/context in it throws; readers throw it | DCP-17; FS:449-454 comment; DESIGN "Reducers run outside any component" | V |
 | "Which Provider's value would a shared store see?" | DESIGN (same question) | D |
 | Reducer runs at dispatch to a root if nothing is pending on that root (eager), so once per root with several roots; else at the HostRoot; readers don't run it | FS:740-758 (per record); FS:429-475; DCP-6, DCP-17; DESIGN Model "Dispatch"; reviewer fix 2 | V |
-| StrictMode extra reducer call for readers in DEV | DCP-17 "StrictMode"; `doubleInvokeStoreReducerDEV` FS:691-712; UST "works in StrictMode", "double invokes reducers in StrictMode even when a reader outside StrictMode reads first" | V |
-| Reducer error throws in every reader during render; boundaries catch; update dropped, store recovers | `readStoreState` FS:662-675; DCP-14; UST "drops an update whose reducer throws once an error boundary handles it"; sandbox `errors-demo` | V L |
+| StrictMode extra reducer call for readers in DEV | DCP-17 "StrictMode"; `doubleInvokeStoreReducerDEV` FS:691-712; UST "double invokes reducers in StrictMode even when a reader outside StrictMode reads first", "double invokes reducers in StrictMode even when a reader outside StrictMode reads first" | V |
+| Reducer error throws in every reader during render; boundaries catch; update dropped, store recovers | `readStoreState` FS:662-675; DCP-14; UST "throws a reducer error in the readers, and drops the update once an error boundary handles it"; sandbox `errors-demo` | V L |
 | Dropped like an error boundary drops a useReducer queue it unmounts | DCP-14 "With readers" | D |
 | Reported if no committed boundary logs it (e.g. only reader hidden) | DCP-19; FS:1022-1036, `flushStoreErrors` FS:1110-1129; UST "reports a reducer error that no component rendered, and drops the update" | V |
 | "the way it reports uncaught errors" | `reportGlobalError` (shared/reportGlobalError.js: `reportError` or an ErrorEvent) | V |
-| No root reads: outside a transition `store.update()` throws, not applied; inside a transition it's held, and a reducer error when it's applied is reported | RS:47-65; FS:376-386 (`reportGlobalError` in `settlePendingTransitionUpdates`); DESIGN Model "With no records"; DCP-14, DCP-19; UST "reports a reducer error from a held transition update"; reviewer fix 3; UST "throws a reducer error from store.update when nothing reads the store"; sandbox `errors-demo` (unread button) | V L |
+| No root reads: outside a transition `store.update()` throws, not applied; inside a transition it's held, and a reducer error when it's applied is reported | RS:47-65; FS:376-386 (`reportGlobalError` in `settlePendingTransitionUpdates`); DESIGN Model "With no records"; DCP-14, DCP-19; UST "reports a reducer error from a held update whose transition is done"; reviewer fix 3; UST "throws a reducer error from store.update when nothing reads the store"; sandbox `errors-demo` (unread button) | V L |
 | No unmounted-component warnings | DECISIONS "Store updates never warn about unmounted or not-yet-mounted components" | D |
 | No large-number-of-updates-in-startTransition warning; stores are the primitive | DECISIONS "No transition update-count warning for stores"; DESIGN "No component warnings" | D |
 
@@ -200,7 +200,7 @@ Status: **V** verified in code or a test, **L** shown live by a sandbox (G3 step
 | No real-app data; plan to dogfood a store-heavy surface | NEXT_STEPS §2.2 | D |
 | Optimistic stores and external interop not in v1 | NEXT_STEPS §5.7 | D |
 | Independent writes rebase together; reading another store in a reducer is a possible spike | NEXT_STEPS §5.4; UST "two stores rebase like one combined store when a sync update interrupts a transition" | V D |
-| Reducer error reporting edge cases | "Known limits of DCP-19" in DECISIONS; UST describes "reducer errors and held updates", "reducer error reporting and retention", "reducer errors passed to an outer boundary" | V |
+| Reducer error reporting edge cases | "Known limits of DCP-19" in DECISIONS; UST describes describe "reducer errors" ("reports a reducer error once when the only render that threw it was thrown away", "reports a reducer error once when the boundary that caught it rethrows to an outer boundary", ...) | V |
 | DCP index lines | DECISIONS DCP-1..20 headings and Decision bullets | D |
 | DCP statuses: 1 superseded in part by 17 (state location, seq); 2 amended by 8; 4 by 12; 5 by 15; 9 by 11 and in part superseded by 17; 13 mechanism superseded by 17; 14 amended by 19; 18 by 20; 10 behind its own flag | DECISIONS headings ("amends ...", "supersedes the record-local state of DCP-1, DCP-9 and DCP-13") | D |
 | DCP-17..20 have no Status line; listed as implemented | DECISIONS (no Status bullet); NEXT_STEPS §0 (implemented behind enableStore) | D |
@@ -250,7 +250,28 @@ Every row above that cites DESIGN was re-read against the new text. Changes: eag
 
 | Claim | Source | Status |
 |---|---|---|
-| Root: a tree created with `createRoot` or `hydrateRoot`; a page can have several | React API; UST "works with multiple roots" | V |
+| Root: a tree created with `createRoot` or `hydrateRoot`; a page can have several | React API; UST "re-renders the readers in every root" | V |
 | Fiber: React's internal object for one component in the tree (simplified) | ReactInternalTypes.js `Fiber` | V |
 | HostRoot: top fiber of a root's tree; the states of the stores a render processed live on it and become each store's committed state at commit | DESIGN Model "The HostRoot owns the states its render processed" and "Commit"; `RootState.storeStates` FS:112-120; `commitStoreState` FS:1021; DCP-17 | V |
 | Work in progress: the version of the tree React is rendering, before it commits | React fiber model; FH:1207-1215 (`root.current.alternate`) | V |
+
+## Refresh against a3d8e745 (rh/use-store after "finish the PR readiness items")
+
+Test names above were remapped to the rewritten `ReactUseStore-test.js`. File:line references above (FS, FH, RS) are from the e31a6640 tree. The code moved since. Current locations of the main functions: `getStoreRecord` FS:215, `dispatchUnreadStoreUpdate` FS:367, `finishHeldStoreUpdatesOfEvent` FS:413, `settlePendingTransitionUpdates` FS:437, `canUseCommittedStoreState` FS:510, `suspendIfUnreadStoreReadFromEntangledAsyncAction` FS:545, `processStoreRecords` FS:572, `getStoreStateForRender` FS:733, `dispatchStoreUpdate` FS:860, `subscribeToStores` FS:968, `collectStoreReadsOfSuspendedTree` FS:1066, `commitStoreStates` FS:1224, `flushStoreSubscriptions` FS:1360, `useStore` FH:1209, `compareStoreReads` FH:1333, `finishStoreReads` FH:1375, `forceStoreRerender` FH:2203.
+
+| Change on the page | Source | Status |
+|---|---|---|
+| Compiler: `f(use(a), use(b))` IS memoized on both values; not memoized: a value built across `use()` calls (`push(use(a))`, a loop over `use()`), because the scope containing `use()` is flattened (Limits and derived data; sandbox `derived.jsx` now calls `getStats(use(posts), category)` inline) | NEXT_STEPS §5.1 (corrected); compiler fixtures `use-operator-store-derived-value`, `use-operator-store-conditional-loop` | V |
+| Held: a transition with nothing else to render is done at the end of its event, unless it's a pending async action | `finishHeldStoreUpdatesOfEvent` FS:413; DESIGN Model "With no records"; DECISIONS DCP-18 "A transition with nothing else to render (fixed)"; UST "a held update whose transition had nothing else to render is visible after its lane is reused" | V |
+| Held: done updates applied to the latest value once | DESIGN Model ("applied to `_head` once"); DCP-18 "Several renderers" | D |
+| Held: several roots, "done" judged on the committing root; that's how transitions work across roots (accepted) | DECISIONS DCP-18 "Several roots (accepted)"; UST "a held update is released when one root commits its transition, while it is still pending in another" | V |
+| Held: several renderers share a held update, each with its own lanes | DECISIONS DCP-18 "Several renderers (fixed)"; DESIGN "Differences from context: Multiple roots"; ReactUseStoreMultipleRenderers-test | V |
+| Context table: several renderers each keep their own records | DESIGN "Differences from context" | D |
+| Async actions: with no reader, the HostRoot suspends on the pending action | `suspendIfUnreadStoreReadFromEntangledAsyncAction` FS:545, called ReactFiberBeginWork.js:1975; DECISIONS "Fix: a store no component reads suspends the HostRoot"; UST "a reader that mounts again while an async action is pending shows the committed value" | V |
+| Server: Fizz DEV warning once per store updated before it read it ("A store was updated before this server render.") ; fix: create the store with the server data or pass a per-request store through context | ReactFizzHooks.js:856-870 (`_head !== _initial \|\| _headQueue !== null`, WeakSet); DESIGN Model "Server" | V |
+| Server: passing a store to a Client Component throws "Stores can't be passed from a Server Component to a Client Component." | ReactFlightServer.js:3966-3972; DESIGN Model "Server"; ReactFlight-test | V |
+| Hydration: a hydrating reader doesn't throw a pending reducer error; it renders the initial value and the error is reported at commit | DESIGN Model "Server" | D |
+| DevTools: Profiler "Why did this render?" lists changed Hooks by id plus changed store reads (was: "can fall back to a short description") | DESIGN Model "DevTools"; commit 9e5cf4076a (HookChangeSummary.js, DevToolsFiberChangeDetection.js); profilerHookChangeSummary-test | V |
+| DCP-21: no public read outside render in v1; handler uses its render's value, read-then-write uses an updater or reducer; a latest-value read still open (API bullet, Limits, index row "Decided") | DECISIONS DCP-21 | D |
+| Limits: roots aren't kept in sync; a new root includes transitions pending in another root; consistent with transitions across roots; within a root every reader agrees | DESIGN "Intentional differences" (rewritten) | D |
+| Limits details: where some reducer errors should go is open; an urgent update that only throws because a pending transition was skipped can be dropped when that transition waits on data | DECISIONS DCP-18 section "Open question, kept simple for now"; UST describe "reducer errors to follow up on" ("drops an urgent update that only throws because a pending transition was skipped, when the transition is waiting on data") | V |

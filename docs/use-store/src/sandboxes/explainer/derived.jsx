@@ -34,9 +34,7 @@ const getStats = weakMemo((posts, category) => {
 });
 
 function CategoryStats({category}) {
-  // Read first, then derive: the compiler doesn't memoize getStats(use(posts)) inline yet.
-  const list = use(posts);
-  const stats = getStats(list, category);
+  const stats = getStats(use(posts), category);
   return (
     <li>
       {category}: {stats.count} {stats.count === 1 ? 'post' : 'posts'},{' '}
