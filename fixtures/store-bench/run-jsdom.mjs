@@ -39,7 +39,7 @@ const bundles = manifest
 const scenarios = (
   option('scenarios', null) ||
   (suite && suites[suite].scenarios && suites[suite].scenarios.join(',')) ||
-  'entity,selection,filter,details-inline,details-component,structure'
+  'entity,selection,filter,details-inline,details-component,details-churn,structure'
 ).split(',');
 const n = Number(option('n', 1000));
 const steps = Number(option('steps', 200));

@@ -7,10 +7,11 @@
 #   REACT=react-builds/head (default)      frozen build (needs BUILD.json)
 #   TAG=head (default)                     prefix for dists and result labels
 #   RESTARTS=3                             restarts per unit
-#   LOAD_LIMIT=4                           wait for a 1-minute load <= this
-#                                          before each unit
-#   DISCARD_LIMIT=6                        re-run a unit if the load ended
-#                                          above this (up to MAX_ATTEMPTS)
+#   AMBIENT_START=3 AMBIENT_DISCARD=4      gate on ambient CPU (cores used by
+#                                          processes outside this script): start
+#                                          at <= 3, re-run if the mean during
+#                                          the unit was > 4 (up to MAX_ATTEMPTS).
+#                                          Per-unit numbers: results/$TAG-ambient.jsonl
 #   SKIP_BUILD=1 SKIP_VERIFY=1             resume straight into timing
 #   MATRIX=nobailout                       the same-element-bailout-off subset:
 #                                          REACT=react-builds/head-nobailout and
@@ -24,7 +25,8 @@
 #             then typing and memory   results/full-$TAG-r<R>-<what>-*.json
 #   suites    the four ported Redux suites, fairness, typing and the sweeps
 #             (with store-keyed)       results/smoke-$TAG-q-<suite>-r<R>-*.json
-#   spike     4 scenario families (K=5/20/50) x 1x/4x CPU, compiler on
+#   spike     4 scenario families (K=20/50; K=5 duplicates derived-selectors)
+#             x 1x/4x CPU, compiler on
 #                                      results/smoke-$TAG-spike-r<R>-<family>-x<T>-*.json
 # A unit is done when its result file exists, so re-running the script resumes.
 # Over-limit attempts are renamed *.discarded.json. Log: results/$TAG-units.log.
@@ -43,11 +45,21 @@ fi
 RESTARTS=${RESTARTS:-3}
 LOAD_LIMIT=${LOAD_LIMIT:-4}
 DISCARD_LIMIT=${DISCARD_LIMIT:-6}
+# The gate and the discard rule use AMBIENT CPU: the cores used by every
+# process outside this script's tree (ambient-cpu.mjs), so the benchmark's own
+# Chrome doesn't count against itself. The 1-minute load average on macOS
+# counts waiting threads and lags the previous unit, so it's only recorded.
+AMBIENT_START=${AMBIENT_START:-3}      # start a unit at <= this many cores
+AMBIENT_DISCARD=${AMBIENT_DISCARD:-4}  # re-run if the mean during it was above
+AMBIENT_LOG=results/$TAG-ambient.jsonl
 MAX_ATTEMPTS=${MAX_ATTEMPTS:-5}
 export BENCH_BROWSER=${BENCH_BROWSER:-$HOME/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell}
 export BENCH_SINGLE_PROCESS=${BENCH_SINGLE_PROCESS:-1}
 LOG=results/$TAG-units.log
 TIMING="--throttle=1,4 --iterations=200 --warmup=50"
+# A frozen copy of the compiler dist (see its COMPILER.json), recorded in build-info.json.
+COMPILER=${COMPILER:-react-builds/compiler-a3d8e745/index.js}
+[ -f "$COMPILER" ] || { echo "missing compiler $COMPILER"; exit 1; }
 
 [ -f "$REACT/BUILD.json" ] || { echo "$REACT has no BUILD.json; freeze it first"; exit 1; }
 mkdir -p results
@@ -58,8 +70,8 @@ SUITES=(
   "rapid-dispatch|$TIMING"
   "many-components-same-slice|--throttle=1,4 --iterations=100 --warmup=20"
   "deeptree-nested-hooks|$TIMING"
-  "fairness|--n=1000 $TIMING"
-  "typing|--typing --throttle=1,4"
+  "fairness|--n=1000 --variants=redux,redux-plain,redux-nofreeze $TIMING"
+  "typing|--typing --throttle=1,4 --variants=store,redux-deferred,zustand-deferred"
   "sweeps|--n=1000 $TIMING"
 )
 if [ "$MATRIX" = nobailout ]; then
@@ -68,7 +80,7 @@ if [ "$MATRIX" = nobailout ]; then
 else
   MAIN_FILTER=""
 fi
-SCENARIOS=(entity selection filter details-inline details-component structure)
+SCENARIOS=(entity selection filter details-inline details-component details-churn structure)
 SPIKE_FAMILIES=(mixed score comment role)
 
 load() { sysctl -n vm.loadavg 2>/dev/null | awk '{print $2}' || cut -d' ' -f1 /proc/loadavg; }
@@ -78,6 +90,13 @@ over() { awk -v a="$1" -v b="$2" 'BEGIN{exit !(a>b)}'; }
 HEAVY='jest-worker|jest-cli|scripts/rollup/build|yarn build|ms-playwright/chromium|chrome-headless-shell|playwright/lib|@playwright/test'
 busy() { pgrep -f "$HEAVY" >/dev/null; }
 log() { echo "$(date '+%F %T') $*" | tee -a "$LOG"; }
+ambient() { node ambient-cpu.mjs $$ | sed -E 's/.*"ambient":([0-9.]+).*/\1/'; }
+# Three samples two seconds apart, averaged.
+ambient_now() {
+  local a b c
+  a=$(ambient); sleep 2; b=$(ambient); sleep 2; c=$(ambient)
+  echo "$a $b $c" | awk '{printf "%.2f", ($1 + $2 + $3) / 3}'
+}
 
 # unit <mode> <label> <run.mjs args...>
 unit() {
@@ -86,36 +105,54 @@ unit() {
   if compgen -G "results/$mode-$label-[0-9]*[0-9].json" >/dev/null; then
     return
   fi
-  local attempt start_load end_load latest
+  local attempt start_load end_load latest amb_file amb_start amb_mean amb_max sampler kept ungated=
+  # Counts are deterministic: the counts calls pass LOAD_LIMIT=1000 to skip the gate.
+  [ "$LOAD_LIMIT" = 1000 ] && ungated=1
   for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
-    while busy || over "$(load)" "$LOAD_LIMIT"; do
-      echo "waiting before $label: load $(load)$(busy && echo ', heavy work running')"
-      sleep 60
-    done
+    if [ -z "$ungated" ]; then
+      while busy || over "$(ambient_now)" "$AMBIENT_START"; do
+        echo "waiting before $label: ambient $(ambient) cores, load $(load)$(busy && echo ', heavy work running')"
+        sleep 30
+      done
+    fi
     start_load=$(load)
-    node run.mjs "--$mode" --restarts=1 --label="$label" "$@"
+    amb_start=$(ambient)
+    amb_file=$(mktemp)
+    (while :; do ambient >> "$amb_file"; sleep 5; done) &
+    sampler=$!
+    node run.mjs "--$mode" --restarts=1 --label="$label" "$@" || { kill "$sampler" 2>/dev/null; exit 1; }
+    kill "$sampler" 2>/dev/null
+    wait "$sampler" 2>/dev/null || true
     end_load=$(load)
+    amb_mean=$(awk '{ s += $1; n++ } END { printf "%.2f", n ? s / n : 0 }' "$amb_file")
+    amb_max=$(sort -n "$amb_file" | tail -1)
+    rm -f "$amb_file"
     latest=$(ls -t results/$mode-$label-[0-9]*[0-9].json | head -1)
-    if over "$end_load" "$DISCARD_LIMIT" && [ "$attempt" -lt "$MAX_ATTEMPTS" ]; then
-      log "discard $label attempt $attempt: load $start_load -> $end_load"
+    kept=true
+    if [ -z "$ungated" ] && over "$amb_mean" "$AMBIENT_DISCARD" && [ "$attempt" -lt "$MAX_ATTEMPTS" ]; then
+      kept=false
+    fi
+    echo "{\"label\":\"$label\",\"attempt\":$attempt,\"file\":\"$(basename "$latest")\",\"kept\":$kept,\"loadStart\":$start_load,\"loadEnd\":$end_load,\"ambientStart\":$amb_start,\"ambientMean\":$amb_mean,\"ambientMax\":${amb_max:-0}}" >> "$AMBIENT_LOG"
+    if [ "$kept" = false ]; then
+      log "discard $label attempt $attempt: ambient mean $amb_mean (max ${amb_max:-0}) cores, load $start_load -> $end_load"
       mv "$latest" "${latest%.json}.discarded.json"
       continue
     fi
-    log "done $label attempt $attempt: load $start_load -> $end_load$(over "$end_load" "$DISCARD_LIMIT" && echo ' (kept over limit)')"
+    log "done $label attempt $attempt: ambient mean $amb_mean (max ${amb_max:-0}) cores, load $start_load -> $end_load$([ -z "$ungated" ] && over "$amb_mean" "$AMBIENT_DISCARD" && echo ' (kept over limit)')"
     return
   done
 }
 
 if [ -z "${SKIP_BUILD:-}" ]; then
   echo "== build against $REACT"
-  node build.mjs --react="$REACT" --count --out="dist-$TAG-count"
-  node build.mjs --react="$REACT" --out="dist-$TAG"
+  node build.mjs --react="$REACT" --compiler="$COMPILER" --count --out="dist-$TAG-count"
+  node build.mjs --react="$REACT" --compiler="$COMPILER" --out="dist-$TAG"
   BUILD_SUITES=("${SUITES[@]}")
   [ "$MATRIX" = nobailout ] || BUILD_SUITES+=("derived-selectors-spike|")
   for entry in "${BUILD_SUITES[@]}"; do
     IFS='|' read -r suite _ <<<"$entry"
-    node build.mjs --suite="$suite" --react="$REACT" --count --out="dist-$TAG-$suite-count"
-    node build.mjs --suite="$suite" --react="$REACT" --out="dist-$TAG-$suite"
+    node build.mjs --suite="$suite" --react="$REACT" --compiler="$COMPILER" --count --out="dist-$TAG-$suite-count"
+    node build.mjs --suite="$suite" --react="$REACT" --compiler="$COMPILER" --out="dist-$TAG-$suite"
   done
 fi
 
@@ -128,15 +165,13 @@ if [ -z "${SKIP_VERIFY:-}" ]; then
   for entry in "${VERIFY_SUITES[@]}"; do
     IFS='|' read -r suite _ <<<"$entry"
     case "$suite" in
-      typing) node run-jsdom.mjs --suite=typing --dist="dist-$TAG-typing-count" --scenarios=entity,selection,structure ;;
+      typing)
+        node run-jsdom.mjs --suite=typing --dist="dist-$TAG-typing-count" --scenarios=entity,selection,structure
+        node run.mjs --verify --suite=typing --dist="dist-$TAG-typing-count"
+        ;;
       sweeps)
-        # Rows with different widths render different DOM, so compare within a width.
-        for w in 4 16; do
-          node run-jsdom.mjs --suite=sweeps --dist="dist-$TAG-sweeps-count" --n=1000 \
-            --variants=store-c100-w$w,store-keyed-c100-w$w,redux-c100-w$w,zustand-c100-w$w
-        done
-        node run-jsdom.mjs --suite=sweeps --dist="dist-$TAG-sweeps-count" --n=1000 \
-          --variants="$(for l in store store-keyed redux zustand; do for c in 100 90 75 50; do printf "%s-c%s-w8," $l $c; done; done | sed 's/,$//')"
+        # run.mjs --verify compares sweep bundles within a row width.
+        node run.mjs --verify --suite=sweeps --dist="dist-$TAG-sweeps-count" --n=1000
         ;;
       *)
         node run-jsdom.mjs --suite="$suite" --dist="dist-$TAG-$suite-count"
@@ -175,7 +210,7 @@ for r in $(seq 1 "$RESTARTS"); do
   [ "$MATRIX" = nobailout ] && SPIKE_FAMILIES=()
   for f in ${SPIKE_FAMILIES[@]+"${SPIKE_FAMILIES[@]}"}; do
     for t in 1 4; do
-      units+=("smoke|$TAG-spike-r$r-$f-x$t|--suite=derived-selectors-spike --dist=dist-$TAG-derived-selectors-spike --compiler=on --throttle=$t --iterations=100 --warmup=30 --scenarios=$f,$f-k20,$f-k50")
+      units+=("smoke|$TAG-spike-r$r-$f-x$t|--suite=derived-selectors-spike --dist=dist-$TAG-derived-selectors-spike --compiler=on --throttle=$t --iterations=100 --warmup=30 --scenarios=$f-k20,$f-k50")
     done
   done
   if [ $((r % 2)) -eq 0 ]; then

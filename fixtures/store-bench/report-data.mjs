@@ -79,6 +79,11 @@ export const SCENARIOS = [
     'Conditional read (child component)',
     '1% of rows read a hot value in a child that only mounts when expanded',
   ],
+  [
+    'details-churn',
+    'Subscribe churn',
+    "Every 10th row's details mount, then unmount, so readers subscribe and unsubscribe",
+  ],
   ['structure', 'Add / remove', 'Add and remove one row'],
 ];
 

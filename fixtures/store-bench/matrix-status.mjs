@@ -2,6 +2,7 @@
 //
 //   node matrix-status.mjs            http://localhost:8791
 //   PORT=8792 TAG=head RESTARTS=3 LOG=/tmp/report-matrix.log node matrix-status.mjs
+//   MATRIX=nobailout node matrix-status.mjs   the bailout-off subset (TAG=headnb)
 //
 // Reads results/ (a unit is done when its result file exists), the unit log
 // (results/$TAG-units.log) and the runner's output, and serves a page that
@@ -18,16 +19,17 @@ import {fileURLToPath} from 'url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const resultsDir = path.join(here, 'results');
 const PORT = Number(process.env.PORT || 8791);
-const TAG = process.env.TAG || 'head';
+const MATRIX = process.env.MATRIX || 'full';
+const TAG = process.env.TAG || (MATRIX === 'nobailout' ? 'headnb' : 'head');
 const RESTARTS = Number(process.env.RESTARTS || 3);
 const RUNNER_LOG = process.env.LOG || '/tmp/report-matrix.log';
 const UNIT_LOG = path.join(resultsDir, `${TAG}-units.log`);
 const LOAD_LIMIT = Number(process.env.LOAD_LIMIT || 4);
 const DISCARD_LIMIT = Number(process.env.DISCARD_LIMIT || 6);
 
-const SCENARIOS = ['entity', 'selection', 'filter', 'details-inline', 'details-component', 'structure'];
-const SUITES = ['derived-selectors', 'rapid-dispatch', 'many-components-same-slice', 'deeptree-nested-hooks', 'fairness', 'typing', 'sweeps'];
-const FAMILIES = ['mixed', 'score', 'comment', 'role'];
+const SCENARIOS = ['entity', 'selection', 'filter', 'details-inline', 'details-component', 'details-churn', 'structure'];
+const SUITES = MATRIX === 'nobailout' ? ['sweeps'] : ['derived-selectors', 'rapid-dispatch', 'many-components-same-slice', 'deeptree-nested-hooks', 'fairness', 'typing', 'sweeps'];
+const FAMILIES = MATRIX === 'nobailout' ? [] : ['mixed', 'score', 'comment', 'role'];
 
 function plan() {
   const all = [];
@@ -38,8 +40,10 @@ function plan() {
         units.push({mode: 'full', label: `${TAG}-r${r}-${s}-x${t}`, group: 'main', name: `${s} ${t}×`, kind: `main-x${t}`});
       }
     }
-    units.push({mode: 'full', label: `${TAG}-r${r}-typing`, group: 'main', name: 'typing', kind: 'typing'});
-    units.push({mode: 'full', label: `${TAG}-r${r}-memory`, group: 'main', name: 'memory', kind: 'memory'});
+    if (MATRIX !== 'nobailout') {
+      units.push({mode: 'full', label: `${TAG}-r${r}-typing`, group: 'main', name: 'typing', kind: 'typing'});
+      units.push({mode: 'full', label: `${TAG}-r${r}-memory`, group: 'main', name: 'memory', kind: 'memory'});
+    }
     for (const s of SUITES) {
       units.push({mode: 'smoke', label: `${TAG}-q-${s}-r${r}`, group: 'suites', name: s, kind: `suite-${s}`});
     }

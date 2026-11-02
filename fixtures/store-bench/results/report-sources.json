@@ -1,0 +1,271 @@
+{
+  "_doc": "The result files the use(store) reports are generated from (report-data.mjs). A set whose status isn't 'head' is a placeholder from an older build: check-numbers.mjs fails on it. Switch everything to the head re-run with: node report-data.mjs --pin-head Sets with their own expectBuild (nobailout-*) must come from that build; a file matches a set only when env.react has the expected sha AND frozen build dir, so head and head-nobailout files can't mix. Update expectFiles and expectBuild.sha for nobailout-* if that run's unit list or BUILD.json differ.",
+  "expectBuild": {
+    "dir": "react-builds/head",
+    "sha": "a3d8e745a9089d82f0f928dfeb7e6c00cd171a44"
+  },
+  "pinnedAt": "2026-11-02",
+  "sets": {
+    "main": {
+      "status": "head",
+      "files": [
+        "full-head-r1-details-churn-x1-1793584955580.json",
+        "full-head-r1-details-churn-x4-1793585185303.json",
+        "full-head-r1-details-component-x1-1793584634024.json",
+        "full-head-r1-details-component-x4-1793584749847.json",
+        "full-head-r1-details-inline-x1-1793584460309.json",
+        "full-head-r1-details-inline-x4-1793584580471.json",
+        "full-head-r1-entity-x1-1793583585568.json",
+        "full-head-r1-entity-x4-1793583748752.json",
+        "full-head-r1-filter-x1-1793584077282.json",
+        "full-head-r1-filter-x4-1793584405559.json",
+        "full-head-r1-selection-x1-1793583815601.json",
+        "full-head-r1-selection-x4-1793583982789.json",
+        "full-head-r1-structure-x1-1793586281884.json",
+        "full-head-r1-structure-x4-1793586792503.json",
+        "full-head-r2-details-churn-x1-1793591154340.json",
+        "full-head-r2-details-churn-x4-1793591076706.json",
+        "full-head-r2-details-component-x1-1793591337113.json",
+        "full-head-r2-details-component-x4-1793591278209.json",
+        "full-head-r2-details-inline-x1-1793591523557.json",
+        "full-head-r2-details-inline-x4-1793591462882.json",
+        "full-head-r2-entity-x1-1793592446129.json",
+        "full-head-r2-entity-x4-1793592382700.json",
+        "full-head-r2-filter-x1-1793591957274.json",
+        "full-head-r2-filter-x4-1793591855210.json",
+        "full-head-r2-selection-x1-1793592212328.json",
+        "full-head-r2-selection-x4-1793592141217.json",
+        "full-head-r2-structure-x1-1793590844504.json",
+        "full-head-r2-structure-x4-1793590723749.json",
+        "full-head-r3-details-churn-x1-1793593876051.json",
+        "full-head-r3-details-churn-x4-1793594111929.json",
+        "full-head-r3-details-component-x1-1793593673518.json",
+        "full-head-r3-details-component-x4-1793593796708.json",
+        "full-head-r3-details-inline-x1-1793593483139.json",
+        "full-head-r3-details-inline-x4-1793593613983.json",
+        "full-head-r3-entity-x1-1793592509866.json",
+        "full-head-r3-entity-x4-1793592685894.json",
+        "full-head-r3-filter-x1-1793593083678.json",
+        "full-head-r3-filter-x4-1793593423010.json",
+        "full-head-r3-selection-x1-1793592791491.json",
+        "full-head-r3-selection-x4-1793592977728.json",
+        "full-head-r3-structure-x1-1793594233446.json",
+        "full-head-r3-structure-x4-1793594633407.json"
+      ],
+      "headPattern": "^full-head-r\\d+-(entity|selection|filter|details-inline|details-component|details-churn|structure)-x\\d+-\\d+\\.json$",
+      "expectFiles": 42
+    },
+    "main-typing": {
+      "status": "head",
+      "files": [
+        "full-head-r1-typing-1793587236671.json",
+        "full-head-r2-typing-1793590332509.json",
+        "full-head-r3-typing-1793594715078.json"
+      ],
+      "headPattern": "^full-head-r\\d+-typing-\\d+\\.json$",
+      "expectFiles": 3
+    },
+    "main-memory": {
+      "status": "head",
+      "files": [
+        "full-head-r1-memory-1793587252943.json",
+        "full-head-r2-memory-1793590249689.json",
+        "full-head-r3-memory-1793594731202.json"
+      ],
+      "headPattern": "^full-head-r\\d+-memory-\\d+\\.json$",
+      "expectFiles": 3
+    },
+    "counts": {
+      "status": "head",
+      "files": [
+        "counts-head-1793581952626.json"
+      ],
+      "headPattern": "^counts-head-\\d+\\.json$",
+      "expectFiles": 1,
+      "newestPerLabel": true
+    },
+    "suite-counts": {
+      "status": "head",
+      "files": [
+        "counts-head-q-deeptree-nested-hooks-1793581993581.json",
+        "counts-head-q-derived-selectors-1793581967781.json",
+        "counts-head-q-derived-selectors-spike-1793582130747.json",
+        "counts-head-q-fairness-1793582010042.json",
+        "counts-head-q-many-components-same-slice-1793581978759.json",
+        "counts-head-q-rapid-dispatch-1793581974133.json",
+        "counts-head-q-sweeps-1793582023560.json"
+      ],
+      "headPattern": "^counts-head-q-[a-z-]+-\\d+\\.json$",
+      "expectFiles": 7,
+      "newestPerLabel": true
+    },
+    "derived-selectors": {
+      "status": "head",
+      "files": [
+        "smoke-head-q-derived-selectors-r1-1793587486722.json",
+        "smoke-head-q-derived-selectors-r2-1793590233149.json",
+        "smoke-head-q-derived-selectors-r3-1793594963400.json"
+      ],
+      "headPattern": "^smoke-head-q-derived-selectors-r\\d+-\\d+\\.json$",
+      "expectFiles": 3
+    },
+    "rapid-dispatch": {
+      "status": "head",
+      "files": [
+        "smoke-head-q-rapid-dispatch-r1-1793587546935.json",
+        "smoke-head-q-rapid-dispatch-r2-1793589998476.json",
+        "smoke-head-q-rapid-dispatch-r3-1793595023516.json"
+      ],
+      "headPattern": "^smoke-head-q-rapid-dispatch-r\\d+-\\d+\\.json$",
+      "expectFiles": 3
+    },
+    "many-components-same-slice": {
+      "status": "head",
+      "files": [
+        "smoke-head-q-many-components-same-slice-r1-1793587570807.json",
+        "smoke-head-q-many-components-same-slice-r2-1793589934668.json",
+        "smoke-head-q-many-components-same-slice-r3-1793595047998.json"
+      ],
+      "headPattern": "^smoke-head-q-many-components-same-slice-r\\d+-\\d+\\.json$",
+      "expectFiles": 3
+    },
+    "deeptree-nested-hooks": {
+      "status": "head",
+      "files": [
+        "smoke-head-q-deeptree-nested-hooks-r1-1793587920809.json",
+        "smoke-head-q-deeptree-nested-hooks-r2-1793589906583.json",
+        "smoke-head-q-deeptree-nested-hooks-r3-1793595404411.json"
+      ],
+      "headPattern": "^smoke-head-q-deeptree-nested-hooks-r\\d+-\\d+\\.json$",
+      "expectFiles": 3
+    },
+    "spike": {
+      "status": "head",
+      "files": [
+        "smoke-head-spike-r1-comment-x1-1793588510321.json",
+        "smoke-head-spike-r1-comment-x4-1793588634597.json",
+        "smoke-head-spike-r1-mixed-x1-1793588256946.json",
+        "smoke-head-spike-r1-mixed-x4-1793588352251.json",
+        "smoke-head-spike-r1-role-x1-1793588662753.json",
+        "smoke-head-spike-r1-role-x4-1793588750357.json",
+        "smoke-head-spike-r1-score-x1-1793588381444.json",
+        "smoke-head-spike-r1-score-x4-1793588473079.json",
+        "smoke-head-spike-r2-comment-x1-1793589027122.json",
+        "smoke-head-spike-r2-comment-x4-1793588989817.json",
+        "smoke-head-spike-r2-mixed-x1-1793589269040.json",
+        "smoke-head-spike-r2-mixed-x4-1793589239417.json",
+        "smoke-head-spike-r2-role-x1-1793588865674.json",
+        "smoke-head-spike-r2-role-x4-1793588837737.json",
+        "smoke-head-spike-r2-score-x1-1793589147285.json",
+        "smoke-head-spike-r2-score-x4-1793589118147.json",
+        "smoke-head-spike-r3-comment-x1-1793595992105.json",
+        "smoke-head-spike-r3-comment-x4-1793596115519.json",
+        "smoke-head-spike-r3-mixed-x1-1793595741122.json",
+        "smoke-head-spike-r3-mixed-x4-1793595834230.json",
+        "smoke-head-spike-r3-role-x1-1793596143614.json",
+        "smoke-head-spike-r3-role-x4-1793596234467.json",
+        "smoke-head-spike-r3-score-x1-1793595863379.json",
+        "smoke-head-spike-r3-score-x4-1793595955117.json"
+      ],
+      "headPattern": "^smoke-head-spike-r\\d+-(mixed|score|comment|role)-x\\d+-\\d+\\.json$",
+      "expectFiles": 24
+    },
+    "fairness": {
+      "status": "head",
+      "files": [
+        "smoke-head-q-fairness-r1-1793588087294.json",
+        "smoke-head-q-fairness-r2-1793589544846.json",
+        "smoke-head-q-fairness-r3-1793595536135.json"
+      ],
+      "headPattern": "^smoke-head-q-fairness-r\\d+-\\d+\\.json$",
+      "expectFiles": 3
+    },
+    "typing-suite": {
+      "status": "head",
+      "files": [
+        "smoke-head-q-typing-r1-1793588117123.json",
+        "smoke-head-q-typing-r2-1793589410018.json",
+        "smoke-head-q-typing-r3-1793595566630.json"
+      ],
+      "headPattern": "^smoke-head-q-typing-r\\d+-\\d+\\.json$",
+      "expectFiles": 3
+    },
+    "sweeps": {
+      "status": "head",
+      "files": [
+        "smoke-head-q-sweeps-r1-1793588227704.json",
+        "smoke-head-q-sweeps-r2-1793589380043.json",
+        "smoke-head-q-sweeps-r3-1793595677395.json"
+      ],
+      "headPattern": "^smoke-head-q-sweeps-r\\d+-\\d+\\.json$",
+      "expectFiles": 3
+    },
+    "nobailout-main": {
+      "status": "head",
+      "files": [
+        "full-headnb-r1-details-churn-x1-1793596676277.json",
+        "full-headnb-r1-details-churn-x4-1793596728624.json",
+        "full-headnb-r1-details-component-x1-1793596634564.json",
+        "full-headnb-r1-details-component-x4-1793596660398.json",
+        "full-headnb-r1-details-inline-x1-1793596596041.json",
+        "full-headnb-r1-details-inline-x4-1793596619969.json",
+        "full-headnb-r1-entity-x1-1793596397296.json",
+        "full-headnb-r1-entity-x4-1793596428670.json",
+        "full-headnb-r1-filter-x1-1793596498551.json",
+        "full-headnb-r1-filter-x4-1793596581247.json",
+        "full-headnb-r1-selection-x1-1793596443484.json",
+        "full-headnb-r1-selection-x4-1793596472934.json",
+        "full-headnb-r1-structure-x1-1793596755773.json",
+        "full-headnb-r1-structure-x4-1793596845208.json",
+        "full-headnb-r2-details-churn-x1-1793597244589.json",
+        "full-headnb-r2-details-churn-x4-1793597227952.json",
+        "full-headnb-r2-details-component-x1-1793597285396.json",
+        "full-headnb-r2-details-component-x4-1793597271186.json",
+        "full-headnb-r2-details-inline-x1-1793597324591.json",
+        "full-headnb-r2-details-inline-x4-1793597309444.json",
+        "full-headnb-r2-entity-x1-1793597516906.json",
+        "full-headnb-r2-entity-x4-1793597503006.json",
+        "full-headnb-r2-filter-x1-1793597430492.json",
+        "full-headnb-r2-filter-x4-1793597405244.json",
+        "full-headnb-r2-selection-x1-1793597473352.json",
+        "full-headnb-r2-selection-x4-1793597458457.json",
+        "full-headnb-r2-structure-x1-1793597180204.json",
+        "full-headnb-r2-structure-x4-1793597153009.json",
+        "full-headnb-r3-details-churn-x1-1793597847518.json",
+        "full-headnb-r3-details-churn-x4-1793597897186.json",
+        "full-headnb-r3-details-component-x1-1793597804920.json",
+        "full-headnb-r3-details-component-x4-1793597830061.json",
+        "full-headnb-r3-details-inline-x1-1793597764839.json",
+        "full-headnb-r3-details-inline-x4-1793597790147.json",
+        "full-headnb-r3-entity-x1-1793597530844.json",
+        "full-headnb-r3-entity-x4-1793597558336.json",
+        "full-headnb-r3-filter-x1-1793597628586.json",
+        "full-headnb-r3-filter-x4-1793597715206.json",
+        "full-headnb-r3-selection-x1-1793597574318.json",
+        "full-headnb-r3-selection-x4-1793597602379.json",
+        "full-headnb-r3-structure-x1-1793597924461.json",
+        "full-headnb-r3-structure-x4-1793598013166.json"
+      ],
+      "expectBuild": {
+        "dir": "react-builds/head-nobailout",
+        "sha": "a3d8e745a9089d82f0f928dfeb7e6c00cd171a44"
+      },
+      "headPattern": "^full-headnb-r\\d+-[a-z-]+-x\\d+-\\d+\\.json$",
+      "expectFiles": 42
+    },
+    "nobailout-sweeps": {
+      "status": "head",
+      "files": [
+        "smoke-headnb-q-sweeps-r1-1793596957801.json",
+        "smoke-headnb-q-sweeps-r2-1793597069491.json",
+        "smoke-headnb-q-sweeps-r3-1793598125208.json"
+      ],
+      "expectBuild": {
+        "dir": "react-builds/head-nobailout",
+        "sha": "a3d8e745a9089d82f0f928dfeb7e6c00cd171a44"
+      },
+      "headPattern": "^smoke-headnb-q-sweeps-r\\d+-\\d+\\.json$",
+      "expectFiles": 3
+    }
+  }
+}

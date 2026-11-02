@@ -9,7 +9,7 @@ Cite a number as `<span data-n="KEY"></span>`, and a generated block as `<!-- ge
 - `<!-- gen:charts-assets -->` once, in the `<head>`: the chart CSS and runtime. Without it the charts render statically, with no filters or tooltips.
 - `<!-- gen:build-label -->` near the top: the build provenance line. G5 fails on any page that has gen blocks or `data-n` spans and no build label.
 
-Build: PLACEHOLDER: 13 of 15 result sets (main, main-typing, main-memory, derived-selectors, rapid-dispatch, many-components-same-slice, deeptree-nested-hooks, spike, fairness, typing-suite, sweeps, nobailout-main, nobailout-sweeps) aren't from the frozen builds yet (older builds or not run). Do not cite these numbers.
+Build: Measured on React 0.0.0-experimental-a3d8e745-20261101 (a3d8e745), compiler c59ecf06d45b47db, results pinned 2026-11-02.
 
 Headline bar: store + compiler vs the faster of Redux and Zustand (`HEADLINE_OPPONENTS` in report-data.mjs). The granular control (zustand-granular, a Zustand store per entity) has its own scoreboard column (`main.tally.zustand-granular.*`), per-cell verdicts (`main.*.vsGranular`) and losses area (`losses.granular.*`). The build without the same-element bailout has its own keys (`nobailout.*`) and generator (`nobailout-table`), never mixed into the headline.
 
@@ -60,19 +60,19 @@ Verdicts use `stats.mjs` `compare`: a tie is a difference in means within two st
 
 The build provenance line: React version and sha, compiler hash, when the results were pinned. Placeholder text while any set is not from the frozen build.
 
-- `build.label`: PLACEHOLDER: 13 of 15 result sets (main, main-typing, main-memory, derived-selectors, rapid-dispatch, many-components-same-slice, deeptree-nested-hooks, spike, fairness, typing-suite, sweeps, nobailout-main, nobailout-sweeps) aren't from the frozen builds yet (older builds or not run). Do not cite these numbers.
+- `build.label`: Measured on React 0.0.0-experimental-a3d8e745-20261101 (a3d8e745), compiler c59ecf06d45b47db, results pinned 2026-11-02.
 
 ### `build.sha`
 
 Short git sha of the frozen React build the results were measured on.
 
-- `build.sha`: e31a6640
+- `build.sha`: a3d8e745
 
 ### `build.version`
 
 React version string of the frozen build.
 
-- `build.version`: 0.0.0-experimental-e31a6640-20261031
+- `build.version`: 0.0.0-experimental-a3d8e745-20261101
 
 ### `build.compiler`
 
@@ -84,13 +84,13 @@ First 16 hex chars of the sha256 of the compiler dist used for the compiled bund
 
 The date the result files were pinned in report-sources.json.
 
-- `build.pinnedAt`: 2026-11-01
+- `build.pinnedAt`: 2026-11-02
 
 ### `build.status`
 
 "head" when every set is from the frozen build, else "placeholder".
 
-- `build.status`: placeholder
+- `build.status`: head
 
 ### `method.cpu`
 
@@ -138,7 +138,7 @@ Timed samples per configuration in the main suite, across restarts (median over 
 
 Main-suite configurations: scenarios × sizes × CPU throttles.
 
-- `method.configs`: 36
+- `method.configs`: 42
 
 ### `method.sizes`
 
@@ -156,13 +156,13 @@ CPU throttles in the main suite, e.g. "1× and 4×".
 
 Highest 1-minute load average recorded before or after any pinned run.
 
-- `method.loadMax`: 12.9
+- `method.loadMax`: 47.2
 
 ### `method.timedUpdates`
 
 Total timed update samples in the main suite.
 
-- `method.timedUpdates`: 64,800
+- `method.timedUpdates`: 352,800
 
 ### `lib.<package>`
 
@@ -178,116 +178,596 @@ Installed version of a compared library (redux, react-redux, @reduxjs/toolkit, z
 
 Main suite: median ms per update.
 
-<details><summary>108 keys</summary>
+<details><summary>588 keys</summary>
 
-- `main.selection.n100.x1.store.on.median`: 0.021
-- `main.selection.n100.x1.redux.on.median`: 0.041
-- `main.selection.n100.x1.zustand.on.median`: 0.022
-- `main.selection.n100.x4.store.on.median`: 0.094
-- `main.selection.n100.x4.redux.on.median`: 0.190
-- `main.selection.n100.x4.zustand.on.median`: 0.100
+- `main.selection.n100.x1.store.on.median`: 0.020
+- `main.selection.n100.x1.store.off.median`: 0.172
+- `main.selection.n100.x1.store-single.on.median`: 0.016
+- `main.selection.n100.x1.store-single.off.median`: 0.178
+- `main.selection.n100.x1.context.on.median`: 0.019
+- `main.selection.n100.x1.context.off.median`: 0.175
+- `main.selection.n100.x1.context-split.on.median`: 0.025
+- `main.selection.n100.x1.context-split.off.median`: 0.189
+- `main.selection.n100.x1.redux.on.median`: 0.032
+- `main.selection.n100.x1.redux.off.median`: 0.035
+- `main.selection.n100.x1.zustand.on.median`: 0.018
+- `main.selection.n100.x1.zustand.off.median`: 0.020
+- `main.selection.n100.x1.zustand-granular.on.median`: 0.015
+- `main.selection.n100.x1.zustand-granular.off.median`: 0.018
+- `main.selection.n100.x4.store.on.median`: 0.089
+- `main.selection.n100.x4.store.off.median`: 0.717
+- `main.selection.n100.x4.store-single.on.median`: 0.079
+- `main.selection.n100.x4.store-single.off.median`: 0.750
+- `main.selection.n100.x4.context.on.median`: 0.088
+- `main.selection.n100.x4.context.off.median`: 0.717
+- `main.selection.n100.x4.context-split.on.median`: 0.107
+- `main.selection.n100.x4.context-split.off.median`: 0.783
+- `main.selection.n100.x4.redux.on.median`: 0.150
+- `main.selection.n100.x4.redux.off.median`: 0.158
+- `main.selection.n100.x4.zustand.on.median`: 0.089
+- `main.selection.n100.x4.zustand.off.median`: 0.090
+- `main.selection.n100.x4.zustand-granular.on.median`: 0.070
+- `main.selection.n100.x4.zustand-granular.off.median`: 0.080
 - `main.selection.n1000.x1.store.on.median`: 0.169
-- `main.selection.n1000.x1.redux.on.median`: 0.342
-- `main.selection.n1000.x1.zustand.on.median`: 0.185
-- `main.selection.n1000.x4.store.on.median`: 0.725
-- `main.selection.n1000.x4.redux.on.median`: 1.67
-- `main.selection.n1000.x4.zustand.on.median`: 0.750
-- `main.selection.n10000.x1.store.on.median`: 2.15
-- `main.selection.n10000.x1.redux.on.median`: 12.2
-- `main.selection.n10000.x1.zustand.on.median`: 2.50
-- `main.selection.n10000.x4.store.on.median`: 9.70
-- `main.selection.n10000.x4.redux.on.median`: 42.8
-- `main.selection.n10000.x4.zustand.on.median`: 18.3
+- `main.selection.n1000.x1.store.off.median`: 1.78
+- `main.selection.n1000.x1.store-single.on.median`: 0.150
+- `main.selection.n1000.x1.store-single.off.median`: 1.78
+- `main.selection.n1000.x1.context.on.median`: 0.169
+- `main.selection.n1000.x1.context.off.median`: 1.78
+- `main.selection.n1000.x1.context-split.on.median`: 0.217
+- `main.selection.n1000.x1.context-split.off.median`: 1.88
+- `main.selection.n1000.x1.redux.on.median`: 0.250
+- `main.selection.n1000.x1.redux.off.median`: 0.250
+- `main.selection.n1000.x1.zustand.on.median`: 0.155
+- `main.selection.n1000.x1.zustand.off.median`: 0.150
+- `main.selection.n1000.x1.zustand-granular.on.median`: 0.119
+- `main.selection.n1000.x1.zustand-granular.off.median`: 0.123
+- `main.selection.n1000.x4.store.on.median`: 0.700
+- `main.selection.n1000.x4.store.off.median`: 7.30
+- `main.selection.n1000.x4.store-single.on.median`: 0.650
+- `main.selection.n1000.x4.store-single.off.median`: 7.30
+- `main.selection.n1000.x4.context.on.median`: 0.725
+- `main.selection.n1000.x4.context.off.median`: 7.30
+- `main.selection.n1000.x4.context-split.on.median`: 0.975
+- `main.selection.n1000.x4.context-split.off.median`: 8.00
+- `main.selection.n1000.x4.redux.on.median`: 1.10
+- `main.selection.n1000.x4.redux.off.median`: 1.05
+- `main.selection.n1000.x4.zustand.on.median`: 0.633
+- `main.selection.n1000.x4.zustand.off.median`: 0.633
+- `main.selection.n1000.x4.zustand-granular.on.median`: 0.525
+- `main.selection.n1000.x4.zustand-granular.off.median`: 0.500
+- `main.selection.n10000.x1.store.on.median`: 1.68
+- `main.selection.n10000.x1.store.off.median`: 22.5
+- `main.selection.n10000.x1.store-single.on.median`: 1.90
+- `main.selection.n10000.x1.store-single.off.median`: 22.7
+- `main.selection.n10000.x1.context.on.median`: 2.25
+- `main.selection.n10000.x1.context.off.median`: 22.1
+- `main.selection.n10000.x1.context-split.on.median`: 2.80
+- `main.selection.n10000.x1.context-split.off.median`: 24.0
+- `main.selection.n10000.x1.redux.on.median`: 3.40
+- `main.selection.n10000.x1.redux.off.median`: 3.55
+- `main.selection.n10000.x1.zustand.on.median`: 1.75
+- `main.selection.n10000.x1.zustand.off.median`: 1.70
+- `main.selection.n10000.x1.zustand-granular.on.median`: 1.48
+- `main.selection.n10000.x1.zustand-granular.off.median`: 1.50
+- `main.selection.n10000.x4.store.on.median`: 7.20
+- `main.selection.n10000.x4.store.off.median`: 95.5
+- `main.selection.n10000.x4.store-single.on.median`: 8.00
+- `main.selection.n10000.x4.store-single.off.median`: 95.1
+- `main.selection.n10000.x4.context.on.median`: 10.7
+- `main.selection.n10000.x4.context.off.median`: 94.8
+- `main.selection.n10000.x4.context-split.on.median`: 12.8
+- `main.selection.n10000.x4.context-split.off.median`: 100.7
+- `main.selection.n10000.x4.redux.on.median`: 32.7
+- `main.selection.n10000.x4.redux.off.median`: 30.0
+- `main.selection.n10000.x4.zustand.on.median`: 11.0
+- `main.selection.n10000.x4.zustand.off.median`: 11.9
+- `main.selection.n10000.x4.zustand-granular.on.median`: 7.90
+- `main.selection.n10000.x4.zustand-granular.off.median`: 7.00
 - `main.entity.n100.x1.store.on.median`: 0.008
-- `main.entity.n100.x1.redux.on.median`: 0.047
-- `main.entity.n100.x1.zustand.on.median`: 0.024
-- `main.entity.n100.x4.store.on.median`: 0.039
-- `main.entity.n100.x4.redux.on.median`: 0.210
-- `main.entity.n100.x4.zustand.on.median`: 0.114
-- `main.entity.n1000.x1.store.on.median`: 0.055
-- `main.entity.n1000.x1.redux.on.median`: 0.500
-- `main.entity.n1000.x1.zustand.on.median`: 0.283
-- `main.entity.n1000.x4.store.on.median`: 0.240
-- `main.entity.n1000.x4.redux.on.median`: 2.80
-- `main.entity.n1000.x4.zustand.on.median`: 1.25
-- `main.entity.n10000.x1.store.on.median`: 0.460
-- `main.entity.n10000.x1.redux.on.median`: 14.0
-- `main.entity.n10000.x1.zustand.on.median`: 3.60
-- `main.entity.n10000.x4.store.on.median`: 2.00
-- `main.entity.n10000.x4.redux.on.median`: 52.1
-- `main.entity.n10000.x4.zustand.on.median`: 20.0
-- `main.filter.n100.x1.store.on.median`: 0.050
-- `main.filter.n100.x1.redux.on.median`: 0.169
-- `main.filter.n100.x1.zustand.on.median`: 0.085
-- `main.filter.n100.x4.store.on.median`: 0.210
-- `main.filter.n100.x4.redux.on.median`: 0.825
-- `main.filter.n100.x4.zustand.on.median`: 0.387
+- `main.entity.n100.x1.store.off.median`: 0.008
+- `main.entity.n100.x1.store-single.on.median`: 0.023
+- `main.entity.n100.x1.store-single.off.median`: 0.178
+- `main.entity.n100.x1.context.on.median`: 0.025
+- `main.entity.n100.x1.context.off.median`: 0.183
+- `main.entity.n100.x1.context-split.on.median`: 0.030
+- `main.entity.n100.x1.context-split.off.median`: 0.189
+- `main.entity.n100.x1.redux.on.median`: 0.035
+- `main.entity.n100.x1.redux.off.median`: 0.036
+- `main.entity.n100.x1.zustand.on.median`: 0.019
+- `main.entity.n100.x1.zustand.off.median`: 0.019
+- `main.entity.n100.x1.zustand-granular.on.median`: 0.010
+- `main.entity.n100.x1.zustand-granular.off.median`: 0.009
+- `main.entity.n100.x4.store.on.median`: 0.038
+- `main.entity.n100.x4.store.off.median`: 0.036
+- `main.entity.n100.x4.store-single.on.median`: 0.100
+- `main.entity.n100.x4.store-single.off.median`: 0.750
+- `main.entity.n100.x4.context.on.median`: 0.114
+- `main.entity.n100.x4.context.off.median`: 0.733
+- `main.entity.n100.x4.context-split.on.median`: 0.133
+- `main.entity.n100.x4.context-split.off.median`: 0.817
+- `main.entity.n100.x4.redux.on.median`: 0.167
+- `main.entity.n100.x4.redux.off.median`: 0.150
+- `main.entity.n100.x4.zustand.on.median`: 0.090
+- `main.entity.n100.x4.zustand.off.median`: 0.089
+- `main.entity.n100.x4.zustand-granular.on.median`: 0.046
+- `main.entity.n100.x4.zustand-granular.off.median`: 0.042
+- `main.entity.n1000.x1.store.on.median`: 0.052
+- `main.entity.n1000.x1.store.off.median`: 0.055
+- `main.entity.n1000.x1.store-single.on.median`: 0.217
+- `main.entity.n1000.x1.store-single.off.median`: 1.88
+- `main.entity.n1000.x1.context.on.median`: 0.233
+- `main.entity.n1000.x1.context.off.median`: 1.85
+- `main.entity.n1000.x1.context-split.on.median`: 0.280
+- `main.entity.n1000.x1.context-split.off.median`: 1.95
+- `main.entity.n1000.x1.redux.on.median`: 0.425
+- `main.entity.n1000.x1.redux.off.median`: 0.375
+- `main.entity.n1000.x1.zustand.on.median`: 0.229
+- `main.entity.n1000.x1.zustand.off.median`: 0.221
+- `main.entity.n1000.x1.zustand-granular.on.median`: 0.065
+- `main.entity.n1000.x1.zustand-granular.off.median`: 0.066
+- `main.entity.n1000.x4.store.on.median`: 0.233
+- `main.entity.n1000.x4.store.off.median`: 0.240
+- `main.entity.n1000.x4.store-single.on.median`: 0.950
+- `main.entity.n1000.x4.store-single.off.median`: 7.60
+- `main.entity.n1000.x4.context.on.median`: 1.03
+- `main.entity.n1000.x4.context.off.median`: 7.70
+- `main.entity.n1000.x4.context-split.on.median`: 1.25
+- `main.entity.n1000.x4.context-split.off.median`: 8.00
+- `main.entity.n1000.x4.redux.on.median`: 1.85
+- `main.entity.n1000.x4.redux.off.median`: 1.90
+- `main.entity.n1000.x4.zustand.on.median`: 1.00
+- `main.entity.n1000.x4.zustand.off.median`: 0.950
+- `main.entity.n1000.x4.zustand-granular.on.median`: 0.280
+- `main.entity.n1000.x4.zustand-granular.off.median`: 0.260
+- `main.entity.n10000.x1.store.on.median`: 0.440
+- `main.entity.n10000.x1.store.off.median`: 0.440
+- `main.entity.n10000.x1.store-single.on.median`: 2.95
+- `main.entity.n10000.x1.store-single.off.median`: 24.0
+- `main.entity.n10000.x1.context.on.median`: 3.40
+- `main.entity.n10000.x1.context.off.median`: 23.6
+- `main.entity.n10000.x1.context-split.on.median`: 4.00
+- `main.entity.n10000.x1.context-split.off.median`: 25.2
+- `main.entity.n10000.x1.redux.on.median`: 5.10
+- `main.entity.n10000.x1.redux.off.median`: 5.00
+- `main.entity.n10000.x1.zustand.on.median`: 2.90
+- `main.entity.n10000.x1.zustand.off.median`: 2.70
+- `main.entity.n10000.x1.zustand-granular.on.median`: 0.500
+- `main.entity.n10000.x1.zustand-granular.off.median`: 0.500
+- `main.entity.n10000.x4.store.on.median`: 1.80
+- `main.entity.n10000.x4.store.off.median`: 1.77
+- `main.entity.n10000.x4.store-single.on.median`: 13.3
+- `main.entity.n10000.x4.store-single.off.median`: 100.3
+- `main.entity.n10000.x4.context.on.median`: 16.2
+- `main.entity.n10000.x4.context.off.median`: 101.0
+- `main.entity.n10000.x4.context-split.on.median`: 19.3
+- `main.entity.n10000.x4.context-split.off.median`: 106.0
+- `main.entity.n10000.x4.redux.on.median`: 40.7
+- `main.entity.n10000.x4.redux.off.median`: 35.9
+- `main.entity.n10000.x4.zustand.on.median`: 17.8
+- `main.entity.n10000.x4.zustand.off.median`: 16.4
+- `main.entity.n10000.x4.zustand-granular.on.median`: 2.00
+- `main.entity.n10000.x4.zustand-granular.off.median`: 2.10
+- `main.filter.n100.x1.store.on.median`: 0.047
+- `main.filter.n100.x1.store.off.median`: 0.183
+- `main.filter.n100.x1.store-single.on.median`: 0.045
+- `main.filter.n100.x1.store-single.off.median`: 0.183
+- `main.filter.n100.x1.context.on.median`: 0.047
+- `main.filter.n100.x1.context.off.median`: 0.183
+- `main.filter.n100.x1.context-split.on.median`: 0.053
+- `main.filter.n100.x1.context-split.off.median`: 0.200
+- `main.filter.n100.x1.redux.on.median`: 0.144
+- `main.filter.n100.x1.redux.off.median`: 0.200
+- `main.filter.n100.x1.zustand.on.median`: 0.075
+- `main.filter.n100.x1.zustand.off.median`: 0.132
+- `main.filter.n100.x1.zustand-granular.on.median`: 0.073
+- `main.filter.n100.x1.zustand-granular.off.median`: 0.136
+- `main.filter.n100.x4.store.on.median`: 0.200
+- `main.filter.n100.x4.store.off.median`: 0.750
+- `main.filter.n100.x4.store-single.on.median`: 0.200
+- `main.filter.n100.x4.store-single.off.median`: 0.750
+- `main.filter.n100.x4.context.on.median`: 0.200
+- `main.filter.n100.x4.context.off.median`: 0.767
+- `main.filter.n100.x4.context-split.on.median`: 0.250
+- `main.filter.n100.x4.context-split.off.median`: 0.900
+- `main.filter.n100.x4.redux.on.median`: 0.650
+- `main.filter.n100.x4.redux.off.median`: 0.875
+- `main.filter.n100.x4.zustand.on.median`: 0.337
+- `main.filter.n100.x4.zustand.off.median`: 0.567
+- `main.filter.n100.x4.zustand-granular.on.median`: 0.337
+- `main.filter.n100.x4.zustand-granular.off.median`: 0.567
 - `main.filter.n1000.x1.store.on.median`: 0.450
-- `main.filter.n1000.x1.redux.on.median`: 1.72
-- `main.filter.n1000.x1.zustand.on.median`: 0.867
-- `main.filter.n1000.x4.store.on.median`: 2.15
-- `main.filter.n1000.x4.redux.on.median`: 12.6
-- `main.filter.n1000.x4.zustand.on.median`: 4.70
-- `main.filter.n10000.x1.store.on.median`: 6.00
-- `main.filter.n10000.x1.redux.on.median`: 31.5
-- `main.filter.n10000.x1.zustand.on.median`: 17.4
-- `main.filter.n10000.x4.store.on.median`: 30.7
-- `main.filter.n10000.x4.redux.on.median`: 136.3
-- `main.filter.n10000.x4.zustand.on.median`: 75.5
+- `main.filter.n1000.x1.store.off.median`: 1.90
+- `main.filter.n1000.x1.store-single.on.median`: 0.413
+- `main.filter.n1000.x1.store-single.off.median`: 1.88
+- `main.filter.n1000.x1.context.on.median`: 0.425
+- `main.filter.n1000.x1.context.off.median`: 1.88
+- `main.filter.n1000.x1.context-split.on.median`: 0.500
+- `main.filter.n1000.x1.context-split.off.median`: 2.03
+- `main.filter.n1000.x1.redux.on.median`: 1.38
+- `main.filter.n1000.x1.redux.off.median`: 2.05
+- `main.filter.n1000.x1.zustand.on.median`: 0.700
+- `main.filter.n1000.x1.zustand.off.median`: 1.33
+- `main.filter.n1000.x1.zustand-granular.on.median`: 0.667
+- `main.filter.n1000.x1.zustand-granular.off.median`: 1.30
+- `main.filter.n1000.x4.store.on.median`: 1.85
+- `main.filter.n1000.x4.store.off.median`: 7.80
+- `main.filter.n1000.x4.store-single.on.median`: 1.75
+- `main.filter.n1000.x4.store-single.off.median`: 7.60
+- `main.filter.n1000.x4.context.on.median`: 1.90
+- `main.filter.n1000.x4.context.off.median`: 7.70
+- `main.filter.n1000.x4.context-split.on.median`: 2.10
+- `main.filter.n1000.x4.context-split.off.median`: 8.30
+- `main.filter.n1000.x4.redux.on.median`: 6.90
+- `main.filter.n1000.x4.redux.off.median`: 8.50
+- `main.filter.n1000.x4.zustand.on.median`: 2.95
+- `main.filter.n1000.x4.zustand.off.median`: 5.60
+- `main.filter.n1000.x4.zustand-granular.on.median`: 3.00
+- `main.filter.n1000.x4.zustand-granular.off.median`: 5.40
+- `main.filter.n10000.x1.store.on.median`: 5.30
+- `main.filter.n10000.x1.store.off.median`: 23.3
+- `main.filter.n10000.x1.store-single.on.median`: 5.60
+- `main.filter.n10000.x1.store-single.off.median`: 23.4
+- `main.filter.n10000.x1.context.on.median`: 5.80
+- `main.filter.n10000.x1.context.off.median`: 23.0
+- `main.filter.n10000.x1.context-split.on.median`: 7.40
+- `main.filter.n10000.x1.context-split.off.median`: 24.9
+- `main.filter.n10000.x1.redux.on.median`: 24.3
+- `main.filter.n10000.x1.redux.off.median`: 33.8
+- `main.filter.n10000.x1.zustand.on.median`: 13.3
+- `main.filter.n10000.x1.zustand.off.median`: 21.6
+- `main.filter.n10000.x1.zustand-granular.on.median`: 13.4
+- `main.filter.n10000.x1.zustand-granular.off.median`: 21.3
+- `main.filter.n10000.x4.store.on.median`: 27.4
+- `main.filter.n10000.x4.store.off.median`: 100.0
+- `main.filter.n10000.x4.store-single.on.median`: 26.6
+- `main.filter.n10000.x4.store-single.off.median`: 97.9
+- `main.filter.n10000.x4.context.on.median`: 31.2
+- `main.filter.n10000.x4.context.off.median`: 98.5
+- `main.filter.n10000.x4.context-split.on.median`: 36.2
+- `main.filter.n10000.x4.context-split.off.median`: 105.3
+- `main.filter.n10000.x4.redux.on.median`: 112.8
+- `main.filter.n10000.x4.redux.off.median`: 146.2
+- `main.filter.n10000.x4.zustand.on.median`: 62.1
+- `main.filter.n10000.x4.zustand.off.median`: 95.0
+- `main.filter.n10000.x4.zustand-granular.on.median`: 60.8
+- `main.filter.n10000.x4.zustand-granular.off.median`: 90.1
 - `main.details-inline.n100.x1.store.on.median`: 0.006
-- `main.details-inline.n100.x1.redux.on.median`: 0.035
-- `main.details-inline.n100.x1.zustand.on.median`: 0.019
-- `main.details-inline.n100.x4.store.on.median`: 0.030
-- `main.details-inline.n100.x4.redux.on.median`: 0.156
-- `main.details-inline.n100.x4.zustand.on.median`: 0.086
-- `main.details-inline.n1000.x1.store.on.median`: 0.059
-- `main.details-inline.n1000.x1.redux.on.median`: 0.317
-- `main.details-inline.n1000.x1.zustand.on.median`: 0.190
-- `main.details-inline.n1000.x4.store.on.median`: 0.258
-- `main.details-inline.n1000.x4.redux.on.median`: 2.25
-- `main.details-inline.n1000.x4.zustand.on.median`: 0.850
+- `main.details-inline.n100.x1.store.off.median`: 0.007
+- `main.details-inline.n100.x1.store-single.on.median`: 0.017
+- `main.details-inline.n100.x1.store-single.off.median`: 0.175
+- `main.details-inline.n100.x1.context.on.median`: 0.018
+- `main.details-inline.n100.x1.context.off.median`: 0.180
+- `main.details-inline.n100.x1.context-split.on.median`: 0.013
+- `main.details-inline.n100.x1.context-split.off.median`: 0.022
+- `main.details-inline.n100.x1.redux.on.median`: 0.031
+- `main.details-inline.n100.x1.redux.off.median`: 0.029
+- `main.details-inline.n100.x1.zustand.on.median`: 0.016
+- `main.details-inline.n100.x1.zustand.off.median`: 0.017
+- `main.details-inline.n100.x1.zustand-granular.on.median`: 0.014
+- `main.details-inline.n100.x1.zustand-granular.off.median`: 0.015
+- `main.details-inline.n100.x4.store.on.median`: 0.029
+- `main.details-inline.n100.x4.store.off.median`: 0.030
+- `main.details-inline.n100.x4.store-single.on.median`: 0.070
+- `main.details-inline.n100.x4.store-single.off.median`: 0.733
+- `main.details-inline.n100.x4.context.on.median`: 0.080
+- `main.details-inline.n100.x4.context.off.median`: 0.717
+- `main.details-inline.n100.x4.context-split.on.median`: 0.054
+- `main.details-inline.n100.x4.context-split.off.median`: 0.091
+- `main.details-inline.n100.x4.redux.on.median`: 0.128
+- `main.details-inline.n100.x4.redux.off.median`: 0.128
+- `main.details-inline.n100.x4.zustand.on.median`: 0.071
+- `main.details-inline.n100.x4.zustand.off.median`: 0.071
+- `main.details-inline.n100.x4.zustand-granular.on.median`: 0.060
+- `main.details-inline.n100.x4.zustand-granular.off.median`: 0.063
+- `main.details-inline.n1000.x1.store.on.median`: 0.057
+- `main.details-inline.n1000.x1.store.off.median`: 0.073
+- `main.details-inline.n1000.x1.store-single.on.median`: 0.156
+- `main.details-inline.n1000.x1.store-single.off.median`: 1.85
+- `main.details-inline.n1000.x1.context.on.median`: 0.181
+- `main.details-inline.n1000.x1.context.off.median`: 1.85
+- `main.details-inline.n1000.x1.context-split.on.median`: 0.113
+- `main.details-inline.n1000.x1.context-split.off.median`: 0.200
+- `main.details-inline.n1000.x1.redux.on.median`: 0.271
+- `main.details-inline.n1000.x1.redux.off.median`: 0.279
+- `main.details-inline.n1000.x1.zustand.on.median`: 0.159
+- `main.details-inline.n1000.x1.zustand.off.median`: 0.168
+- `main.details-inline.n1000.x1.zustand-granular.on.median`: 0.125
+- `main.details-inline.n1000.x1.zustand-granular.off.median`: 0.138
+- `main.details-inline.n1000.x4.store.on.median`: 0.242
+- `main.details-inline.n1000.x4.store.off.median`: 0.308
+- `main.details-inline.n1000.x4.store-single.on.median`: 0.650
+- `main.details-inline.n1000.x4.store-single.off.median`: 7.50
+- `main.details-inline.n1000.x4.context.on.median`: 0.717
+- `main.details-inline.n1000.x4.context.off.median`: 7.60
+- `main.details-inline.n1000.x4.context-split.on.median`: 0.450
+- `main.details-inline.n1000.x4.context-split.off.median`: 0.783
+- `main.details-inline.n1000.x4.redux.on.median`: 1.13
+- `main.details-inline.n1000.x4.redux.off.median`: 1.17
+- `main.details-inline.n1000.x4.zustand.on.median`: 0.667
+- `main.details-inline.n1000.x4.zustand.off.median`: 0.700
+- `main.details-inline.n1000.x4.zustand-granular.on.median`: 0.533
+- `main.details-inline.n1000.x4.zustand-granular.off.median`: 0.583
 - `main.details-inline.n10000.x1.store.on.median`: 0.563
-- `main.details-inline.n10000.x1.redux.on.median`: 12.8
-- `main.details-inline.n10000.x1.zustand.on.median`: 2.50
-- `main.details-inline.n10000.x4.store.on.median`: 2.45
-- `main.details-inline.n10000.x4.redux.on.median`: 45.4
-- `main.details-inline.n10000.x4.zustand.on.median`: 19.2
+- `main.details-inline.n10000.x1.store.off.median`: 0.712
+- `main.details-inline.n10000.x1.store-single.on.median`: 1.67
+- `main.details-inline.n10000.x1.store-single.off.median`: 23.5
+- `main.details-inline.n10000.x1.context.on.median`: 2.00
+- `main.details-inline.n10000.x1.context.off.median`: 23.3
+- `main.details-inline.n10000.x1.context-split.on.median`: 1.08
+- `main.details-inline.n10000.x1.context-split.off.median`: 1.83
+- `main.details-inline.n10000.x1.redux.on.median`: 4.35
+- `main.details-inline.n10000.x1.redux.off.median`: 3.60
+- `main.details-inline.n10000.x1.zustand.on.median`: 1.67
+- `main.details-inline.n10000.x1.zustand.off.median`: 1.63
+- `main.details-inline.n10000.x1.zustand-granular.on.median`: 1.25
+- `main.details-inline.n10000.x1.zustand-granular.off.median`: 1.45
+- `main.details-inline.n10000.x4.store.on.median`: 2.15
+- `main.details-inline.n10000.x4.store.off.median`: 2.85
+- `main.details-inline.n10000.x4.store-single.on.median`: 6.80
+- `main.details-inline.n10000.x4.store-single.off.median`: 97.5
+- `main.details-inline.n10000.x4.context.on.median`: 8.40
+- `main.details-inline.n10000.x4.context.off.median`: 95.0
+- `main.details-inline.n10000.x4.context-split.on.median`: 5.30
+- `main.details-inline.n10000.x4.context-split.off.median`: 7.30
+- `main.details-inline.n10000.x4.redux.on.median`: 27.8
+- `main.details-inline.n10000.x4.redux.off.median`: 25.0
+- `main.details-inline.n10000.x4.zustand.on.median`: 10.6
+- `main.details-inline.n10000.x4.zustand.off.median`: 9.10
+- `main.details-inline.n10000.x4.zustand-granular.on.median`: 6.50
+- `main.details-inline.n10000.x4.zustand-granular.off.median`: 7.00
 - `main.details-component.n100.x1.store.on.median`: 0.006
-- `main.details-component.n100.x1.redux.on.median`: 0.032
-- `main.details-component.n100.x1.zustand.on.median`: 0.017
-- `main.details-component.n100.x4.store.on.median`: 0.029
-- `main.details-component.n100.x4.redux.on.median`: 0.139
-- `main.details-component.n100.x4.zustand.on.median`: 0.082
+- `main.details-component.n100.x1.store.off.median`: 0.006
+- `main.details-component.n100.x1.store-single.on.median`: 0.016
+- `main.details-component.n100.x1.store-single.off.median`: 0.180
+- `main.details-component.n100.x1.context.on.median`: 0.018
+- `main.details-component.n100.x1.context.off.median`: 0.175
+- `main.details-component.n100.x1.context-split.on.median`: 0.012
+- `main.details-component.n100.x1.context-split.off.median`: 0.020
+- `main.details-component.n100.x1.redux.on.median`: 0.027
+- `main.details-component.n100.x1.redux.off.median`: 0.025
+- `main.details-component.n100.x1.zustand.on.median`: 0.015
+- `main.details-component.n100.x1.zustand.off.median`: 0.015
+- `main.details-component.n100.x1.zustand-granular.on.median`: 0.013
+- `main.details-component.n100.x1.zustand-granular.off.median`: 0.013
+- `main.details-component.n100.x4.store.on.median`: 0.026
+- `main.details-component.n100.x4.store.off.median`: 0.026
+- `main.details-component.n100.x4.store-single.on.median`: 0.070
+- `main.details-component.n100.x4.store-single.off.median`: 0.733
+- `main.details-component.n100.x4.context.on.median`: 0.082
+- `main.details-component.n100.x4.context.off.median`: 0.733
+- `main.details-component.n100.x4.context-split.on.median`: 0.054
+- `main.details-component.n100.x4.context-split.off.median`: 0.087
+- `main.details-component.n100.x4.redux.on.median`: 0.115
+- `main.details-component.n100.x4.redux.off.median`: 0.110
+- `main.details-component.n100.x4.zustand.on.median`: 0.067
+- `main.details-component.n100.x4.zustand.off.median`: 0.067
+- `main.details-component.n100.x4.zustand-granular.on.median`: 0.057
+- `main.details-component.n100.x4.zustand-granular.off.median`: 0.056
 - `main.details-component.n1000.x1.store.on.median`: 0.054
-- `main.details-component.n1000.x1.redux.on.median`: 0.317
-- `main.details-component.n1000.x1.zustand.on.median`: 0.168
-- `main.details-component.n1000.x4.store.on.median`: 0.242
-- `main.details-component.n1000.x4.redux.on.median`: 1.38
-- `main.details-component.n1000.x4.zustand.on.median`: 0.783
-- `main.details-component.n10000.x1.store.on.median`: 0.550
-- `main.details-component.n10000.x1.redux.on.median`: 12.8
-- `main.details-component.n10000.x1.zustand.on.median`: 2.13
-- `main.details-component.n10000.x4.store.on.median`: 2.20
-- `main.details-component.n10000.x4.redux.on.median`: 29.9
-- `main.details-component.n10000.x4.zustand.on.median`: 17.3
-- `main.structure.n100.x1.store.on.median`: 0.027
-- `main.structure.n100.x1.redux.on.median`: 0.258
-- `main.structure.n100.x1.zustand.on.median`: 0.096
-- `main.structure.n100.x4.store.on.median`: 0.114
-- `main.structure.n100.x4.redux.on.median`: 1.20
-- `main.structure.n100.x4.zustand.on.median`: 0.433
-- `main.structure.n1000.x1.store.on.median`: 0.200
-- `main.structure.n1000.x1.redux.on.median`: 2.80
-- `main.structure.n1000.x1.zustand.on.median`: 1.05
-- `main.structure.n1000.x4.store.on.median`: 1.00
-- `main.structure.n1000.x4.redux.on.median`: 13.8
-- `main.structure.n1000.x4.zustand.on.median`: 5.60
-- `main.structure.n10000.x1.store.on.median`: 2.20
-- `main.structure.n10000.x1.redux.on.median`: 37.8
-- `main.structure.n10000.x1.zustand.on.median`: 17.2
-- `main.structure.n10000.x4.store.on.median`: 12.0
-- `main.structure.n10000.x4.redux.on.median`: 177.3
-- `main.structure.n10000.x4.zustand.on.median`: 78.8
+- `main.details-component.n1000.x1.store.off.median`: 0.056
+- `main.details-component.n1000.x1.store-single.on.median`: 0.156
+- `main.details-component.n1000.x1.store-single.off.median`: 1.83
+- `main.details-component.n1000.x1.context.on.median`: 0.167
+- `main.details-component.n1000.x1.context.off.median`: 1.82
+- `main.details-component.n1000.x1.context-split.on.median`: 0.109
+- `main.details-component.n1000.x1.context-split.off.median`: 0.175
+- `main.details-component.n1000.x1.redux.on.median`: 0.256
+- `main.details-component.n1000.x1.redux.off.median`: 0.244
+- `main.details-component.n1000.x1.zustand.on.median`: 0.158
+- `main.details-component.n1000.x1.zustand.off.median`: 0.154
+- `main.details-component.n1000.x1.zustand-granular.on.median`: 0.117
+- `main.details-component.n1000.x1.zustand-granular.off.median`: 0.119
+- `main.details-component.n1000.x4.store.on.median`: 0.225
+- `main.details-component.n1000.x4.store.off.median`: 0.236
+- `main.details-component.n1000.x4.store-single.on.median`: 0.650
+- `main.details-component.n1000.x4.store-single.off.median`: 7.40
+- `main.details-component.n1000.x4.context.on.median`: 0.700
+- `main.details-component.n1000.x4.context.off.median`: 7.40
+- `main.details-component.n1000.x4.context-split.on.median`: 0.410
+- `main.details-component.n1000.x4.context-split.off.median`: 0.700
+- `main.details-component.n1000.x4.redux.on.median`: 1.05
+- `main.details-component.n1000.x4.redux.off.median`: 1.05
+- `main.details-component.n1000.x4.zustand.on.median`: 0.650
+- `main.details-component.n1000.x4.zustand.off.median`: 0.633
+- `main.details-component.n1000.x4.zustand-granular.on.median`: 0.500
+- `main.details-component.n1000.x4.zustand-granular.off.median`: 0.500
+- `main.details-component.n10000.x1.store.on.median`: 0.513
+- `main.details-component.n10000.x1.store.off.median`: 0.530
+- `main.details-component.n10000.x1.store-single.on.median`: 1.60
+- `main.details-component.n10000.x1.store-single.off.median`: 22.8
+- `main.details-component.n10000.x1.context.on.median`: 1.95
+- `main.details-component.n10000.x1.context.off.median`: 22.1
+- `main.details-component.n10000.x1.context-split.on.median`: 0.975
+- `main.details-component.n10000.x1.context-split.off.median`: 1.58
+- `main.details-component.n10000.x1.redux.on.median`: 3.25
+- `main.details-component.n10000.x1.redux.off.median`: 3.85
+- `main.details-component.n10000.x1.zustand.on.median`: 1.50
+- `main.details-component.n10000.x1.zustand.off.median`: 1.45
+- `main.details-component.n10000.x1.zustand-granular.on.median`: 1.23
+- `main.details-component.n10000.x1.zustand-granular.off.median`: 1.18
+- `main.details-component.n10000.x4.store.on.median`: 2.00
+- `main.details-component.n10000.x4.store.off.median`: 2.17
+- `main.details-component.n10000.x4.store-single.on.median`: 6.90
+- `main.details-component.n10000.x4.store-single.off.median`: 95.5
+- `main.details-component.n10000.x4.context.on.median`: 8.20
+- `main.details-component.n10000.x4.context.off.median`: 93.4
+- `main.details-component.n10000.x4.context-split.on.median`: 4.80
+- `main.details-component.n10000.x4.context-split.off.median`: 6.60
+- `main.details-component.n10000.x4.redux.on.median`: 25.7
+- `main.details-component.n10000.x4.redux.off.median`: 21.3
+- `main.details-component.n10000.x4.zustand.on.median`: 9.60
+- `main.details-component.n10000.x4.zustand.off.median`: 7.80
+- `main.details-component.n10000.x4.zustand-granular.on.median`: 6.20
+- `main.details-component.n10000.x4.zustand-granular.off.median`: 5.20
+- `main.details-churn.n100.x1.store.on.median`: 0.032
+- `main.details-churn.n100.x1.store.off.median`: 0.183
+- `main.details-churn.n100.x1.store-single.on.median`: 0.026
+- `main.details-churn.n100.x1.store-single.off.median`: 0.183
+- `main.details-churn.n100.x1.context.on.median`: 0.029
+- `main.details-churn.n100.x1.context.off.median`: 0.183
+- `main.details-churn.n100.x1.context-split.on.median`: 0.033
+- `main.details-churn.n100.x1.context-split.off.median`: 0.194
+- `main.details-churn.n100.x1.redux.on.median`: 0.057
+- `main.details-churn.n100.x1.redux.off.median`: 0.067
+- `main.details-churn.n100.x1.zustand.on.median`: 0.032
+- `main.details-churn.n100.x1.zustand.off.median`: 0.041
+- `main.details-churn.n100.x1.zustand-granular.on.median`: 0.030
+- `main.details-churn.n100.x1.zustand-granular.off.median`: 0.039
+- `main.details-churn.n100.x4.store.on.median`: 0.140
+- `main.details-churn.n100.x4.store.off.median`: 0.750
+- `main.details-churn.n100.x4.store-single.on.median`: 0.125
+- `main.details-churn.n100.x4.store-single.off.median`: 0.800
+- `main.details-churn.n100.x4.context.on.median`: 0.130
+- `main.details-churn.n100.x4.context.off.median`: 0.775
+- `main.details-churn.n100.x4.context-split.on.median`: 0.150
+- `main.details-churn.n100.x4.context-split.off.median`: 0.875
+- `main.details-churn.n100.x4.redux.on.median`: 0.250
+- `main.details-churn.n100.x4.redux.off.median`: 0.288
+- `main.details-churn.n100.x4.zustand.on.median`: 0.150
+- `main.details-churn.n100.x4.zustand.off.median`: 0.183
+- `main.details-churn.n100.x4.zustand-granular.on.median`: 0.133
+- `main.details-churn.n100.x4.zustand-granular.off.median`: 0.175
+- `main.details-churn.n1000.x1.store.on.median`: 0.290
+- `main.details-churn.n1000.x1.store.off.median`: 1.90
+- `main.details-churn.n1000.x1.store-single.on.median`: 0.267
+- `main.details-churn.n1000.x1.store-single.off.median`: 1.90
+- `main.details-churn.n1000.x1.context.on.median`: 0.275
+- `main.details-churn.n1000.x1.context.off.median`: 1.88
+- `main.details-churn.n1000.x1.context-split.on.median`: 0.320
+- `main.details-churn.n1000.x1.context-split.off.median`: 2.00
+- `main.details-churn.n1000.x1.redux.on.median`: 0.550
+- `main.details-churn.n1000.x1.redux.off.median`: 0.667
+- `main.details-churn.n1000.x1.zustand.on.median`: 0.320
+- `main.details-churn.n1000.x1.zustand.off.median`: 0.438
+- `main.details-churn.n1000.x1.zustand-granular.on.median`: 0.292
+- `main.details-churn.n1000.x1.zustand-granular.off.median`: 0.410
+- `main.details-churn.n1000.x4.store.on.median`: 1.20
+- `main.details-churn.n1000.x4.store.off.median`: 7.90
+- `main.details-churn.n1000.x4.store-single.on.median`: 1.08
+- `main.details-churn.n1000.x4.store-single.off.median`: 7.90
+- `main.details-churn.n1000.x4.context.on.median`: 1.15
+- `main.details-churn.n1000.x4.context.off.median`: 7.80
+- `main.details-churn.n1000.x4.context-split.on.median`: 1.35
+- `main.details-churn.n1000.x4.context-split.off.median`: 8.20
+- `main.details-churn.n1000.x4.redux.on.median`: 2.35
+- `main.details-churn.n1000.x4.redux.off.median`: 2.80
+- `main.details-churn.n1000.x4.zustand.on.median`: 1.45
+- `main.details-churn.n1000.x4.zustand.off.median`: 1.85
+- `main.details-churn.n1000.x4.zustand-granular.on.median`: 1.25
+- `main.details-churn.n1000.x4.zustand-granular.off.median`: 1.72
+- `main.details-churn.n10000.x1.store.on.median`: 3.40
+- `main.details-churn.n10000.x1.store.off.median`: 24.5
+- `main.details-churn.n10000.x1.store-single.on.median`: 3.25
+- `main.details-churn.n10000.x1.store-single.off.median`: 24.1
+- `main.details-churn.n10000.x1.context.on.median`: 3.85
+- `main.details-churn.n10000.x1.context.off.median`: 23.6
+- `main.details-churn.n10000.x1.context-split.on.median`: 4.30
+- `main.details-churn.n10000.x1.context-split.off.median`: 24.8
+- `main.details-churn.n10000.x1.redux.on.median`: 9.60
+- `main.details-churn.n10000.x1.redux.off.median`: 12.2
+- `main.details-churn.n10000.x1.zustand.on.median`: 4.40
+- `main.details-churn.n10000.x1.zustand.off.median`: 5.80
+- `main.details-churn.n10000.x1.zustand-granular.on.median`: 4.05
+- `main.details-churn.n10000.x1.zustand-granular.off.median`: 5.50
+- `main.details-churn.n10000.x4.store.on.median`: 16.9
+- `main.details-churn.n10000.x4.store.off.median`: 103.7
+- `main.details-churn.n10000.x4.store-single.on.median`: 16.0
+- `main.details-churn.n10000.x4.store-single.off.median`: 101.3
+- `main.details-churn.n10000.x4.context.on.median`: 19.0
+- `main.details-churn.n10000.x4.context.off.median`: 100.5
+- `main.details-churn.n10000.x4.context-split.on.median`: 22.1
+- `main.details-churn.n10000.x4.context-split.off.median`: 104.5
+- `main.details-churn.n10000.x4.redux.on.median`: 61.1
+- `main.details-churn.n10000.x4.redux.off.median`: 61.3
+- `main.details-churn.n10000.x4.zustand.on.median`: 26.1
+- `main.details-churn.n10000.x4.zustand.off.median`: 28.5
+- `main.details-churn.n10000.x4.zustand-granular.on.median`: 24.7
+- `main.details-churn.n10000.x4.zustand-granular.off.median`: 29.2
+- `main.structure.n100.x1.store.on.median`: 0.026
+- `main.structure.n100.x1.store.off.median`: 0.183
+- `main.structure.n100.x1.store-single.on.median`: 0.036
+- `main.structure.n100.x1.store-single.off.median`: 0.189
+- `main.structure.n100.x1.context.on.median`: 0.036
+- `main.structure.n100.x1.context.off.median`: 0.200
+- `main.structure.n100.x1.context-split.on.median`: 0.042
+- `main.structure.n100.x1.context-split.off.median`: 0.200
+- `main.structure.n100.x1.redux.on.median`: 0.207
+- `main.structure.n100.x1.redux.off.median`: 0.390
+- `main.structure.n100.x1.zustand.on.median`: 0.083
+- `main.structure.n100.x1.zustand.off.median`: 0.258
+- `main.structure.n100.x1.zustand-granular.on.median`: 0.060
+- `main.structure.n100.x1.zustand-granular.off.median`: 0.242
+- `main.structure.n100.x4.store.on.median`: 0.121
+- `main.structure.n100.x4.store.off.median`: 0.767
+- `main.structure.n100.x4.store-single.on.median`: 0.150
+- `main.structure.n100.x4.store-single.off.median`: 0.783
+- `main.structure.n100.x4.context.on.median`: 0.158
+- `main.structure.n100.x4.context.off.median`: 0.775
+- `main.structure.n100.x4.context-split.on.median`: 0.190
+- `main.structure.n100.x4.context-split.off.median`: 0.875
+- `main.structure.n100.x4.redux.on.median`: 0.900
+- `main.structure.n100.x4.redux.off.median`: 1.65
+- `main.structure.n100.x4.zustand.on.median`: 0.363
+- `main.structure.n100.x4.zustand.off.median`: 1.07
+- `main.structure.n100.x4.zustand-granular.on.median`: 0.275
+- `main.structure.n100.x4.zustand-granular.off.median`: 1.00
+- `main.structure.n1000.x1.store.on.median`: 0.192
+- `main.structure.n1000.x1.store.off.median`: 1.88
+- `main.structure.n1000.x1.store-single.on.median`: 0.350
+- `main.structure.n1000.x1.store-single.off.median`: 1.97
+- `main.structure.n1000.x1.context.on.median`: 0.340
+- `main.structure.n1000.x1.context.off.median`: 1.95
+- `main.structure.n1000.x1.context-split.on.median`: 0.413
+- `main.structure.n1000.x1.context-split.off.median`: 2.10
+- `main.structure.n1000.x1.redux.on.median`: 2.05
+- `main.structure.n1000.x1.redux.off.median`: 4.30
+- `main.structure.n1000.x1.zustand.on.median`: 0.900
+- `main.structure.n1000.x1.zustand.off.median`: 2.75
+- `main.structure.n1000.x1.zustand-granular.on.median`: 0.583
+- `main.structure.n1000.x1.zustand-granular.off.median`: 2.35
+- `main.structure.n1000.x4.store.on.median`: 0.825
+- `main.structure.n1000.x4.store.off.median`: 7.60
+- `main.structure.n1000.x4.store-single.on.median`: 1.40
+- `main.structure.n1000.x4.store-single.off.median`: 8.10
+- `main.structure.n1000.x4.context.on.median`: 1.40
+- `main.structure.n1000.x4.context.off.median`: 8.10
+- `main.structure.n1000.x4.context-split.on.median`: 1.75
+- `main.structure.n1000.x4.context-split.off.median`: 8.60
+- `main.structure.n1000.x4.redux.on.median`: 9.00
+- `main.structure.n1000.x4.redux.off.median`: 17.8
+- `main.structure.n1000.x4.zustand.on.median`: 3.60
+- `main.structure.n1000.x4.zustand.off.median`: 12.2
+- `main.structure.n1000.x4.zustand-granular.on.median`: 2.30
+- `main.structure.n1000.x4.zustand-granular.off.median`: 9.70
+- `main.structure.n10000.x1.store.on.median`: 1.97
+- `main.structure.n10000.x1.store.off.median`: 23.2
+- `main.structure.n10000.x1.store-single.on.median`: 3.70
+- `main.structure.n10000.x1.store-single.off.median`: 24.5
+- `main.structure.n10000.x1.context.on.median`: 4.00
+- `main.structure.n10000.x1.context.off.median`: 24.1
+- `main.structure.n10000.x1.context-split.on.median`: 5.00
+- `main.structure.n10000.x1.context-split.off.median`: 26.0
+- `main.structure.n10000.x1.redux.on.median`: 30.4
+- `main.structure.n10000.x1.redux.off.median`: 62.6
+- `main.structure.n10000.x1.zustand.on.median`: 15.3
+- `main.structure.n10000.x1.zustand.off.median`: 41.0
+- `main.structure.n10000.x1.zustand-granular.on.median`: 13.3
+- `main.structure.n10000.x1.zustand-granular.off.median`: 37.4
+- `main.structure.n10000.x4.store.on.median`: 8.30
+- `main.structure.n10000.x4.store.off.median`: 97.0
+- `main.structure.n10000.x4.store-single.on.median`: 16.2
+- `main.structure.n10000.x4.store-single.off.median`: 103.2
+- `main.structure.n10000.x4.context.on.median`: 19.0
+- `main.structure.n10000.x4.context.off.median`: 100.6
+- `main.structure.n10000.x4.context-split.on.median`: 23.8
+- `main.structure.n10000.x4.context-split.off.median`: 107.7
+- `main.structure.n10000.x4.redux.on.median`: 143.3
+- `main.structure.n10000.x4.redux.off.median`: 251.1
+- `main.structure.n10000.x4.zustand.on.median`: 64.3
+- `main.structure.n10000.x4.zustand.off.median`: 166.3
+- `main.structure.n10000.x4.zustand-granular.on.median`: 58.2
+- `main.structure.n10000.x4.zustand-granular.off.median`: 154.4
 
 </details>
 
@@ -295,44 +775,50 @@ Main suite: median ms per update.
 
 Main suite: store + compiler vs the headline opponents (HEADLINE_OPPONENTS in report-data.mjs: the faster of Redux and Zustand, each at its faster compiler setting); value is the ratio of means (store / best), display is "1.4× faster", "tie" or "1.2× slower".
 
-<details><summary>36 keys</summary>
+<details><summary>42 keys</summary>
 
-- `main.selection.n100.x1.verdict`: tie
+- `main.selection.n100.x1.verdict`: 1.2× slower
 - `main.selection.n100.x4.verdict`: tie
-- `main.selection.n1000.x1.verdict`: 1.1× faster
-- `main.selection.n1000.x4.verdict`: 1.0× faster
-- `main.selection.n10000.x1.verdict`: 1.3× faster
-- `main.selection.n10000.x4.verdict`: 1.9× faster
-- `main.entity.n100.x1.verdict`: 2.8× faster
-- `main.entity.n100.x4.verdict`: 2.9× faster
-- `main.entity.n1000.x1.verdict`: 5.1× faster
-- `main.entity.n1000.x4.verdict`: 5.8× faster
-- `main.entity.n10000.x1.verdict`: 7.9× faster
-- `main.entity.n10000.x4.verdict`: 9.1× faster
-- `main.filter.n100.x1.verdict`: 1.7× faster
-- `main.filter.n100.x4.verdict`: 1.8× faster
-- `main.filter.n1000.x1.verdict`: 1.9× faster
-- `main.filter.n1000.x4.verdict`: 2.3× faster
-- `main.filter.n10000.x1.verdict`: 2.9× faster
-- `main.filter.n10000.x4.verdict`: 2.5× faster
-- `main.details-inline.n100.x1.verdict`: 3.1× faster
-- `main.details-inline.n100.x4.verdict`: 2.8× faster
-- `main.details-inline.n1000.x1.verdict`: 3.2× faster
-- `main.details-inline.n1000.x4.verdict`: 3.4× faster
-- `main.details-inline.n10000.x1.verdict`: 4.6× faster
-- `main.details-inline.n10000.x4.verdict`: 7.6× faster
-- `main.details-component.n100.x1.verdict`: 2.9× faster
-- `main.details-component.n100.x4.verdict`: 2.8× faster
-- `main.details-component.n1000.x1.verdict`: 3.0× faster
-- `main.details-component.n1000.x4.verdict`: 3.5× faster
-- `main.details-component.n10000.x1.verdict`: 4.0× faster
-- `main.details-component.n10000.x4.verdict`: 7.8× faster
-- `main.structure.n100.x1.verdict`: 3.5× faster
-- `main.structure.n100.x4.verdict`: 3.6× faster
-- `main.structure.n1000.x1.verdict`: 5.2× faster
-- `main.structure.n1000.x4.verdict`: 5.7× faster
-- `main.structure.n10000.x1.verdict`: 7.6× faster
-- `main.structure.n10000.x4.verdict`: 6.7× faster
+- `main.selection.n1000.x1.verdict`: 1.1× slower
+- `main.selection.n1000.x4.verdict`: 1.1× slower
+- `main.selection.n10000.x1.verdict`: 1.0× faster
+- `main.selection.n10000.x4.verdict`: 1.4× faster
+- `main.entity.n100.x1.verdict`: 2.5× faster
+- `main.entity.n100.x4.verdict`: 2.4× faster
+- `main.entity.n1000.x1.verdict`: 4.1× faster
+- `main.entity.n1000.x4.verdict`: 4.1× faster
+- `main.entity.n10000.x1.verdict`: 6.3× faster
+- `main.entity.n10000.x4.verdict`: 9.2× faster
+- `main.filter.n100.x1.verdict`: 1.5× faster
+- `main.filter.n100.x4.verdict`: 1.7× faster
+- `main.filter.n1000.x1.verdict`: 1.6× faster
+- `main.filter.n1000.x4.verdict`: 1.6× faster
+- `main.filter.n10000.x1.verdict`: 2.4× faster
+- `main.filter.n10000.x4.verdict`: 2.3× faster
+- `main.details-inline.n100.x1.verdict`: 2.6× faster
+- `main.details-inline.n100.x4.verdict`: 2.4× faster
+- `main.details-inline.n1000.x1.verdict`: 2.8× faster
+- `main.details-inline.n1000.x4.verdict`: 2.8× faster
+- `main.details-inline.n10000.x1.verdict`: 2.8× faster
+- `main.details-inline.n10000.x4.verdict`: 4.2× faster
+- `main.details-component.n100.x1.verdict`: 2.5× faster
+- `main.details-component.n100.x4.verdict`: 2.5× faster
+- `main.details-component.n1000.x1.verdict`: 2.9× faster
+- `main.details-component.n1000.x4.verdict`: 2.8× faster
+- `main.details-component.n10000.x1.verdict`: 3.0× faster
+- `main.details-component.n10000.x4.verdict`: 4.0× faster
+- `main.details-churn.n100.x1.verdict`: tie
+- `main.details-churn.n100.x4.verdict`: 1.0× faster
+- `main.details-churn.n1000.x1.verdict`: 1.1× faster
+- `main.details-churn.n1000.x4.verdict`: 1.2× faster
+- `main.details-churn.n10000.x1.verdict`: 1.4× faster
+- `main.details-churn.n10000.x4.verdict`: 1.5× faster
+- `main.structure.n100.x1.verdict`: 3.2× faster
+- `main.structure.n100.x4.verdict`: 2.9× faster
+- `main.structure.n1000.x1.verdict`: 4.7× faster
+- `main.structure.n1000.x4.verdict`: 4.3× faster
+- `main.structure.n10000.x1.verdict`: 7.8× faster
+- `main.structure.n10000.x4.verdict`: 7.6× faster
 
 </details>
 
@@ -340,20 +826,20 @@ Main suite: store + compiler vs the headline opponents (HEADLINE_OPPONENTS in re
 
 Main suite: which library and compiler setting was the fastest headline opponent (HEADLINE_OPPONENTS) in that configuration.
 
-<details><summary>36 keys</summary>
+<details><summary>42 keys</summary>
 
 - `main.selection.n100.x1.best`: zustand + compiler
 - `main.selection.n100.x4.best`: zustand + compiler
-- `main.selection.n1000.x1.best`: zustand + compiler
-- `main.selection.n1000.x4.best`: zustand + compiler
-- `main.selection.n10000.x1.best`: zustand + compiler
+- `main.selection.n1000.x1.best`: zustand without the compiler
+- `main.selection.n1000.x4.best`: zustand without the compiler
+- `main.selection.n10000.x1.best`: zustand without the compiler
 - `main.selection.n10000.x4.best`: zustand + compiler
-- `main.entity.n100.x1.best`: zustand + compiler
-- `main.entity.n100.x4.best`: zustand + compiler
-- `main.entity.n1000.x1.best`: zustand + compiler
-- `main.entity.n1000.x4.best`: zustand + compiler
-- `main.entity.n10000.x1.best`: zustand + compiler
-- `main.entity.n10000.x4.best`: zustand + compiler
+- `main.entity.n100.x1.best`: zustand without the compiler
+- `main.entity.n100.x4.best`: zustand without the compiler
+- `main.entity.n1000.x1.best`: zustand without the compiler
+- `main.entity.n1000.x4.best`: zustand without the compiler
+- `main.entity.n10000.x1.best`: zustand without the compiler
+- `main.entity.n10000.x4.best`: zustand without the compiler
 - `main.filter.n100.x1.best`: zustand + compiler
 - `main.filter.n100.x4.best`: zustand + compiler
 - `main.filter.n1000.x1.best`: zustand + compiler
@@ -364,14 +850,20 @@ Main suite: which library and compiler setting was the fastest headline opponent
 - `main.details-inline.n100.x4.best`: zustand + compiler
 - `main.details-inline.n1000.x1.best`: zustand + compiler
 - `main.details-inline.n1000.x4.best`: zustand + compiler
-- `main.details-inline.n10000.x1.best`: zustand + compiler
-- `main.details-inline.n10000.x4.best`: zustand + compiler
-- `main.details-component.n100.x1.best`: zustand + compiler
-- `main.details-component.n100.x4.best`: zustand + compiler
-- `main.details-component.n1000.x1.best`: zustand + compiler
-- `main.details-component.n1000.x4.best`: zustand + compiler
-- `main.details-component.n10000.x1.best`: zustand + compiler
-- `main.details-component.n10000.x4.best`: zustand + compiler
+- `main.details-inline.n10000.x1.best`: zustand without the compiler
+- `main.details-inline.n10000.x4.best`: zustand without the compiler
+- `main.details-component.n100.x1.best`: zustand without the compiler
+- `main.details-component.n100.x4.best`: zustand without the compiler
+- `main.details-component.n1000.x1.best`: zustand without the compiler
+- `main.details-component.n1000.x4.best`: zustand without the compiler
+- `main.details-component.n10000.x1.best`: zustand without the compiler
+- `main.details-component.n10000.x4.best`: zustand without the compiler
+- `main.details-churn.n100.x1.best`: zustand + compiler
+- `main.details-churn.n100.x4.best`: zustand + compiler
+- `main.details-churn.n1000.x1.best`: zustand + compiler
+- `main.details-churn.n1000.x4.best`: zustand + compiler
+- `main.details-churn.n10000.x1.best`: zustand + compiler
+- `main.details-churn.n10000.x4.best`: zustand + compiler
 - `main.structure.n100.x1.best`: zustand + compiler
 - `main.structure.n100.x4.best`: zustand + compiler
 - `main.structure.n1000.x1.best`: zustand + compiler
@@ -385,32 +877,122 @@ Main suite: which library and compiler setting was the fastest headline opponent
 
 Main suite: store + compiler vs the granular control (zustand-granular, a Zustand store per entity) at its faster compiler setting. Not part of the headline.
 
-_No values in the pinned data yet._
+<details><summary>42 keys</summary>
+
+- `main.selection.n100.x1.vsGranular`: 1.4× slower
+- `main.selection.n100.x4.vsGranular`: 1.3× slower
+- `main.selection.n1000.x1.vsGranular`: 1.4× slower
+- `main.selection.n1000.x4.vsGranular`: 1.4× slower
+- `main.selection.n10000.x1.vsGranular`: 1.1× slower
+- `main.selection.n10000.x4.vsGranular`: 1.1× slower
+- `main.entity.n100.x1.vsGranular`: 1.2× faster
+- `main.entity.n100.x4.vsGranular`: 1.2× faster
+- `main.entity.n1000.x1.vsGranular`: 1.2× faster
+- `main.entity.n1000.x4.vsGranular`: 1.1× faster
+- `main.entity.n10000.x1.vsGranular`: 1.1× faster
+- `main.entity.n10000.x4.vsGranular`: 1.1× faster
+- `main.filter.n100.x1.vsGranular`: 1.5× faster
+- `main.filter.n100.x4.vsGranular`: 1.7× faster
+- `main.filter.n1000.x1.vsGranular`: 1.5× faster
+- `main.filter.n1000.x4.vsGranular`: 1.7× faster
+- `main.filter.n10000.x1.vsGranular`: 2.4× faster
+- `main.filter.n10000.x4.vsGranular`: 2.2× faster
+- `main.details-inline.n100.x1.vsGranular`: 2.3× faster
+- `main.details-inline.n100.x4.vsGranular`: 2.0× faster
+- `main.details-inline.n1000.x1.vsGranular`: 2.2× faster
+- `main.details-inline.n1000.x4.vsGranular`: 2.2× faster
+- `main.details-inline.n10000.x1.vsGranular`: 2.2× faster
+- `main.details-inline.n10000.x4.vsGranular`: 3.1× faster
+- `main.details-component.n100.x1.vsGranular`: 2.0× faster
+- `main.details-component.n100.x4.vsGranular`: 2.1× faster
+- `main.details-component.n1000.x1.vsGranular`: 2.2× faster
+- `main.details-component.n1000.x4.vsGranular`: 2.2× faster
+- `main.details-component.n10000.x1.vsGranular`: 2.3× faster
+- `main.details-component.n10000.x4.vsGranular`: 2.6× faster
+- `main.details-churn.n100.x1.vsGranular`: 1.1× slower
+- `main.details-churn.n100.x4.vsGranular`: 1.0× slower
+- `main.details-churn.n1000.x1.vsGranular`: tie
+- `main.details-churn.n1000.x4.vsGranular`: 1.1× faster
+- `main.details-churn.n10000.x1.vsGranular`: 1.3× faster
+- `main.details-churn.n10000.x4.vsGranular`: 1.5× faster
+- `main.structure.n100.x1.vsGranular`: 2.3× faster
+- `main.structure.n100.x4.vsGranular`: 2.2× faster
+- `main.structure.n1000.x1.vsGranular`: 3.0× faster
+- `main.structure.n1000.x4.vsGranular`: 2.8× faster
+- `main.structure.n10000.x1.vsGranular`: 6.8× faster
+- `main.structure.n10000.x4.vsGranular`: 6.9× faster
+
+</details>
 
 ### `main.tally.<comparison>.<scenario>.wins`
 
 Main suite: configurations of the scenario the left side won (outside two standard errors). Comparisons: see KEYS.md "Comparisons".
 
-<details><summary>18 keys</summary>
+<details><summary>63 keys</summary>
 
-- `main.tally.selectors.selection.wins`: 4
+- `main.tally.selectors.selection.wins`: 2
 - `main.tally.selectors.entity.wins`: 6
 - `main.tally.selectors.filter.wins`: 6
 - `main.tally.selectors.details-inline.wins`: 6
 - `main.tally.selectors.details-component.wins`: 6
+- `main.tally.selectors.details-churn.wins`: 5
 - `main.tally.selectors.structure.wins`: 6
 - `main.tally.redux.selection.wins`: 6
 - `main.tally.redux.entity.wins`: 6
 - `main.tally.redux.filter.wins`: 6
 - `main.tally.redux.details-inline.wins`: 6
 - `main.tally.redux.details-component.wins`: 6
+- `main.tally.redux.details-churn.wins`: 6
 - `main.tally.redux.structure.wins`: 6
-- `main.tally.zustand.selection.wins`: 4
+- `main.tally.zustand.selection.wins`: 2
 - `main.tally.zustand.entity.wins`: 6
 - `main.tally.zustand.filter.wins`: 6
 - `main.tally.zustand.details-inline.wins`: 6
 - `main.tally.zustand.details-component.wins`: 6
+- `main.tally.zustand.details-churn.wins`: 5
 - `main.tally.zustand.structure.wins`: 6
+- `main.tally.zustand-granular.selection.wins`: 0
+- `main.tally.zustand-granular.entity.wins`: 6
+- `main.tally.zustand-granular.filter.wins`: 6
+- `main.tally.zustand-granular.details-inline.wins`: 6
+- `main.tally.zustand-granular.details-component.wins`: 6
+- `main.tally.zustand-granular.details-churn.wins`: 3
+- `main.tally.zustand-granular.structure.wins`: 6
+- `main.tally.context.selection.wins`: 2
+- `main.tally.context.entity.wins`: 6
+- `main.tally.context.filter.wins`: 3
+- `main.tally.context.details-inline.wins`: 6
+- `main.tally.context.details-component.wins`: 6
+- `main.tally.context.details-churn.wins`: 2
+- `main.tally.context.structure.wins`: 6
+- `main.tally.context-split.selection.wins`: 6
+- `main.tally.context-split.entity.wins`: 6
+- `main.tally.context-split.filter.wins`: 6
+- `main.tally.context-split.details-inline.wins`: 6
+- `main.tally.context-split.details-component.wins`: 6
+- `main.tally.context-split.details-churn.wins`: 6
+- `main.tally.context-split.structure.wins`: 6
+- `main.tally.single-selectors.selection.wins`: 3
+- `main.tally.single-selectors.entity.wins`: 3
+- `main.tally.single-selectors.filter.wins`: 6
+- `main.tally.single-selectors.details-inline.wins`: 3
+- `main.tally.single-selectors.details-component.wins`: 2
+- `main.tally.single-selectors.details-churn.wins`: 6
+- `main.tally.single-selectors.structure.wins`: 6
+- `main.tally.nocompiler-selectors.selection.wins`: 0
+- `main.tally.nocompiler-selectors.entity.wins`: 6
+- `main.tally.nocompiler-selectors.filter.wins`: 0
+- `main.tally.nocompiler-selectors.details-inline.wins`: 6
+- `main.tally.nocompiler-selectors.details-component.wins`: 6
+- `main.tally.nocompiler-selectors.details-churn.wins`: 0
+- `main.tally.nocompiler-selectors.structure.wins`: 6
+- `main.tally.compiler-gain.selection.wins`: 6
+- `main.tally.compiler-gain.entity.wins`: 1
+- `main.tally.compiler-gain.filter.wins`: 6
+- `main.tally.compiler-gain.details-inline.wins`: 6
+- `main.tally.compiler-gain.details-component.wins`: 4
+- `main.tally.compiler-gain.details-churn.wins`: 6
+- `main.tally.compiler-gain.structure.wins`: 6
 
 </details>
 
@@ -418,26 +1000,71 @@ Main suite: configurations of the scenario the left side won (outside two standa
 
 Main suite: configurations within two standard errors.
 
-<details><summary>18 keys</summary>
+<details><summary>63 keys</summary>
 
-- `main.tally.selectors.selection.ties`: 2
+- `main.tally.selectors.selection.ties`: 1
 - `main.tally.selectors.entity.ties`: 0
 - `main.tally.selectors.filter.ties`: 0
 - `main.tally.selectors.details-inline.ties`: 0
 - `main.tally.selectors.details-component.ties`: 0
+- `main.tally.selectors.details-churn.ties`: 1
 - `main.tally.selectors.structure.ties`: 0
 - `main.tally.redux.selection.ties`: 0
 - `main.tally.redux.entity.ties`: 0
 - `main.tally.redux.filter.ties`: 0
 - `main.tally.redux.details-inline.ties`: 0
 - `main.tally.redux.details-component.ties`: 0
+- `main.tally.redux.details-churn.ties`: 0
 - `main.tally.redux.structure.ties`: 0
-- `main.tally.zustand.selection.ties`: 2
+- `main.tally.zustand.selection.ties`: 1
 - `main.tally.zustand.entity.ties`: 0
 - `main.tally.zustand.filter.ties`: 0
 - `main.tally.zustand.details-inline.ties`: 0
 - `main.tally.zustand.details-component.ties`: 0
+- `main.tally.zustand.details-churn.ties`: 1
 - `main.tally.zustand.structure.ties`: 0
+- `main.tally.zustand-granular.selection.ties`: 0
+- `main.tally.zustand-granular.entity.ties`: 0
+- `main.tally.zustand-granular.filter.ties`: 0
+- `main.tally.zustand-granular.details-inline.ties`: 0
+- `main.tally.zustand-granular.details-component.ties`: 0
+- `main.tally.zustand-granular.details-churn.ties`: 1
+- `main.tally.zustand-granular.structure.ties`: 0
+- `main.tally.context.selection.ties`: 3
+- `main.tally.context.entity.ties`: 0
+- `main.tally.context.filter.ties`: 0
+- `main.tally.context.details-inline.ties`: 0
+- `main.tally.context.details-component.ties`: 0
+- `main.tally.context.details-churn.ties`: 0
+- `main.tally.context.structure.ties`: 0
+- `main.tally.context-split.selection.ties`: 0
+- `main.tally.context-split.entity.ties`: 0
+- `main.tally.context-split.filter.ties`: 0
+- `main.tally.context-split.details-inline.ties`: 0
+- `main.tally.context-split.details-component.ties`: 0
+- `main.tally.context-split.details-churn.ties`: 0
+- `main.tally.context-split.structure.ties`: 0
+- `main.tally.single-selectors.selection.ties`: 1
+- `main.tally.single-selectors.entity.ties`: 0
+- `main.tally.single-selectors.filter.ties`: 0
+- `main.tally.single-selectors.details-inline.ties`: 1
+- `main.tally.single-selectors.details-component.ties`: 0
+- `main.tally.single-selectors.details-churn.ties`: 0
+- `main.tally.single-selectors.structure.ties`: 0
+- `main.tally.nocompiler-selectors.selection.ties`: 0
+- `main.tally.nocompiler-selectors.entity.ties`: 0
+- `main.tally.nocompiler-selectors.filter.ties`: 0
+- `main.tally.nocompiler-selectors.details-inline.ties`: 0
+- `main.tally.nocompiler-selectors.details-component.ties`: 0
+- `main.tally.nocompiler-selectors.details-churn.ties`: 0
+- `main.tally.nocompiler-selectors.structure.ties`: 0
+- `main.tally.compiler-gain.selection.ties`: 0
+- `main.tally.compiler-gain.entity.ties`: 4
+- `main.tally.compiler-gain.filter.ties`: 0
+- `main.tally.compiler-gain.details-inline.ties`: 0
+- `main.tally.compiler-gain.details-component.ties`: 1
+- `main.tally.compiler-gain.details-churn.ties`: 0
+- `main.tally.compiler-gain.structure.ties`: 0
 
 </details>
 
@@ -445,26 +1072,71 @@ Main suite: configurations within two standard errors.
 
 Main suite: configurations the left side lost.
 
-<details><summary>18 keys</summary>
+<details><summary>63 keys</summary>
 
-- `main.tally.selectors.selection.losses`: 0
+- `main.tally.selectors.selection.losses`: 3
 - `main.tally.selectors.entity.losses`: 0
 - `main.tally.selectors.filter.losses`: 0
 - `main.tally.selectors.details-inline.losses`: 0
 - `main.tally.selectors.details-component.losses`: 0
+- `main.tally.selectors.details-churn.losses`: 0
 - `main.tally.selectors.structure.losses`: 0
 - `main.tally.redux.selection.losses`: 0
 - `main.tally.redux.entity.losses`: 0
 - `main.tally.redux.filter.losses`: 0
 - `main.tally.redux.details-inline.losses`: 0
 - `main.tally.redux.details-component.losses`: 0
+- `main.tally.redux.details-churn.losses`: 0
 - `main.tally.redux.structure.losses`: 0
-- `main.tally.zustand.selection.losses`: 0
+- `main.tally.zustand.selection.losses`: 3
 - `main.tally.zustand.entity.losses`: 0
 - `main.tally.zustand.filter.losses`: 0
 - `main.tally.zustand.details-inline.losses`: 0
 - `main.tally.zustand.details-component.losses`: 0
+- `main.tally.zustand.details-churn.losses`: 0
 - `main.tally.zustand.structure.losses`: 0
+- `main.tally.zustand-granular.selection.losses`: 6
+- `main.tally.zustand-granular.entity.losses`: 0
+- `main.tally.zustand-granular.filter.losses`: 0
+- `main.tally.zustand-granular.details-inline.losses`: 0
+- `main.tally.zustand-granular.details-component.losses`: 0
+- `main.tally.zustand-granular.details-churn.losses`: 2
+- `main.tally.zustand-granular.structure.losses`: 0
+- `main.tally.context.selection.losses`: 1
+- `main.tally.context.entity.losses`: 0
+- `main.tally.context.filter.losses`: 3
+- `main.tally.context.details-inline.losses`: 0
+- `main.tally.context.details-component.losses`: 0
+- `main.tally.context.details-churn.losses`: 4
+- `main.tally.context.structure.losses`: 0
+- `main.tally.context-split.selection.losses`: 0
+- `main.tally.context-split.entity.losses`: 0
+- `main.tally.context-split.filter.losses`: 0
+- `main.tally.context-split.details-inline.losses`: 0
+- `main.tally.context-split.details-component.losses`: 0
+- `main.tally.context-split.details-churn.losses`: 0
+- `main.tally.context-split.structure.losses`: 0
+- `main.tally.single-selectors.selection.losses`: 2
+- `main.tally.single-selectors.entity.losses`: 3
+- `main.tally.single-selectors.filter.losses`: 0
+- `main.tally.single-selectors.details-inline.losses`: 2
+- `main.tally.single-selectors.details-component.losses`: 4
+- `main.tally.single-selectors.details-churn.losses`: 0
+- `main.tally.single-selectors.structure.losses`: 0
+- `main.tally.nocompiler-selectors.selection.losses`: 6
+- `main.tally.nocompiler-selectors.entity.losses`: 0
+- `main.tally.nocompiler-selectors.filter.losses`: 6
+- `main.tally.nocompiler-selectors.details-inline.losses`: 0
+- `main.tally.nocompiler-selectors.details-component.losses`: 0
+- `main.tally.nocompiler-selectors.details-churn.losses`: 6
+- `main.tally.nocompiler-selectors.structure.losses`: 0
+- `main.tally.compiler-gain.selection.losses`: 0
+- `main.tally.compiler-gain.entity.losses`: 1
+- `main.tally.compiler-gain.filter.losses`: 0
+- `main.tally.compiler-gain.details-inline.losses`: 0
+- `main.tally.compiler-gain.details-component.losses`: 1
+- `main.tally.compiler-gain.details-churn.losses`: 0
+- `main.tally.compiler-gain.structure.losses`: 0
 
 </details>
 
@@ -472,26 +1144,71 @@ Main suite: configurations the left side lost.
 
 Main suite: configurations compared.
 
-<details><summary>18 keys</summary>
+<details><summary>63 keys</summary>
 
 - `main.tally.selectors.selection.total`: 6
 - `main.tally.selectors.entity.total`: 6
 - `main.tally.selectors.filter.total`: 6
 - `main.tally.selectors.details-inline.total`: 6
 - `main.tally.selectors.details-component.total`: 6
+- `main.tally.selectors.details-churn.total`: 6
 - `main.tally.selectors.structure.total`: 6
 - `main.tally.redux.selection.total`: 6
 - `main.tally.redux.entity.total`: 6
 - `main.tally.redux.filter.total`: 6
 - `main.tally.redux.details-inline.total`: 6
 - `main.tally.redux.details-component.total`: 6
+- `main.tally.redux.details-churn.total`: 6
 - `main.tally.redux.structure.total`: 6
 - `main.tally.zustand.selection.total`: 6
 - `main.tally.zustand.entity.total`: 6
 - `main.tally.zustand.filter.total`: 6
 - `main.tally.zustand.details-inline.total`: 6
 - `main.tally.zustand.details-component.total`: 6
+- `main.tally.zustand.details-churn.total`: 6
 - `main.tally.zustand.structure.total`: 6
+- `main.tally.zustand-granular.selection.total`: 6
+- `main.tally.zustand-granular.entity.total`: 6
+- `main.tally.zustand-granular.filter.total`: 6
+- `main.tally.zustand-granular.details-inline.total`: 6
+- `main.tally.zustand-granular.details-component.total`: 6
+- `main.tally.zustand-granular.details-churn.total`: 6
+- `main.tally.zustand-granular.structure.total`: 6
+- `main.tally.context.selection.total`: 6
+- `main.tally.context.entity.total`: 6
+- `main.tally.context.filter.total`: 6
+- `main.tally.context.details-inline.total`: 6
+- `main.tally.context.details-component.total`: 6
+- `main.tally.context.details-churn.total`: 6
+- `main.tally.context.structure.total`: 6
+- `main.tally.context-split.selection.total`: 6
+- `main.tally.context-split.entity.total`: 6
+- `main.tally.context-split.filter.total`: 6
+- `main.tally.context-split.details-inline.total`: 6
+- `main.tally.context-split.details-component.total`: 6
+- `main.tally.context-split.details-churn.total`: 6
+- `main.tally.context-split.structure.total`: 6
+- `main.tally.single-selectors.selection.total`: 6
+- `main.tally.single-selectors.entity.total`: 6
+- `main.tally.single-selectors.filter.total`: 6
+- `main.tally.single-selectors.details-inline.total`: 6
+- `main.tally.single-selectors.details-component.total`: 6
+- `main.tally.single-selectors.details-churn.total`: 6
+- `main.tally.single-selectors.structure.total`: 6
+- `main.tally.nocompiler-selectors.selection.total`: 6
+- `main.tally.nocompiler-selectors.entity.total`: 6
+- `main.tally.nocompiler-selectors.filter.total`: 6
+- `main.tally.nocompiler-selectors.details-inline.total`: 6
+- `main.tally.nocompiler-selectors.details-component.total`: 6
+- `main.tally.nocompiler-selectors.details-churn.total`: 6
+- `main.tally.nocompiler-selectors.structure.total`: 6
+- `main.tally.compiler-gain.selection.total`: 6
+- `main.tally.compiler-gain.entity.total`: 6
+- `main.tally.compiler-gain.filter.total`: 6
+- `main.tally.compiler-gain.details-inline.total`: 6
+- `main.tally.compiler-gain.details-component.total`: 6
+- `main.tally.compiler-gain.details-churn.total`: 6
+- `main.tally.compiler-gain.structure.total`: 6
 
 </details>
 
@@ -499,26 +1216,71 @@ Main suite: configurations compared.
 
 Main suite: wins + ties.
 
-<details><summary>18 keys</summary>
+<details><summary>63 keys</summary>
 
-- `main.tally.selectors.selection.matchOrBeat`: 6
+- `main.tally.selectors.selection.matchOrBeat`: 3
 - `main.tally.selectors.entity.matchOrBeat`: 6
 - `main.tally.selectors.filter.matchOrBeat`: 6
 - `main.tally.selectors.details-inline.matchOrBeat`: 6
 - `main.tally.selectors.details-component.matchOrBeat`: 6
+- `main.tally.selectors.details-churn.matchOrBeat`: 6
 - `main.tally.selectors.structure.matchOrBeat`: 6
 - `main.tally.redux.selection.matchOrBeat`: 6
 - `main.tally.redux.entity.matchOrBeat`: 6
 - `main.tally.redux.filter.matchOrBeat`: 6
 - `main.tally.redux.details-inline.matchOrBeat`: 6
 - `main.tally.redux.details-component.matchOrBeat`: 6
+- `main.tally.redux.details-churn.matchOrBeat`: 6
 - `main.tally.redux.structure.matchOrBeat`: 6
-- `main.tally.zustand.selection.matchOrBeat`: 6
+- `main.tally.zustand.selection.matchOrBeat`: 3
 - `main.tally.zustand.entity.matchOrBeat`: 6
 - `main.tally.zustand.filter.matchOrBeat`: 6
 - `main.tally.zustand.details-inline.matchOrBeat`: 6
 - `main.tally.zustand.details-component.matchOrBeat`: 6
+- `main.tally.zustand.details-churn.matchOrBeat`: 6
 - `main.tally.zustand.structure.matchOrBeat`: 6
+- `main.tally.zustand-granular.selection.matchOrBeat`: 0
+- `main.tally.zustand-granular.entity.matchOrBeat`: 6
+- `main.tally.zustand-granular.filter.matchOrBeat`: 6
+- `main.tally.zustand-granular.details-inline.matchOrBeat`: 6
+- `main.tally.zustand-granular.details-component.matchOrBeat`: 6
+- `main.tally.zustand-granular.details-churn.matchOrBeat`: 4
+- `main.tally.zustand-granular.structure.matchOrBeat`: 6
+- `main.tally.context.selection.matchOrBeat`: 5
+- `main.tally.context.entity.matchOrBeat`: 6
+- `main.tally.context.filter.matchOrBeat`: 3
+- `main.tally.context.details-inline.matchOrBeat`: 6
+- `main.tally.context.details-component.matchOrBeat`: 6
+- `main.tally.context.details-churn.matchOrBeat`: 2
+- `main.tally.context.structure.matchOrBeat`: 6
+- `main.tally.context-split.selection.matchOrBeat`: 6
+- `main.tally.context-split.entity.matchOrBeat`: 6
+- `main.tally.context-split.filter.matchOrBeat`: 6
+- `main.tally.context-split.details-inline.matchOrBeat`: 6
+- `main.tally.context-split.details-component.matchOrBeat`: 6
+- `main.tally.context-split.details-churn.matchOrBeat`: 6
+- `main.tally.context-split.structure.matchOrBeat`: 6
+- `main.tally.single-selectors.selection.matchOrBeat`: 4
+- `main.tally.single-selectors.entity.matchOrBeat`: 3
+- `main.tally.single-selectors.filter.matchOrBeat`: 6
+- `main.tally.single-selectors.details-inline.matchOrBeat`: 4
+- `main.tally.single-selectors.details-component.matchOrBeat`: 2
+- `main.tally.single-selectors.details-churn.matchOrBeat`: 6
+- `main.tally.single-selectors.structure.matchOrBeat`: 6
+- `main.tally.nocompiler-selectors.selection.matchOrBeat`: 0
+- `main.tally.nocompiler-selectors.entity.matchOrBeat`: 6
+- `main.tally.nocompiler-selectors.filter.matchOrBeat`: 0
+- `main.tally.nocompiler-selectors.details-inline.matchOrBeat`: 6
+- `main.tally.nocompiler-selectors.details-component.matchOrBeat`: 6
+- `main.tally.nocompiler-selectors.details-churn.matchOrBeat`: 0
+- `main.tally.nocompiler-selectors.structure.matchOrBeat`: 6
+- `main.tally.compiler-gain.selection.matchOrBeat`: 6
+- `main.tally.compiler-gain.entity.matchOrBeat`: 5
+- `main.tally.compiler-gain.filter.matchOrBeat`: 6
+- `main.tally.compiler-gain.details-inline.matchOrBeat`: 6
+- `main.tally.compiler-gain.details-component.matchOrBeat`: 5
+- `main.tally.compiler-gain.details-churn.matchOrBeat`: 6
+- `main.tally.compiler-gain.structure.matchOrBeat`: 6
 
 </details>
 
@@ -526,26 +1288,71 @@ Main suite: wins + ties.
 
 Main suite: the range of speedups as text, e.g. "1.2–1.4× faster" or "up to 1.3× faster (5 faster, 1 tie)".
 
-<details><summary>18 keys</summary>
+<details><summary>63 keys</summary>
 
-- `main.tally.selectors.selection.range`: up to 1.9× faster (4 faster, 2 tie)
-- `main.tally.selectors.entity.range`: 2.8–9.1× faster
-- `main.tally.selectors.filter.range`: 1.7–2.9× faster
-- `main.tally.selectors.details-inline.range`: 2.8–7.6× faster
-- `main.tally.selectors.details-component.range`: 2.8–7.8× faster
-- `main.tally.selectors.structure.range`: 3.5–7.6× faster
-- `main.tally.redux.selection.range`: 1.9–5.2× faster
-- `main.tally.redux.entity.range`: 5.5–29× faster
-- `main.tally.redux.filter.range`: 3.4–5.5× faster
-- `main.tally.redux.details-inline.range`: 5.1–21× faster
-- `main.tally.redux.details-component.range`: 4.8–23× faster
-- `main.tally.redux.structure.range`: 9.3–18× faster
-- `main.tally.zustand.selection.range`: up to 1.9× faster (4 faster, 2 tie)
-- `main.tally.zustand.entity.range`: 2.8–9.1× faster
-- `main.tally.zustand.filter.range`: 1.7–2.9× faster
-- `main.tally.zustand.details-inline.range`: 2.8–7.6× faster
-- `main.tally.zustand.details-component.range`: 2.8–7.8× faster
-- `main.tally.zustand.structure.range`: 3.5–7.6× faster
+- `main.tally.selectors.selection.range`: 1.2× slower to 1.4× faster (2 faster, 1 tie, 3 slower)
+- `main.tally.selectors.entity.range`: 2.4–9.2× faster
+- `main.tally.selectors.filter.range`: 1.5–2.4× faster
+- `main.tally.selectors.details-inline.range`: 2.4–4.2× faster
+- `main.tally.selectors.details-component.range`: 2.5–4.0× faster
+- `main.tally.selectors.details-churn.range`: up to 1.5× faster (5 faster, 1 tie)
+- `main.tally.selectors.structure.range`: 2.9–7.8× faster
+- `main.tally.redux.selection.range`: 1.5–3.6× faster
+- `main.tally.redux.entity.range`: 4.1–20× faster
+- `main.tally.redux.filter.range`: 2.9–4.4× faster
+- `main.tally.redux.details-inline.range`: 4.2–11× faster
+- `main.tally.redux.details-component.range`: 4.1–10× faster
+- `main.tally.redux.details-churn.range`: 1.7–3.6× faster
+- `main.tally.redux.structure.range`: 7.2–16× faster
+- `main.tally.zustand.selection.range`: 1.2× slower to 1.4× faster (2 faster, 1 tie, 3 slower)
+- `main.tally.zustand.entity.range`: 2.4–9.2× faster
+- `main.tally.zustand.filter.range`: 1.5–2.4× faster
+- `main.tally.zustand.details-inline.range`: 2.4–4.2× faster
+- `main.tally.zustand.details-component.range`: 2.5–4.0× faster
+- `main.tally.zustand.details-churn.range`: up to 1.5× faster (5 faster, 1 tie)
+- `main.tally.zustand.structure.range`: 2.9–7.8× faster
+- `main.tally.zustand-granular.selection.range`: 1.1–1.4× slower
+- `main.tally.zustand-granular.entity.range`: 1.1–1.2× faster
+- `main.tally.zustand-granular.filter.range`: 1.5–2.4× faster
+- `main.tally.zustand-granular.details-inline.range`: 2.0–3.1× faster
+- `main.tally.zustand-granular.details-component.range`: 2.0–2.6× faster
+- `main.tally.zustand-granular.details-churn.range`: 1.1× slower to 1.5× faster (3 faster, 1 tie, 2 slower)
+- `main.tally.zustand-granular.structure.range`: 2.2–6.9× faster
+- `main.tally.context.selection.range`: 1.1× slower to 1.4× faster (2 faster, 3 tie, 1 slower)
+- `main.tally.context.entity.range`: 3.1–9.3× faster
+- `main.tally.context.filter.range`: 1.1× slower to 1.2× faster (3 faster, 3 slower)
+- `main.tally.context.details-inline.range`: 2.8–4.0× faster
+- `main.tally.context.details-component.range`: 3.0–4.2× faster
+- `main.tally.context.details-churn.range`: 1.1× slower to 1.1× faster (2 faster, 4 slower)
+- `main.tally.context.structure.range`: 1.3–2.2× faster
+- `main.tally.context-split.selection.range`: 1.2–1.7× faster
+- `main.tally.context-split.entity.range`: 3.7–11× faster
+- `main.tally.context-split.filter.range`: 1.1–1.4× faster
+- `main.tally.context-split.details-inline.range`: 1.9–2.5× faster
+- `main.tally.context-split.details-component.range`: 1.8–2.5× faster
+- `main.tally.context-split.details-churn.range`: 1.1–1.3× faster
+- `main.tally.context-split.structure.range`: 1.6–2.8× faster
+- `main.tally.single-selectors.selection.range`: 1.1× slower to 1.3× faster (3 faster, 1 tie, 2 slower)
+- `main.tally.single-selectors.entity.range`: 1.2× slower to 1.2× faster (3 faster, 3 slower)
+- `main.tally.single-selectors.filter.range`: 1.6–2.4× faster
+- `main.tally.single-selectors.details-inline.range`: 1.0× slower to 1.3× faster (3 faster, 1 tie, 2 slower)
+- `main.tally.single-selectors.details-component.range`: 1.1× slower to 1.1× faster (2 faster, 4 slower)
+- `main.tally.single-selectors.details-churn.range`: 1.1–1.6× faster
+- `main.tally.single-selectors.structure.range`: 2.3–4.0× faster
+- `main.tally.nocompiler-selectors.selection.range`: 7.7–13× slower
+- `main.tally.nocompiler-selectors.entity.range`: 2.5–9.4× faster
+- `main.tally.nocompiler-selectors.filter.range`: 1.1–1.4× slower
+- `main.tally.nocompiler-selectors.details-inline.range`: 2.3–3.2× faster
+- `main.tally.nocompiler-selectors.details-component.range`: 2.5–3.7× faster
+- `main.tally.nocompiler-selectors.details-churn.range`: 3.5–4.3× slower
+- `main.tally.nocompiler-selectors.structure.range`: 1.4–1.8× faster
+- `main.tally.compiler-gain.selection.range`: 7.7–13× faster
+- `main.tally.compiler-gain.entity.range`: 1.0× slower to 1.0× faster (1 faster, 4 tie, 1 slower)
+- `main.tally.compiler-gain.filter.range`: 3.6–4.3× faster
+- `main.tally.compiler-gain.details-inline.range`: 1.1–1.3× faster
+- `main.tally.compiler-gain.details-component.range`: 1.1× slower to 1.1× faster (4 faster, 1 tie, 1 slower)
+- `main.tally.compiler-gain.details-churn.range`: 5.5–7.2× faster
+- `main.tally.compiler-gain.structure.range`: 6.0–12× faster
 
 </details>
 
@@ -553,9 +1360,15 @@ Main suite: the range of speedups as text, e.g. "1.2–1.4× faster" or "up to 1
 
 Main suite, every scenario: wins.
 
-- `main.tally.selectors.all.wins`: 34
-- `main.tally.redux.all.wins`: 36
-- `main.tally.zustand.all.wins`: 34
+- `main.tally.selectors.all.wins`: 37
+- `main.tally.redux.all.wins`: 42
+- `main.tally.zustand.all.wins`: 37
+- `main.tally.zustand-granular.all.wins`: 33
+- `main.tally.context.all.wins`: 31
+- `main.tally.context-split.all.wins`: 42
+- `main.tally.single-selectors.all.wins`: 29
+- `main.tally.nocompiler-selectors.all.wins`: 24
+- `main.tally.compiler-gain.all.wins`: 35
 
 ### `main.tally.<comparison>.all.ties`
 
@@ -564,44 +1377,74 @@ Main suite, every scenario: ties.
 - `main.tally.selectors.all.ties`: 2
 - `main.tally.redux.all.ties`: 0
 - `main.tally.zustand.all.ties`: 2
+- `main.tally.zustand-granular.all.ties`: 1
+- `main.tally.context.all.ties`: 3
+- `main.tally.context-split.all.ties`: 0
+- `main.tally.single-selectors.all.ties`: 2
+- `main.tally.nocompiler-selectors.all.ties`: 0
+- `main.tally.compiler-gain.all.ties`: 5
 
 ### `main.tally.<comparison>.all.losses`
 
 Main suite, every scenario: losses.
 
-- `main.tally.selectors.all.losses`: 0
+- `main.tally.selectors.all.losses`: 3
 - `main.tally.redux.all.losses`: 0
-- `main.tally.zustand.all.losses`: 0
+- `main.tally.zustand.all.losses`: 3
+- `main.tally.zustand-granular.all.losses`: 8
+- `main.tally.context.all.losses`: 8
+- `main.tally.context-split.all.losses`: 0
+- `main.tally.single-selectors.all.losses`: 11
+- `main.tally.nocompiler-selectors.all.losses`: 18
+- `main.tally.compiler-gain.all.losses`: 2
 
 ### `main.tally.<comparison>.all.total`
 
 Main suite, every scenario: configurations compared.
 
-- `main.tally.selectors.all.total`: 36
-- `main.tally.redux.all.total`: 36
-- `main.tally.zustand.all.total`: 36
+- `main.tally.selectors.all.total`: 42
+- `main.tally.redux.all.total`: 42
+- `main.tally.zustand.all.total`: 42
+- `main.tally.zustand-granular.all.total`: 42
+- `main.tally.context.all.total`: 42
+- `main.tally.context-split.all.total`: 42
+- `main.tally.single-selectors.all.total`: 42
+- `main.tally.nocompiler-selectors.all.total`: 42
+- `main.tally.compiler-gain.all.total`: 42
 
 ### `main.tally.<comparison>.all.matchOrBeat`
 
 Main suite, every scenario: wins + ties. main.tally.selectors.all.matchOrBeat is the headline.
 
-- `main.tally.selectors.all.matchOrBeat`: 36
-- `main.tally.redux.all.matchOrBeat`: 36
-- `main.tally.zustand.all.matchOrBeat`: 36
+- `main.tally.selectors.all.matchOrBeat`: 39
+- `main.tally.redux.all.matchOrBeat`: 42
+- `main.tally.zustand.all.matchOrBeat`: 39
+- `main.tally.zustand-granular.all.matchOrBeat`: 34
+- `main.tally.context.all.matchOrBeat`: 34
+- `main.tally.context-split.all.matchOrBeat`: 42
+- `main.tally.single-selectors.all.matchOrBeat`: 31
+- `main.tally.nocompiler-selectors.all.matchOrBeat`: 24
+- `main.tally.compiler-gain.all.matchOrBeat`: 40
 
 ### `main.tally.<comparison>.all.range`
 
 Main suite, every scenario: range of speedups as text.
 
-- `main.tally.selectors.all.range`: up to 9.1× faster (34 faster, 2 tie)
-- `main.tally.redux.all.range`: 1.9–29× faster
-- `main.tally.zustand.all.range`: up to 9.1× faster (34 faster, 2 tie)
+- `main.tally.selectors.all.range`: 1.2× slower to 9.2× faster (37 faster, 2 tie, 3 slower)
+- `main.tally.redux.all.range`: 1.5–20× faster
+- `main.tally.zustand.all.range`: 1.2× slower to 9.2× faster (37 faster, 2 tie, 3 slower)
+- `main.tally.zustand-granular.all.range`: 1.4× slower to 6.9× faster (33 faster, 1 tie, 8 slower)
+- `main.tally.context.all.range`: 1.1× slower to 9.3× faster (31 faster, 3 tie, 8 slower)
+- `main.tally.context-split.all.range`: 1.1–11× faster
+- `main.tally.single-selectors.all.range`: 1.2× slower to 4.0× faster (29 faster, 2 tie, 11 slower)
+- `main.tally.nocompiler-selectors.all.range`: 13× slower to 9.4× faster (24 faster, 18 slower)
+- `main.tally.compiler-gain.all.range`: 1.1× slower to 13× faster (35 faster, 5 tie, 2 slower)
 
 ### `counts.<suite>.<scenario>.<variant>.<compiler>.<metric>`
 
 Counting build, one update (averaged where the suite averages): renders, rows (Row renders), selectors (selector calls) or derivations. Suite "main" is the main suite at N=1,000.
 
-<details><summary>1470 keys</summary>
+<details><summary>1422 keys</summary>
 
 - `counts.main.entity.store.off.renders`: 2
 - `counts.main.entity.store.off.rows`: 1
@@ -629,22 +1472,22 @@ Counting build, one update (averaged where the suite averages): renders, rows (R
 - `counts.main.entity.context-split.on.selectors`: 0
 - `counts.main.entity.redux.off.renders`: 2
 - `counts.main.entity.redux.off.rows`: 1
-- `counts.main.entity.redux.off.selectors`: 5,008
+- `counts.main.entity.redux.off.selectors`: 4,007
 - `counts.main.entity.redux.on.renders`: 2
 - `counts.main.entity.redux.on.rows`: 1
-- `counts.main.entity.redux.on.selectors`: 5,003
+- `counts.main.entity.redux.on.selectors`: 4,003
 - `counts.main.entity.zustand.off.renders`: 2
 - `counts.main.entity.zustand.off.rows`: 1
-- `counts.main.entity.zustand.off.selectors`: 5,013
+- `counts.main.entity.zustand.off.selectors`: 4,012
 - `counts.main.entity.zustand.on.renders`: 2
 - `counts.main.entity.zustand.on.rows`: 1
-- `counts.main.entity.zustand.on.selectors`: 5,009
+- `counts.main.entity.zustand.on.selectors`: 4,009
 - `counts.main.entity.zustand-granular.off.renders`: 2
 - `counts.main.entity.zustand-granular.off.rows`: 1
-- `counts.main.entity.zustand-granular.off.selectors`: 11
+- `counts.main.entity.zustand-granular.off.selectors`: 9
 - `counts.main.entity.zustand-granular.on.renders`: 2
 - `counts.main.entity.zustand-granular.on.rows`: 1
-- `counts.main.entity.zustand-granular.on.selectors`: 7
+- `counts.main.entity.zustand-granular.on.selectors`: 6
 - `counts.main.selection.store.off.renders`: 2,000
 - `counts.main.selection.store.off.rows`: 1,000
 - `counts.main.selection.store.off.selectors`: 0
@@ -671,22 +1514,22 @@ Counting build, one update (averaged where the suite averages): renders, rows (R
 - `counts.main.selection.context-split.on.selectors`: 0
 - `counts.main.selection.redux.off.renders`: 4
 - `counts.main.selection.redux.off.rows`: 2
-- `counts.main.selection.redux.off.selectors`: 5,013
+- `counts.main.selection.redux.off.selectors`: 4,011
 - `counts.main.selection.redux.on.renders`: 4
 - `counts.main.selection.redux.on.rows`: 2
-- `counts.main.selection.redux.on.selectors`: 5,003
+- `counts.main.selection.redux.on.selectors`: 4,003
 - `counts.main.selection.zustand.off.renders`: 4
 - `counts.main.selection.zustand.off.rows`: 2
-- `counts.main.selection.zustand.off.selectors`: 5,023
+- `counts.main.selection.zustand.off.selectors`: 4,020
 - `counts.main.selection.zustand.on.renders`: 4
 - `counts.main.selection.zustand.on.rows`: 2
-- `counts.main.selection.zustand.on.selectors`: 5,015
+- `counts.main.selection.zustand.on.selectors`: 4,014
 - `counts.main.selection.zustand-granular.off.renders`: 4
 - `counts.main.selection.zustand-granular.off.rows`: 2
-- `counts.main.selection.zustand-granular.off.selectors`: 4,021
+- `counts.main.selection.zustand-granular.off.selectors`: 3,018
 - `counts.main.selection.zustand-granular.on.renders`: 4
 - `counts.main.selection.zustand-granular.on.rows`: 2
-- `counts.main.selection.zustand-granular.on.selectors`: 4,015
+- `counts.main.selection.zustand-granular.on.selectors`: 3,014
 - `counts.main.filter.store.off.renders`: 2,001
 - `counts.main.filter.store.off.rows`: 1,000
 - `counts.main.filter.store.off.selectors`: 0
@@ -713,22 +1556,22 @@ Counting build, one update (averaged where the suite averages): renders, rows (R
 - `counts.main.filter.context-split.on.selectors`: 0
 - `counts.main.filter.redux.off.renders`: 1,003
 - `counts.main.filter.redux.off.rows`: 501
-- `counts.main.filter.redux.off.selectors`: 7,510
+- `counts.main.filter.redux.off.selectors`: 6,009
 - `counts.main.filter.redux.on.renders`: 1,003
 - `counts.main.filter.redux.on.rows`: 501
-- `counts.main.filter.redux.on.selectors`: 5,003
+- `counts.main.filter.redux.on.selectors`: 4,003
 - `counts.main.filter.zustand.off.renders`: 1,003
 - `counts.main.filter.zustand.off.rows`: 501
-- `counts.main.filter.zustand.off.selectors`: 10,017
+- `counts.main.filter.zustand.off.selectors`: 8,018
 - `counts.main.filter.zustand.on.renders`: 1,003
 - `counts.main.filter.zustand.on.rows`: 501
-- `counts.main.filter.zustand.on.selectors`: 8,013
+- `counts.main.filter.zustand.on.selectors`: 6,514
 - `counts.main.filter.zustand-granular.off.renders`: 1,003
 - `counts.main.filter.zustand-granular.off.rows`: 501
-- `counts.main.filter.zustand-granular.off.selectors`: 8,516
+- `counts.main.filter.zustand-granular.off.selectors`: 6,517
 - `counts.main.filter.zustand-granular.on.renders`: 1,003
 - `counts.main.filter.zustand-granular.on.rows`: 501
-- `counts.main.filter.zustand-granular.on.selectors`: 7,013
+- `counts.main.filter.zustand-granular.on.selectors`: 5,514
 - `counts.main.details-inline.store.off.renders`: 30
 - `counts.main.details-inline.store.off.rows`: 10
 - `counts.main.details-inline.store.off.selectors`: 0
@@ -755,22 +1598,22 @@ Counting build, one update (averaged where the suite averages): renders, rows (R
 - `counts.main.details-inline.context-split.on.selectors`: 0
 - `counts.main.details-inline.redux.off.renders`: 30
 - `counts.main.details-inline.redux.off.rows`: 10
-- `counts.main.details-inline.redux.off.selectors`: 5,053
+- `counts.main.details-inline.redux.off.selectors`: 4,043
 - `counts.main.details-inline.redux.on.renders`: 30
 - `counts.main.details-inline.redux.on.rows`: 10
-- `counts.main.details-inline.redux.on.selectors`: 5,003
+- `counts.main.details-inline.redux.on.selectors`: 4,003
 - `counts.main.details-inline.zustand.off.renders`: 30
 - `counts.main.details-inline.zustand.off.rows`: 10
-- `counts.main.details-inline.zustand.off.selectors`: 5,103
+- `counts.main.details-inline.zustand.off.selectors`: 4,084
 - `counts.main.details-inline.zustand.on.renders`: 30
 - `counts.main.details-inline.zustand.on.rows`: 10
-- `counts.main.details-inline.zustand.on.selectors`: 5,063
+- `counts.main.details-inline.zustand.on.selectors`: 4,054
 - `counts.main.details-inline.zustand-granular.off.renders`: 30
 - `counts.main.details-inline.zustand-granular.off.rows`: 10
-- `counts.main.details-inline.zustand-granular.off.selectors`: 4,093
+- `counts.main.details-inline.zustand-granular.off.selectors`: 3,074
 - `counts.main.details-inline.zustand-granular.on.renders`: 30
 - `counts.main.details-inline.zustand-granular.on.rows`: 10
-- `counts.main.details-inline.zustand-granular.on.selectors`: 4,063
+- `counts.main.details-inline.zustand-granular.on.selectors`: 3,054
 - `counts.main.details-component.store.off.renders`: 10
 - `counts.main.details-component.store.off.rows`: 0
 - `counts.main.details-component.store.off.selectors`: 0
@@ -797,22 +1640,64 @@ Counting build, one update (averaged where the suite averages): renders, rows (R
 - `counts.main.details-component.context-split.on.selectors`: 0
 - `counts.main.details-component.redux.off.renders`: 10
 - `counts.main.details-component.redux.off.rows`: 0
-- `counts.main.details-component.redux.off.selectors`: 5,023
+- `counts.main.details-component.redux.off.selectors`: 4,023
 - `counts.main.details-component.redux.on.renders`: 10
 - `counts.main.details-component.redux.on.rows`: 0
-- `counts.main.details-component.redux.on.selectors`: 5,013
+- `counts.main.details-component.redux.on.selectors`: 4,013
 - `counts.main.details-component.zustand.off.renders`: 10
 - `counts.main.details-component.zustand.off.rows`: 0
-- `counts.main.details-component.zustand.off.selectors`: 5,033
+- `counts.main.details-component.zustand.off.selectors`: 4,034
 - `counts.main.details-component.zustand.on.renders`: 10
 - `counts.main.details-component.zustand.on.rows`: 0
-- `counts.main.details-component.zustand.on.selectors`: 5,033
+- `counts.main.details-component.zustand.on.selectors`: 4,034
 - `counts.main.details-component.zustand-granular.off.renders`: 10
 - `counts.main.details-component.zustand-granular.off.rows`: 0
-- `counts.main.details-component.zustand-granular.off.selectors`: 4,033
+- `counts.main.details-component.zustand-granular.off.selectors`: 3,034
 - `counts.main.details-component.zustand-granular.on.renders`: 10
 - `counts.main.details-component.zustand-granular.on.rows`: 0
-- `counts.main.details-component.zustand-granular.on.selectors`: 4,033
+- `counts.main.details-component.zustand-granular.on.selectors`: 3,034
+- `counts.main.details-churn.store.off.renders`: 2,001
+- `counts.main.details-churn.store.off.rows`: 1,000
+- `counts.main.details-churn.store.off.selectors`: 0
+- `counts.main.details-churn.store.on.renders`: 1,099
+- `counts.main.details-churn.store.on.rows`: 1,000
+- `counts.main.details-churn.store.on.selectors`: 0
+- `counts.main.details-churn.store-single.off.renders`: 2,002
+- `counts.main.details-churn.store-single.off.rows`: 1,000
+- `counts.main.details-churn.store-single.off.selectors`: 0
+- `counts.main.details-churn.store-single.on.renders`: 1,099
+- `counts.main.details-churn.store-single.on.rows`: 1,000
+- `counts.main.details-churn.store-single.on.selectors`: 0
+- `counts.main.details-churn.context.off.renders`: 2,002
+- `counts.main.details-churn.context.off.rows`: 1,000
+- `counts.main.details-churn.context.off.selectors`: 0
+- `counts.main.details-churn.context.on.renders`: 1,099
+- `counts.main.details-churn.context.on.rows`: 1,000
+- `counts.main.details-churn.context.on.selectors`: 0
+- `counts.main.details-churn.context-split.off.renders`: 2,002
+- `counts.main.details-churn.context-split.off.rows`: 1,000
+- `counts.main.details-churn.context-split.off.selectors`: 0
+- `counts.main.details-churn.context-split.on.renders`: 1,099
+- `counts.main.details-churn.context-split.on.rows`: 1,000
+- `counts.main.details-churn.context-split.on.selectors`: 0
+- `counts.main.details-churn.redux.off.renders`: 198
+- `counts.main.details-churn.redux.off.rows`: 99
+- `counts.main.details-churn.redux.off.selectors`: 4,499
+- `counts.main.details-churn.redux.on.renders`: 198
+- `counts.main.details-churn.redux.on.rows`: 99
+- `counts.main.details-churn.redux.on.selectors`: 4,103
+- `counts.main.details-churn.zustand.off.renders`: 198
+- `counts.main.details-churn.zustand.off.rows`: 99
+- `counts.main.details-churn.zustand.off.selectors`: 4,896
+- `counts.main.details-churn.zustand.on.renders`: 198
+- `counts.main.details-churn.zustand.on.rows`: 99
+- `counts.main.details-churn.zustand.on.selectors`: 4,599
+- `counts.main.details-churn.zustand-granular.off.renders`: 198
+- `counts.main.details-churn.zustand-granular.off.rows`: 99
+- `counts.main.details-churn.zustand-granular.off.selectors`: 3,797
+- `counts.main.details-churn.zustand-granular.on.renders`: 198
+- `counts.main.details-churn.zustand-granular.on.rows`: 99
+- `counts.main.details-churn.zustand-granular.on.selectors`: 3,599
 - `counts.main.structure.store.off.renders`: 2,001
 - `counts.main.structure.store.off.rows`: 1,000
 - `counts.main.structure.store.off.selectors`: 0
@@ -839,22 +1724,22 @@ Counting build, one update (averaged where the suite averages): renders, rows (R
 - `counts.main.structure.context-split.on.selectors`: 0
 - `counts.main.structure.redux.off.renders`: 2,001
 - `counts.main.structure.redux.off.rows`: 1,000
-- `counts.main.structure.redux.off.selectors`: 10,010
+- `counts.main.structure.redux.off.selectors`: 8,009
 - `counts.main.structure.redux.on.renders`: 1,001
 - `counts.main.structure.redux.on.rows`: 1,000
-- `counts.main.structure.redux.on.selectors`: 5,008
+- `counts.main.structure.redux.on.selectors`: 4,007
 - `counts.main.structure.zustand.off.renders`: 2,001
 - `counts.main.structure.zustand.off.rows`: 1,000
-- `counts.main.structure.zustand.off.selectors`: 15,014
+- `counts.main.structure.zustand.off.selectors`: 12,016
 - `counts.main.structure.zustand.on.renders`: 1,001
 - `counts.main.structure.zustand.on.rows`: 1,000
-- `counts.main.structure.zustand.on.selectors`: 10,012
+- `counts.main.structure.zustand.on.selectors`: 8,013
 - `counts.main.structure.zustand-granular.off.renders`: 2,001
 - `counts.main.structure.zustand-granular.off.rows`: 1,000
-- `counts.main.structure.zustand-granular.off.selectors`: 13,013
+- `counts.main.structure.zustand-granular.off.selectors`: 10,015
 - `counts.main.structure.zustand-granular.on.renders`: 1,001
 - `counts.main.structure.zustand-granular.on.rows`: 1,000
-- `counts.main.structure.zustand-granular.on.selectors`: 9,011
+- `counts.main.structure.zustand-granular.on.selectors`: 7,012
 - `counts.deeptree-nested-hooks.mixed.redux.off.renders`: 11.2
 - `counts.deeptree-nested-hooks.mixed.redux.off.selectors`: 812.2
 - `counts.deeptree-nested-hooks.mixed.redux.off.derivations`: 0
@@ -1517,22 +2402,22 @@ Counting build, one update (averaged where the suite averages): renders, rows (R
 - `counts.derived-selectors-spike.role-k50.store-compiled-shared-site.on.derivations`: 0
 - `counts.fairness.entity.redux.off.renders`: 2
 - `counts.fairness.entity.redux.off.rows`: 1
-- `counts.fairness.entity.redux.off.selectors`: 5,008
+- `counts.fairness.entity.redux.off.selectors`: 4,007
 - `counts.fairness.entity.redux.on.renders`: 2
 - `counts.fairness.entity.redux.on.rows`: 1
-- `counts.fairness.entity.redux.on.selectors`: 5,003
+- `counts.fairness.entity.redux.on.selectors`: 4,003
 - `counts.fairness.entity.redux-plain.off.renders`: 2
 - `counts.fairness.entity.redux-plain.off.rows`: 1
-- `counts.fairness.entity.redux-plain.off.selectors`: 5,008
+- `counts.fairness.entity.redux-plain.off.selectors`: 4,007
 - `counts.fairness.entity.redux-plain.on.renders`: 2
 - `counts.fairness.entity.redux-plain.on.rows`: 1
-- `counts.fairness.entity.redux-plain.on.selectors`: 5,003
+- `counts.fairness.entity.redux-plain.on.selectors`: 4,003
 - `counts.fairness.entity.redux-nofreeze.off.renders`: 2
 - `counts.fairness.entity.redux-nofreeze.off.rows`: 1
-- `counts.fairness.entity.redux-nofreeze.off.selectors`: 5,008
+- `counts.fairness.entity.redux-nofreeze.off.selectors`: 4,007
 - `counts.fairness.entity.redux-nofreeze.on.renders`: 2
 - `counts.fairness.entity.redux-nofreeze.on.rows`: 1
-- `counts.fairness.entity.redux-nofreeze.on.selectors`: 5,003
+- `counts.fairness.entity.redux-nofreeze.on.selectors`: 4,003
 - `counts.fairness.entity.store.off.renders`: 2
 - `counts.fairness.entity.store.off.rows`: 1
 - `counts.fairness.entity.store.off.selectors`: 0
@@ -1541,28 +2426,28 @@ Counting build, one update (averaged where the suite averages): renders, rows (R
 - `counts.fairness.entity.store.on.selectors`: 0
 - `counts.fairness.entity.zustand.off.renders`: 2
 - `counts.fairness.entity.zustand.off.rows`: 1
-- `counts.fairness.entity.zustand.off.selectors`: 5,013
+- `counts.fairness.entity.zustand.off.selectors`: 4,012
 - `counts.fairness.entity.zustand.on.renders`: 2
 - `counts.fairness.entity.zustand.on.rows`: 1
-- `counts.fairness.entity.zustand.on.selectors`: 5,009
+- `counts.fairness.entity.zustand.on.selectors`: 4,009
 - `counts.fairness.selection.redux.off.renders`: 4
 - `counts.fairness.selection.redux.off.rows`: 2
-- `counts.fairness.selection.redux.off.selectors`: 5,013
+- `counts.fairness.selection.redux.off.selectors`: 4,011
 - `counts.fairness.selection.redux.on.renders`: 4
 - `counts.fairness.selection.redux.on.rows`: 2
-- `counts.fairness.selection.redux.on.selectors`: 5,003
+- `counts.fairness.selection.redux.on.selectors`: 4,003
 - `counts.fairness.selection.redux-plain.off.renders`: 4
 - `counts.fairness.selection.redux-plain.off.rows`: 2
-- `counts.fairness.selection.redux-plain.off.selectors`: 5,013
+- `counts.fairness.selection.redux-plain.off.selectors`: 4,011
 - `counts.fairness.selection.redux-plain.on.renders`: 4
 - `counts.fairness.selection.redux-plain.on.rows`: 2
-- `counts.fairness.selection.redux-plain.on.selectors`: 5,003
+- `counts.fairness.selection.redux-plain.on.selectors`: 4,003
 - `counts.fairness.selection.redux-nofreeze.off.renders`: 4
 - `counts.fairness.selection.redux-nofreeze.off.rows`: 2
-- `counts.fairness.selection.redux-nofreeze.off.selectors`: 5,013
+- `counts.fairness.selection.redux-nofreeze.off.selectors`: 4,011
 - `counts.fairness.selection.redux-nofreeze.on.renders`: 4
 - `counts.fairness.selection.redux-nofreeze.on.rows`: 2
-- `counts.fairness.selection.redux-nofreeze.on.selectors`: 5,003
+- `counts.fairness.selection.redux-nofreeze.on.selectors`: 4,003
 - `counts.fairness.selection.store.off.renders`: 2,000
 - `counts.fairness.selection.store.off.rows`: 1,000
 - `counts.fairness.selection.store.off.selectors`: 0
@@ -1571,28 +2456,28 @@ Counting build, one update (averaged where the suite averages): renders, rows (R
 - `counts.fairness.selection.store.on.selectors`: 0
 - `counts.fairness.selection.zustand.off.renders`: 4
 - `counts.fairness.selection.zustand.off.rows`: 2
-- `counts.fairness.selection.zustand.off.selectors`: 5,023
+- `counts.fairness.selection.zustand.off.selectors`: 4,020
 - `counts.fairness.selection.zustand.on.renders`: 4
 - `counts.fairness.selection.zustand.on.rows`: 2
-- `counts.fairness.selection.zustand.on.selectors`: 5,015
+- `counts.fairness.selection.zustand.on.selectors`: 4,014
 - `counts.fairness.filter.redux.off.renders`: 1,003
 - `counts.fairness.filter.redux.off.rows`: 501
-- `counts.fairness.filter.redux.off.selectors`: 7,510
+- `counts.fairness.filter.redux.off.selectors`: 6,009
 - `counts.fairness.filter.redux.on.renders`: 1,003
 - `counts.fairness.filter.redux.on.rows`: 501
-- `counts.fairness.filter.redux.on.selectors`: 5,003
+- `counts.fairness.filter.redux.on.selectors`: 4,003
 - `counts.fairness.filter.redux-plain.off.renders`: 1,003
 - `counts.fairness.filter.redux-plain.off.rows`: 501
-- `counts.fairness.filter.redux-plain.off.selectors`: 7,510
+- `counts.fairness.filter.redux-plain.off.selectors`: 6,009
 - `counts.fairness.filter.redux-plain.on.renders`: 1,003
 - `counts.fairness.filter.redux-plain.on.rows`: 501
-- `counts.fairness.filter.redux-plain.on.selectors`: 5,003
+- `counts.fairness.filter.redux-plain.on.selectors`: 4,003
 - `counts.fairness.filter.redux-nofreeze.off.renders`: 1,003
 - `counts.fairness.filter.redux-nofreeze.off.rows`: 501
-- `counts.fairness.filter.redux-nofreeze.off.selectors`: 7,510
+- `counts.fairness.filter.redux-nofreeze.off.selectors`: 6,009
 - `counts.fairness.filter.redux-nofreeze.on.renders`: 1,003
 - `counts.fairness.filter.redux-nofreeze.on.rows`: 501
-- `counts.fairness.filter.redux-nofreeze.on.selectors`: 5,003
+- `counts.fairness.filter.redux-nofreeze.on.selectors`: 4,003
 - `counts.fairness.filter.store.off.renders`: 2,001
 - `counts.fairness.filter.store.off.rows`: 1,000
 - `counts.fairness.filter.store.off.selectors`: 0
@@ -1601,28 +2486,28 @@ Counting build, one update (averaged where the suite averages): renders, rows (R
 - `counts.fairness.filter.store.on.selectors`: 0
 - `counts.fairness.filter.zustand.off.renders`: 1,003
 - `counts.fairness.filter.zustand.off.rows`: 501
-- `counts.fairness.filter.zustand.off.selectors`: 10,017
+- `counts.fairness.filter.zustand.off.selectors`: 8,018
 - `counts.fairness.filter.zustand.on.renders`: 1,003
 - `counts.fairness.filter.zustand.on.rows`: 501
-- `counts.fairness.filter.zustand.on.selectors`: 8,013
+- `counts.fairness.filter.zustand.on.selectors`: 6,514
 - `counts.fairness.details-inline.redux.off.renders`: 30
 - `counts.fairness.details-inline.redux.off.rows`: 10
-- `counts.fairness.details-inline.redux.off.selectors`: 5,053
+- `counts.fairness.details-inline.redux.off.selectors`: 4,043
 - `counts.fairness.details-inline.redux.on.renders`: 30
 - `counts.fairness.details-inline.redux.on.rows`: 10
-- `counts.fairness.details-inline.redux.on.selectors`: 5,003
+- `counts.fairness.details-inline.redux.on.selectors`: 4,003
 - `counts.fairness.details-inline.redux-plain.off.renders`: 30
 - `counts.fairness.details-inline.redux-plain.off.rows`: 10
-- `counts.fairness.details-inline.redux-plain.off.selectors`: 5,053
+- `counts.fairness.details-inline.redux-plain.off.selectors`: 4,043
 - `counts.fairness.details-inline.redux-plain.on.renders`: 30
 - `counts.fairness.details-inline.redux-plain.on.rows`: 10
-- `counts.fairness.details-inline.redux-plain.on.selectors`: 5,003
+- `counts.fairness.details-inline.redux-plain.on.selectors`: 4,003
 - `counts.fairness.details-inline.redux-nofreeze.off.renders`: 30
 - `counts.fairness.details-inline.redux-nofreeze.off.rows`: 10
-- `counts.fairness.details-inline.redux-nofreeze.off.selectors`: 5,053
+- `counts.fairness.details-inline.redux-nofreeze.off.selectors`: 4,043
 - `counts.fairness.details-inline.redux-nofreeze.on.renders`: 30
 - `counts.fairness.details-inline.redux-nofreeze.on.rows`: 10
-- `counts.fairness.details-inline.redux-nofreeze.on.selectors`: 5,003
+- `counts.fairness.details-inline.redux-nofreeze.on.selectors`: 4,003
 - `counts.fairness.details-inline.store.off.renders`: 30
 - `counts.fairness.details-inline.store.off.rows`: 10
 - `counts.fairness.details-inline.store.off.selectors`: 0
@@ -1631,28 +2516,28 @@ Counting build, one update (averaged where the suite averages): renders, rows (R
 - `counts.fairness.details-inline.store.on.selectors`: 0
 - `counts.fairness.details-inline.zustand.off.renders`: 30
 - `counts.fairness.details-inline.zustand.off.rows`: 10
-- `counts.fairness.details-inline.zustand.off.selectors`: 5,103
+- `counts.fairness.details-inline.zustand.off.selectors`: 4,084
 - `counts.fairness.details-inline.zustand.on.renders`: 30
 - `counts.fairness.details-inline.zustand.on.rows`: 10
-- `counts.fairness.details-inline.zustand.on.selectors`: 5,063
+- `counts.fairness.details-inline.zustand.on.selectors`: 4,054
 - `counts.fairness.details-component.redux.off.renders`: 10
 - `counts.fairness.details-component.redux.off.rows`: 0
-- `counts.fairness.details-component.redux.off.selectors`: 5,023
+- `counts.fairness.details-component.redux.off.selectors`: 4,023
 - `counts.fairness.details-component.redux.on.renders`: 10
 - `counts.fairness.details-component.redux.on.rows`: 0
-- `counts.fairness.details-component.redux.on.selectors`: 5,013
+- `counts.fairness.details-component.redux.on.selectors`: 4,013
 - `counts.fairness.details-component.redux-plain.off.renders`: 10
 - `counts.fairness.details-component.redux-plain.off.rows`: 0
-- `counts.fairness.details-component.redux-plain.off.selectors`: 5,023
+- `counts.fairness.details-component.redux-plain.off.selectors`: 4,023
 - `counts.fairness.details-component.redux-plain.on.renders`: 10
 - `counts.fairness.details-component.redux-plain.on.rows`: 0
-- `counts.fairness.details-component.redux-plain.on.selectors`: 5,013
+- `counts.fairness.details-component.redux-plain.on.selectors`: 4,013
 - `counts.fairness.details-component.redux-nofreeze.off.renders`: 10
 - `counts.fairness.details-component.redux-nofreeze.off.rows`: 0
-- `counts.fairness.details-component.redux-nofreeze.off.selectors`: 5,023
+- `counts.fairness.details-component.redux-nofreeze.off.selectors`: 4,023
 - `counts.fairness.details-component.redux-nofreeze.on.renders`: 10
 - `counts.fairness.details-component.redux-nofreeze.on.rows`: 0
-- `counts.fairness.details-component.redux-nofreeze.on.selectors`: 5,013
+- `counts.fairness.details-component.redux-nofreeze.on.selectors`: 4,013
 - `counts.fairness.details-component.store.off.renders`: 10
 - `counts.fairness.details-component.store.off.rows`: 0
 - `counts.fairness.details-component.store.off.selectors`: 0
@@ -1661,28 +2546,58 @@ Counting build, one update (averaged where the suite averages): renders, rows (R
 - `counts.fairness.details-component.store.on.selectors`: 0
 - `counts.fairness.details-component.zustand.off.renders`: 10
 - `counts.fairness.details-component.zustand.off.rows`: 0
-- `counts.fairness.details-component.zustand.off.selectors`: 5,033
+- `counts.fairness.details-component.zustand.off.selectors`: 4,034
 - `counts.fairness.details-component.zustand.on.renders`: 10
 - `counts.fairness.details-component.zustand.on.rows`: 0
-- `counts.fairness.details-component.zustand.on.selectors`: 5,033
+- `counts.fairness.details-component.zustand.on.selectors`: 4,034
+- `counts.fairness.details-churn.redux.off.renders`: 198
+- `counts.fairness.details-churn.redux.off.rows`: 99
+- `counts.fairness.details-churn.redux.off.selectors`: 4,499
+- `counts.fairness.details-churn.redux.on.renders`: 198
+- `counts.fairness.details-churn.redux.on.rows`: 99
+- `counts.fairness.details-churn.redux.on.selectors`: 4,103
+- `counts.fairness.details-churn.redux-plain.off.renders`: 198
+- `counts.fairness.details-churn.redux-plain.off.rows`: 99
+- `counts.fairness.details-churn.redux-plain.off.selectors`: 4,499
+- `counts.fairness.details-churn.redux-plain.on.renders`: 198
+- `counts.fairness.details-churn.redux-plain.on.rows`: 99
+- `counts.fairness.details-churn.redux-plain.on.selectors`: 4,103
+- `counts.fairness.details-churn.redux-nofreeze.off.renders`: 198
+- `counts.fairness.details-churn.redux-nofreeze.off.rows`: 99
+- `counts.fairness.details-churn.redux-nofreeze.off.selectors`: 4,499
+- `counts.fairness.details-churn.redux-nofreeze.on.renders`: 198
+- `counts.fairness.details-churn.redux-nofreeze.on.rows`: 99
+- `counts.fairness.details-churn.redux-nofreeze.on.selectors`: 4,103
+- `counts.fairness.details-churn.store.off.renders`: 2,001
+- `counts.fairness.details-churn.store.off.rows`: 1,000
+- `counts.fairness.details-churn.store.off.selectors`: 0
+- `counts.fairness.details-churn.store.on.renders`: 1,099
+- `counts.fairness.details-churn.store.on.rows`: 1,000
+- `counts.fairness.details-churn.store.on.selectors`: 0
+- `counts.fairness.details-churn.zustand.off.renders`: 198
+- `counts.fairness.details-churn.zustand.off.rows`: 99
+- `counts.fairness.details-churn.zustand.off.selectors`: 4,896
+- `counts.fairness.details-churn.zustand.on.renders`: 198
+- `counts.fairness.details-churn.zustand.on.rows`: 99
+- `counts.fairness.details-churn.zustand.on.selectors`: 4,599
 - `counts.fairness.structure.redux.off.renders`: 2,001
 - `counts.fairness.structure.redux.off.rows`: 1,000
-- `counts.fairness.structure.redux.off.selectors`: 10,010
+- `counts.fairness.structure.redux.off.selectors`: 8,009
 - `counts.fairness.structure.redux.on.renders`: 1,001
 - `counts.fairness.structure.redux.on.rows`: 1,000
-- `counts.fairness.structure.redux.on.selectors`: 5,008
+- `counts.fairness.structure.redux.on.selectors`: 4,007
 - `counts.fairness.structure.redux-plain.off.renders`: 2,001
 - `counts.fairness.structure.redux-plain.off.rows`: 1,000
-- `counts.fairness.structure.redux-plain.off.selectors`: 10,010
+- `counts.fairness.structure.redux-plain.off.selectors`: 8,009
 - `counts.fairness.structure.redux-plain.on.renders`: 1,001
 - `counts.fairness.structure.redux-plain.on.rows`: 1,000
-- `counts.fairness.structure.redux-plain.on.selectors`: 5,008
+- `counts.fairness.structure.redux-plain.on.selectors`: 4,007
 - `counts.fairness.structure.redux-nofreeze.off.renders`: 2,001
 - `counts.fairness.structure.redux-nofreeze.off.rows`: 1,000
-- `counts.fairness.structure.redux-nofreeze.off.selectors`: 10,010
+- `counts.fairness.structure.redux-nofreeze.off.selectors`: 8,009
 - `counts.fairness.structure.redux-nofreeze.on.renders`: 1,001
 - `counts.fairness.structure.redux-nofreeze.on.rows`: 1,000
-- `counts.fairness.structure.redux-nofreeze.on.selectors`: 5,008
+- `counts.fairness.structure.redux-nofreeze.on.selectors`: 4,007
 - `counts.fairness.structure.store.off.renders`: 2,001
 - `counts.fairness.structure.store.off.rows`: 1,000
 - `counts.fairness.structure.store.off.selectors`: 0
@@ -1691,10 +2606,10 @@ Counting build, one update (averaged where the suite averages): renders, rows (R
 - `counts.fairness.structure.store.on.selectors`: 0
 - `counts.fairness.structure.zustand.off.renders`: 2,001
 - `counts.fairness.structure.zustand.off.rows`: 1,000
-- `counts.fairness.structure.zustand.off.selectors`: 15,014
+- `counts.fairness.structure.zustand.off.selectors`: 12,016
 - `counts.fairness.structure.zustand.on.renders`: 1,001
 - `counts.fairness.structure.zustand.on.rows`: 1,000
-- `counts.fairness.structure.zustand.on.selectors`: 10,012
+- `counts.fairness.structure.zustand.on.selectors`: 8,013
 - `counts.many-components-same-slice.increment.redux.off.renders`: 5,000
 - `counts.many-components-same-slice.increment.redux.off.selectors`: 10,000
 - `counts.many-components-same-slice.increment.redux.off.derivations`: 0
@@ -1791,33 +2706,18 @@ Counting build, one update (averaged where the suite averages): renders, rows (R
 - `counts.sweeps.entity.store-c100-w8.on.renders`: 2
 - `counts.sweeps.entity.store-c100-w8.on.rows`: 1
 - `counts.sweeps.entity.store-c100-w8.on.selectors`: 0
-- `counts.sweeps.entity.store-c90-w8.off.renders`: 2
-- `counts.sweeps.entity.store-c90-w8.off.rows`: 1
-- `counts.sweeps.entity.store-c90-w8.off.selectors`: 0
 - `counts.sweeps.entity.store-c90-w8.on.renders`: 2
 - `counts.sweeps.entity.store-c90-w8.on.rows`: 1
 - `counts.sweeps.entity.store-c90-w8.on.selectors`: 0
-- `counts.sweeps.entity.store-c75-w8.off.renders`: 2
-- `counts.sweeps.entity.store-c75-w8.off.rows`: 1
-- `counts.sweeps.entity.store-c75-w8.off.selectors`: 0
 - `counts.sweeps.entity.store-c75-w8.on.renders`: 2
 - `counts.sweeps.entity.store-c75-w8.on.rows`: 1
 - `counts.sweeps.entity.store-c75-w8.on.selectors`: 0
-- `counts.sweeps.entity.store-c50-w8.off.renders`: 2
-- `counts.sweeps.entity.store-c50-w8.off.rows`: 1
-- `counts.sweeps.entity.store-c50-w8.off.selectors`: 0
 - `counts.sweeps.entity.store-c50-w8.on.renders`: 2
 - `counts.sweeps.entity.store-c50-w8.on.rows`: 1
 - `counts.sweeps.entity.store-c50-w8.on.selectors`: 0
-- `counts.sweeps.entity.store-c100-w4.off.renders`: 2
-- `counts.sweeps.entity.store-c100-w4.off.rows`: 1
-- `counts.sweeps.entity.store-c100-w4.off.selectors`: 0
 - `counts.sweeps.entity.store-c100-w4.on.renders`: 2
 - `counts.sweeps.entity.store-c100-w4.on.rows`: 1
 - `counts.sweeps.entity.store-c100-w4.on.selectors`: 0
-- `counts.sweeps.entity.store-c100-w16.off.renders`: 2
-- `counts.sweeps.entity.store-c100-w16.off.rows`: 1
-- `counts.sweeps.entity.store-c100-w16.off.selectors`: 0
 - `counts.sweeps.entity.store-c100-w16.on.renders`: 2
 - `counts.sweeps.entity.store-c100-w16.on.rows`: 1
 - `counts.sweeps.entity.store-c100-w16.on.selectors`: 0
@@ -1827,33 +2727,18 @@ Counting build, one update (averaged where the suite averages): renders, rows (R
 - `counts.sweeps.entity.store-keyed-c100-w8.on.renders`: 2
 - `counts.sweeps.entity.store-keyed-c100-w8.on.rows`: 1
 - `counts.sweeps.entity.store-keyed-c100-w8.on.selectors`: 0
-- `counts.sweeps.entity.store-keyed-c90-w8.off.renders`: 2
-- `counts.sweeps.entity.store-keyed-c90-w8.off.rows`: 1
-- `counts.sweeps.entity.store-keyed-c90-w8.off.selectors`: 0
 - `counts.sweeps.entity.store-keyed-c90-w8.on.renders`: 2
 - `counts.sweeps.entity.store-keyed-c90-w8.on.rows`: 1
 - `counts.sweeps.entity.store-keyed-c90-w8.on.selectors`: 0
-- `counts.sweeps.entity.store-keyed-c75-w8.off.renders`: 2
-- `counts.sweeps.entity.store-keyed-c75-w8.off.rows`: 1
-- `counts.sweeps.entity.store-keyed-c75-w8.off.selectors`: 0
 - `counts.sweeps.entity.store-keyed-c75-w8.on.renders`: 2
 - `counts.sweeps.entity.store-keyed-c75-w8.on.rows`: 1
 - `counts.sweeps.entity.store-keyed-c75-w8.on.selectors`: 0
-- `counts.sweeps.entity.store-keyed-c50-w8.off.renders`: 2
-- `counts.sweeps.entity.store-keyed-c50-w8.off.rows`: 1
-- `counts.sweeps.entity.store-keyed-c50-w8.off.selectors`: 0
 - `counts.sweeps.entity.store-keyed-c50-w8.on.renders`: 2
 - `counts.sweeps.entity.store-keyed-c50-w8.on.rows`: 1
 - `counts.sweeps.entity.store-keyed-c50-w8.on.selectors`: 0
-- `counts.sweeps.entity.store-keyed-c100-w4.off.renders`: 2
-- `counts.sweeps.entity.store-keyed-c100-w4.off.rows`: 1
-- `counts.sweeps.entity.store-keyed-c100-w4.off.selectors`: 0
 - `counts.sweeps.entity.store-keyed-c100-w4.on.renders`: 2
 - `counts.sweeps.entity.store-keyed-c100-w4.on.rows`: 1
 - `counts.sweeps.entity.store-keyed-c100-w4.on.selectors`: 0
-- `counts.sweeps.entity.store-keyed-c100-w16.off.renders`: 2
-- `counts.sweeps.entity.store-keyed-c100-w16.off.rows`: 1
-- `counts.sweeps.entity.store-keyed-c100-w16.off.selectors`: 0
 - `counts.sweeps.entity.store-keyed-c100-w16.on.renders`: 2
 - `counts.sweeps.entity.store-keyed-c100-w16.on.rows`: 1
 - `counts.sweeps.entity.store-keyed-c100-w16.on.selectors`: 0
@@ -1863,33 +2748,18 @@ Counting build, one update (averaged where the suite averages): renders, rows (R
 - `counts.sweeps.entity.redux-c100-w8.on.renders`: 2
 - `counts.sweeps.entity.redux-c100-w8.on.rows`: 1
 - `counts.sweeps.entity.redux-c100-w8.on.selectors`: 2,001
-- `counts.sweeps.entity.redux-c90-w8.off.renders`: 2
-- `counts.sweeps.entity.redux-c90-w8.off.rows`: 1
-- `counts.sweeps.entity.redux-c90-w8.off.selectors`: 2,003
 - `counts.sweeps.entity.redux-c90-w8.on.renders`: 2
 - `counts.sweeps.entity.redux-c90-w8.on.rows`: 1
 - `counts.sweeps.entity.redux-c90-w8.on.selectors`: 2,001
-- `counts.sweeps.entity.redux-c75-w8.off.renders`: 2
-- `counts.sweeps.entity.redux-c75-w8.off.rows`: 1
-- `counts.sweeps.entity.redux-c75-w8.off.selectors`: 2,003
 - `counts.sweeps.entity.redux-c75-w8.on.renders`: 2
 - `counts.sweeps.entity.redux-c75-w8.on.rows`: 1
 - `counts.sweeps.entity.redux-c75-w8.on.selectors`: 2,001
-- `counts.sweeps.entity.redux-c50-w8.off.renders`: 2
-- `counts.sweeps.entity.redux-c50-w8.off.rows`: 1
-- `counts.sweeps.entity.redux-c50-w8.off.selectors`: 2,003
 - `counts.sweeps.entity.redux-c50-w8.on.renders`: 2
 - `counts.sweeps.entity.redux-c50-w8.on.rows`: 1
 - `counts.sweeps.entity.redux-c50-w8.on.selectors`: 2,003
-- `counts.sweeps.entity.redux-c100-w4.off.renders`: 2
-- `counts.sweeps.entity.redux-c100-w4.off.rows`: 1
-- `counts.sweeps.entity.redux-c100-w4.off.selectors`: 2,003
 - `counts.sweeps.entity.redux-c100-w4.on.renders`: 2
 - `counts.sweeps.entity.redux-c100-w4.on.rows`: 1
 - `counts.sweeps.entity.redux-c100-w4.on.selectors`: 2,001
-- `counts.sweeps.entity.redux-c100-w16.off.renders`: 2
-- `counts.sweeps.entity.redux-c100-w16.off.rows`: 1
-- `counts.sweeps.entity.redux-c100-w16.off.selectors`: 2,003
 - `counts.sweeps.entity.redux-c100-w16.on.renders`: 2
 - `counts.sweeps.entity.redux-c100-w16.on.rows`: 1
 - `counts.sweeps.entity.redux-c100-w16.on.selectors`: 2,001
@@ -1899,33 +2769,18 @@ Counting build, one update (averaged where the suite averages): renders, rows (R
 - `counts.sweeps.entity.zustand-c100-w8.on.renders`: 2
 - `counts.sweeps.entity.zustand-c100-w8.on.rows`: 1
 - `counts.sweeps.entity.zustand-c100-w8.on.selectors`: 2,004
-- `counts.sweeps.entity.zustand-c90-w8.off.renders`: 2
-- `counts.sweeps.entity.zustand-c90-w8.off.rows`: 1
-- `counts.sweeps.entity.zustand-c90-w8.off.selectors`: 2,005
 - `counts.sweeps.entity.zustand-c90-w8.on.renders`: 2
 - `counts.sweeps.entity.zustand-c90-w8.on.rows`: 1
 - `counts.sweeps.entity.zustand-c90-w8.on.selectors`: 2,004
-- `counts.sweeps.entity.zustand-c75-w8.off.renders`: 2
-- `counts.sweeps.entity.zustand-c75-w8.off.rows`: 1
-- `counts.sweeps.entity.zustand-c75-w8.off.selectors`: 2,005
 - `counts.sweeps.entity.zustand-c75-w8.on.renders`: 2
 - `counts.sweeps.entity.zustand-c75-w8.on.rows`: 1
 - `counts.sweeps.entity.zustand-c75-w8.on.selectors`: 2,004
-- `counts.sweeps.entity.zustand-c50-w8.off.renders`: 2
-- `counts.sweeps.entity.zustand-c50-w8.off.rows`: 1
-- `counts.sweeps.entity.zustand-c50-w8.off.selectors`: 2,005
 - `counts.sweeps.entity.zustand-c50-w8.on.renders`: 2
 - `counts.sweeps.entity.zustand-c50-w8.on.rows`: 1
 - `counts.sweeps.entity.zustand-c50-w8.on.selectors`: 2,005
-- `counts.sweeps.entity.zustand-c100-w4.off.renders`: 2
-- `counts.sweeps.entity.zustand-c100-w4.off.rows`: 1
-- `counts.sweeps.entity.zustand-c100-w4.off.selectors`: 2,005
 - `counts.sweeps.entity.zustand-c100-w4.on.renders`: 2
 - `counts.sweeps.entity.zustand-c100-w4.on.rows`: 1
 - `counts.sweeps.entity.zustand-c100-w4.on.selectors`: 2,004
-- `counts.sweeps.entity.zustand-c100-w16.off.renders`: 2
-- `counts.sweeps.entity.zustand-c100-w16.off.rows`: 1
-- `counts.sweeps.entity.zustand-c100-w16.off.selectors`: 2,005
 - `counts.sweeps.entity.zustand-c100-w16.on.renders`: 2
 - `counts.sweeps.entity.zustand-c100-w16.on.rows`: 1
 - `counts.sweeps.entity.zustand-c100-w16.on.selectors`: 2,004
@@ -1935,33 +2790,18 @@ Counting build, one update (averaged where the suite averages): renders, rows (R
 - `counts.sweeps.selection.store-c100-w8.on.renders`: 1,002
 - `counts.sweeps.selection.store-c100-w8.on.rows`: 1,000
 - `counts.sweeps.selection.store-c100-w8.on.selectors`: 0
-- `counts.sweeps.selection.store-c90-w8.off.renders`: 2,000
-- `counts.sweeps.selection.store-c90-w8.off.rows`: 1,000
-- `counts.sweeps.selection.store-c90-w8.off.selectors`: 0
 - `counts.sweeps.selection.store-c90-w8.on.renders`: 1,102
 - `counts.sweeps.selection.store-c90-w8.on.rows`: 1,000
 - `counts.sweeps.selection.store-c90-w8.on.selectors`: 0
-- `counts.sweeps.selection.store-c75-w8.off.renders`: 2,000
-- `counts.sweeps.selection.store-c75-w8.off.rows`: 1,000
-- `counts.sweeps.selection.store-c75-w8.off.selectors`: 0
 - `counts.sweeps.selection.store-c75-w8.on.renders`: 1,252
 - `counts.sweeps.selection.store-c75-w8.on.rows`: 1,000
 - `counts.sweeps.selection.store-c75-w8.on.selectors`: 0
-- `counts.sweeps.selection.store-c50-w8.off.renders`: 2,000
-- `counts.sweeps.selection.store-c50-w8.off.rows`: 1,000
-- `counts.sweeps.selection.store-c50-w8.off.selectors`: 0
 - `counts.sweeps.selection.store-c50-w8.on.renders`: 1,502
 - `counts.sweeps.selection.store-c50-w8.on.rows`: 1,000
 - `counts.sweeps.selection.store-c50-w8.on.selectors`: 0
-- `counts.sweeps.selection.store-c100-w4.off.renders`: 2,000
-- `counts.sweeps.selection.store-c100-w4.off.rows`: 1,000
-- `counts.sweeps.selection.store-c100-w4.off.selectors`: 0
 - `counts.sweeps.selection.store-c100-w4.on.renders`: 1,002
 - `counts.sweeps.selection.store-c100-w4.on.rows`: 1,000
 - `counts.sweeps.selection.store-c100-w4.on.selectors`: 0
-- `counts.sweeps.selection.store-c100-w16.off.renders`: 2,000
-- `counts.sweeps.selection.store-c100-w16.off.rows`: 1,000
-- `counts.sweeps.selection.store-c100-w16.off.selectors`: 0
 - `counts.sweeps.selection.store-c100-w16.on.renders`: 1,002
 - `counts.sweeps.selection.store-c100-w16.on.rows`: 1,000
 - `counts.sweeps.selection.store-c100-w16.on.selectors`: 0
@@ -1971,33 +2811,18 @@ Counting build, one update (averaged where the suite averages): renders, rows (R
 - `counts.sweeps.selection.store-keyed-c100-w8.on.renders`: 4
 - `counts.sweeps.selection.store-keyed-c100-w8.on.rows`: 2
 - `counts.sweeps.selection.store-keyed-c100-w8.on.selectors`: 0
-- `counts.sweeps.selection.store-keyed-c90-w8.off.renders`: 4
-- `counts.sweeps.selection.store-keyed-c90-w8.off.rows`: 2
-- `counts.sweeps.selection.store-keyed-c90-w8.off.selectors`: 0
 - `counts.sweeps.selection.store-keyed-c90-w8.on.renders`: 4
 - `counts.sweeps.selection.store-keyed-c90-w8.on.rows`: 2
 - `counts.sweeps.selection.store-keyed-c90-w8.on.selectors`: 0
-- `counts.sweeps.selection.store-keyed-c75-w8.off.renders`: 4
-- `counts.sweeps.selection.store-keyed-c75-w8.off.rows`: 2
-- `counts.sweeps.selection.store-keyed-c75-w8.off.selectors`: 0
 - `counts.sweeps.selection.store-keyed-c75-w8.on.renders`: 4
 - `counts.sweeps.selection.store-keyed-c75-w8.on.rows`: 2
 - `counts.sweeps.selection.store-keyed-c75-w8.on.selectors`: 0
-- `counts.sweeps.selection.store-keyed-c50-w8.off.renders`: 4
-- `counts.sweeps.selection.store-keyed-c50-w8.off.rows`: 2
-- `counts.sweeps.selection.store-keyed-c50-w8.off.selectors`: 0
 - `counts.sweeps.selection.store-keyed-c50-w8.on.renders`: 4
 - `counts.sweeps.selection.store-keyed-c50-w8.on.rows`: 2
 - `counts.sweeps.selection.store-keyed-c50-w8.on.selectors`: 0
-- `counts.sweeps.selection.store-keyed-c100-w4.off.renders`: 4
-- `counts.sweeps.selection.store-keyed-c100-w4.off.rows`: 2
-- `counts.sweeps.selection.store-keyed-c100-w4.off.selectors`: 0
 - `counts.sweeps.selection.store-keyed-c100-w4.on.renders`: 4
 - `counts.sweeps.selection.store-keyed-c100-w4.on.rows`: 2
 - `counts.sweeps.selection.store-keyed-c100-w4.on.selectors`: 0
-- `counts.sweeps.selection.store-keyed-c100-w16.off.renders`: 4
-- `counts.sweeps.selection.store-keyed-c100-w16.off.rows`: 2
-- `counts.sweeps.selection.store-keyed-c100-w16.off.selectors`: 0
 - `counts.sweeps.selection.store-keyed-c100-w16.on.renders`: 4
 - `counts.sweeps.selection.store-keyed-c100-w16.on.rows`: 2
 - `counts.sweeps.selection.store-keyed-c100-w16.on.selectors`: 0
@@ -2007,33 +2832,18 @@ Counting build, one update (averaged where the suite averages): renders, rows (R
 - `counts.sweeps.selection.redux-c100-w8.on.renders`: 4
 - `counts.sweeps.selection.redux-c100-w8.on.rows`: 2
 - `counts.sweeps.selection.redux-c100-w8.on.selectors`: 2,001
-- `counts.sweeps.selection.redux-c90-w8.off.renders`: 4
-- `counts.sweeps.selection.redux-c90-w8.off.rows`: 2
-- `counts.sweeps.selection.redux-c90-w8.off.selectors`: 2,005
 - `counts.sweeps.selection.redux-c90-w8.on.renders`: 4
 - `counts.sweeps.selection.redux-c90-w8.on.rows`: 2
 - `counts.sweeps.selection.redux-c90-w8.on.selectors`: 2,001
-- `counts.sweeps.selection.redux-c75-w8.off.renders`: 4
-- `counts.sweeps.selection.redux-c75-w8.off.rows`: 2
-- `counts.sweeps.selection.redux-c75-w8.off.selectors`: 2,005
 - `counts.sweeps.selection.redux-c75-w8.on.renders`: 4
 - `counts.sweeps.selection.redux-c75-w8.on.rows`: 2
 - `counts.sweeps.selection.redux-c75-w8.on.selectors`: 2,001
-- `counts.sweeps.selection.redux-c50-w8.off.renders`: 4
-- `counts.sweeps.selection.redux-c50-w8.off.rows`: 2
-- `counts.sweeps.selection.redux-c50-w8.off.selectors`: 2,005
 - `counts.sweeps.selection.redux-c50-w8.on.renders`: 4
 - `counts.sweeps.selection.redux-c50-w8.on.rows`: 2
 - `counts.sweeps.selection.redux-c50-w8.on.selectors`: 2,001
-- `counts.sweeps.selection.redux-c100-w4.off.renders`: 4
-- `counts.sweeps.selection.redux-c100-w4.off.rows`: 2
-- `counts.sweeps.selection.redux-c100-w4.off.selectors`: 2,005
 - `counts.sweeps.selection.redux-c100-w4.on.renders`: 4
 - `counts.sweeps.selection.redux-c100-w4.on.rows`: 2
 - `counts.sweeps.selection.redux-c100-w4.on.selectors`: 2,001
-- `counts.sweeps.selection.redux-c100-w16.off.renders`: 4
-- `counts.sweeps.selection.redux-c100-w16.off.rows`: 2
-- `counts.sweeps.selection.redux-c100-w16.off.selectors`: 2,005
 - `counts.sweeps.selection.redux-c100-w16.on.renders`: 4
 - `counts.sweeps.selection.redux-c100-w16.on.rows`: 2
 - `counts.sweeps.selection.redux-c100-w16.on.selectors`: 2,001
@@ -2043,33 +2853,18 @@ Counting build, one update (averaged where the suite averages): renders, rows (R
 - `counts.sweeps.selection.zustand-c100-w8.on.renders`: 4
 - `counts.sweeps.selection.zustand-c100-w8.on.rows`: 2
 - `counts.sweeps.selection.zustand-c100-w8.on.selectors`: 2,007
-- `counts.sweeps.selection.zustand-c90-w8.off.renders`: 4
-- `counts.sweeps.selection.zustand-c90-w8.off.rows`: 2
-- `counts.sweeps.selection.zustand-c90-w8.off.selectors`: 2,009
 - `counts.sweeps.selection.zustand-c90-w8.on.renders`: 4
 - `counts.sweeps.selection.zustand-c90-w8.on.rows`: 2
 - `counts.sweeps.selection.zustand-c90-w8.on.selectors`: 2,007
-- `counts.sweeps.selection.zustand-c75-w8.off.renders`: 4
-- `counts.sweeps.selection.zustand-c75-w8.off.rows`: 2
-- `counts.sweeps.selection.zustand-c75-w8.off.selectors`: 2,009
 - `counts.sweeps.selection.zustand-c75-w8.on.renders`: 4
 - `counts.sweeps.selection.zustand-c75-w8.on.rows`: 2
 - `counts.sweeps.selection.zustand-c75-w8.on.selectors`: 2,007
-- `counts.sweeps.selection.zustand-c50-w8.off.renders`: 4
-- `counts.sweeps.selection.zustand-c50-w8.off.rows`: 2
-- `counts.sweeps.selection.zustand-c50-w8.off.selectors`: 2,009
 - `counts.sweeps.selection.zustand-c50-w8.on.renders`: 4
 - `counts.sweeps.selection.zustand-c50-w8.on.rows`: 2
 - `counts.sweeps.selection.zustand-c50-w8.on.selectors`: 2,007
-- `counts.sweeps.selection.zustand-c100-w4.off.renders`: 4
-- `counts.sweeps.selection.zustand-c100-w4.off.rows`: 2
-- `counts.sweeps.selection.zustand-c100-w4.off.selectors`: 2,009
 - `counts.sweeps.selection.zustand-c100-w4.on.renders`: 4
 - `counts.sweeps.selection.zustand-c100-w4.on.rows`: 2
 - `counts.sweeps.selection.zustand-c100-w4.on.selectors`: 2,007
-- `counts.sweeps.selection.zustand-c100-w16.off.renders`: 4
-- `counts.sweeps.selection.zustand-c100-w16.off.rows`: 2
-- `counts.sweeps.selection.zustand-c100-w16.off.selectors`: 2,009
 - `counts.sweeps.selection.zustand-c100-w16.on.renders`: 4
 - `counts.sweeps.selection.zustand-c100-w16.on.rows`: 2
 - `counts.sweeps.selection.zustand-c100-w16.on.selectors`: 2,007
@@ -2080,234 +2875,304 @@ Counting build, one update (averaged where the suite averages): renders, rows (R
 
 Ported Redux suites and fairness: median ms per update.
 
-<details><summary>226 keys</summary>
+<details><summary>296 keys</summary>
 
-- `suite.derived-selectors.comment.x1.redux.on.median`: 0.730
-- `suite.derived-selectors.comment.x1.store.on.median`: 0.960
+- `suite.derived-selectors.comment.x1.redux.on.median`: 0.710
+- `suite.derived-selectors.comment.x1.redux.off.median`: 0.750
+- `suite.derived-selectors.comment.x1.store.on.median`: 0.930
+- `suite.derived-selectors.comment.x1.store.off.median`: 0.810
 - `suite.derived-selectors.comment.x1.store-derived.on.median`: 0.490
+- `suite.derived-selectors.comment.x1.store-derived.off.median`: 0.520
 - `suite.derived-selectors.comment.x1.store-memo.on.median`: 0.490
-- `suite.derived-selectors.comment.x1.zustand.on.median`: 0.980
-- `suite.derived-selectors.mixed.x1.redux.on.median`: 0.410
+- `suite.derived-selectors.comment.x1.store-memo.off.median`: 0.520
+- `suite.derived-selectors.comment.x1.zustand.on.median`: 0.910
+- `suite.derived-selectors.comment.x1.zustand.off.median`: 0.940
+- `suite.derived-selectors.mixed.x1.redux.on.median`: 0.400
+- `suite.derived-selectors.mixed.x1.redux.off.median`: 0.430
 - `suite.derived-selectors.mixed.x1.store.on.median`: 0.370
+- `suite.derived-selectors.mixed.x1.store.off.median`: 0.400
 - `suite.derived-selectors.mixed.x1.store-derived.on.median`: 0.250
-- `suite.derived-selectors.mixed.x1.store-memo.on.median`: 0.270
-- `suite.derived-selectors.mixed.x1.zustand.on.median`: 0.530
+- `suite.derived-selectors.mixed.x1.store-derived.off.median`: 0.310
+- `suite.derived-selectors.mixed.x1.store-memo.on.median`: 0.260
+- `suite.derived-selectors.mixed.x1.store-memo.off.median`: 0.310
+- `suite.derived-selectors.mixed.x1.zustand.on.median`: 0.510
+- `suite.derived-selectors.mixed.x1.zustand.off.median`: 0.510
 - `suite.derived-selectors.role.x1.redux.on.median`: 0.054
+- `suite.derived-selectors.role.x1.redux.off.median`: 0.052
 - `suite.derived-selectors.role.x1.store.on.median`: 0.000
+- `suite.derived-selectors.role.x1.store.off.median`: 0.000
 - `suite.derived-selectors.role.x1.store-derived.on.median`: 0.000
+- `suite.derived-selectors.role.x1.store-derived.off.median`: 0.000
 - `suite.derived-selectors.role.x1.store-memo.on.median`: 0.000
-- `suite.derived-selectors.role.x1.zustand.on.median`: 0.360
-- `suite.derived-selectors.score.x1.redux.on.median`: 0.390
-- `suite.derived-selectors.score.x1.store.on.median`: 0.310
-- `suite.derived-selectors.score.x1.store-derived.on.median`: 0.240
-- `suite.derived-selectors.score.x1.store-memo.on.median`: 0.250
-- `suite.derived-selectors.score.x1.zustand.on.median`: 0.450
-- `suite.derived-selectors.comment.x4.redux.on.median`: 3.23
-- `suite.derived-selectors.comment.x4.store.on.median`: 4.35
-- `suite.derived-selectors.comment.x4.store-derived.on.median`: 2.08
-- `suite.derived-selectors.comment.x4.store-memo.on.median`: 2.10
-- `suite.derived-selectors.comment.x4.zustand.on.median`: 4.40
-- `suite.derived-selectors.mixed.x4.redux.on.median`: 1.87
-- `suite.derived-selectors.mixed.x4.store.on.median`: 1.60
-- `suite.derived-selectors.mixed.x4.store-derived.on.median`: 1.18
-- `suite.derived-selectors.mixed.x4.store-memo.on.median`: 1.24
-- `suite.derived-selectors.mixed.x4.zustand.on.median`: 2.43
-- `suite.derived-selectors.role.x4.redux.on.median`: 0.224
+- `suite.derived-selectors.role.x1.store-memo.off.median`: 0.000
+- `suite.derived-selectors.role.x1.zustand.on.median`: 0.354
+- `suite.derived-selectors.role.x1.zustand.off.median`: 0.352
+- `suite.derived-selectors.score.x1.redux.on.median`: 0.340
+- `suite.derived-selectors.score.x1.redux.off.median`: 0.360
+- `suite.derived-selectors.score.x1.store.on.median`: 0.290
+- `suite.derived-selectors.score.x1.store.off.median`: 0.380
+- `suite.derived-selectors.score.x1.store-derived.on.median`: 0.210
+- `suite.derived-selectors.score.x1.store-derived.off.median`: 0.310
+- `suite.derived-selectors.score.x1.store-memo.on.median`: 0.230
+- `suite.derived-selectors.score.x1.store-memo.off.median`: 0.310
+- `suite.derived-selectors.score.x1.zustand.on.median`: 0.430
+- `suite.derived-selectors.score.x1.zustand.off.median`: 0.430
+- `suite.derived-selectors.comment.x4.redux.on.median`: 2.98
+- `suite.derived-selectors.comment.x4.redux.off.median`: 3.12
+- `suite.derived-selectors.comment.x4.store.on.median`: 4.10
+- `suite.derived-selectors.comment.x4.store.off.median`: 3.30
+- `suite.derived-selectors.comment.x4.store-derived.on.median`: 2.01
+- `suite.derived-selectors.comment.x4.store-derived.off.median`: 2.06
+- `suite.derived-selectors.comment.x4.store-memo.on.median`: 2.02
+- `suite.derived-selectors.comment.x4.store-memo.off.median`: 2.11
+- `suite.derived-selectors.comment.x4.zustand.on.median`: 3.84
+- `suite.derived-selectors.comment.x4.zustand.off.median`: 4.27
+- `suite.derived-selectors.mixed.x4.redux.on.median`: 1.65
+- `suite.derived-selectors.mixed.x4.redux.off.median`: 1.76
+- `suite.derived-selectors.mixed.x4.store.on.median`: 1.52
+- `suite.derived-selectors.mixed.x4.store.off.median`: 1.63
+- `suite.derived-selectors.mixed.x4.store-derived.on.median`: 1.02
+- `suite.derived-selectors.mixed.x4.store-derived.off.median`: 1.28
+- `suite.derived-selectors.mixed.x4.store-memo.on.median`: 1.08
+- `suite.derived-selectors.mixed.x4.store-memo.off.median`: 1.31
+- `suite.derived-selectors.mixed.x4.zustand.on.median`: 2.25
+- `suite.derived-selectors.mixed.x4.zustand.off.median`: 2.09
+- `suite.derived-selectors.role.x4.redux.on.median`: 0.212
+- `suite.derived-selectors.role.x4.redux.off.median`: 0.210
 - `suite.derived-selectors.role.x4.store.on.median`: 0.000
+- `suite.derived-selectors.role.x4.store.off.median`: 0.000
 - `suite.derived-selectors.role.x4.store-derived.on.median`: 0.000
+- `suite.derived-selectors.role.x4.store-derived.off.median`: 0.000
 - `suite.derived-selectors.role.x4.store-memo.on.median`: 0.000
-- `suite.derived-selectors.role.x4.zustand.on.median`: 1.50
-- `suite.derived-selectors.score.x4.redux.on.median`: 1.44
-- `suite.derived-selectors.score.x4.store.on.median`: 1.29
-- `suite.derived-selectors.score.x4.store-derived.on.median`: 0.960
-- `suite.derived-selectors.score.x4.store-memo.on.median`: 0.990
-- `suite.derived-selectors.score.x4.zustand.on.median`: 2.13
-- `suite.rapid-dispatch.listenerCascade.x1.redux.on.median`: 0.320
+- `suite.derived-selectors.role.x4.store-memo.off.median`: 0.000
+- `suite.derived-selectors.role.x4.zustand.on.median`: 1.43
+- `suite.derived-selectors.role.x4.zustand.off.median`: 1.44
+- `suite.derived-selectors.score.x4.redux.on.median`: 1.37
+- `suite.derived-selectors.score.x4.redux.off.median`: 1.49
+- `suite.derived-selectors.score.x4.store.on.median`: 1.23
+- `suite.derived-selectors.score.x4.store.off.median`: 1.56
+- `suite.derived-selectors.score.x4.store-derived.on.median`: 0.890
+- `suite.derived-selectors.score.x4.store-derived.off.median`: 1.28
+- `suite.derived-selectors.score.x4.store-memo.on.median`: 0.920
+- `suite.derived-selectors.score.x4.store-memo.off.median`: 1.29
+- `suite.derived-selectors.score.x4.zustand.on.median`: 1.79
+- `suite.derived-selectors.score.x4.zustand.off.median`: 1.79
+- `suite.rapid-dispatch.listenerCascade.x1.redux.on.median`: 0.310
+- `suite.rapid-dispatch.listenerCascade.x1.redux.off.median`: 0.310
 - `suite.rapid-dispatch.listenerCascade.x1.store.on.median`: 0.090
-- `suite.rapid-dispatch.listenerCascade.x1.zustand.on.median`: 0.140
+- `suite.rapid-dispatch.listenerCascade.x1.store.off.median`: 0.090
+- `suite.rapid-dispatch.listenerCascade.x1.zustand.on.median`: 0.150
+- `suite.rapid-dispatch.listenerCascade.x1.zustand.off.median`: 0.150
 - `suite.rapid-dispatch.mixed.x1.redux.on.median`: 0.270
+- `suite.rapid-dispatch.mixed.x1.redux.off.median`: 0.280
 - `suite.rapid-dispatch.mixed.x1.store.on.median`: 0.070
+- `suite.rapid-dispatch.mixed.x1.store.off.median`: 0.070
 - `suite.rapid-dispatch.mixed.x1.zustand.on.median`: 0.120
+- `suite.rapid-dispatch.mixed.x1.zustand.off.median`: 0.120
 - `suite.rapid-dispatch.syncBurst.x1.redux.on.median`: 0.590
-- `suite.rapid-dispatch.syncBurst.x1.store.on.median`: 0.150
-- `suite.rapid-dispatch.syncBurst.x1.zustand.on.median`: 0.260
+- `suite.rapid-dispatch.syncBurst.x1.redux.off.median`: 0.560
+- `suite.rapid-dispatch.syncBurst.x1.store.on.median`: 0.140
+- `suite.rapid-dispatch.syncBurst.x1.store.off.median`: 0.140
+- `suite.rapid-dispatch.syncBurst.x1.zustand.on.median`: 0.250
+- `suite.rapid-dispatch.syncBurst.x1.zustand.off.median`: 0.250
 - `suite.rapid-dispatch.thunkBurst.x1.redux.on.median`: 0.090
+- `suite.rapid-dispatch.thunkBurst.x1.redux.off.median`: 0.090
 - `suite.rapid-dispatch.thunkBurst.x1.store.on.median`: 0.020
+- `suite.rapid-dispatch.thunkBurst.x1.store.off.median`: 0.020
 - `suite.rapid-dispatch.thunkBurst.x1.zustand.on.median`: 0.030
-- `suite.rapid-dispatch.listenerCascade.x4.redux.on.median`: 1.35
-- `suite.rapid-dispatch.listenerCascade.x4.store.on.median`: 0.420
-- `suite.rapid-dispatch.listenerCascade.x4.zustand.on.median`: 0.640
-- `suite.rapid-dispatch.mixed.x4.redux.on.median`: 1.18
-- `suite.rapid-dispatch.mixed.x4.store.on.median`: 0.320
-- `suite.rapid-dispatch.mixed.x4.zustand.on.median`: 0.520
-- `suite.rapid-dispatch.syncBurst.x4.redux.on.median`: 2.48
-- `suite.rapid-dispatch.syncBurst.x4.store.on.median`: 0.640
-- `suite.rapid-dispatch.syncBurst.x4.zustand.on.median`: 1.08
+- `suite.rapid-dispatch.thunkBurst.x1.zustand.off.median`: 0.030
+- `suite.rapid-dispatch.listenerCascade.x4.redux.on.median`: 1.26
+- `suite.rapid-dispatch.listenerCascade.x4.redux.off.median`: 1.23
+- `suite.rapid-dispatch.listenerCascade.x4.store.on.median`: 0.370
+- `suite.rapid-dispatch.listenerCascade.x4.store.off.median`: 0.380
+- `suite.rapid-dispatch.listenerCascade.x4.zustand.on.median`: 0.600
+- `suite.rapid-dispatch.listenerCascade.x4.zustand.off.median`: 0.580
+- `suite.rapid-dispatch.mixed.x4.redux.on.median`: 1.17
+- `suite.rapid-dispatch.mixed.x4.redux.off.median`: 1.08
+- `suite.rapid-dispatch.mixed.x4.store.on.median`: 0.310
+- `suite.rapid-dispatch.mixed.x4.store.off.median`: 0.290
+- `suite.rapid-dispatch.mixed.x4.zustand.on.median`: 0.510
+- `suite.rapid-dispatch.mixed.x4.zustand.off.median`: 0.480
+- `suite.rapid-dispatch.syncBurst.x4.redux.on.median`: 2.42
+- `suite.rapid-dispatch.syncBurst.x4.redux.off.median`: 2.33
+- `suite.rapid-dispatch.syncBurst.x4.store.on.median`: 0.610
+- `suite.rapid-dispatch.syncBurst.x4.store.off.median`: 0.570
+- `suite.rapid-dispatch.syncBurst.x4.zustand.on.median`: 1.03
+- `suite.rapid-dispatch.syncBurst.x4.zustand.off.median`: 1.01
 - `suite.rapid-dispatch.thunkBurst.x4.redux.on.median`: 0.380
+- `suite.rapid-dispatch.thunkBurst.x4.redux.off.median`: 0.360
 - `suite.rapid-dispatch.thunkBurst.x4.store.on.median`: 0.080
-- `suite.rapid-dispatch.thunkBurst.x4.zustand.on.median`: 0.130
-- `suite.many-components-same-slice.increment.x1.redux.on.median`: 3.55
-- `suite.many-components-same-slice.increment.x1.store.on.median`: 1.45
+- `suite.rapid-dispatch.thunkBurst.x4.store.off.median`: 0.070
+- `suite.rapid-dispatch.thunkBurst.x4.zustand.on.median`: 0.140
+- `suite.rapid-dispatch.thunkBurst.x4.zustand.off.median`: 0.130
+- `suite.many-components-same-slice.increment.x1.redux.on.median`: 3.75
+- `suite.many-components-same-slice.increment.x1.redux.off.median`: 3.55
+- `suite.many-components-same-slice.increment.x1.store.on.median`: 1.50
+- `suite.many-components-same-slice.increment.x1.store.off.median`: 1.40
 - `suite.many-components-same-slice.increment.x1.zustand.on.median`: 1.85
-- `suite.many-components-same-slice.increment.x4.redux.on.median`: 16.4
-- `suite.many-components-same-slice.increment.x4.store.on.median`: 5.95
-- `suite.many-components-same-slice.increment.x4.zustand.on.median`: 8.35
-- `suite.deeptree-nested-hooks.appendMany.x1.redux.on.median`: 3.49
-- `suite.deeptree-nested-hooks.appendMany.x1.store.on.median`: 2.26
-- `suite.deeptree-nested-hooks.appendMany.x1.zustand.on.median`: 2.45
-- `suite.deeptree-nested-hooks.appendRandomCharacter.x1.redux.on.median`: 0.144
-- `suite.deeptree-nested-hooks.appendRandomCharacter.x1.store.on.median`: 0.026
-- `suite.deeptree-nested-hooks.appendRandomCharacter.x1.zustand.on.median`: 0.052
-- `suite.deeptree-nested-hooks.incrementFifth.x1.redux.on.median`: 0.710
-- `suite.deeptree-nested-hooks.incrementFifth.x1.store.on.median`: 0.430
-- `suite.deeptree-nested-hooks.incrementFifth.x1.zustand.on.median`: 0.570
-- `suite.deeptree-nested-hooks.incrementRandom.x1.redux.on.median`: 0.106
+- `suite.many-components-same-slice.increment.x1.zustand.off.median`: 2.00
+- `suite.many-components-same-slice.increment.x4.redux.on.median`: 15.7
+- `suite.many-components-same-slice.increment.x4.redux.off.median`: 15.3
+- `suite.many-components-same-slice.increment.x4.store.on.median`: 6.65
+- `suite.many-components-same-slice.increment.x4.store.off.median`: 5.75
+- `suite.many-components-same-slice.increment.x4.zustand.on.median`: 8.10
+- `suite.many-components-same-slice.increment.x4.zustand.off.median`: 7.95
+- `suite.deeptree-nested-hooks.appendMany.x1.redux.on.median`: 3.16
+- `suite.deeptree-nested-hooks.appendMany.x1.redux.off.median`: 3.15
+- `suite.deeptree-nested-hooks.appendMany.x1.store.on.median`: 2.48
+- `suite.deeptree-nested-hooks.appendMany.x1.store.off.median`: 2.39
+- `suite.deeptree-nested-hooks.appendMany.x1.zustand.on.median`: 2.59
+- `suite.deeptree-nested-hooks.appendMany.x1.zustand.off.median`: 2.69
+- `suite.deeptree-nested-hooks.appendRandomCharacter.x1.redux.on.median`: 0.142
+- `suite.deeptree-nested-hooks.appendRandomCharacter.x1.redux.off.median`: 0.140
+- `suite.deeptree-nested-hooks.appendRandomCharacter.x1.store.on.median`: 0.022
+- `suite.deeptree-nested-hooks.appendRandomCharacter.x1.store.off.median`: 0.022
+- `suite.deeptree-nested-hooks.appendRandomCharacter.x1.zustand.on.median`: 0.054
+- `suite.deeptree-nested-hooks.appendRandomCharacter.x1.zustand.off.median`: 0.048
+- `suite.deeptree-nested-hooks.incrementFifth.x1.redux.on.median`: 0.650
+- `suite.deeptree-nested-hooks.incrementFifth.x1.redux.off.median`: 0.640
+- `suite.deeptree-nested-hooks.incrementFifth.x1.store.on.median`: 0.400
+- `suite.deeptree-nested-hooks.incrementFifth.x1.store.off.median`: 0.400
+- `suite.deeptree-nested-hooks.incrementFifth.x1.zustand.on.median`: 0.530
+- `suite.deeptree-nested-hooks.incrementFifth.x1.zustand.off.median`: 0.520
+- `suite.deeptree-nested-hooks.incrementRandom.x1.redux.on.median`: 0.108
+- `suite.deeptree-nested-hooks.incrementRandom.x1.redux.off.median`: 0.104
 - `suite.deeptree-nested-hooks.incrementRandom.x1.store.on.median`: 0.026
-- `suite.deeptree-nested-hooks.incrementRandom.x1.zustand.on.median`: 0.062
-- `suite.deeptree-nested-hooks.incrementThird.x1.redux.on.median`: 1.11
-- `suite.deeptree-nested-hooks.incrementThird.x1.store.on.median`: 0.670
-- `suite.deeptree-nested-hooks.incrementThird.x1.zustand.on.median`: 0.860
-- `suite.deeptree-nested-hooks.mixed.x1.redux.on.median`: 0.270
+- `suite.deeptree-nested-hooks.incrementRandom.x1.store.off.median`: 0.026
+- `suite.deeptree-nested-hooks.incrementRandom.x1.zustand.on.median`: 0.058
+- `suite.deeptree-nested-hooks.incrementRandom.x1.zustand.off.median`: 0.052
+- `suite.deeptree-nested-hooks.incrementThird.x1.redux.on.median`: 1.02
+- `suite.deeptree-nested-hooks.incrementThird.x1.redux.off.median`: 1.00
+- `suite.deeptree-nested-hooks.incrementThird.x1.store.on.median`: 0.660
+- `suite.deeptree-nested-hooks.incrementThird.x1.store.off.median`: 0.650
+- `suite.deeptree-nested-hooks.incrementThird.x1.zustand.on.median`: 0.850
+- `suite.deeptree-nested-hooks.incrementThird.x1.zustand.off.median`: 0.840
+- `suite.deeptree-nested-hooks.mixed.x1.redux.on.median`: 0.300
+- `suite.deeptree-nested-hooks.mixed.x1.redux.off.median`: 0.270
 - `suite.deeptree-nested-hooks.mixed.x1.store.on.median`: 0.115
-- `suite.deeptree-nested-hooks.mixed.x1.zustand.on.median`: 0.180
-- `suite.deeptree-nested-hooks.appendMany.x4.redux.on.median`: 25.1
-- `suite.deeptree-nested-hooks.appendMany.x4.store.on.median`: 7.07
-- `suite.deeptree-nested-hooks.appendMany.x4.zustand.on.median`: 12.9
-- `suite.deeptree-nested-hooks.appendRandomCharacter.x4.redux.on.median`: 0.618
-- `suite.deeptree-nested-hooks.appendRandomCharacter.x4.store.on.median`: 0.116
-- `suite.deeptree-nested-hooks.appendRandomCharacter.x4.zustand.on.median`: 0.230
-- `suite.deeptree-nested-hooks.incrementFifth.x4.redux.on.median`: 2.77
-- `suite.deeptree-nested-hooks.incrementFifth.x4.store.on.median`: 2.23
-- `suite.deeptree-nested-hooks.incrementFifth.x4.zustand.on.median`: 2.28
-- `suite.deeptree-nested-hooks.incrementRandom.x4.redux.on.median`: 0.580
-- `suite.deeptree-nested-hooks.incrementRandom.x4.store.on.median`: 0.130
-- `suite.deeptree-nested-hooks.incrementRandom.x4.zustand.on.median`: 0.252
-- `suite.deeptree-nested-hooks.incrementThird.x4.redux.on.median`: 4.32
-- `suite.deeptree-nested-hooks.incrementThird.x4.store.on.median`: 3.47
-- `suite.deeptree-nested-hooks.incrementThird.x4.zustand.on.median`: 3.85
-- `suite.deeptree-nested-hooks.mixed.x4.redux.on.median`: 1.91
-- `suite.deeptree-nested-hooks.mixed.x4.store.on.median`: 0.650
-- `suite.deeptree-nested-hooks.mixed.x4.zustand.on.median`: 0.885
-- `suite.fairness.details-component.x1.redux.on.median`: 0.300
-- `suite.fairness.details-component.x1.redux.off.median`: 0.293
-- `suite.fairness.details-component.x1.redux-nofreeze.on.median`: 0.300
-- `suite.fairness.details-component.x1.redux-nofreeze.off.median`: 0.293
-- `suite.fairness.details-component.x1.redux-plain.on.median`: 0.300
-- `suite.fairness.details-component.x1.redux-plain.off.median`: 0.314
-- `suite.fairness.details-component.x1.store.on.median`: 0.055
-- `suite.fairness.details-component.x1.store.off.median`: 0.056
-- `suite.fairness.details-component.x1.zustand.on.median`: 0.175
-- `suite.fairness.details-component.x1.zustand.off.median`: 0.164
-- `suite.fairness.details-inline.x1.redux.on.median`: 0.325
-- `suite.fairness.details-inline.x1.redux.off.median`: 0.350
-- `suite.fairness.details-inline.x1.redux-nofreeze.on.median`: 0.333
-- `suite.fairness.details-inline.x1.redux-nofreeze.off.median`: 0.333
-- `suite.fairness.details-inline.x1.redux-plain.on.median`: 0.333
-- `suite.fairness.details-inline.x1.redux-plain.off.median`: 0.342
-- `suite.fairness.details-inline.x1.store.on.median`: 0.059
-- `suite.fairness.details-inline.x1.store.off.median`: 0.070
-- `suite.fairness.details-inline.x1.zustand.on.median`: 0.206
-- `suite.fairness.details-inline.x1.zustand.off.median`: 0.195
-- `suite.fairness.entity.x1.redux.on.median`: 0.487
-- `suite.fairness.entity.x1.redux.off.median`: 0.450
-- `suite.fairness.entity.x1.redux-nofreeze.on.median`: 0.425
-- `suite.fairness.entity.x1.redux-nofreeze.off.median`: 0.380
-- `suite.fairness.entity.x1.redux-plain.on.median`: 0.430
-- `suite.fairness.entity.x1.redux-plain.off.median`: 0.380
-- `suite.fairness.entity.x1.store.on.median`: 0.052
-- `suite.fairness.entity.x1.store.off.median`: 0.057
-- `suite.fairness.entity.x1.zustand.on.median`: 0.283
-- `suite.fairness.entity.x1.zustand.off.median`: 0.258
-- `suite.fairness.filter.x1.redux.on.median`: 1.85
-- `suite.fairness.filter.x1.redux.off.median`: 2.85
-- `suite.fairness.filter.x1.redux-nofreeze.on.median`: 1.73
-- `suite.fairness.filter.x1.redux-nofreeze.off.median`: 2.50
-- `suite.fairness.filter.x1.redux-plain.on.median`: 1.67
-- `suite.fairness.filter.x1.redux-plain.off.median`: 2.55
-- `suite.fairness.filter.x1.store.on.median`: 0.488
-- `suite.fairness.filter.x1.store.off.median`: 1.97
-- `suite.fairness.filter.x1.zustand.on.median`: 0.850
-- `suite.fairness.filter.x1.zustand.off.median`: 1.50
+- `suite.deeptree-nested-hooks.mixed.x1.store.off.median`: 0.115
+- `suite.deeptree-nested-hooks.mixed.x1.zustand.on.median`: 0.170
+- `suite.deeptree-nested-hooks.mixed.x1.zustand.off.median`: 0.160
+- `suite.deeptree-nested-hooks.appendMany.x4.redux.on.median`: 14.3
+- `suite.deeptree-nested-hooks.appendMany.x4.redux.off.median`: 13.8
+- `suite.deeptree-nested-hooks.appendMany.x4.store.on.median`: 5.47
+- `suite.deeptree-nested-hooks.appendMany.x4.store.off.median`: 5.19
+- `suite.deeptree-nested-hooks.appendMany.x4.zustand.on.median`: 8.37
+- `suite.deeptree-nested-hooks.appendMany.x4.zustand.off.median`: 10.1
+- `suite.deeptree-nested-hooks.appendRandomCharacter.x4.redux.on.median`: 0.620
+- `suite.deeptree-nested-hooks.appendRandomCharacter.x4.redux.off.median`: 0.600
+- `suite.deeptree-nested-hooks.appendRandomCharacter.x4.store.on.median`: 0.094
+- `suite.deeptree-nested-hooks.appendRandomCharacter.x4.store.off.median`: 0.094
+- `suite.deeptree-nested-hooks.appendRandomCharacter.x4.zustand.on.median`: 0.222
+- `suite.deeptree-nested-hooks.appendRandomCharacter.x4.zustand.off.median`: 0.206
+- `suite.deeptree-nested-hooks.incrementFifth.x4.redux.on.median`: 2.67
+- `suite.deeptree-nested-hooks.incrementFifth.x4.redux.off.median`: 2.66
+- `suite.deeptree-nested-hooks.incrementFifth.x4.store.on.median`: 1.68
+- `suite.deeptree-nested-hooks.incrementFifth.x4.store.off.median`: 1.67
+- `suite.deeptree-nested-hooks.incrementFifth.x4.zustand.on.median`: 2.15
+- `suite.deeptree-nested-hooks.incrementFifth.x4.zustand.off.median`: 2.11
+- `suite.deeptree-nested-hooks.incrementRandom.x4.redux.on.median`: 0.452
+- `suite.deeptree-nested-hooks.incrementRandom.x4.redux.off.median`: 0.444
+- `suite.deeptree-nested-hooks.incrementRandom.x4.store.on.median`: 0.122
+- `suite.deeptree-nested-hooks.incrementRandom.x4.store.off.median`: 0.120
+- `suite.deeptree-nested-hooks.incrementRandom.x4.zustand.on.median`: 0.238
+- `suite.deeptree-nested-hooks.incrementRandom.x4.zustand.off.median`: 0.218
+- `suite.deeptree-nested-hooks.incrementThird.x4.redux.on.median`: 4.18
+- `suite.deeptree-nested-hooks.incrementThird.x4.redux.off.median`: 4.13
+- `suite.deeptree-nested-hooks.incrementThird.x4.store.on.median`: 2.68
+- `suite.deeptree-nested-hooks.incrementThird.x4.store.off.median`: 2.66
+- `suite.deeptree-nested-hooks.incrementThird.x4.zustand.on.median`: 3.42
+- `suite.deeptree-nested-hooks.incrementThird.x4.zustand.off.median`: 3.33
+- `suite.deeptree-nested-hooks.mixed.x4.redux.on.median`: 1.16
+- `suite.deeptree-nested-hooks.mixed.x4.redux.off.median`: 1.18
+- `suite.deeptree-nested-hooks.mixed.x4.store.on.median`: 0.490
+- `suite.deeptree-nested-hooks.mixed.x4.store.off.median`: 0.485
+- `suite.deeptree-nested-hooks.mixed.x4.zustand.on.median`: 0.700
+- `suite.deeptree-nested-hooks.mixed.x4.zustand.off.median`: 0.780
+- `suite.fairness.details-churn.x1.redux.on.median`: 0.567
+- `suite.fairness.details-churn.x1.redux.off.median`: 0.683
+- `suite.fairness.details-churn.x1.redux-nofreeze.on.median`: 0.567
+- `suite.fairness.details-churn.x1.redux-nofreeze.off.median`: 0.667
+- `suite.fairness.details-churn.x1.redux-plain.on.median`: 0.563
+- `suite.fairness.details-churn.x1.redux-plain.off.median`: 0.650
+- `suite.fairness.details-component.x1.redux.on.median`: 0.264
+- `suite.fairness.details-component.x1.redux.off.median`: 0.244
+- `suite.fairness.details-component.x1.redux-nofreeze.on.median`: 0.250
+- `suite.fairness.details-component.x1.redux-nofreeze.off.median`: 0.244
+- `suite.fairness.details-component.x1.redux-plain.on.median`: 0.250
+- `suite.fairness.details-component.x1.redux-plain.off.median`: 0.244
+- `suite.fairness.details-inline.x1.redux.on.median`: 0.279
+- `suite.fairness.details-inline.x1.redux.off.median`: 0.279
+- `suite.fairness.details-inline.x1.redux-nofreeze.on.median`: 0.269
+- `suite.fairness.details-inline.x1.redux-nofreeze.off.median`: 0.293
+- `suite.fairness.details-inline.x1.redux-plain.on.median`: 0.263
+- `suite.fairness.details-inline.x1.redux-plain.off.median`: 0.271
+- `suite.fairness.entity.x1.redux.on.median`: 0.425
+- `suite.fairness.entity.x1.redux.off.median`: 0.375
+- `suite.fairness.entity.x1.redux-nofreeze.on.median`: 0.370
+- `suite.fairness.entity.x1.redux-nofreeze.off.median`: 0.310
+- `suite.fairness.entity.x1.redux-plain.on.median`: 0.360
+- `suite.fairness.entity.x1.redux-plain.off.median`: 0.300
+- `suite.fairness.filter.x1.redux.on.median`: 1.38
+- `suite.fairness.filter.x1.redux.off.median`: 2.10
+- `suite.fairness.filter.x1.redux-nofreeze.on.median`: 1.45
+- `suite.fairness.filter.x1.redux-nofreeze.off.median`: 2.15
+- `suite.fairness.filter.x1.redux-plain.on.median`: 1.40
+- `suite.fairness.filter.x1.redux-plain.off.median`: 2.00
 - `suite.fairness.selection.x1.redux.on.median`: 0.300
-- `suite.fairness.selection.x1.redux.off.median`: 0.300
-- `suite.fairness.selection.x1.redux-nofreeze.on.median`: 0.307
-- `suite.fairness.selection.x1.redux-nofreeze.off.median`: 0.300
-- `suite.fairness.selection.x1.redux-plain.on.median`: 0.307
-- `suite.fairness.selection.x1.redux-plain.off.median`: 0.300
-- `suite.fairness.selection.x1.store.on.median`: 0.179
-- `suite.fairness.selection.x1.store.off.median`: 1.90
-- `suite.fairness.selection.x1.zustand.on.median`: 0.194
-- `suite.fairness.selection.x1.zustand.off.median`: 0.194
-- `suite.fairness.structure.x1.redux.on.median`: 2.65
-- `suite.fairness.structure.x1.redux.off.median`: 5.20
-- `suite.fairness.structure.x1.redux-nofreeze.on.median`: 2.60
-- `suite.fairness.structure.x1.redux-nofreeze.off.median`: 5.30
-- `suite.fairness.structure.x1.redux-plain.on.median`: 2.45
-- `suite.fairness.structure.x1.redux-plain.off.median`: 5.30
-- `suite.fairness.structure.x1.store.on.median`: 0.217
-- `suite.fairness.structure.x1.store.off.median`: 2.15
-- `suite.fairness.structure.x1.zustand.on.median`: 1.13
-- `suite.fairness.structure.x1.zustand.off.median`: 3.25
-- `suite.fairness.details-component.x4.redux.on.median`: 2.45
-- `suite.fairness.details-component.x4.redux.off.median`: 1.33
-- `suite.fairness.details-component.x4.redux-nofreeze.on.median`: 1.45
-- `suite.fairness.details-component.x4.redux-nofreeze.off.median`: 1.33
-- `suite.fairness.details-component.x4.redux-plain.on.median`: 1.33
-- `suite.fairness.details-component.x4.redux-plain.off.median`: 1.38
-- `suite.fairness.details-component.x4.store.on.median`: 0.250
-- `suite.fairness.details-component.x4.store.off.median`: 0.243
-- `suite.fairness.details-component.x4.zustand.on.median`: 0.925
-- `suite.fairness.details-component.x4.zustand.off.median`: 0.717
-- `suite.fairness.details-inline.x4.redux.on.median`: 1.38
-- `suite.fairness.details-inline.x4.redux.off.median`: 1.75
-- `suite.fairness.details-inline.x4.redux-nofreeze.on.median`: 1.58
-- `suite.fairness.details-inline.x4.redux-nofreeze.off.median`: 1.42
-- `suite.fairness.details-inline.x4.redux-plain.on.median`: 1.55
-- `suite.fairness.details-inline.x4.redux-plain.off.median`: 1.40
-- `suite.fairness.details-inline.x4.store.on.median`: 0.242
-- `suite.fairness.details-inline.x4.store.off.median`: 0.300
-- `suite.fairness.details-inline.x4.zustand.on.median`: 1.05
-- `suite.fairness.details-inline.x4.zustand.off.median`: 0.867
-- `suite.fairness.entity.x4.redux.on.median`: 2.80
-- `suite.fairness.entity.x4.redux.off.median`: 2.55
-- `suite.fairness.entity.x4.redux-nofreeze.on.median`: 2.05
-- `suite.fairness.entity.x4.redux-nofreeze.off.median`: 2.15
-- `suite.fairness.entity.x4.redux-plain.on.median`: 2.65
-- `suite.fairness.entity.x4.redux-plain.off.median`: 3.05
-- `suite.fairness.entity.x4.store.on.median`: 0.225
-- `suite.fairness.entity.x4.store.off.median`: 0.220
-- `suite.fairness.entity.x4.zustand.on.median`: 1.22
-- `suite.fairness.entity.x4.zustand.off.median`: 1.25
-- `suite.fairness.filter.x4.redux.on.median`: 8.10
-- `suite.fairness.filter.x4.redux.off.median`: 13.8
-- `suite.fairness.filter.x4.redux-nofreeze.on.median`: 8.10
-- `suite.fairness.filter.x4.redux-nofreeze.off.median`: 13.3
-- `suite.fairness.filter.x4.redux-plain.on.median`: 10.5
-- `suite.fairness.filter.x4.redux-plain.off.median`: 11.5
-- `suite.fairness.filter.x4.store.on.median`: 1.95
-- `suite.fairness.filter.x4.store.off.median`: 8.90
-- `suite.fairness.filter.x4.zustand.on.median`: 3.70
-- `suite.fairness.filter.x4.zustand.off.median`: 6.60
-- `suite.fairness.selection.x4.redux.on.median`: 1.50
-- `suite.fairness.selection.x4.redux.off.median`: 1.38
-- `suite.fairness.selection.x4.redux-nofreeze.on.median`: 1.60
-- `suite.fairness.selection.x4.redux-nofreeze.off.median`: 2.20
-- `suite.fairness.selection.x4.redux-plain.on.median`: 1.55
-- `suite.fairness.selection.x4.redux-plain.off.median`: 1.67
-- `suite.fairness.selection.x4.store.on.median`: 0.750
-- `suite.fairness.selection.x4.store.off.median`: 7.90
-- `suite.fairness.selection.x4.zustand.on.median`: 0.825
-- `suite.fairness.selection.x4.zustand.off.median`: 0.817
-- `suite.fairness.structure.x4.redux.on.median`: 12.6
-- `suite.fairness.structure.x4.redux.off.median`: 29.1
-- `suite.fairness.structure.x4.redux-nofreeze.on.median`: 15.3
-- `suite.fairness.structure.x4.redux-nofreeze.off.median`: 23.4
-- `suite.fairness.structure.x4.redux-plain.on.median`: 13.5
-- `suite.fairness.structure.x4.redux-plain.off.median`: 26.7
-- `suite.fairness.structure.x4.store.on.median`: 0.875
-- `suite.fairness.structure.x4.store.off.median`: 10.6
-- `suite.fairness.structure.x4.zustand.on.median`: 5.70
-- `suite.fairness.structure.x4.zustand.off.median`: 17.7
+- `suite.fairness.selection.x1.redux.off.median`: 0.257
+- `suite.fairness.selection.x1.redux-nofreeze.on.median`: 0.250
+- `suite.fairness.selection.x1.redux-nofreeze.off.median`: 0.250
+- `suite.fairness.selection.x1.redux-plain.on.median`: 0.250
+- `suite.fairness.selection.x1.redux-plain.off.median`: 0.238
+- `suite.fairness.structure.x1.redux.on.median`: 2.15
+- `suite.fairness.structure.x1.redux.off.median`: 4.70
+- `suite.fairness.structure.x1.redux-nofreeze.on.median`: 1.90
+- `suite.fairness.structure.x1.redux-nofreeze.off.median`: 4.50
+- `suite.fairness.structure.x1.redux-plain.on.median`: 1.90
+- `suite.fairness.structure.x1.redux-plain.off.median`: 4.10
+- `suite.fairness.details-churn.x4.redux.on.median`: 2.70
+- `suite.fairness.details-churn.x4.redux.off.median`: 2.85
+- `suite.fairness.details-churn.x4.redux-nofreeze.on.median`: 2.40
+- `suite.fairness.details-churn.x4.redux-nofreeze.off.median`: 2.85
+- `suite.fairness.details-churn.x4.redux-plain.on.median`: 2.60
+- `suite.fairness.details-churn.x4.redux-plain.off.median`: 2.90
+- `suite.fairness.details-component.x4.redux.on.median`: 1.18
+- `suite.fairness.details-component.x4.redux.off.median`: 1.08
+- `suite.fairness.details-component.x4.redux-nofreeze.on.median`: 1.08
+- `suite.fairness.details-component.x4.redux-nofreeze.off.median`: 1.05
+- `suite.fairness.details-component.x4.redux-plain.on.median`: 1.10
+- `suite.fairness.details-component.x4.redux-plain.off.median`: 1.13
+- `suite.fairness.details-inline.x4.redux.on.median`: 1.15
+- `suite.fairness.details-inline.x4.redux.off.median`: 1.27
+- `suite.fairness.details-inline.x4.redux-nofreeze.on.median`: 1.18
+- `suite.fairness.details-inline.x4.redux-nofreeze.off.median`: 1.17
+- `suite.fairness.details-inline.x4.redux-plain.on.median`: 1.15
+- `suite.fairness.details-inline.x4.redux-plain.off.median`: 1.23
+- `suite.fairness.entity.x4.redux.on.median`: 2.10
+- `suite.fairness.entity.x4.redux.off.median`: 1.85
+- `suite.fairness.entity.x4.redux-nofreeze.on.median`: 1.57
+- `suite.fairness.entity.x4.redux-nofreeze.off.median`: 1.42
+- `suite.fairness.entity.x4.redux-plain.on.median`: 1.63
+- `suite.fairness.entity.x4.redux-plain.off.median`: 1.40
+- `suite.fairness.filter.x4.redux.on.median`: 5.80
+- `suite.fairness.filter.x4.redux.off.median`: 8.70
+- `suite.fairness.filter.x4.redux-nofreeze.on.median`: 5.70
+- `suite.fairness.filter.x4.redux-nofreeze.off.median`: 8.60
+- `suite.fairness.filter.x4.redux-plain.on.median`: 5.90
+- `suite.fairness.filter.x4.redux-plain.off.median`: 8.70
+- `suite.fairness.selection.x4.redux.on.median`: 1.08
+- `suite.fairness.selection.x4.redux.off.median`: 1.10
+- `suite.fairness.selection.x4.redux-nofreeze.on.median`: 1.10
+- `suite.fairness.selection.x4.redux-nofreeze.off.median`: 1.08
+- `suite.fairness.selection.x4.redux-plain.on.median`: 1.05
+- `suite.fairness.selection.x4.redux-plain.off.median`: 1.10
+- `suite.fairness.structure.x4.redux.on.median`: 9.10
+- `suite.fairness.structure.x4.redux.off.median`: 19.6
+- `suite.fairness.structure.x4.redux-nofreeze.on.median`: 8.60
+- `suite.fairness.structure.x4.redux-nofreeze.off.median`: 18.1
+- `suite.fairness.structure.x4.redux-plain.on.median`: 8.20
+- `suite.fairness.structure.x4.redux-plain.off.median`: 21.0
 
 </details>
 
@@ -2315,58 +3180,46 @@ Ported Redux suites and fairness: median ms per update.
 
 Ported Redux suites and fairness: store (or store-memo) + compiler vs the fastest other library at its faster compiler setting.
 
-<details><summary>50 keys</summary>
+<details><summary>38 keys</summary>
 
 - `suite.derived-selectors.comment.x1.store.verdict`: 1.2× slower
 - `suite.derived-selectors.comment.x1.store-memo.verdict`: 1.3× faster
 - `suite.derived-selectors.mixed.x1.store.verdict`: 1.1× slower
-- `suite.derived-selectors.mixed.x1.store-memo.verdict`: 1.4× faster
+- `suite.derived-selectors.mixed.x1.store-memo.verdict`: 1.5× faster
 - `suite.derived-selectors.role.x1.store.verdict`: no work
 - `suite.derived-selectors.role.x1.store-memo.verdict`: no work
-- `suite.derived-selectors.score.x1.store.verdict`: 1.1× slower
-- `suite.derived-selectors.score.x1.store-memo.verdict`: 1.5× faster
-- `suite.derived-selectors.comment.x4.store.verdict`: 1.2× slower
-- `suite.derived-selectors.comment.x4.store-memo.verdict`: 1.4× faster
-- `suite.derived-selectors.mixed.x4.store.verdict`: tie
-- `suite.derived-selectors.mixed.x4.store-memo.verdict`: 1.4× faster
+- `suite.derived-selectors.score.x1.store.verdict`: 1.2× slower
+- `suite.derived-selectors.score.x1.store-memo.verdict`: 1.4× faster
+- `suite.derived-selectors.comment.x4.store.verdict`: 1.4× slower
+- `suite.derived-selectors.comment.x4.store-memo.verdict`: 1.3× faster
+- `suite.derived-selectors.mixed.x4.store.verdict`: 1.2× slower
+- `suite.derived-selectors.mixed.x4.store-memo.verdict`: 1.5× faster
 - `suite.derived-selectors.role.x4.store.verdict`: no work
 - `suite.derived-selectors.role.x4.store-memo.verdict`: no work
-- `suite.derived-selectors.score.x4.store.verdict`: 1.2× slower
+- `suite.derived-selectors.score.x4.store.verdict`: 1.3× slower
 - `suite.derived-selectors.score.x4.store-memo.verdict`: 1.4× faster
 - `suite.rapid-dispatch.listenerCascade.x1.store.verdict`: 1.6× faster
 - `suite.rapid-dispatch.mixed.x1.store.verdict`: 1.7× faster
 - `suite.rapid-dispatch.syncBurst.x1.store.verdict`: 1.7× faster
-- `suite.rapid-dispatch.thunkBurst.x1.store.verdict`: 1.9× faster
-- `suite.rapid-dispatch.listenerCascade.x4.store.verdict`: 1.5× faster
-- `suite.rapid-dispatch.mixed.x4.store.verdict`: 1.6× faster
-- `suite.rapid-dispatch.syncBurst.x4.store.verdict`: 1.7× faster
-- `suite.rapid-dispatch.thunkBurst.x4.store.verdict`: 1.8× faster
-- `suite.many-components-same-slice.increment.x1.store.verdict`: 1.3× faster
-- `suite.many-components-same-slice.increment.x4.store.verdict`: 1.4× faster
+- `suite.rapid-dispatch.thunkBurst.x1.store.verdict`: 1.8× faster
+- `suite.rapid-dispatch.listenerCascade.x4.store.verdict`: 1.6× faster
+- `suite.rapid-dispatch.mixed.x4.store.verdict`: 1.5× faster
+- `suite.rapid-dispatch.syncBurst.x4.store.verdict`: 1.6× faster
+- `suite.rapid-dispatch.thunkBurst.x4.store.verdict`: 1.9× faster
+- `suite.many-components-same-slice.increment.x1.store.verdict`: 1.2× faster
+- `suite.many-components-same-slice.increment.x4.store.verdict`: 1.2× faster
 - `suite.deeptree-nested-hooks.appendMany.x1.store.verdict`: tie
-- `suite.deeptree-nested-hooks.appendRandomCharacter.x1.store.verdict`: 2.0× faster
+- `suite.deeptree-nested-hooks.appendRandomCharacter.x1.store.verdict`: 2.2× faster
 - `suite.deeptree-nested-hooks.incrementFifth.x1.store.verdict`: 1.3× faster
-- `suite.deeptree-nested-hooks.incrementRandom.x1.store.verdict`: 2.3× faster
+- `suite.deeptree-nested-hooks.incrementRandom.x1.store.verdict`: 1.9× faster
 - `suite.deeptree-nested-hooks.incrementThird.x1.store.verdict`: 1.3× faster
-- `suite.deeptree-nested-hooks.mixed.x1.store.verdict`: 1.6× faster
-- `suite.deeptree-nested-hooks.appendMany.x4.store.verdict`: 1.7× faster
-- `suite.deeptree-nested-hooks.appendRandomCharacter.x4.store.verdict`: 2.0× faster
-- `suite.deeptree-nested-hooks.incrementFifth.x4.store.verdict`: tie
-- `suite.deeptree-nested-hooks.incrementRandom.x4.store.verdict`: 2.0× faster
+- `suite.deeptree-nested-hooks.mixed.x1.store.verdict`: 1.4× faster
+- `suite.deeptree-nested-hooks.appendMany.x4.store.verdict`: 1.4× faster
+- `suite.deeptree-nested-hooks.appendRandomCharacter.x4.store.verdict`: 2.2× faster
+- `suite.deeptree-nested-hooks.incrementFifth.x4.store.verdict`: 1.3× faster
+- `suite.deeptree-nested-hooks.incrementRandom.x4.store.verdict`: 1.8× faster
 - `suite.deeptree-nested-hooks.incrementThird.x4.store.verdict`: 1.2× faster
-- `suite.deeptree-nested-hooks.mixed.x4.store.verdict`: 1.2× faster
-- `suite.fairness.details-component.x1.store.verdict`: 3.0× faster
-- `suite.fairness.details-inline.x1.store.verdict`: 3.4× faster
-- `suite.fairness.entity.x1.store.verdict`: 4.9× faster
-- `suite.fairness.filter.x1.store.verdict`: 1.8× faster
-- `suite.fairness.selection.x1.store.verdict`: 1.1× faster
-- `suite.fairness.structure.x1.store.verdict`: 5.2× faster
-- `suite.fairness.details-component.x4.store.verdict`: 2.9× faster
-- `suite.fairness.details-inline.x4.store.verdict`: 3.6× faster
-- `suite.fairness.entity.x4.store.verdict`: 5.4× faster
-- `suite.fairness.filter.x4.store.verdict`: 2.3× faster
-- `suite.fairness.selection.x4.store.verdict`: 1.1× faster
-- `suite.fairness.structure.x4.store.verdict`: 6.8× faster
+- `suite.deeptree-nested-hooks.mixed.x4.store.verdict`: 1.4× faster
 
 </details>
 
@@ -2378,30 +3231,27 @@ Suite: configurations store (or store-memo) won.
 - `suite.derived-selectors.tally.store-memo.wins`: 6
 - `suite.rapid-dispatch.tally.store.wins`: 8
 - `suite.many-components-same-slice.tally.store.wins`: 2
-- `suite.deeptree-nested-hooks.tally.store.wins`: 10
-- `suite.fairness.tally.store.wins`: 12
+- `suite.deeptree-nested-hooks.tally.store.wins`: 11
 
 ### `suite.<suite>.tally.<left>.ties`
 
 Suite: ties.
 
-- `suite.derived-selectors.tally.store.ties`: 1
+- `suite.derived-selectors.tally.store.ties`: 0
 - `suite.derived-selectors.tally.store-memo.ties`: 0
 - `suite.rapid-dispatch.tally.store.ties`: 0
 - `suite.many-components-same-slice.tally.store.ties`: 0
-- `suite.deeptree-nested-hooks.tally.store.ties`: 2
-- `suite.fairness.tally.store.ties`: 0
+- `suite.deeptree-nested-hooks.tally.store.ties`: 1
 
 ### `suite.<suite>.tally.<left>.losses`
 
 Suite: losses.
 
-- `suite.derived-selectors.tally.store.losses`: 5
+- `suite.derived-selectors.tally.store.losses`: 6
 - `suite.derived-selectors.tally.store-memo.losses`: 0
 - `suite.rapid-dispatch.tally.store.losses`: 0
 - `suite.many-components-same-slice.tally.store.losses`: 0
 - `suite.deeptree-nested-hooks.tally.store.losses`: 0
-- `suite.fairness.tally.store.losses`: 0
 
 ### `suite.<suite>.tally.<left>.total`
 
@@ -2412,313 +3262,215 @@ Suite: configurations compared.
 - `suite.rapid-dispatch.tally.store.total`: 8
 - `suite.many-components-same-slice.tally.store.total`: 2
 - `suite.deeptree-nested-hooks.tally.store.total`: 12
-- `suite.fairness.tally.store.total`: 12
 
 ### `suite.<suite>.tally.<left>.range`
 
 Suite: range of speedups as text.
 
-- `suite.derived-selectors.tally.store.range`: up to 1.2× slower (1 tie, 5 slower), and 2 with no work
+- `suite.derived-selectors.tally.store.range`: 1.1–1.4× slower, and 2 with no work
 - `suite.derived-selectors.tally.store-memo.range`: 1.3–1.5× faster, and 2 with no work
 - `suite.rapid-dispatch.tally.store.range`: 1.5–1.9× faster
-- `suite.many-components-same-slice.tally.store.range`: 1.3–1.4× faster
-- `suite.deeptree-nested-hooks.tally.store.range`: up to 2.3× faster (10 faster, 2 tie)
-- `suite.fairness.tally.store.range`: 1.1–6.8× faster
+- `suite.many-components-same-slice.tally.store.range`: 1.2–1.2× faster
+- `suite.deeptree-nested-hooks.tally.store.range`: up to 2.2× faster (11 faster, 1 tie)
 
 ### `spike.<family>.k<k>.x<throttle>.<variant>.median`
 
 Shared derived data spike: median ms per update with K readers per category (compiler on).
 
-<details><summary>288 keys</summary>
+<details><summary>192 keys</summary>
 
-- `spike.comment.k5.x1.redux.median`: 0.630
-- `spike.comment.k5.x1.store.median`: 0.590
-- `spike.comment.k5.x1.store-cache-render.median`: 0.390
-- `spike.comment.k5.x1.store-derived.median`: 0.380
-- `spike.comment.k5.x1.store-reselect.median`: 0.400
-- `spike.comment.k5.x1.store-derived-lazy.median`: 0.400
-- `spike.comment.k5.x1.store-compiled-shared.median`: 0.400
-- `spike.comment.k5.x1.store-memo.median`: 0.390
-- `spike.comment.k5.x1.store-compiled.median`: 0.600
-- `spike.comment.k5.x1.zustand.median`: 0.750
-- `spike.comment.k5.x1.store-compiled-shared-site.median`: 0.400
-- `spike.comment.k5.x1.store-cache-gen.median`: 0.400
-- `spike.comment.k50.x1.redux.median`: 0.820
-- `spike.comment.k50.x1.store.median`: 3.50
-- `spike.comment.k50.x1.store-cache-render.median`: 0.610
+- `spike.comment.k50.x1.store-cache-render.median`: 0.590
+- `spike.comment.k50.x1.store-compiled-shared.median`: 0.450
 - `spike.comment.k50.x1.store-derived.median`: 0.540
-- `spike.comment.k50.x1.store-reselect.median`: 0.610
-- `spike.comment.k50.x1.store-derived-lazy.median`: 0.580
-- `spike.comment.k50.x1.store-compiled-shared.median`: 0.490
-- `spike.comment.k50.x1.store-memo.median`: 0.600
-- `spike.comment.k50.x1.store-compiled.median`: 3.49
-- `spike.comment.k50.x1.zustand.median`: 4.42
-- `spike.comment.k50.x1.store-compiled-shared-site.median`: 0.480
+- `spike.comment.k50.x1.store.median`: 3.46
 - `spike.comment.k50.x1.store-cache-gen.median`: 0.580
-- `spike.comment.k20.x1.redux.median`: 0.700
-- `spike.comment.k20.x1.store.median`: 1.56
-- `spike.comment.k20.x1.store-cache-render.median`: 0.430
-- `spike.comment.k20.x1.store-derived.median`: 0.420
-- `spike.comment.k20.x1.store-reselect.median`: 0.410
-- `spike.comment.k20.x1.store-derived-lazy.median`: 0.430
+- `spike.comment.k50.x1.zustand.median`: 4.37
+- `spike.comment.k50.x1.store-reselect.median`: 0.590
+- `spike.comment.k50.x1.redux.median`: 0.780
+- `spike.comment.k50.x1.store-derived-lazy.median`: 0.580
+- `spike.comment.k50.x1.store-compiled.median`: 3.39
+- `spike.comment.k50.x1.store-compiled-shared-site.median`: 0.450
+- `spike.comment.k50.x1.store-memo.median`: 0.590
+- `spike.comment.k20.x1.store-cache-render.median`: 0.410
 - `spike.comment.k20.x1.store-compiled-shared.median`: 0.420
-- `spike.comment.k20.x1.store-memo.median`: 0.430
-- `spike.comment.k20.x1.store-compiled.median`: 1.58
-- `spike.comment.k20.x1.zustand.median`: 2.02
+- `spike.comment.k20.x1.store-derived.median`: 0.390
+- `spike.comment.k20.x1.store.median`: 1.51
+- `spike.comment.k20.x1.store-cache-gen.median`: 0.410
+- `spike.comment.k20.x1.zustand.median`: 1.93
+- `spike.comment.k20.x1.store-reselect.median`: 0.420
+- `spike.comment.k20.x1.redux.median`: 0.660
+- `spike.comment.k20.x1.store-derived-lazy.median`: 0.400
+- `spike.comment.k20.x1.store-compiled.median`: 1.51
 - `spike.comment.k20.x1.store-compiled-shared-site.median`: 0.420
-- `spike.comment.k20.x1.store-cache-gen.median`: 0.440
-- `spike.comment.k5.x4.redux.median`: 2.71
-- `spike.comment.k5.x4.store.median`: 2.70
-- `spike.comment.k5.x4.store-cache-render.median`: 1.66
-- `spike.comment.k5.x4.store-derived.median`: 1.68
-- `spike.comment.k5.x4.store-reselect.median`: 1.73
-- `spike.comment.k5.x4.store-derived-lazy.median`: 1.69
-- `spike.comment.k5.x4.store-compiled-shared.median`: 1.70
-- `spike.comment.k5.x4.store-memo.median`: 1.75
-- `spike.comment.k5.x4.store-compiled.median`: 2.76
-- `spike.comment.k5.x4.zustand.median`: 3.11
-- `spike.comment.k5.x4.store-compiled-shared-site.median`: 1.71
-- `spike.comment.k5.x4.store-cache-gen.median`: 1.76
-- `spike.comment.k20.x4.redux.median`: 2.99
-- `spike.comment.k20.x4.store.median`: 6.61
-- `spike.comment.k20.x4.store-cache-render.median`: 1.78
-- `spike.comment.k20.x4.store-derived.median`: 1.78
-- `spike.comment.k20.x4.store-reselect.median`: 1.82
-- `spike.comment.k20.x4.store-derived-lazy.median`: 1.79
-- `spike.comment.k20.x4.store-compiled-shared.median`: 1.91
-- `spike.comment.k20.x4.store-memo.median`: 1.78
-- `spike.comment.k20.x4.store-compiled.median`: 6.94
-- `spike.comment.k20.x4.zustand.median`: 8.81
-- `spike.comment.k20.x4.store-compiled-shared-site.median`: 1.77
-- `spike.comment.k20.x4.store-cache-gen.median`: 1.89
-- `spike.comment.k50.x4.redux.median`: 3.66
-- `spike.comment.k50.x4.store.median`: 15.7
-- `spike.comment.k50.x4.store-cache-render.median`: 2.50
-- `spike.comment.k50.x4.store-derived.median`: 2.41
-- `spike.comment.k50.x4.store-reselect.median`: 2.48
-- `spike.comment.k50.x4.store-derived-lazy.median`: 2.44
-- `spike.comment.k50.x4.store-compiled-shared.median`: 2.03
-- `spike.comment.k50.x4.store-memo.median`: 2.51
-- `spike.comment.k50.x4.store-compiled.median`: 15.6
-- `spike.comment.k50.x4.zustand.median`: 19.4
-- `spike.comment.k50.x4.store-compiled-shared-site.median`: 1.92
-- `spike.comment.k50.x4.store-cache-gen.median`: 2.73
-- `spike.mixed.k20.x1.redux.median`: 0.550
-- `spike.mixed.k20.x1.store.median`: 1.08
-- `spike.mixed.k20.x1.store-cache-render.median`: 0.290
+- `spike.comment.k20.x1.store-memo.median`: 0.400
+- `spike.comment.k20.x4.store-cache-render.median`: 1.67
+- `spike.comment.k20.x4.store-compiled-shared.median`: 1.68
+- `spike.comment.k20.x4.store-derived.median`: 1.67
+- `spike.comment.k20.x4.store.median`: 6.07
+- `spike.comment.k20.x4.store-cache-gen.median`: 1.65
+- `spike.comment.k20.x4.zustand.median`: 7.88
+- `spike.comment.k20.x4.store-reselect.median`: 1.64
+- `spike.comment.k20.x4.redux.median`: 2.72
+- `spike.comment.k20.x4.store-derived-lazy.median`: 1.66
+- `spike.comment.k20.x4.store-compiled.median`: 6.09
+- `spike.comment.k20.x4.store-compiled-shared-site.median`: 1.68
+- `spike.comment.k20.x4.store-memo.median`: 1.63
+- `spike.comment.k50.x4.store-cache-render.median`: 2.33
+- `spike.comment.k50.x4.store-compiled-shared.median`: 1.88
+- `spike.comment.k50.x4.store-derived.median`: 2.21
+- `spike.comment.k50.x4.store.median`: 14.1
+- `spike.comment.k50.x4.store-cache-gen.median`: 2.40
+- `spike.comment.k50.x4.zustand.median`: 18.1
+- `spike.comment.k50.x4.store-reselect.median`: 2.39
+- `spike.comment.k50.x4.redux.median`: 3.25
+- `spike.comment.k50.x4.store-derived-lazy.median`: 2.28
+- `spike.comment.k50.x4.store-compiled.median`: 15.3
+- `spike.comment.k50.x4.store-compiled-shared-site.median`: 1.83
+- `spike.comment.k50.x4.store-memo.median`: 2.40
+- `spike.mixed.k20.x1.store-cache-render.median`: 0.280
+- `spike.mixed.k20.x1.store-compiled-shared.median`: 0.360
 - `spike.mixed.k20.x1.store-derived.median`: 0.320
-- `spike.mixed.k20.x1.store-reselect.median`: 0.350
-- `spike.mixed.k20.x1.store-derived-lazy.median`: 0.350
-- `spike.mixed.k20.x1.store-compiled-shared.median`: 0.390
+- `spike.mixed.k20.x1.store.median`: 1.05
+- `spike.mixed.k20.x1.store-cache-gen.median`: 0.300
+- `spike.mixed.k20.x1.zustand.median`: 1.46
+- `spike.mixed.k20.x1.store-reselect.median`: 0.340
+- `spike.mixed.k20.x1.redux.median`: 0.540
+- `spike.mixed.k20.x1.store-derived-lazy.median`: 0.330
+- `spike.mixed.k20.x1.store-compiled.median`: 1.02
+- `spike.mixed.k20.x1.store-compiled-shared-site.median`: 0.350
 - `spike.mixed.k20.x1.store-memo.median`: 0.350
-- `spike.mixed.k20.x1.store-compiled.median`: 1.04
-- `spike.mixed.k20.x1.zustand.median`: 1.57
-- `spike.mixed.k20.x1.store-compiled-shared-site.median`: 0.360
-- `spike.mixed.k20.x1.store-cache-gen.median`: 0.280
-- `spike.mixed.k5.x1.redux.median`: 0.490
-- `spike.mixed.k5.x1.store.median`: 0.550
-- `spike.mixed.k5.x1.store-cache-render.median`: 0.280
-- `spike.mixed.k5.x1.store-derived.median`: 0.270
-- `spike.mixed.k5.x1.store-reselect.median`: 0.270
-- `spike.mixed.k5.x1.store-derived-lazy.median`: 0.250
-- `spike.mixed.k5.x1.store-compiled-shared.median`: 0.370
-- `spike.mixed.k5.x1.store-memo.median`: 0.270
-- `spike.mixed.k5.x1.store-compiled.median`: 0.510
-- `spike.mixed.k5.x1.zustand.median`: 0.530
-- `spike.mixed.k5.x1.store-compiled-shared-site.median`: 0.340
-- `spike.mixed.k5.x1.store-cache-gen.median`: 0.260
-- `spike.mixed.k50.x1.redux.median`: 0.680
-- `spike.mixed.k50.x1.store.median`: 2.45
-- `spike.mixed.k50.x1.store-cache-render.median`: 0.340
-- `spike.mixed.k50.x1.store-derived.median`: 0.300
-- `spike.mixed.k50.x1.store-reselect.median`: 0.340
-- `spike.mixed.k50.x1.store-derived-lazy.median`: 0.350
-- `spike.mixed.k50.x1.store-compiled-shared.median`: 0.430
-- `spike.mixed.k50.x1.store-memo.median`: 0.340
-- `spike.mixed.k50.x1.store-compiled.median`: 2.63
-- `spike.mixed.k50.x1.zustand.median`: 3.97
+- `spike.mixed.k50.x1.store-cache-render.median`: 0.330
+- `spike.mixed.k50.x1.store-compiled-shared.median`: 0.400
+- `spike.mixed.k50.x1.store-derived.median`: 0.310
+- `spike.mixed.k50.x1.store.median`: 2.36
+- `spike.mixed.k50.x1.store-cache-gen.median`: 0.340
+- `spike.mixed.k50.x1.zustand.median`: 3.45
+- `spike.mixed.k50.x1.store-reselect.median`: 0.330
+- `spike.mixed.k50.x1.redux.median`: 0.670
+- `spike.mixed.k50.x1.store-derived-lazy.median`: 0.320
+- `spike.mixed.k50.x1.store-compiled.median`: 2.38
 - `spike.mixed.k50.x1.store-compiled-shared-site.median`: 0.410
-- `spike.mixed.k50.x1.store-cache-gen.median`: 0.360
-- `spike.mixed.k5.x4.redux.median`: 2.34
-- `spike.mixed.k5.x4.store.median`: 3.04
-- `spike.mixed.k5.x4.store-cache-render.median`: 1.29
-- `spike.mixed.k5.x4.store-derived.median`: 1.14
-- `spike.mixed.k5.x4.store-reselect.median`: 1.14
-- `spike.mixed.k5.x4.store-derived-lazy.median`: 1.16
-- `spike.mixed.k5.x4.store-compiled-shared.median`: 1.49
-- `spike.mixed.k5.x4.store-memo.median`: 1.18
-- `spike.mixed.k5.x4.store-compiled.median`: 2.42
-- `spike.mixed.k5.x4.zustand.median`: 2.31
-- `spike.mixed.k5.x4.store-compiled-shared-site.median`: 1.44
-- `spike.mixed.k5.x4.store-cache-gen.median`: 1.16
-- `spike.mixed.k20.x4.redux.median`: 2.57
-- `spike.mixed.k20.x4.store.median`: 4.61
-- `spike.mixed.k20.x4.store-cache-render.median`: 1.51
-- `spike.mixed.k20.x4.store-derived.median`: 1.33
-- `spike.mixed.k20.x4.store-reselect.median`: 1.56
-- `spike.mixed.k20.x4.store-derived-lazy.median`: 1.47
-- `spike.mixed.k20.x4.store-compiled-shared.median`: 1.62
-- `spike.mixed.k20.x4.store-memo.median`: 1.53
-- `spike.mixed.k20.x4.store-compiled.median`: 4.57
-- `spike.mixed.k20.x4.zustand.median`: 7.20
-- `spike.mixed.k20.x4.store-compiled-shared-site.median`: 1.56
-- `spike.mixed.k20.x4.store-cache-gen.median`: 1.58
-- `spike.mixed.k50.x4.redux.median`: 2.91
-- `spike.mixed.k50.x4.store.median`: 10.8
-- `spike.mixed.k50.x4.store-cache-render.median`: 1.53
-- `spike.mixed.k50.x4.store-derived.median`: 1.40
-- `spike.mixed.k50.x4.store-reselect.median`: 1.53
-- `spike.mixed.k50.x4.store-derived-lazy.median`: 1.53
-- `spike.mixed.k50.x4.store-compiled-shared.median`: 2.02
-- `spike.mixed.k50.x4.store-memo.median`: 1.52
-- `spike.mixed.k50.x4.store-compiled.median`: 11.0
-- `spike.mixed.k50.x4.zustand.median`: 15.8
-- `spike.mixed.k50.x4.store-compiled-shared-site.median`: 1.90
-- `spike.mixed.k50.x4.store-cache-gen.median`: 1.55
-- `spike.role.k50.x1.redux.median`: 0.082
-- `spike.role.k50.x1.store.median`: 0.000
+- `spike.mixed.k50.x1.store-memo.median`: 0.340
+- `spike.mixed.k50.x4.store-cache-render.median`: 1.34
+- `spike.mixed.k50.x4.store-compiled-shared.median`: 1.68
+- `spike.mixed.k50.x4.store-derived.median`: 1.26
+- `spike.mixed.k50.x4.store.median`: 9.74
+- `spike.mixed.k50.x4.store-cache-gen.median`: 1.47
+- `spike.mixed.k50.x4.zustand.median`: 14.1
+- `spike.mixed.k50.x4.store-reselect.median`: 1.37
+- `spike.mixed.k50.x4.redux.median`: 2.70
+- `spike.mixed.k50.x4.store-derived-lazy.median`: 1.31
+- `spike.mixed.k50.x4.store-compiled.median`: 10.1
+- `spike.mixed.k50.x4.store-compiled-shared-site.median`: 1.69
+- `spike.mixed.k50.x4.store-memo.median`: 1.34
+- `spike.mixed.k20.x4.store-cache-render.median`: 1.37
+- `spike.mixed.k20.x4.store-compiled-shared.median`: 1.45
+- `spike.mixed.k20.x4.store-derived.median`: 1.28
+- `spike.mixed.k20.x4.store.median`: 4.18
+- `spike.mixed.k20.x4.store-cache-gen.median`: 1.44
+- `spike.mixed.k20.x4.zustand.median`: 6.06
+- `spike.mixed.k20.x4.store-reselect.median`: 1.40
+- `spike.mixed.k20.x4.redux.median`: 2.19
+- `spike.mixed.k20.x4.store-derived-lazy.median`: 1.40
+- `spike.mixed.k20.x4.store-compiled.median`: 4.16
+- `spike.mixed.k20.x4.store-compiled-shared-site.median`: 1.46
+- `spike.mixed.k20.x4.store-memo.median`: 1.38
 - `spike.role.k50.x1.store-cache-render.median`: 0.000
-- `spike.role.k50.x1.store-derived.median`: 0.000
-- `spike.role.k50.x1.store-reselect.median`: 0.000
-- `spike.role.k50.x1.store-derived-lazy.median`: 0.000
 - `spike.role.k50.x1.store-compiled-shared.median`: 0.000
-- `spike.role.k50.x1.store-memo.median`: 0.000
-- `spike.role.k50.x1.store-compiled.median`: 0.000
-- `spike.role.k50.x1.zustand.median`: 2.44
-- `spike.role.k50.x1.store-compiled-shared-site.median`: 0.000
+- `spike.role.k50.x1.store-derived.median`: 0.000
+- `spike.role.k50.x1.store.median`: 0.000
 - `spike.role.k50.x1.store-cache-gen.median`: 0.000
-- `spike.role.k5.x1.redux.median`: 0.056
-- `spike.role.k5.x1.store.median`: 0.000
-- `spike.role.k5.x1.store-cache-render.median`: 0.000
-- `spike.role.k5.x1.store-derived.median`: 0.000
-- `spike.role.k5.x1.store-reselect.median`: 0.000
-- `spike.role.k5.x1.store-derived-lazy.median`: 0.000
-- `spike.role.k5.x1.store-compiled-shared.median`: 0.000
-- `spike.role.k5.x1.store-memo.median`: 0.000
-- `spike.role.k5.x1.store-compiled.median`: 0.000
-- `spike.role.k5.x1.zustand.median`: 0.360
-- `spike.role.k5.x1.store-compiled-shared-site.median`: 0.000
-- `spike.role.k5.x1.store-cache-gen.median`: 0.000
-- `spike.role.k20.x1.redux.median`: 0.066
-- `spike.role.k20.x1.store.median`: 0.000
+- `spike.role.k50.x1.zustand.median`: 2.40
+- `spike.role.k50.x1.store-reselect.median`: 0.000
+- `spike.role.k50.x1.redux.median`: 0.078
+- `spike.role.k50.x1.store-derived-lazy.median`: 0.000
+- `spike.role.k50.x1.store-compiled.median`: 0.000
+- `spike.role.k50.x1.store-compiled-shared-site.median`: 0.000
+- `spike.role.k50.x1.store-memo.median`: 0.000
 - `spike.role.k20.x1.store-cache-render.median`: 0.000
-- `spike.role.k20.x1.store-derived.median`: 0.000
-- `spike.role.k20.x1.store-reselect.median`: 0.000
-- `spike.role.k20.x1.store-derived-lazy.median`: 0.000
 - `spike.role.k20.x1.store-compiled-shared.median`: 0.000
-- `spike.role.k20.x1.store-memo.median`: 0.000
-- `spike.role.k20.x1.store-compiled.median`: 0.000
-- `spike.role.k20.x1.zustand.median`: 1.07
-- `spike.role.k20.x1.store-compiled-shared-site.median`: 0.000
+- `spike.role.k20.x1.store-derived.median`: 0.000
+- `spike.role.k20.x1.store.median`: 0.000
 - `spike.role.k20.x1.store-cache-gen.median`: 0.000
-- `spike.role.k50.x4.redux.median`: 0.334
-- `spike.role.k50.x4.store.median`: 0.000
+- `spike.role.k20.x1.zustand.median`: 1.04
+- `spike.role.k20.x1.store-reselect.median`: 0.000
+- `spike.role.k20.x1.redux.median`: 0.062
+- `spike.role.k20.x1.store-derived-lazy.median`: 0.000
+- `spike.role.k20.x1.store-compiled.median`: 0.000
+- `spike.role.k20.x1.store-compiled-shared-site.median`: 0.000
+- `spike.role.k20.x1.store-memo.median`: 0.000
 - `spike.role.k50.x4.store-cache-render.median`: 0.000
-- `spike.role.k50.x4.store-derived.median`: 0.000
-- `spike.role.k50.x4.store-reselect.median`: 0.000
-- `spike.role.k50.x4.store-derived-lazy.median`: 0.000
 - `spike.role.k50.x4.store-compiled-shared.median`: 0.000
-- `spike.role.k50.x4.store-memo.median`: 0.000
-- `spike.role.k50.x4.store-compiled.median`: 0.000
-- `spike.role.k50.x4.zustand.median`: 10.6
-- `spike.role.k50.x4.store-compiled-shared-site.median`: 0.000
+- `spike.role.k50.x4.store-derived.median`: 0.000
+- `spike.role.k50.x4.store.median`: 0.000
 - `spike.role.k50.x4.store-cache-gen.median`: 0.000
-- `spike.role.k5.x4.redux.median`: 0.228
-- `spike.role.k5.x4.store.median`: 0.000
-- `spike.role.k5.x4.store-cache-render.median`: 0.000
-- `spike.role.k5.x4.store-derived.median`: 0.000
-- `spike.role.k5.x4.store-reselect.median`: 0.000
-- `spike.role.k5.x4.store-derived-lazy.median`: 0.000
-- `spike.role.k5.x4.store-compiled-shared.median`: 0.000
-- `spike.role.k5.x4.store-memo.median`: 0.000
-- `spike.role.k5.x4.store-compiled.median`: 0.000
-- `spike.role.k5.x4.zustand.median`: 1.55
-- `spike.role.k5.x4.store-compiled-shared-site.median`: 0.000
-- `spike.role.k5.x4.store-cache-gen.median`: 0.000
-- `spike.role.k20.x4.redux.median`: 0.266
-- `spike.role.k20.x4.store.median`: 0.000
+- `spike.role.k50.x4.zustand.median`: 9.89
+- `spike.role.k50.x4.store-reselect.median`: 0.000
+- `spike.role.k50.x4.redux.median`: 0.318
+- `spike.role.k50.x4.store-derived-lazy.median`: 0.000
+- `spike.role.k50.x4.store-compiled.median`: 0.000
+- `spike.role.k50.x4.store-compiled-shared-site.median`: 0.000
+- `spike.role.k50.x4.store-memo.median`: 0.000
 - `spike.role.k20.x4.store-cache-render.median`: 0.000
-- `spike.role.k20.x4.store-derived.median`: 0.000
-- `spike.role.k20.x4.store-reselect.median`: 0.000
-- `spike.role.k20.x4.store-derived-lazy.median`: 0.000
 - `spike.role.k20.x4.store-compiled-shared.median`: 0.000
-- `spike.role.k20.x4.store-memo.median`: 0.000
-- `spike.role.k20.x4.store-compiled.median`: 0.000
-- `spike.role.k20.x4.zustand.median`: 4.68
-- `spike.role.k20.x4.store-compiled-shared-site.median`: 0.000
+- `spike.role.k20.x4.store-derived.median`: 0.000
+- `spike.role.k20.x4.store.median`: 0.000
 - `spike.role.k20.x4.store-cache-gen.median`: 0.000
-- `spike.score.k20.x1.redux.median`: 0.460
-- `spike.score.k20.x1.store.median`: 1.02
-- `spike.score.k20.x1.store-cache-render.median`: 0.350
-- `spike.score.k20.x1.store-derived.median`: 0.340
-- `spike.score.k20.x1.store-reselect.median`: 0.350
-- `spike.score.k20.x1.store-derived-lazy.median`: 0.350
-- `spike.score.k20.x1.store-compiled-shared.median`: 0.280
-- `spike.score.k20.x1.store-memo.median`: 0.350
-- `spike.score.k20.x1.store-compiled.median`: 1.06
-- `spike.score.k20.x1.zustand.median`: 1.41
-- `spike.score.k20.x1.store-compiled-shared-site.median`: 0.280
+- `spike.role.k20.x4.zustand.median`: 4.26
+- `spike.role.k20.x4.store-reselect.median`: 0.000
+- `spike.role.k20.x4.redux.median`: 0.262
+- `spike.role.k20.x4.store-derived-lazy.median`: 0.000
+- `spike.role.k20.x4.store-compiled.median`: 0.000
+- `spike.role.k20.x4.store-compiled-shared-site.median`: 0.000
+- `spike.role.k20.x4.store-memo.median`: 0.000
+- `spike.score.k20.x1.store-cache-render.median`: 0.340
+- `spike.score.k20.x1.store-compiled-shared.median`: 0.270
+- `spike.score.k20.x1.store-derived.median`: 0.330
+- `spike.score.k20.x1.store.median`: 1.00
 - `spike.score.k20.x1.store-cache-gen.median`: 0.350
-- `spike.score.k50.x1.redux.median`: 0.610
-- `spike.score.k50.x1.store.median`: 2.48
-- `spike.score.k50.x1.store-cache-render.median`: 0.340
-- `spike.score.k50.x1.store-derived.median`: 0.300
-- `spike.score.k50.x1.store-reselect.median`: 0.350
-- `spike.score.k50.x1.store-derived-lazy.median`: 0.330
+- `spike.score.k20.x1.zustand.median`: 1.34
+- `spike.score.k20.x1.store-reselect.median`: 0.350
+- `spike.score.k20.x1.redux.median`: 0.440
+- `spike.score.k20.x1.store-derived-lazy.median`: 0.340
+- `spike.score.k20.x1.store-compiled.median`: 1.02
+- `spike.score.k20.x1.store-compiled-shared-site.median`: 0.260
+- `spike.score.k20.x1.store-memo.median`: 0.350
+- `spike.score.k50.x1.store-cache-render.median`: 0.330
 - `spike.score.k50.x1.store-compiled-shared.median`: 0.340
+- `spike.score.k50.x1.store-derived.median`: 0.300
+- `spike.score.k50.x1.store.median`: 2.43
+- `spike.score.k50.x1.store-cache-gen.median`: 0.330
+- `spike.score.k50.x1.zustand.median`: 3.12
+- `spike.score.k50.x1.store-reselect.median`: 0.320
+- `spike.score.k50.x1.redux.median`: 0.580
+- `spike.score.k50.x1.store-derived-lazy.median`: 0.310
+- `spike.score.k50.x1.store-compiled.median`: 2.47
+- `spike.score.k50.x1.store-compiled-shared-site.median`: 0.320
 - `spike.score.k50.x1.store-memo.median`: 0.330
-- `spike.score.k50.x1.store-compiled.median`: 2.46
-- `spike.score.k50.x1.zustand.median`: 3.24
-- `spike.score.k50.x1.store-compiled-shared-site.median`: 0.330
-- `spike.score.k50.x1.store-cache-gen.median`: 0.340
-- `spike.score.k5.x1.redux.median`: 0.360
-- `spike.score.k5.x1.store.median`: 0.410
-- `spike.score.k5.x1.store-cache-render.median`: 0.240
-- `spike.score.k5.x1.store-derived.median`: 0.240
-- `spike.score.k5.x1.store-reselect.median`: 0.240
-- `spike.score.k5.x1.store-derived-lazy.median`: 0.230
-- `spike.score.k5.x1.store-compiled-shared.median`: 0.250
-- `spike.score.k5.x1.store-memo.median`: 0.240
-- `spike.score.k5.x1.store-compiled.median`: 0.410
-- `spike.score.k5.x1.zustand.median`: 0.460
-- `spike.score.k5.x1.store-compiled-shared-site.median`: 0.240
-- `spike.score.k5.x1.store-cache-gen.median`: 0.240
-- `spike.score.k50.x4.redux.median`: 2.71
-- `spike.score.k50.x4.store.median`: 11.0
-- `spike.score.k50.x4.store-cache-render.median`: 1.45
-- `spike.score.k50.x4.store-derived.median`: 1.36
-- `spike.score.k50.x4.store-reselect.median`: 1.43
-- `spike.score.k50.x4.store-derived-lazy.median`: 1.44
-- `spike.score.k50.x4.store-compiled-shared.median`: 1.50
-- `spike.score.k50.x4.store-memo.median`: 1.46
-- `spike.score.k50.x4.store-compiled.median`: 11.0
-- `spike.score.k50.x4.zustand.median`: 14.6
-- `spike.score.k50.x4.store-compiled-shared-site.median`: 1.52
-- `spike.score.k50.x4.store-cache-gen.median`: 1.45
-- `spike.score.k5.x4.redux.median`: 1.56
-- `spike.score.k5.x4.store.median`: 1.77
-- `spike.score.k5.x4.store-cache-render.median`: 1.02
-- `spike.score.k5.x4.store-derived.median`: 1.06
-- `spike.score.k5.x4.store-reselect.median`: 1.02
-- `spike.score.k5.x4.store-derived-lazy.median`: 1.02
-- `spike.score.k5.x4.store-compiled-shared.median`: 1.06
-- `spike.score.k5.x4.store-memo.median`: 1.04
-- `spike.score.k5.x4.store-compiled.median`: 1.77
-- `spike.score.k5.x4.zustand.median`: 2.23
-- `spike.score.k5.x4.store-compiled-shared-site.median`: 1.07
-- `spike.score.k5.x4.store-cache-gen.median`: 1.04
-- `spike.score.k20.x4.redux.median`: 1.99
-- `spike.score.k20.x4.store.median`: 4.65
-- `spike.score.k20.x4.store-cache-render.median`: 1.52
-- `spike.score.k20.x4.store-derived.median`: 1.43
-- `spike.score.k20.x4.store-reselect.median`: 1.56
-- `spike.score.k20.x4.store-derived-lazy.median`: 1.45
-- `spike.score.k20.x4.store-compiled-shared.median`: 1.20
-- `spike.score.k20.x4.store-memo.median`: 1.49
-- `spike.score.k20.x4.store-compiled.median`: 4.47
-- `spike.score.k20.x4.zustand.median`: 6.27
-- `spike.score.k20.x4.store-compiled-shared-site.median`: 1.22
-- `spike.score.k20.x4.store-cache-gen.median`: 1.54
+- `spike.score.k50.x4.store-cache-render.median`: 1.32
+- `spike.score.k50.x4.store-compiled-shared.median`: 1.35
+- `spike.score.k50.x4.store-derived.median`: 1.20
+- `spike.score.k50.x4.store.median`: 9.80
+- `spike.score.k50.x4.store-cache-gen.median`: 1.33
+- `spike.score.k50.x4.zustand.median`: 12.9
+- `spike.score.k50.x4.store-reselect.median`: 1.33
+- `spike.score.k50.x4.redux.median`: 2.41
+- `spike.score.k50.x4.store-derived-lazy.median`: 1.31
+- `spike.score.k50.x4.store-compiled.median`: 9.82
+- `spike.score.k50.x4.store-compiled-shared-site.median`: 1.32
+- `spike.score.k50.x4.store-memo.median`: 1.36
+- `spike.score.k20.x4.store-cache-render.median`: 1.42
+- `spike.score.k20.x4.store-compiled-shared.median`: 1.12
+- `spike.score.k20.x4.store-derived.median`: 1.38
+- `spike.score.k20.x4.store.median`: 4.07
+- `spike.score.k20.x4.store-cache-gen.median`: 1.44
+- `spike.score.k20.x4.zustand.median`: 5.53
+- `spike.score.k20.x4.store-reselect.median`: 1.44
+- `spike.score.k20.x4.redux.median`: 1.83
+- `spike.score.k20.x4.store-derived-lazy.median`: 1.42
+- `spike.score.k20.x4.store-compiled.median`: 4.16
+- `spike.score.k20.x4.store-compiled-shared-site.median`: 1.08
+- `spike.score.k20.x4.store-memo.median`: 1.43
 
 </details>
 
@@ -2726,296 +3478,200 @@ Shared derived data spike: median ms per update with K readers per category (com
 
 Spike: ratio of mean time to Redux in the same configuration (below 1 is faster).
 
-<details><summary>288 keys</summary>
+<details><summary>192 keys</summary>
 
-- `spike.comment.k5.x1.redux.vsRedux`: 1.00×
-- `spike.comment.k5.x1.store.vsRedux`: 1.21×
-- `spike.comment.k5.x1.store-cache-render.vsRedux`: 0.66×
-- `spike.comment.k5.x1.store-derived.vsRedux`: 0.64×
-- `spike.comment.k5.x1.store-reselect.vsRedux`: 0.66×
-- `spike.comment.k5.x1.store-derived-lazy.vsRedux`: 0.66×
-- `spike.comment.k5.x1.store-compiled-shared.vsRedux`: 0.66×
-- `spike.comment.k5.x1.store-memo.vsRedux`: 0.65×
-- `spike.comment.k5.x1.store-compiled.vsRedux`: 1.23×
-- `spike.comment.k5.x1.zustand.vsRedux`: 1.51×
-- `spike.comment.k5.x1.store-compiled-shared-site.vsRedux`: 0.66×
-- `spike.comment.k5.x1.store-cache-gen.vsRedux`: 0.67×
-- `spike.comment.k50.x1.redux.vsRedux`: 1.00×
-- `spike.comment.k50.x1.store.vsRedux`: 4.44×
-- `spike.comment.k50.x1.store-cache-render.vsRedux`: 0.72×
-- `spike.comment.k50.x1.store-derived.vsRedux`: 0.67×
-- `spike.comment.k50.x1.store-reselect.vsRedux`: 0.72×
-- `spike.comment.k50.x1.store-derived-lazy.vsRedux`: 0.69×
-- `spike.comment.k50.x1.store-compiled-shared.vsRedux`: 0.61×
-- `spike.comment.k50.x1.store-memo.vsRedux`: 0.71×
-- `spike.comment.k50.x1.store-compiled.vsRedux`: 4.47×
-- `spike.comment.k50.x1.zustand.vsRedux`: 5.49×
-- `spike.comment.k50.x1.store-compiled-shared-site.vsRedux`: 0.60×
+- `spike.comment.k50.x1.store-cache-render.vsRedux`: 0.71×
+- `spike.comment.k50.x1.store-compiled-shared.vsRedux`: 0.59×
+- `spike.comment.k50.x1.store-derived.vsRedux`: 0.68×
+- `spike.comment.k50.x1.store.vsRedux`: 4.49×
 - `spike.comment.k50.x1.store-cache-gen.vsRedux`: 0.71×
+- `spike.comment.k50.x1.zustand.vsRedux`: 5.53×
+- `spike.comment.k50.x1.store-reselect.vsRedux`: 0.72×
+- `spike.comment.k50.x1.redux.vsRedux`: 1.00×
+- `spike.comment.k50.x1.store-derived-lazy.vsRedux`: 0.71×
+- `spike.comment.k50.x1.store-compiled.vsRedux`: 4.48×
+- `spike.comment.k50.x1.store-compiled-shared-site.vsRedux`: 0.59×
+- `spike.comment.k50.x1.store-memo.vsRedux`: 0.71×
+- `spike.comment.k20.x1.store-cache-render.vsRedux`: 0.64×
+- `spike.comment.k20.x1.store-compiled-shared.vsRedux`: 0.64×
+- `spike.comment.k20.x1.store-derived.vsRedux`: 0.61×
+- `spike.comment.k20.x1.store.vsRedux`: 2.37×
+- `spike.comment.k20.x1.store-cache-gen.vsRedux`: 0.64×
+- `spike.comment.k20.x1.zustand.vsRedux`: 3.02×
+- `spike.comment.k20.x1.store-reselect.vsRedux`: 0.68×
 - `spike.comment.k20.x1.redux.vsRedux`: 1.00×
-- `spike.comment.k20.x1.store.vsRedux`: 2.36×
-- `spike.comment.k20.x1.store-cache-render.vsRedux`: 0.63×
-- `spike.comment.k20.x1.store-derived.vsRedux`: 0.62×
-- `spike.comment.k20.x1.store-reselect.vsRedux`: 0.65×
 - `spike.comment.k20.x1.store-derived-lazy.vsRedux`: 0.62×
-- `spike.comment.k20.x1.store-compiled-shared.vsRedux`: 0.63×
-- `spike.comment.k20.x1.store-memo.vsRedux`: 0.70×
-- `spike.comment.k20.x1.store-compiled.vsRedux`: 2.41×
-- `spike.comment.k20.x1.zustand.vsRedux`: 3.03×
-- `spike.comment.k20.x1.store-compiled-shared-site.vsRedux`: 0.62×
-- `spike.comment.k20.x1.store-cache-gen.vsRedux`: 0.65×
-- `spike.comment.k5.x4.redux.vsRedux`: 1.00×
-- `spike.comment.k5.x4.store.vsRedux`: 1.21×
-- `spike.comment.k5.x4.store-cache-render.vsRedux`: 0.63×
-- `spike.comment.k5.x4.store-derived.vsRedux`: 0.64×
-- `spike.comment.k5.x4.store-reselect.vsRedux`: 0.65×
-- `spike.comment.k5.x4.store-derived-lazy.vsRedux`: 0.63×
-- `spike.comment.k5.x4.store-compiled-shared.vsRedux`: 0.66×
-- `spike.comment.k5.x4.store-memo.vsRedux`: 0.66×
-- `spike.comment.k5.x4.store-compiled.vsRedux`: 1.21×
-- `spike.comment.k5.x4.zustand.vsRedux`: 1.44×
-- `spike.comment.k5.x4.store-compiled-shared-site.vsRedux`: 0.65×
-- `spike.comment.k5.x4.store-cache-gen.vsRedux`: 0.65×
-- `spike.comment.k20.x4.redux.vsRedux`: 1.00×
+- `spike.comment.k20.x1.store-compiled.vsRedux`: 2.37×
+- `spike.comment.k20.x1.store-compiled-shared-site.vsRedux`: 0.63×
+- `spike.comment.k20.x1.store-memo.vsRedux`: 0.69×
+- `spike.comment.k20.x4.store-cache-render.vsRedux`: 0.64×
+- `spike.comment.k20.x4.store-compiled-shared.vsRedux`: 0.65×
+- `spike.comment.k20.x4.store-derived.vsRedux`: 0.62×
 - `spike.comment.k20.x4.store.vsRedux`: 2.39×
-- `spike.comment.k20.x4.store-cache-render.vsRedux`: 0.62×
-- `spike.comment.k20.x4.store-derived.vsRedux`: 0.63×
+- `spike.comment.k20.x4.store-cache-gen.vsRedux`: 0.64×
+- `spike.comment.k20.x4.zustand.vsRedux`: 3.06×
 - `spike.comment.k20.x4.store-reselect.vsRedux`: 0.66×
-- `spike.comment.k20.x4.store-derived-lazy.vsRedux`: 0.63×
-- `spike.comment.k20.x4.store-compiled-shared.vsRedux`: 0.67×
-- `spike.comment.k20.x4.store-memo.vsRedux`: 0.67×
-- `spike.comment.k20.x4.store-compiled.vsRedux`: 2.44×
-- `spike.comment.k20.x4.zustand.vsRedux`: 3.03×
-- `spike.comment.k20.x4.store-compiled-shared-site.vsRedux`: 0.62×
-- `spike.comment.k20.x4.store-cache-gen.vsRedux`: 0.66×
+- `spike.comment.k20.x4.redux.vsRedux`: 1.00×
+- `spike.comment.k20.x4.store-derived-lazy.vsRedux`: 0.64×
+- `spike.comment.k20.x4.store-compiled.vsRedux`: 2.40×
+- `spike.comment.k20.x4.store-compiled-shared-site.vsRedux`: 0.66×
+- `spike.comment.k20.x4.store-memo.vsRedux`: 0.68×
+- `spike.comment.k50.x4.store-cache-render.vsRedux`: 0.70×
+- `spike.comment.k50.x4.store-compiled-shared.vsRedux`: 0.61×
+- `spike.comment.k50.x4.store-derived.vsRedux`: 0.68×
+- `spike.comment.k50.x4.store.vsRedux`: 4.35×
+- `spike.comment.k50.x4.store-cache-gen.vsRedux`: 0.72×
+- `spike.comment.k50.x4.zustand.vsRedux`: 5.57×
+- `spike.comment.k50.x4.store-reselect.vsRedux`: 0.72×
 - `spike.comment.k50.x4.redux.vsRedux`: 1.00×
-- `spike.comment.k50.x4.store.vsRedux`: 4.27×
-- `spike.comment.k50.x4.store-cache-render.vsRedux`: 0.69×
-- `spike.comment.k50.x4.store-derived.vsRedux`: 0.66×
-- `spike.comment.k50.x4.store-reselect.vsRedux`: 0.67×
-- `spike.comment.k50.x4.store-derived-lazy.vsRedux`: 0.67×
-- `spike.comment.k50.x4.store-compiled-shared.vsRedux`: 0.58×
-- `spike.comment.k50.x4.store-memo.vsRedux`: 0.68×
-- `spike.comment.k50.x4.store-compiled.vsRedux`: 4.26×
-- `spike.comment.k50.x4.zustand.vsRedux`: 5.32×
-- `spike.comment.k50.x4.store-compiled-shared-site.vsRedux`: 0.56×
-- `spike.comment.k50.x4.store-cache-gen.vsRedux`: 0.73×
-- `spike.mixed.k20.x1.redux.vsRedux`: 1.00×
-- `spike.mixed.k20.x1.store.vsRedux`: 2.20×
+- `spike.comment.k50.x4.store-derived-lazy.vsRedux`: 0.69×
+- `spike.comment.k50.x4.store-compiled.vsRedux`: 4.44×
+- `spike.comment.k50.x4.store-compiled-shared-site.vsRedux`: 0.59×
+- `spike.comment.k50.x4.store-memo.vsRedux`: 0.71×
 - `spike.mixed.k20.x1.store-cache-render.vsRedux`: 0.56×
-- `spike.mixed.k20.x1.store-derived.vsRedux`: 0.57×
+- `spike.mixed.k20.x1.store-compiled-shared.vsRedux`: 0.68×
+- `spike.mixed.k20.x1.store-derived.vsRedux`: 0.60×
+- `spike.mixed.k20.x1.store.vsRedux`: 2.20×
+- `spike.mixed.k20.x1.store-cache-gen.vsRedux`: 0.59×
+- `spike.mixed.k20.x1.zustand.vsRedux`: 3.07×
 - `spike.mixed.k20.x1.store-reselect.vsRedux`: 0.64×
-- `spike.mixed.k20.x1.store-derived-lazy.vsRedux`: 0.64×
-- `spike.mixed.k20.x1.store-compiled-shared.vsRedux`: 0.72×
-- `spike.mixed.k20.x1.store-memo.vsRedux`: 0.65×
+- `spike.mixed.k20.x1.redux.vsRedux`: 1.00×
+- `spike.mixed.k20.x1.store-derived-lazy.vsRedux`: 0.62×
 - `spike.mixed.k20.x1.store-compiled.vsRedux`: 2.11×
-- `spike.mixed.k20.x1.zustand.vsRedux`: 3.14×
-- `spike.mixed.k20.x1.store-compiled-shared-site.vsRedux`: 0.67×
-- `spike.mixed.k20.x1.store-cache-gen.vsRedux`: 0.55×
-- `spike.mixed.k5.x1.redux.vsRedux`: 1.00×
-- `spike.mixed.k5.x1.store.vsRedux`: 1.27×
-- `spike.mixed.k5.x1.store-cache-render.vsRedux`: 0.59×
-- `spike.mixed.k5.x1.store-derived.vsRedux`: 0.57×
-- `spike.mixed.k5.x1.store-reselect.vsRedux`: 0.57×
-- `spike.mixed.k5.x1.store-derived-lazy.vsRedux`: 0.54×
-- `spike.mixed.k5.x1.store-compiled-shared.vsRedux`: 0.73×
-- `spike.mixed.k5.x1.store-memo.vsRedux`: 0.56×
-- `spike.mixed.k5.x1.store-compiled.vsRedux`: 1.18×
-- `spike.mixed.k5.x1.zustand.vsRedux`: 1.61×
-- `spike.mixed.k5.x1.store-compiled-shared-site.vsRedux`: 0.67×
-- `spike.mixed.k5.x1.store-cache-gen.vsRedux`: 0.56×
-- `spike.mixed.k50.x1.redux.vsRedux`: 1.00×
-- `spike.mixed.k50.x1.store.vsRedux`: 3.74×
-- `spike.mixed.k50.x1.store-cache-render.vsRedux`: 0.52×
-- `spike.mixed.k50.x1.store-derived.vsRedux`: 0.46×
+- `spike.mixed.k20.x1.store-compiled-shared-site.vsRedux`: 0.66×
+- `spike.mixed.k20.x1.store-memo.vsRedux`: 0.66×
+- `spike.mixed.k50.x1.store-cache-render.vsRedux`: 0.51×
+- `spike.mixed.k50.x1.store-compiled-shared.vsRedux`: 0.60×
+- `spike.mixed.k50.x1.store-derived.vsRedux`: 0.48×
+- `spike.mixed.k50.x1.store.vsRedux`: 3.60×
+- `spike.mixed.k50.x1.store-cache-gen.vsRedux`: 0.53×
+- `spike.mixed.k50.x1.zustand.vsRedux`: 5.24×
 - `spike.mixed.k50.x1.store-reselect.vsRedux`: 0.51×
-- `spike.mixed.k50.x1.store-derived-lazy.vsRedux`: 0.54×
-- `spike.mixed.k50.x1.store-compiled-shared.vsRedux`: 0.62×
-- `spike.mixed.k50.x1.store-memo.vsRedux`: 0.52×
-- `spike.mixed.k50.x1.store-compiled.vsRedux`: 3.99×
-- `spike.mixed.k50.x1.zustand.vsRedux`: 5.84×
-- `spike.mixed.k50.x1.store-compiled-shared-site.vsRedux`: 0.60×
-- `spike.mixed.k50.x1.store-cache-gen.vsRedux`: 0.55×
-- `spike.mixed.k5.x4.redux.vsRedux`: 1.00×
-- `spike.mixed.k5.x4.store.vsRedux`: 1.20×
-- `spike.mixed.k5.x4.store-cache-render.vsRedux`: 0.56×
-- `spike.mixed.k5.x4.store-derived.vsRedux`: 0.51×
-- `spike.mixed.k5.x4.store-reselect.vsRedux`: 0.52×
-- `spike.mixed.k5.x4.store-derived-lazy.vsRedux`: 0.53×
-- `spike.mixed.k5.x4.store-compiled-shared.vsRedux`: 0.64×
-- `spike.mixed.k5.x4.store-memo.vsRedux`: 0.53×
-- `spike.mixed.k5.x4.store-compiled.vsRedux`: 1.14×
-- `spike.mixed.k5.x4.zustand.vsRedux`: 1.45×
-- `spike.mixed.k5.x4.store-compiled-shared-site.vsRedux`: 0.61×
-- `spike.mixed.k5.x4.store-cache-gen.vsRedux`: 0.53×
-- `spike.mixed.k20.x4.redux.vsRedux`: 1.00×
-- `spike.mixed.k20.x4.store.vsRedux`: 1.93×
-- `spike.mixed.k20.x4.store-cache-render.vsRedux`: 0.57×
-- `spike.mixed.k20.x4.store-derived.vsRedux`: 0.50×
-- `spike.mixed.k20.x4.store-reselect.vsRedux`: 0.59×
-- `spike.mixed.k20.x4.store-derived-lazy.vsRedux`: 0.54×
-- `spike.mixed.k20.x4.store-compiled-shared.vsRedux`: 0.61×
-- `spike.mixed.k20.x4.store-memo.vsRedux`: 0.57×
-- `spike.mixed.k20.x4.store-compiled.vsRedux`: 1.88×
-- `spike.mixed.k20.x4.zustand.vsRedux`: 2.92×
-- `spike.mixed.k20.x4.store-compiled-shared-site.vsRedux`: 0.59×
-- `spike.mixed.k20.x4.store-cache-gen.vsRedux`: 0.60×
-- `spike.mixed.k50.x4.redux.vsRedux`: 1.00×
-- `spike.mixed.k50.x4.store.vsRedux`: 3.74×
-- `spike.mixed.k50.x4.store-cache-render.vsRedux`: 0.54×
-- `spike.mixed.k50.x4.store-derived.vsRedux`: 0.49×
+- `spike.mixed.k50.x1.redux.vsRedux`: 1.00×
+- `spike.mixed.k50.x1.store-derived-lazy.vsRedux`: 0.51×
+- `spike.mixed.k50.x1.store-compiled.vsRedux`: 3.62×
+- `spike.mixed.k50.x1.store-compiled-shared-site.vsRedux`: 0.61×
+- `spike.mixed.k50.x1.store-memo.vsRedux`: 0.53×
+- `spike.mixed.k50.x4.store-cache-render.vsRedux`: 0.52×
+- `spike.mixed.k50.x4.store-compiled-shared.vsRedux`: 0.62×
+- `spike.mixed.k50.x4.store-derived.vsRedux`: 0.48×
+- `spike.mixed.k50.x4.store.vsRedux`: 3.69×
+- `spike.mixed.k50.x4.store-cache-gen.vsRedux`: 0.57×
+- `spike.mixed.k50.x4.zustand.vsRedux`: 5.29×
 - `spike.mixed.k50.x4.store-reselect.vsRedux`: 0.53×
-- `spike.mixed.k50.x4.store-derived-lazy.vsRedux`: 0.55×
-- `spike.mixed.k50.x4.store-compiled-shared.vsRedux`: 0.69×
-- `spike.mixed.k50.x4.store-memo.vsRedux`: 0.54×
-- `spike.mixed.k50.x4.store-compiled.vsRedux`: 3.80×
-- `spike.mixed.k50.x4.zustand.vsRedux`: 5.45×
-- `spike.mixed.k50.x4.store-compiled-shared-site.vsRedux`: 0.65×
-- `spike.mixed.k50.x4.store-cache-gen.vsRedux`: 0.56×
+- `spike.mixed.k50.x4.redux.vsRedux`: 1.00×
+- `spike.mixed.k50.x4.store-derived-lazy.vsRedux`: 0.51×
+- `spike.mixed.k50.x4.store-compiled.vsRedux`: 3.87×
+- `spike.mixed.k50.x4.store-compiled-shared-site.vsRedux`: 0.63×
+- `spike.mixed.k50.x4.store-memo.vsRedux`: 0.53×
+- `spike.mixed.k20.x4.store-cache-render.vsRedux`: 0.64×
+- `spike.mixed.k20.x4.store-compiled-shared.vsRedux`: 0.67×
+- `spike.mixed.k20.x4.store-derived.vsRedux`: 0.59×
+- `spike.mixed.k20.x4.store.vsRedux`: 2.10×
+- `spike.mixed.k20.x4.store-cache-gen.vsRedux`: 0.65×
+- `spike.mixed.k20.x4.zustand.vsRedux`: 3.08×
+- `spike.mixed.k20.x4.store-reselect.vsRedux`: 0.65×
+- `spike.mixed.k20.x4.redux.vsRedux`: 1.00×
+- `spike.mixed.k20.x4.store-derived-lazy.vsRedux`: 0.64×
+- `spike.mixed.k20.x4.store-compiled.vsRedux`: 2.10×
+- `spike.mixed.k20.x4.store-compiled-shared-site.vsRedux`: 0.67×
+- `spike.mixed.k20.x4.store-memo.vsRedux`: 0.63×
+- `spike.role.k50.x1.store-cache-render.vsRedux`: 0.01×
+- `spike.role.k50.x1.store-compiled-shared.vsRedux`: 0.01×
+- `spike.role.k50.x1.store-derived.vsRedux`: 0.01×
+- `spike.role.k50.x1.store.vsRedux`: 0.01×
+- `spike.role.k50.x1.store-cache-gen.vsRedux`: 0.01×
+- `spike.role.k50.x1.zustand.vsRedux`: 30.81×
+- `spike.role.k50.x1.store-reselect.vsRedux`: 0.01×
 - `spike.role.k50.x1.redux.vsRedux`: 1.00×
-- `spike.role.k50.x1.store.vsRedux`: 0.00×
-- `spike.role.k50.x1.store-cache-render.vsRedux`: 0.00×
-- `spike.role.k50.x1.store-derived.vsRedux`: 0.00×
-- `spike.role.k50.x1.store-reselect.vsRedux`: 0.00×
-- `spike.role.k50.x1.store-derived-lazy.vsRedux`: 0.00×
-- `spike.role.k50.x1.store-compiled-shared.vsRedux`: 0.00×
-- `spike.role.k50.x1.store-memo.vsRedux`: 0.00×
-- `spike.role.k50.x1.store-compiled.vsRedux`: 0.00×
-- `spike.role.k50.x1.zustand.vsRedux`: 28.96×
-- `spike.role.k50.x1.store-compiled-shared-site.vsRedux`: 0.00×
-- `spike.role.k50.x1.store-cache-gen.vsRedux`: 0.00×
-- `spike.role.k5.x1.redux.vsRedux`: 1.00×
-- `spike.role.k5.x1.store.vsRedux`: 0.01×
-- `spike.role.k5.x1.store-cache-render.vsRedux`: 0.01×
-- `spike.role.k5.x1.store-derived.vsRedux`: 0.01×
-- `spike.role.k5.x1.store-reselect.vsRedux`: 0.01×
-- `spike.role.k5.x1.store-derived-lazy.vsRedux`: 0.01×
-- `spike.role.k5.x1.store-compiled-shared.vsRedux`: 0.01×
-- `spike.role.k5.x1.store-memo.vsRedux`: 0.01×
-- `spike.role.k5.x1.store-compiled.vsRedux`: 0.01×
-- `spike.role.k5.x1.zustand.vsRedux`: 7.04×
-- `spike.role.k5.x1.store-compiled-shared-site.vsRedux`: 0.01×
-- `spike.role.k5.x1.store-cache-gen.vsRedux`: 0.01×
-- `spike.role.k20.x1.redux.vsRedux`: 1.00×
-- `spike.role.k20.x1.store.vsRedux`: 0.01×
+- `spike.role.k50.x1.store-derived-lazy.vsRedux`: 0.01×
+- `spike.role.k50.x1.store-compiled.vsRedux`: 0.01×
+- `spike.role.k50.x1.store-compiled-shared-site.vsRedux`: 0.01×
+- `spike.role.k50.x1.store-memo.vsRedux`: 0.01×
 - `spike.role.k20.x1.store-cache-render.vsRedux`: 0.01×
-- `spike.role.k20.x1.store-derived.vsRedux`: 0.01×
-- `spike.role.k20.x1.store-reselect.vsRedux`: 0.01×
-- `spike.role.k20.x1.store-derived-lazy.vsRedux`: 0.01×
 - `spike.role.k20.x1.store-compiled-shared.vsRedux`: 0.01×
-- `spike.role.k20.x1.store-memo.vsRedux`: 0.01×
-- `spike.role.k20.x1.store-compiled.vsRedux`: 0.01×
-- `spike.role.k20.x1.zustand.vsRedux`: 16.37×
-- `spike.role.k20.x1.store-compiled-shared-site.vsRedux`: 0.01×
+- `spike.role.k20.x1.store-derived.vsRedux`: 0.01×
+- `spike.role.k20.x1.store.vsRedux`: 0.01×
 - `spike.role.k20.x1.store-cache-gen.vsRedux`: 0.01×
-- `spike.role.k50.x4.redux.vsRedux`: 1.00×
-- `spike.role.k50.x4.store.vsRedux`: 0.00×
-- `spike.role.k50.x4.store-cache-render.vsRedux`: 0.00×
+- `spike.role.k20.x1.zustand.vsRedux`: 16.63×
+- `spike.role.k20.x1.store-reselect.vsRedux`: 0.01×
+- `spike.role.k20.x1.redux.vsRedux`: 1.00×
+- `spike.role.k20.x1.store-derived-lazy.vsRedux`: 0.01×
+- `spike.role.k20.x1.store-compiled.vsRedux`: 0.01×
+- `spike.role.k20.x1.store-compiled-shared-site.vsRedux`: 0.01×
+- `spike.role.k20.x1.store-memo.vsRedux`: 0.01×
+- `spike.role.k50.x4.store-cache-render.vsRedux`: 0.01×
+- `spike.role.k50.x4.store-compiled-shared.vsRedux`: 0.01×
 - `spike.role.k50.x4.store-derived.vsRedux`: 0.01×
-- `spike.role.k50.x4.store-reselect.vsRedux`: 0.00×
-- `spike.role.k50.x4.store-derived-lazy.vsRedux`: 0.00×
-- `spike.role.k50.x4.store-compiled-shared.vsRedux`: 0.00×
-- `spike.role.k50.x4.store-memo.vsRedux`: 0.00×
-- `spike.role.k50.x4.store-compiled.vsRedux`: 0.00×
-- `spike.role.k50.x4.zustand.vsRedux`: 31.60×
-- `spike.role.k50.x4.store-compiled-shared-site.vsRedux`: 0.00×
+- `spike.role.k50.x4.store.vsRedux`: 0.01×
 - `spike.role.k50.x4.store-cache-gen.vsRedux`: 0.01×
-- `spike.role.k5.x4.redux.vsRedux`: 1.00×
-- `spike.role.k5.x4.store.vsRedux`: 0.01×
-- `spike.role.k5.x4.store-cache-render.vsRedux`: 0.01×
-- `spike.role.k5.x4.store-derived.vsRedux`: 0.01×
-- `spike.role.k5.x4.store-reselect.vsRedux`: 0.01×
-- `spike.role.k5.x4.store-derived-lazy.vsRedux`: 0.01×
-- `spike.role.k5.x4.store-compiled-shared.vsRedux`: 0.01×
-- `spike.role.k5.x4.store-memo.vsRedux`: 0.01×
-- `spike.role.k5.x4.store-compiled.vsRedux`: 0.01×
-- `spike.role.k5.x4.zustand.vsRedux`: 7.69×
-- `spike.role.k5.x4.store-compiled-shared-site.vsRedux`: 0.01×
-- `spike.role.k5.x4.store-cache-gen.vsRedux`: 0.01×
-- `spike.role.k20.x4.redux.vsRedux`: 1.00×
-- `spike.role.k20.x4.store.vsRedux`: 0.01×
+- `spike.role.k50.x4.zustand.vsRedux`: 31.49×
+- `spike.role.k50.x4.store-reselect.vsRedux`: 0.01×
+- `spike.role.k50.x4.redux.vsRedux`: 1.00×
+- `spike.role.k50.x4.store-derived-lazy.vsRedux`: 0.01×
+- `spike.role.k50.x4.store-compiled.vsRedux`: 0.00×
+- `spike.role.k50.x4.store-compiled-shared-site.vsRedux`: 0.00×
+- `spike.role.k50.x4.store-memo.vsRedux`: 0.01×
 - `spike.role.k20.x4.store-cache-render.vsRedux`: 0.01×
-- `spike.role.k20.x4.store-derived.vsRedux`: 0.01×
-- `spike.role.k20.x4.store-reselect.vsRedux`: 0.01×
-- `spike.role.k20.x4.store-derived-lazy.vsRedux`: 0.01×
 - `spike.role.k20.x4.store-compiled-shared.vsRedux`: 0.01×
-- `spike.role.k20.x4.store-memo.vsRedux`: 0.01×
-- `spike.role.k20.x4.store-compiled.vsRedux`: 0.01×
-- `spike.role.k20.x4.zustand.vsRedux`: 17.93×
-- `spike.role.k20.x4.store-compiled-shared-site.vsRedux`: 0.01×
+- `spike.role.k20.x4.store-derived.vsRedux`: 0.01×
+- `spike.role.k20.x4.store.vsRedux`: 0.01×
 - `spike.role.k20.x4.store-cache-gen.vsRedux`: 0.01×
+- `spike.role.k20.x4.zustand.vsRedux`: 16.75×
+- `spike.role.k20.x4.store-reselect.vsRedux`: 0.01×
+- `spike.role.k20.x4.redux.vsRedux`: 1.00×
+- `spike.role.k20.x4.store-derived-lazy.vsRedux`: 0.01×
+- `spike.role.k20.x4.store-compiled.vsRedux`: 0.01×
+- `spike.role.k20.x4.store-compiled-shared-site.vsRedux`: 0.01×
+- `spike.role.k20.x4.store-memo.vsRedux`: 0.01×
+- `spike.score.k20.x1.store-cache-render.vsRedux`: 0.68×
+- `spike.score.k20.x1.store-compiled-shared.vsRedux`: 0.66×
+- `spike.score.k20.x1.store-derived.vsRedux`: 0.66×
+- `spike.score.k20.x1.store.vsRedux`: 2.45×
+- `spike.score.k20.x1.store-cache-gen.vsRedux`: 0.70×
+- `spike.score.k20.x1.zustand.vsRedux`: 3.30×
+- `spike.score.k20.x1.store-reselect.vsRedux`: 0.71×
 - `spike.score.k20.x1.redux.vsRedux`: 1.00×
-- `spike.score.k20.x1.store.vsRedux`: 2.37×
-- `spike.score.k20.x1.store-cache-render.vsRedux`: 0.67×
-- `spike.score.k20.x1.store-derived.vsRedux`: 0.64×
-- `spike.score.k20.x1.store-reselect.vsRedux`: 0.67×
-- `spike.score.k20.x1.store-derived-lazy.vsRedux`: 0.67×
-- `spike.score.k20.x1.store-compiled-shared.vsRedux`: 0.62×
-- `spike.score.k20.x1.store-memo.vsRedux`: 0.67×
-- `spike.score.k20.x1.store-compiled.vsRedux`: 2.41×
-- `spike.score.k20.x1.zustand.vsRedux`: 3.19×
-- `spike.score.k20.x1.store-compiled-shared-site.vsRedux`: 0.62×
-- `spike.score.k20.x1.store-cache-gen.vsRedux`: 0.67×
+- `spike.score.k20.x1.store-derived-lazy.vsRedux`: 0.68×
+- `spike.score.k20.x1.store-compiled.vsRedux`: 2.48×
+- `spike.score.k20.x1.store-compiled-shared-site.vsRedux`: 0.64×
+- `spike.score.k20.x1.store-memo.vsRedux`: 0.70×
+- `spike.score.k50.x1.store-cache-render.vsRedux`: 0.60×
+- `spike.score.k50.x1.store-compiled-shared.vsRedux`: 0.61×
+- `spike.score.k50.x1.store-derived.vsRedux`: 0.55×
+- `spike.score.k50.x1.store.vsRedux`: 4.06×
+- `spike.score.k50.x1.store-cache-gen.vsRedux`: 0.59×
+- `spike.score.k50.x1.zustand.vsRedux`: 5.28×
+- `spike.score.k50.x1.store-reselect.vsRedux`: 0.57×
 - `spike.score.k50.x1.redux.vsRedux`: 1.00×
-- `spike.score.k50.x1.store.vsRedux`: 4.02×
-- `spike.score.k50.x1.store-cache-render.vsRedux`: 0.58×
-- `spike.score.k50.x1.store-derived.vsRedux`: 0.52×
-- `spike.score.k50.x1.store-reselect.vsRedux`: 0.58×
-- `spike.score.k50.x1.store-derived-lazy.vsRedux`: 0.56×
-- `spike.score.k50.x1.store-compiled-shared.vsRedux`: 0.60×
-- `spike.score.k50.x1.store-memo.vsRedux`: 0.57×
-- `spike.score.k50.x1.store-compiled.vsRedux`: 4.00×
-- `spike.score.k50.x1.zustand.vsRedux`: 5.27×
+- `spike.score.k50.x1.store-derived-lazy.vsRedux`: 0.57×
+- `spike.score.k50.x1.store-compiled.vsRedux`: 4.18×
 - `spike.score.k50.x1.store-compiled-shared-site.vsRedux`: 0.58×
-- `spike.score.k50.x1.store-cache-gen.vsRedux`: 0.58×
-- `spike.score.k5.x1.redux.vsRedux`: 1.00×
-- `spike.score.k5.x1.store.vsRedux`: 1.46×
-- `spike.score.k5.x1.store-cache-render.vsRedux`: 0.68×
-- `spike.score.k5.x1.store-derived.vsRedux`: 0.68×
-- `spike.score.k5.x1.store-reselect.vsRedux`: 0.67×
-- `spike.score.k5.x1.store-derived-lazy.vsRedux`: 0.66×
-- `spike.score.k5.x1.store-compiled-shared.vsRedux`: 0.69×
-- `spike.score.k5.x1.store-memo.vsRedux`: 0.68×
-- `spike.score.k5.x1.store-compiled.vsRedux`: 1.43×
-- `spike.score.k5.x1.zustand.vsRedux`: 1.85×
-- `spike.score.k5.x1.store-compiled-shared-site.vsRedux`: 0.67×
-- `spike.score.k5.x1.store-cache-gen.vsRedux`: 0.68×
+- `spike.score.k50.x1.store-memo.vsRedux`: 0.59×
+- `spike.score.k50.x4.store-cache-render.vsRedux`: 0.58×
+- `spike.score.k50.x4.store-compiled-shared.vsRedux`: 0.60×
+- `spike.score.k50.x4.store-derived.vsRedux`: 0.53×
+- `spike.score.k50.x4.store.vsRedux`: 4.02×
+- `spike.score.k50.x4.store-cache-gen.vsRedux`: 0.58×
+- `spike.score.k50.x4.zustand.vsRedux`: 5.26×
+- `spike.score.k50.x4.store-reselect.vsRedux`: 0.58×
 - `spike.score.k50.x4.redux.vsRedux`: 1.00×
-- `spike.score.k50.x4.store.vsRedux`: 3.98×
-- `spike.score.k50.x4.store-cache-render.vsRedux`: 0.55×
-- `spike.score.k50.x4.store-derived.vsRedux`: 0.51×
-- `spike.score.k50.x4.store-reselect.vsRedux`: 0.55×
-- `spike.score.k50.x4.store-derived-lazy.vsRedux`: 0.54×
-- `spike.score.k50.x4.store-compiled-shared.vsRedux`: 0.58×
-- `spike.score.k50.x4.store-memo.vsRedux`: 0.56×
-- `spike.score.k50.x4.store-compiled.vsRedux`: 3.94×
-- `spike.score.k50.x4.zustand.vsRedux`: 5.20×
-- `spike.score.k50.x4.store-compiled-shared-site.vsRedux`: 0.59×
-- `spike.score.k50.x4.store-cache-gen.vsRedux`: 0.55×
-- `spike.score.k5.x4.redux.vsRedux`: 1.00×
-- `spike.score.k5.x4.store.vsRedux`: 1.42×
-- `spike.score.k5.x4.store-cache-render.vsRedux`: 0.68×
-- `spike.score.k5.x4.store-derived.vsRedux`: 0.68×
-- `spike.score.k5.x4.store-reselect.vsRedux`: 0.66×
-- `spike.score.k5.x4.store-derived-lazy.vsRedux`: 0.68×
-- `spike.score.k5.x4.store-compiled-shared.vsRedux`: 0.70×
-- `spike.score.k5.x4.store-memo.vsRedux`: 0.68×
-- `spike.score.k5.x4.store-compiled.vsRedux`: 1.44×
-- `spike.score.k5.x4.zustand.vsRedux`: 1.94×
-- `spike.score.k5.x4.store-compiled-shared-site.vsRedux`: 0.69×
-- `spike.score.k5.x4.store-cache-gen.vsRedux`: 0.68×
-- `spike.score.k20.x4.redux.vsRedux`: 1.00×
-- `spike.score.k20.x4.store.vsRedux`: 2.50×
+- `spike.score.k50.x4.store-derived-lazy.vsRedux`: 0.56×
+- `spike.score.k50.x4.store-compiled.vsRedux`: 4.02×
+- `spike.score.k50.x4.store-compiled-shared-site.vsRedux`: 0.57×
+- `spike.score.k50.x4.store-memo.vsRedux`: 0.58×
 - `spike.score.k20.x4.store-cache-render.vsRedux`: 0.69×
-- `spike.score.k20.x4.store-derived.vsRedux`: 0.65×
-- `spike.score.k20.x4.store-reselect.vsRedux`: 0.71×
-- `spike.score.k20.x4.store-derived-lazy.vsRedux`: 0.67×
-- `spike.score.k20.x4.store-compiled-shared.vsRedux`: 0.66×
-- `spike.score.k20.x4.store-memo.vsRedux`: 0.69×
-- `spike.score.k20.x4.store-compiled.vsRedux`: 2.41×
-- `spike.score.k20.x4.zustand.vsRedux`: 3.28×
-- `spike.score.k20.x4.store-compiled-shared-site.vsRedux`: 0.63×
+- `spike.score.k20.x4.store-compiled-shared.vsRedux`: 0.65×
+- `spike.score.k20.x4.store-derived.vsRedux`: 0.68×
+- `spike.score.k20.x4.store.vsRedux`: 2.44×
 - `spike.score.k20.x4.store-cache-gen.vsRedux`: 0.70×
+- `spike.score.k20.x4.zustand.vsRedux`: 3.29×
+- `spike.score.k20.x4.store-reselect.vsRedux`: 0.70×
+- `spike.score.k20.x4.redux.vsRedux`: 1.00×
+- `spike.score.k20.x4.store-derived-lazy.vsRedux`: 0.69×
+- `spike.score.k20.x4.store-compiled.vsRedux`: 2.49×
+- `spike.score.k20.x4.store-compiled-shared-site.vsRedux`: 0.64×
+- `spike.score.k20.x4.store-memo.vsRedux`: 0.70×
 
 </details>
 
@@ -3023,78 +3679,54 @@ Spike: ratio of mean time to Redux in the same configuration (below 1 is faster)
 
 Spike: store, store-memo, or the fastest correct sharing variant ("sharing") vs Redux.
 
-<details><summary>72 keys</summary>
+<details><summary>48 keys</summary>
 
-- `spike.comment.k5.x1.store.verdict`: 1.2× slower
-- `spike.comment.k5.x1.store-memo.verdict`: 1.5× faster
-- `spike.comment.k5.x1.sharing.verdict`: 1.5× faster
-- `spike.comment.k50.x1.store.verdict`: 4.4× slower
+- `spike.comment.k50.x1.store.verdict`: 4.5× slower
 - `spike.comment.k50.x1.store-memo.verdict`: 1.4× faster
 - `spike.comment.k50.x1.sharing.verdict`: 1.7× faster
 - `spike.comment.k20.x1.store.verdict`: 2.4× slower
-- `spike.comment.k20.x1.store-memo.verdict`: 1.4× faster
+- `spike.comment.k20.x1.store-memo.verdict`: 1.5× faster
 - `spike.comment.k20.x1.sharing.verdict`: 1.6× faster
-- `spike.comment.k5.x4.store.verdict`: 1.2× slower
-- `spike.comment.k5.x4.store-memo.verdict`: 1.5× faster
-- `spike.comment.k5.x4.sharing.verdict`: 1.6× faster
 - `spike.comment.k20.x4.store.verdict`: 2.4× slower
 - `spike.comment.k20.x4.store-memo.verdict`: 1.5× faster
 - `spike.comment.k20.x4.sharing.verdict`: 1.6× faster
-- `spike.comment.k50.x4.store.verdict`: 4.3× slower
-- `spike.comment.k50.x4.store-memo.verdict`: 1.5× faster
-- `spike.comment.k50.x4.sharing.verdict`: 1.8× faster
+- `spike.comment.k50.x4.store.verdict`: 4.4× slower
+- `spike.comment.k50.x4.store-memo.verdict`: 1.4× faster
+- `spike.comment.k50.x4.sharing.verdict`: 1.7× faster
 - `spike.mixed.k20.x1.store.verdict`: 2.2× slower
 - `spike.mixed.k20.x1.store-memo.verdict`: 1.5× faster
 - `spike.mixed.k20.x1.sharing.verdict`: 1.8× faster
-- `spike.mixed.k5.x1.store.verdict`: 1.3× slower
-- `spike.mixed.k5.x1.store-memo.verdict`: 1.8× faster
-- `spike.mixed.k5.x1.sharing.verdict`: 1.9× faster
-- `spike.mixed.k50.x1.store.verdict`: 3.7× slower
+- `spike.mixed.k50.x1.store.verdict`: 3.6× slower
 - `spike.mixed.k50.x1.store-memo.verdict`: 1.9× faster
-- `spike.mixed.k50.x1.sharing.verdict`: 1.9× faster
-- `spike.mixed.k5.x4.store.verdict`: 1.2× slower
-- `spike.mixed.k5.x4.store-memo.verdict`: 1.9× faster
-- `spike.mixed.k5.x4.sharing.verdict`: 1.9× faster
-- `spike.mixed.k20.x4.store.verdict`: 1.9× slower
-- `spike.mixed.k20.x4.store-memo.verdict`: 1.8× faster
-- `spike.mixed.k20.x4.sharing.verdict`: 1.8× faster
+- `spike.mixed.k50.x1.sharing.verdict`: 2.0× faster
 - `spike.mixed.k50.x4.store.verdict`: 3.7× slower
-- `spike.mixed.k50.x4.store-memo.verdict`: 1.8× faster
-- `spike.mixed.k50.x4.sharing.verdict`: 1.9× faster
+- `spike.mixed.k50.x4.store-memo.verdict`: 1.9× faster
+- `spike.mixed.k50.x4.sharing.verdict`: 2.0× faster
+- `spike.mixed.k20.x4.store.verdict`: 2.1× slower
+- `spike.mixed.k20.x4.store-memo.verdict`: 1.6× faster
+- `spike.mixed.k20.x4.sharing.verdict`: 1.6× faster
 - `spike.role.k50.x1.store.verdict`: no work
 - `spike.role.k50.x1.store-memo.verdict`: no work
 - `spike.role.k50.x1.sharing.verdict`: no work
-- `spike.role.k5.x1.store.verdict`: no work
-- `spike.role.k5.x1.store-memo.verdict`: no work
-- `spike.role.k5.x1.sharing.verdict`: no work
 - `spike.role.k20.x1.store.verdict`: no work
 - `spike.role.k20.x1.store-memo.verdict`: no work
 - `spike.role.k20.x1.sharing.verdict`: no work
 - `spike.role.k50.x4.store.verdict`: no work
 - `spike.role.k50.x4.store-memo.verdict`: no work
 - `spike.role.k50.x4.sharing.verdict`: no work
-- `spike.role.k5.x4.store.verdict`: no work
-- `spike.role.k5.x4.store-memo.verdict`: no work
-- `spike.role.k5.x4.sharing.verdict`: no work
 - `spike.role.k20.x4.store.verdict`: no work
 - `spike.role.k20.x4.store-memo.verdict`: no work
 - `spike.role.k20.x4.sharing.verdict`: no work
-- `spike.score.k20.x1.store.verdict`: 2.4× slower
-- `spike.score.k20.x1.store-memo.verdict`: 1.5× faster
+- `spike.score.k20.x1.store.verdict`: 2.5× slower
+- `spike.score.k20.x1.store-memo.verdict`: 1.4× faster
 - `spike.score.k20.x1.sharing.verdict`: 1.6× faster
-- `spike.score.k50.x1.store.verdict`: 4.0× slower
+- `spike.score.k50.x1.store.verdict`: 4.1× slower
 - `spike.score.k50.x1.store-memo.verdict`: 1.7× faster
 - `spike.score.k50.x1.sharing.verdict`: 1.8× faster
-- `spike.score.k5.x1.store.verdict`: 1.5× slower
-- `spike.score.k5.x1.store-memo.verdict`: 1.5× faster
-- `spike.score.k5.x1.sharing.verdict`: 1.5× faster
 - `spike.score.k50.x4.store.verdict`: 4.0× slower
-- `spike.score.k50.x4.store-memo.verdict`: 1.8× faster
+- `spike.score.k50.x4.store-memo.verdict`: 1.7× faster
 - `spike.score.k50.x4.sharing.verdict`: 1.8× faster
-- `spike.score.k5.x4.store.verdict`: 1.4× slower
-- `spike.score.k5.x4.store-memo.verdict`: 1.5× faster
-- `spike.score.k5.x4.sharing.verdict`: 1.5× faster
-- `spike.score.k20.x4.store.verdict`: 2.5× slower
+- `spike.score.k20.x4.store.verdict`: 2.4× slower
 - `spike.score.k20.x4.store-memo.verdict`: 1.4× faster
 - `spike.score.k20.x4.sharing.verdict`: 1.6× faster
 
@@ -3104,31 +3736,23 @@ Spike: store, store-memo, or the fastest correct sharing variant ("sharing") vs 
 
 Spike: which sharing variant was fastest.
 
-<details><summary>24 keys</summary>
+<details><summary>16 keys</summary>
 
-- `spike.comment.k5.x1.sharing.variant`: store-memo
 - `spike.comment.k50.x1.sharing.variant`: store-compiled-shared-site
 - `spike.comment.k20.x1.sharing.variant`: store-derived-lazy
-- `spike.comment.k5.x4.sharing.variant`: store-derived-lazy
-- `spike.comment.k20.x4.sharing.variant`: store-compiled-shared-site
+- `spike.comment.k20.x4.sharing.variant`: store-cache-gen
 - `spike.comment.k50.x4.sharing.variant`: store-compiled-shared-site
-- `spike.mixed.k20.x1.sharing.variant`: store-cache-gen
-- `spike.mixed.k5.x1.sharing.variant`: store-derived-lazy
-- `spike.mixed.k50.x1.sharing.variant`: store-reselect
-- `spike.mixed.k5.x4.sharing.variant`: store-reselect
-- `spike.mixed.k20.x4.sharing.variant`: store-derived-lazy
-- `spike.mixed.k50.x4.sharing.variant`: store-reselect
-- `spike.role.k50.x1.sharing.variant`: store-cache-gen
-- `spike.role.k5.x1.sharing.variant`: store-cache-render
-- `spike.role.k20.x1.sharing.variant`: store-compiled-shared-site
-- `spike.role.k50.x4.sharing.variant`: store-reselect
-- `spike.role.k5.x4.sharing.variant`: store-cache-render
-- `spike.role.k20.x4.sharing.variant`: store-compiled-shared
-- `spike.score.k20.x1.sharing.variant`: store-compiled-shared
+- `spike.mixed.k20.x1.sharing.variant`: store-cache-render
+- `spike.mixed.k50.x1.sharing.variant`: store-derived-lazy
+- `spike.mixed.k50.x4.sharing.variant`: store-derived-lazy
+- `spike.mixed.k20.x4.sharing.variant`: store-memo
+- `spike.role.k50.x1.sharing.variant`: store-reselect
+- `spike.role.k20.x1.sharing.variant`: store-cache-render
+- `spike.role.k50.x4.sharing.variant`: store-compiled-shared-site
+- `spike.role.k20.x4.sharing.variant`: store-derived-lazy
+- `spike.score.k20.x1.sharing.variant`: store-compiled-shared-site
 - `spike.score.k50.x1.sharing.variant`: store-derived-lazy
-- `spike.score.k5.x1.sharing.variant`: store-derived-lazy
 - `spike.score.k50.x4.sharing.variant`: store-derived-lazy
-- `spike.score.k5.x4.sharing.variant`: store-reselect
 - `spike.score.k20.x4.sharing.variant`: store-compiled-shared-site
 
 </details>
@@ -3138,8 +3762,8 @@ Spike: which sharing variant was fastest.
 Spike, every family, K and throttle: wins vs Redux.
 
 - `spike.tally.store.wins`: 0
-- `spike.tally.store-memo.wins`: 18
-- `spike.tally.sharing.wins`: 18
+- `spike.tally.store-memo.wins`: 12
+- `spike.tally.sharing.wins`: 12
 
 ### `spike.tally.<left>.ties`
 
@@ -3153,7 +3777,7 @@ Spike: ties vs Redux.
 
 Spike: losses vs Redux.
 
-- `spike.tally.store.losses`: 18
+- `spike.tally.store.losses`: 12
 - `spike.tally.store-memo.losses`: 0
 - `spike.tally.sharing.losses`: 0
 
@@ -3161,31 +3785,28 @@ Spike: losses vs Redux.
 
 Spike: configurations compared.
 
-- `spike.tally.store.total`: 18
-- `spike.tally.store-memo.total`: 18
-- `spike.tally.sharing.total`: 18
+- `spike.tally.store.total`: 12
+- `spike.tally.store-memo.total`: 12
+- `spike.tally.sharing.total`: 12
 
 ### `spike.tally.<left>.range`
 
 Spike: range of speedups vs Redux as text.
 
-- `spike.tally.store.range`: 1.2–4.4× slower, and 6 with no work
-- `spike.tally.store-memo.range`: 1.4–1.9× faster, and 6 with no work
-- `spike.tally.sharing.range`: 1.5–1.9× faster, and 6 with no work
+- `spike.tally.store.range`: 2.1–4.5× slower, and 4 with no work
+- `spike.tally.store-memo.range`: 1.4–1.9× faster, and 4 with no work
+- `spike.tally.sharing.range`: 1.6–2.0× faster, and 4 with no work
 
 ### `spike.tally.<left>.k<k>.range`
 
 Spike at one K: range of speedups vs Redux as text.
 
-- `spike.tally.store.k5.range`: 1.2–1.5× slower, and 2 with no work
-- `spike.tally.store.k20.range`: 1.9–2.5× slower, and 2 with no work
-- `spike.tally.store.k50.range`: 3.7–4.4× slower, and 2 with no work
-- `spike.tally.store-memo.k5.range`: 1.5–1.9× faster, and 2 with no work
-- `spike.tally.store-memo.k20.range`: 1.4–1.8× faster, and 2 with no work
+- `spike.tally.store.k20.range`: 2.1–2.5× slower, and 2 with no work
+- `spike.tally.store.k50.range`: 3.6–4.5× slower, and 2 with no work
+- `spike.tally.store-memo.k20.range`: 1.4–1.6× faster, and 2 with no work
 - `spike.tally.store-memo.k50.range`: 1.4–1.9× faster, and 2 with no work
-- `spike.tally.sharing.k5.range`: 1.5–1.9× faster, and 2 with no work
 - `spike.tally.sharing.k20.range`: 1.6–1.8× faster, and 2 with no work
-- `spike.tally.sharing.k50.range`: 1.7–1.9× faster, and 2 with no work
+- `spike.tally.sharing.k50.range`: 1.7–2.0× faster, and 2 with no work
 
 ### `sweep.<scenario>.x<throttle>.<config>.<library>.median`
 
@@ -3193,118 +3814,118 @@ Sweeps (N=1,000): median ms per update. Configs: c100/c90/c75/c50-w8 (% of rows 
 
 <details><summary>112 keys</summary>
 
-- `sweep.entity.x1.c100-w8.store.median`: 0.055
+- `sweep.entity.x1.c100-w8.store.median`: 0.052
 - `sweep.entity.x1.c100-w8.store-keyed.median`: 0.052
-- `sweep.entity.x1.c100-w8.redux.median`: 0.290
-- `sweep.entity.x1.c100-w8.zustand.median`: 0.144
-- `sweep.entity.x1.c90-w8.store.median`: 0.053
-- `sweep.entity.x1.c90-w8.store-keyed.median`: 0.052
-- `sweep.entity.x1.c90-w8.redux.median`: 0.283
-- `sweep.entity.x1.c90-w8.zustand.median`: 0.139
+- `sweep.entity.x1.c100-w8.redux.median`: 0.280
+- `sweep.entity.x1.c100-w8.zustand.median`: 0.139
+- `sweep.entity.x1.c90-w8.store.median`: 0.052
+- `sweep.entity.x1.c90-w8.store-keyed.median`: 0.055
+- `sweep.entity.x1.c90-w8.redux.median`: 0.267
+- `sweep.entity.x1.c90-w8.zustand.median`: 0.130
 - `sweep.entity.x1.c75-w8.store.median`: 0.052
-- `sweep.entity.x1.c75-w8.store-keyed.median`: 0.055
-- `sweep.entity.x1.c75-w8.redux.median`: 0.275
-- `sweep.entity.x1.c75-w8.zustand.median`: 0.145
+- `sweep.entity.x1.c75-w8.store-keyed.median`: 0.052
+- `sweep.entity.x1.c75-w8.redux.median`: 0.267
+- `sweep.entity.x1.c75-w8.zustand.median`: 0.130
 - `sweep.entity.x1.c50-w8.store.median`: 0.052
 - `sweep.entity.x1.c50-w8.store-keyed.median`: 0.052
-- `sweep.entity.x1.c50-w8.redux.median`: 0.267
+- `sweep.entity.x1.c50-w8.redux.median`: 0.260
 - `sweep.entity.x1.c50-w8.zustand.median`: 0.122
 - `sweep.entity.x1.c0-w8.store.median`: 0.052
 - `sweep.entity.x1.c0-w8.store-keyed.median`: 0.052
-- `sweep.entity.x1.c0-w8.redux.median`: 0.242
-- `sweep.entity.x1.c0-w8.zustand.median`: 0.150
-- `sweep.entity.x1.c100-w4.store.median`: 0.052
-- `sweep.entity.x1.c100-w4.store-keyed.median`: 0.052
-- `sweep.entity.x1.c100-w4.redux.median`: 0.275
-- `sweep.entity.x1.c100-w4.zustand.median`: 0.150
-- `sweep.entity.x1.c100-w16.store.median`: 0.055
+- `sweep.entity.x1.c0-w8.redux.median`: 0.250
+- `sweep.entity.x1.c0-w8.zustand.median`: 0.133
+- `sweep.entity.x1.c100-w4.store.median`: 0.050
+- `sweep.entity.x1.c100-w4.store-keyed.median`: 0.050
+- `sweep.entity.x1.c100-w4.redux.median`: 0.270
+- `sweep.entity.x1.c100-w4.zustand.median`: 0.133
+- `sweep.entity.x1.c100-w16.store.median`: 0.053
 - `sweep.entity.x1.c100-w16.store-keyed.median`: 0.055
-- `sweep.entity.x1.c100-w16.redux.median`: 0.290
-- `sweep.entity.x1.c100-w16.zustand.median`: 0.133
-- `sweep.selection.x1.c100-w8.store.median`: 0.150
+- `sweep.entity.x1.c100-w16.redux.median`: 0.283
+- `sweep.entity.x1.c100-w16.zustand.median`: 0.139
+- `sweep.selection.x1.c100-w8.store.median`: 0.144
 - `sweep.selection.x1.c100-w8.store-keyed.median`: 0.052
-- `sweep.selection.x1.c100-w8.redux.median`: 0.183
-- `sweep.selection.x1.c100-w8.zustand.median`: 0.111
-- `sweep.selection.x1.c90-w8.store.median`: 0.360
-- `sweep.selection.x1.c90-w8.store-keyed.median`: 0.058
+- `sweep.selection.x1.c100-w8.redux.median`: 0.170
+- `sweep.selection.x1.c100-w8.zustand.median`: 0.112
+- `sweep.selection.x1.c90-w8.store.median`: 0.350
+- `sweep.selection.x1.c90-w8.store-keyed.median`: 0.055
 - `sweep.selection.x1.c90-w8.redux.median`: 0.172
-- `sweep.selection.x1.c90-w8.zustand.median`: 0.119
-- `sweep.selection.x1.c75-w8.store.median`: 0.667
+- `sweep.selection.x1.c90-w8.zustand.median`: 0.112
+- `sweep.selection.x1.c75-w8.store.median`: 0.633
 - `sweep.selection.x1.c75-w8.store-keyed.median`: 0.055
 - `sweep.selection.x1.c75-w8.redux.median`: 0.178
-- `sweep.selection.x1.c75-w8.zustand.median`: 0.119
+- `sweep.selection.x1.c75-w8.zustand.median`: 0.112
 - `sweep.selection.x1.c50-w8.store.median`: 1.13
 - `sweep.selection.x1.c50-w8.store-keyed.median`: 0.055
-- `sweep.selection.x1.c50-w8.redux.median`: 0.178
-- `sweep.selection.x1.c50-w8.zustand.median`: 0.115
-- `sweep.selection.x1.c0-w8.store.median`: 2.03
-- `sweep.selection.x1.c0-w8.store-keyed.median`: 0.057
-- `sweep.selection.x1.c0-w8.redux.median`: 0.172
-- `sweep.selection.x1.c0-w8.zustand.median`: 0.115
+- `sweep.selection.x1.c50-w8.redux.median`: 0.172
+- `sweep.selection.x1.c50-w8.zustand.median`: 0.112
+- `sweep.selection.x1.c0-w8.store.median`: 2.00
+- `sweep.selection.x1.c0-w8.store-keyed.median`: 0.055
+- `sweep.selection.x1.c0-w8.redux.median`: 0.161
+- `sweep.selection.x1.c0-w8.zustand.median`: 0.107
 - `sweep.selection.x1.c100-w4.store.median`: 0.139
-- `sweep.selection.x1.c100-w4.store-keyed.median`: 0.058
-- `sweep.selection.x1.c100-w4.redux.median`: 0.170
-- `sweep.selection.x1.c100-w4.zustand.median`: 0.108
-- `sweep.selection.x1.c100-w16.store.median`: 0.156
-- `sweep.selection.x1.c100-w16.store-keyed.median`: 0.055
-- `sweep.selection.x1.c100-w16.redux.median`: 0.178
-- `sweep.selection.x1.c100-w16.zustand.median`: 0.111
-- `sweep.entity.x4.c100-w8.store.median`: 0.225
-- `sweep.entity.x4.c100-w8.store-keyed.median`: 0.220
-- `sweep.entity.x4.c100-w8.redux.median`: 1.40
-- `sweep.entity.x4.c100-w8.zustand.median`: 0.625
+- `sweep.selection.x1.c100-w4.store-keyed.median`: 0.053
+- `sweep.selection.x1.c100-w4.redux.median`: 0.167
+- `sweep.selection.x1.c100-w4.zustand.median`: 0.107
+- `sweep.selection.x1.c100-w16.store.median`: 0.162
+- `sweep.selection.x1.c100-w16.store-keyed.median`: 0.057
+- `sweep.selection.x1.c100-w16.redux.median`: 0.172
+- `sweep.selection.x1.c100-w16.zustand.median`: 0.108
+- `sweep.entity.x4.c100-w8.store.median`: 0.230
+- `sweep.entity.x4.c100-w8.store-keyed.median`: 0.230
+- `sweep.entity.x4.c100-w8.redux.median`: 1.22
+- `sweep.entity.x4.c100-w8.zustand.median`: 0.600
 - `sweep.entity.x4.c90-w8.store.median`: 0.225
-- `sweep.entity.x4.c90-w8.store-keyed.median`: 0.233
-- `sweep.entity.x4.c90-w8.redux.median`: 1.60
+- `sweep.entity.x4.c90-w8.store-keyed.median`: 0.217
+- `sweep.entity.x4.c90-w8.redux.median`: 1.25
 - `sweep.entity.x4.c90-w8.zustand.median`: 0.583
-- `sweep.entity.x4.c75-w8.store.median`: 0.240
+- `sweep.entity.x4.c75-w8.store.median`: 0.225
 - `sweep.entity.x4.c75-w8.store-keyed.median`: 0.230
-- `sweep.entity.x4.c75-w8.redux.median`: 1.30
-- `sweep.entity.x4.c75-w8.zustand.median`: 0.600
-- `sweep.entity.x4.c50-w8.store.median`: 0.250
-- `sweep.entity.x4.c50-w8.store-keyed.median`: 0.217
-- `sweep.entity.x4.c50-w8.redux.median`: 1.40
-- `sweep.entity.x4.c50-w8.zustand.median`: 0.600
-- `sweep.entity.x4.c0-w8.store.median`: 0.225
-- `sweep.entity.x4.c0-w8.store-keyed.median`: 0.233
-- `sweep.entity.x4.c0-w8.redux.median`: 1.15
-- `sweep.entity.x4.c0-w8.zustand.median`: 0.600
-- `sweep.entity.x4.c100-w4.store.median`: 0.240
-- `sweep.entity.x4.c100-w4.store-keyed.median`: 0.225
-- `sweep.entity.x4.c100-w4.redux.median`: 1.40
-- `sweep.entity.x4.c100-w4.zustand.median`: 0.633
-- `sweep.entity.x4.c100-w16.store.median`: 0.240
+- `sweep.entity.x4.c75-w8.redux.median`: 1.15
+- `sweep.entity.x4.c75-w8.zustand.median`: 0.567
+- `sweep.entity.x4.c50-w8.store.median`: 0.220
+- `sweep.entity.x4.c50-w8.store-keyed.median`: 0.225
+- `sweep.entity.x4.c50-w8.redux.median`: 1.17
+- `sweep.entity.x4.c50-w8.zustand.median`: 0.567
+- `sweep.entity.x4.c0-w8.store.median`: 0.217
+- `sweep.entity.x4.c0-w8.store-keyed.median`: 0.225
+- `sweep.entity.x4.c0-w8.redux.median`: 1.13
+- `sweep.entity.x4.c0-w8.zustand.median`: 0.567
+- `sweep.entity.x4.c100-w4.store.median`: 0.220
+- `sweep.entity.x4.c100-w4.store-keyed.median`: 0.217
+- `sweep.entity.x4.c100-w4.redux.median`: 1.18
+- `sweep.entity.x4.c100-w4.zustand.median`: 0.600
+- `sweep.entity.x4.c100-w16.store.median`: 0.233
 - `sweep.entity.x4.c100-w16.store-keyed.median`: 0.240
-- `sweep.entity.x4.c100-w16.redux.median`: 1.40
-- `sweep.entity.x4.c100-w16.zustand.median`: 0.617
-- `sweep.selection.x4.c100-w8.store.median`: 0.633
+- `sweep.entity.x4.c100-w16.redux.median`: 1.25
+- `sweep.entity.x4.c100-w16.zustand.median`: 0.600
+- `sweep.selection.x4.c100-w8.store.median`: 0.625
 - `sweep.selection.x4.c100-w8.store-keyed.median`: 0.240
-- `sweep.selection.x4.c100-w8.redux.median`: 0.775
-- `sweep.selection.x4.c100-w8.zustand.median`: 0.517
-- `sweep.selection.x4.c90-w8.store.median`: 1.47
+- `sweep.selection.x4.c100-w8.redux.median`: 0.750
+- `sweep.selection.x4.c100-w8.zustand.median`: 0.450
+- `sweep.selection.x4.c90-w8.store.median`: 1.45
 - `sweep.selection.x4.c90-w8.store-keyed.median`: 0.240
-- `sweep.selection.x4.c90-w8.redux.median`: 0.783
-- `sweep.selection.x4.c90-w8.zustand.median`: 0.488
+- `sweep.selection.x4.c90-w8.redux.median`: 0.733
+- `sweep.selection.x4.c90-w8.zustand.median`: 0.462
 - `sweep.selection.x4.c75-w8.store.median`: 2.70
 - `sweep.selection.x4.c75-w8.store-keyed.median`: 0.240
-- `sweep.selection.x4.c75-w8.redux.median`: 0.783
-- `sweep.selection.x4.c75-w8.zustand.median`: 0.500
-- `sweep.selection.x4.c50-w8.store.median`: 4.70
+- `sweep.selection.x4.c75-w8.redux.median`: 0.767
+- `sweep.selection.x4.c75-w8.zustand.median`: 0.483
+- `sweep.selection.x4.c50-w8.store.median`: 4.60
 - `sweep.selection.x4.c50-w8.store-keyed.median`: 0.240
-- `sweep.selection.x4.c50-w8.redux.median`: 0.783
-- `sweep.selection.x4.c50-w8.zustand.median`: 0.463
-- `sweep.selection.x4.c0-w8.store.median`: 9.70
+- `sweep.selection.x4.c50-w8.redux.median`: 0.750
+- `sweep.selection.x4.c50-w8.zustand.median`: 0.475
+- `sweep.selection.x4.c0-w8.store.median`: 8.40
 - `sweep.selection.x4.c0-w8.store-keyed.median`: 0.250
-- `sweep.selection.x4.c0-w8.redux.median`: 0.750
-- `sweep.selection.x4.c0-w8.zustand.median`: 0.462
+- `sweep.selection.x4.c0-w8.redux.median`: 0.717
+- `sweep.selection.x4.c0-w8.zustand.median`: 0.438
 - `sweep.selection.x4.c100-w4.store.median`: 0.600
 - `sweep.selection.x4.c100-w4.store-keyed.median`: 0.230
-- `sweep.selection.x4.c100-w4.redux.median`: 0.750
+- `sweep.selection.x4.c100-w4.redux.median`: 0.733
 - `sweep.selection.x4.c100-w4.zustand.median`: 0.450
-- `sweep.selection.x4.c100-w16.store.median`: 0.750
+- `sweep.selection.x4.c100-w16.store.median`: 0.700
 - `sweep.selection.x4.c100-w16.store-keyed.median`: 0.250
-- `sweep.selection.x4.c100-w16.redux.median`: 0.767
-- `sweep.selection.x4.c100-w16.zustand.median`: 0.500
+- `sweep.selection.x4.c100-w16.redux.median`: 0.717
+- `sweep.selection.x4.c100-w16.zustand.median`: 0.462
 
 </details>
 
@@ -3314,62 +3935,62 @@ Sweeps: store or store-keyed vs the faster of Redux and Zustand at the same conf
 
 <details><summary>56 keys</summary>
 
-- `sweep.entity.x1.c100-w8.store.verdict`: 2.7× faster
-- `sweep.entity.x1.c100-w8.store-keyed.verdict`: 2.7× faster
-- `sweep.entity.x1.c90-w8.store.verdict`: 2.6× faster
-- `sweep.entity.x1.c90-w8.store-keyed.verdict`: 2.6× faster
-- `sweep.entity.x1.c75-w8.store.verdict`: 2.7× faster
-- `sweep.entity.x1.c75-w8.store-keyed.verdict`: 2.7× faster
+- `sweep.entity.x1.c100-w8.store.verdict`: 2.6× faster
+- `sweep.entity.x1.c100-w8.store-keyed.verdict`: 2.6× faster
+- `sweep.entity.x1.c90-w8.store.verdict`: 2.5× faster
+- `sweep.entity.x1.c90-w8.store-keyed.verdict`: 2.4× faster
+- `sweep.entity.x1.c75-w8.store.verdict`: 2.6× faster
+- `sweep.entity.x1.c75-w8.store-keyed.verdict`: 2.5× faster
 - `sweep.entity.x1.c50-w8.store.verdict`: 2.4× faster
-- `sweep.entity.x1.c50-w8.store-keyed.verdict`: 2.4× faster
-- `sweep.entity.x1.c0-w8.store.verdict`: 2.9× faster
-- `sweep.entity.x1.c0-w8.store-keyed.verdict`: 2.8× faster
-- `sweep.entity.x1.c100-w4.store.verdict`: 2.8× faster
-- `sweep.entity.x1.c100-w4.store-keyed.verdict`: 2.8× faster
-- `sweep.entity.x1.c100-w16.store.verdict`: 2.5× faster
-- `sweep.entity.x1.c100-w16.store-keyed.verdict`: 2.6× faster
+- `sweep.entity.x1.c50-w8.store-keyed.verdict`: 2.3× faster
+- `sweep.entity.x1.c0-w8.store.verdict`: 2.6× faster
+- `sweep.entity.x1.c0-w8.store-keyed.verdict`: 2.6× faster
+- `sweep.entity.x1.c100-w4.store.verdict`: 2.7× faster
+- `sweep.entity.x1.c100-w4.store-keyed.verdict`: 2.7× faster
+- `sweep.entity.x1.c100-w16.store.verdict`: 2.6× faster
+- `sweep.entity.x1.c100-w16.store-keyed.verdict`: 2.5× faster
 - `sweep.selection.x1.c100-w8.store.verdict`: 1.4× slower
 - `sweep.selection.x1.c100-w8.store-keyed.verdict`: 2.1× faster
-- `sweep.selection.x1.c90-w8.store.verdict`: 3.1× slower
+- `sweep.selection.x1.c90-w8.store.verdict`: 3.2× slower
 - `sweep.selection.x1.c90-w8.store-keyed.verdict`: 2.0× faster
-- `sweep.selection.x1.c75-w8.store.verdict`: 5.8× slower
+- `sweep.selection.x1.c75-w8.store.verdict`: 5.6× slower
 - `sweep.selection.x1.c75-w8.store-keyed.verdict`: 2.1× faster
-- `sweep.selection.x1.c50-w8.store.verdict`: 9.7× slower
+- `sweep.selection.x1.c50-w8.store.verdict`: 9.9× slower
 - `sweep.selection.x1.c50-w8.store-keyed.verdict`: 2.1× faster
-- `sweep.selection.x1.c0-w8.store.verdict`: 17.4× slower
-- `sweep.selection.x1.c0-w8.store-keyed.verdict`: 2.1× faster
+- `sweep.selection.x1.c0-w8.store.verdict`: 19.0× slower
+- `sweep.selection.x1.c0-w8.store-keyed.verdict`: 1.9× faster
 - `sweep.selection.x1.c100-w4.store.verdict`: 1.3× slower
-- `sweep.selection.x1.c100-w4.store-keyed.verdict`: 1.9× faster
+- `sweep.selection.x1.c100-w4.store-keyed.verdict`: 2.0× faster
 - `sweep.selection.x1.c100-w16.store.verdict`: 1.5× slower
-- `sweep.selection.x1.c100-w16.store-keyed.verdict`: 2.0× faster
-- `sweep.entity.x4.c100-w8.store.verdict`: 2.9× faster
-- `sweep.entity.x4.c100-w8.store-keyed.verdict`: 2.9× faster
-- `sweep.entity.x4.c90-w8.store.verdict`: 2.7× faster
-- `sweep.entity.x4.c90-w8.store-keyed.verdict`: 2.5× faster
+- `sweep.selection.x1.c100-w16.store-keyed.verdict`: 1.9× faster
+- `sweep.entity.x4.c100-w8.store.verdict`: 2.7× faster
+- `sweep.entity.x4.c100-w8.store-keyed.verdict`: 2.7× faster
+- `sweep.entity.x4.c90-w8.store.verdict`: 2.6× faster
+- `sweep.entity.x4.c90-w8.store-keyed.verdict`: 2.7× faster
 - `sweep.entity.x4.c75-w8.store.verdict`: 2.6× faster
-- `sweep.entity.x4.c75-w8.store-keyed.verdict`: 2.7× faster
+- `sweep.entity.x4.c75-w8.store-keyed.verdict`: 2.5× faster
 - `sweep.entity.x4.c50-w8.store.verdict`: 2.5× faster
-- `sweep.entity.x4.c50-w8.store-keyed.verdict`: 2.8× faster
-- `sweep.entity.x4.c0-w8.store.verdict`: 2.7× faster
-- `sweep.entity.x4.c0-w8.store-keyed.verdict`: 2.6× faster
-- `sweep.entity.x4.c100-w4.store.verdict`: 2.7× faster
-- `sweep.entity.x4.c100-w4.store-keyed.verdict`: 2.9× faster
-- `sweep.entity.x4.c100-w16.store.verdict`: 2.7× faster
-- `sweep.entity.x4.c100-w16.store-keyed.verdict`: 2.6× faster
-- `sweep.selection.x4.c100-w8.store.verdict`: 1.3× slower
-- `sweep.selection.x4.c100-w8.store-keyed.verdict`: 2.1× faster
-- `sweep.selection.x4.c90-w8.store.verdict`: 3.0× slower
-- `sweep.selection.x4.c90-w8.store-keyed.verdict`: 2.1× faster
-- `sweep.selection.x4.c75-w8.store.verdict`: 5.4× slower
-- `sweep.selection.x4.c75-w8.store-keyed.verdict`: 2.1× faster
-- `sweep.selection.x4.c50-w8.store.verdict`: 10.1× slower
+- `sweep.entity.x4.c50-w8.store-keyed.verdict`: 2.5× faster
+- `sweep.entity.x4.c0-w8.store.verdict`: 2.6× faster
+- `sweep.entity.x4.c0-w8.store-keyed.verdict`: 2.5× faster
+- `sweep.entity.x4.c100-w4.store.verdict`: 2.8× faster
+- `sweep.entity.x4.c100-w4.store-keyed.verdict`: 2.8× faster
+- `sweep.entity.x4.c100-w16.store.verdict`: 2.6× faster
+- `sweep.entity.x4.c100-w16.store-keyed.verdict`: 2.5× faster
+- `sweep.selection.x4.c100-w8.store.verdict`: 1.4× slower
+- `sweep.selection.x4.c100-w8.store-keyed.verdict`: 1.9× faster
+- `sweep.selection.x4.c90-w8.store.verdict`: 3.2× slower
+- `sweep.selection.x4.c90-w8.store-keyed.verdict`: 1.9× faster
+- `sweep.selection.x4.c75-w8.store.verdict`: 5.7× slower
+- `sweep.selection.x4.c75-w8.store-keyed.verdict`: 2.0× faster
+- `sweep.selection.x4.c50-w8.store.verdict`: 10.0× slower
 - `sweep.selection.x4.c50-w8.store-keyed.verdict`: 1.9× faster
-- `sweep.selection.x4.c0-w8.store.verdict`: 20.7× slower
-- `sweep.selection.x4.c0-w8.store-keyed.verdict`: 1.9× faster
-- `sweep.selection.x4.c100-w4.store.verdict`: 1.3× slower
-- `sweep.selection.x4.c100-w4.store-keyed.verdict`: 2.0× faster
+- `sweep.selection.x4.c0-w8.store.verdict`: 18.9× slower
+- `sweep.selection.x4.c0-w8.store-keyed.verdict`: 1.8× faster
+- `sweep.selection.x4.c100-w4.store.verdict`: 1.4× slower
+- `sweep.selection.x4.c100-w4.store-keyed.verdict`: 1.9× faster
 - `sweep.selection.x4.c100-w16.store.verdict`: 1.5× slower
-- `sweep.selection.x4.c100-w16.store-keyed.verdict`: 2.0× faster
+- `sweep.selection.x4.c100-w16.store-keyed.verdict`: 1.9× faster
 
 </details>
 
@@ -3379,34 +4000,34 @@ Sweeps: store or store-keyed vs the faster of Redux and Zustand, range of ratios
 
 <details><summary>28 keys</summary>
 
-- `sweep.entity.c100-w8.store.range`: 2.7–2.9× faster
-- `sweep.entity.c100-w8.store-keyed.range`: 2.7–2.9× faster
-- `sweep.entity.c90-w8.store.range`: 2.6–2.7× faster
-- `sweep.entity.c90-w8.store-keyed.range`: 2.5–2.6× faster
-- `sweep.entity.c75-w8.store.range`: 2.6–2.7× faster
-- `sweep.entity.c75-w8.store-keyed.range`: 2.7× faster
+- `sweep.entity.c100-w8.store.range`: 2.6–2.7× faster
+- `sweep.entity.c100-w8.store-keyed.range`: 2.6–2.7× faster
+- `sweep.entity.c90-w8.store.range`: 2.5–2.6× faster
+- `sweep.entity.c90-w8.store-keyed.range`: 2.4–2.7× faster
+- `sweep.entity.c75-w8.store.range`: 2.6× faster
+- `sweep.entity.c75-w8.store-keyed.range`: 2.5× faster
 - `sweep.entity.c50-w8.store.range`: 2.4–2.5× faster
-- `sweep.entity.c50-w8.store-keyed.range`: 2.4–2.8× faster
-- `sweep.entity.c0-w8.store.range`: 2.7–2.9× faster
-- `sweep.entity.c0-w8.store-keyed.range`: 2.6–2.8× faster
+- `sweep.entity.c50-w8.store-keyed.range`: 2.3–2.5× faster
+- `sweep.entity.c0-w8.store.range`: 2.6× faster
+- `sweep.entity.c0-w8.store-keyed.range`: 2.5–2.6× faster
 - `sweep.entity.c100-w4.store.range`: 2.7–2.8× faster
-- `sweep.entity.c100-w4.store-keyed.range`: 2.8–2.9× faster
-- `sweep.entity.c100-w16.store.range`: 2.5–2.7× faster
-- `sweep.entity.c100-w16.store-keyed.range`: 2.6× faster
-- `sweep.selection.c100-w8.store.range`: 1.3–1.4× slower
-- `sweep.selection.c100-w8.store-keyed.range`: 2.1× faster
-- `sweep.selection.c90-w8.store.range`: 3.0–3.1× slower
-- `sweep.selection.c90-w8.store-keyed.range`: 2.0–2.1× faster
-- `sweep.selection.c75-w8.store.range`: 5.4–5.8× slower
-- `sweep.selection.c75-w8.store-keyed.range`: 2.1× faster
-- `sweep.selection.c50-w8.store.range`: 9.7–10× slower
+- `sweep.entity.c100-w4.store-keyed.range`: 2.7–2.8× faster
+- `sweep.entity.c100-w16.store.range`: 2.6× faster
+- `sweep.entity.c100-w16.store-keyed.range`: 2.5× faster
+- `sweep.selection.c100-w8.store.range`: 1.4× slower
+- `sweep.selection.c100-w8.store-keyed.range`: 1.9–2.1× faster
+- `sweep.selection.c90-w8.store.range`: 3.2× slower
+- `sweep.selection.c90-w8.store-keyed.range`: 1.9–2.0× faster
+- `sweep.selection.c75-w8.store.range`: 5.6–5.7× slower
+- `sweep.selection.c75-w8.store-keyed.range`: 2.0–2.1× faster
+- `sweep.selection.c50-w8.store.range`: 9.9–10.0× slower
 - `sweep.selection.c50-w8.store-keyed.range`: 1.9–2.1× faster
-- `sweep.selection.c0-w8.store.range`: 17–21× slower
-- `sweep.selection.c0-w8.store-keyed.range`: 1.9–2.1× faster
-- `sweep.selection.c100-w4.store.range`: 1.3× slower
+- `sweep.selection.c0-w8.store.range`: 19× slower
+- `sweep.selection.c0-w8.store-keyed.range`: 1.8–1.9× faster
+- `sweep.selection.c100-w4.store.range`: 1.3–1.4× slower
 - `sweep.selection.c100-w4.store-keyed.range`: 1.9–2.0× faster
 - `sweep.selection.c100-w16.store.range`: 1.5× slower
-- `sweep.selection.c100-w16.store-keyed.range`: 2.0× faster
+- `sweep.selection.c100-w16.store-keyed.range`: 1.9× faster
 
 </details>
 
@@ -3450,34 +4071,48 @@ Sweeps: configs compared.
 
 Typing (which = main or suite): median keydown-to-frame latency, ms.
 
-<details><summary>26 keys</summary>
+<details><summary>40 keys</summary>
 
+- `typing.main.store.off.x1.p50`: 11.3
 - `typing.main.store.on.x1.p50`: 12.9
-- `typing.main.redux.on.x1.p50`: 23.3
-- `typing.main.zustand.on.x1.p50`: 14.4
-- `typing.main.store.on.x4.p50`: 37.9
-- `typing.main.redux.on.x4.p50`: 72.7
-- `typing.main.zustand.on.x4.p50`: 67.1
-- `typing.suite.store.off.x1.p50`: 11.6
-- `typing.suite.store.on.x1.p50`: 11.5
-- `typing.suite.redux.off.x1.p50`: 22.3
-- `typing.suite.redux.on.x1.p50`: 23.4
-- `typing.suite.redux-deferred.off.x1.p50`: 15.5
-- `typing.suite.redux-deferred.on.x1.p50`: 11.9
-- `typing.suite.zustand.off.x1.p50`: 14.4
-- `typing.suite.zustand.on.x1.p50`: 12.5
-- `typing.suite.zustand-deferred.off.x1.p50`: 13.3
+- `typing.main.store-single.off.x1.p50`: 98.9
+- `typing.main.store-single.on.x1.p50`: 15.1
+- `typing.main.context.off.x1.p50`: 97.3
+- `typing.main.context.on.x1.p50`: 17.1
+- `typing.main.context-split.off.x1.p50`: 13.7
+- `typing.main.context-split.on.x1.p50`: 13.9
+- `typing.main.redux.off.x1.p50`: 20.9
+- `typing.main.redux.on.x1.p50`: 21.6
+- `typing.main.zustand.off.x1.p50`: 14.6
+- `typing.main.zustand.on.x1.p50`: 13.9
+- `typing.main.zustand-granular.off.x1.p50`: 17.1
+- `typing.main.zustand-granular.on.x1.p50`: 13.5
+- `typing.main.store.off.x4.p50`: 31.2
+- `typing.main.store.on.x4.p50`: 31.0
+- `typing.main.store-single.off.x4.p50`: 389.3
+- `typing.main.store-single.on.x4.p50`: 40.4
+- `typing.main.context.off.x4.p50`: 388.2
+- `typing.main.context.on.x4.p50`: 45.1
+- `typing.main.context-split.off.x4.p50`: 38.6
+- `typing.main.context-split.on.x4.p50`: 33.8
+- `typing.main.redux.off.x4.p50`: 69.0
+- `typing.main.redux.on.x4.p50`: 71.8
+- `typing.main.zustand.off.x4.p50`: 52.2
+- `typing.main.zustand.on.x4.p50`: 50.4
+- `typing.main.zustand-granular.off.x4.p50`: 48.2
+- `typing.main.zustand-granular.on.x4.p50`: 40.5
+- `typing.suite.store.off.x1.p50`: 11.5
+- `typing.suite.store.on.x1.p50`: 12.4
+- `typing.suite.redux-deferred.off.x1.p50`: 14.3
+- `typing.suite.redux-deferred.on.x1.p50`: 10.1
+- `typing.suite.zustand-deferred.off.x1.p50`: 12.8
 - `typing.suite.zustand-deferred.on.x1.p50`: 8.9
-- `typing.suite.store.off.x4.p50`: 33.8
-- `typing.suite.store.on.x4.p50`: 34.7
-- `typing.suite.redux.off.x4.p50`: 92.3
-- `typing.suite.redux.on.x4.p50`: 78.5
-- `typing.suite.redux-deferred.off.x4.p50`: 54.1
-- `typing.suite.redux-deferred.on.x4.p50`: 53.9
-- `typing.suite.zustand.off.x4.p50`: 64.8
-- `typing.suite.zustand.on.x4.p50`: 60.8
-- `typing.suite.zustand-deferred.off.x4.p50`: 44.0
-- `typing.suite.zustand-deferred.on.x4.p50`: 42.9
+- `typing.suite.store.off.x4.p50`: 33.1
+- `typing.suite.store.on.x4.p50`: 34.6
+- `typing.suite.redux-deferred.off.x4.p50`: 47.4
+- `typing.suite.redux-deferred.on.x4.p50`: 47.5
+- `typing.suite.zustand-deferred.off.x4.p50`: 41.0
+- `typing.suite.zustand-deferred.on.x4.p50`: 41.1
 
 </details>
 
@@ -3485,34 +4120,48 @@ Typing (which = main or suite): median keydown-to-frame latency, ms.
 
 Typing: 95th percentile latency, ms.
 
-<details><summary>26 keys</summary>
+<details><summary>40 keys</summary>
 
-- `typing.main.store.on.x1.p95`: 27.9
-- `typing.main.redux.on.x1.p95`: 58.9
-- `typing.main.zustand.on.x1.p95`: 34.3
-- `typing.main.store.on.x4.p95`: 47.9
-- `typing.main.redux.on.x4.p95`: 243.7
-- `typing.main.zustand.on.x4.p95`: 149.4
-- `typing.suite.store.off.x1.p95`: 13.7
-- `typing.suite.store.on.x1.p95`: 15.2
-- `typing.suite.redux.off.x1.p95`: 133.7
-- `typing.suite.redux.on.x1.p95`: 59.1
-- `typing.suite.redux-deferred.off.x1.p95`: 18.6
-- `typing.suite.redux-deferred.on.x1.p95`: 15.8
-- `typing.suite.zustand.off.x1.p95`: 106.4
-- `typing.suite.zustand.on.x1.p95`: 34.4
-- `typing.suite.zustand-deferred.off.x1.p95`: 15.9
-- `typing.suite.zustand-deferred.on.x1.p95`: 19.2
-- `typing.suite.store.off.x4.p95`: 41.4
-- `typing.suite.store.on.x4.p95`: 44.7
-- `typing.suite.redux.off.x4.p95`: 1003.0
-- `typing.suite.redux.on.x4.p95`: 205.3
-- `typing.suite.redux-deferred.off.x4.p95`: 64.0
-- `typing.suite.redux-deferred.on.x4.p95`: 70.0
-- `typing.suite.zustand.off.x4.p95`: 463.0
-- `typing.suite.zustand.on.x4.p95`: 153.4
-- `typing.suite.zustand-deferred.off.x4.p95`: 50.1
-- `typing.suite.zustand-deferred.on.x4.p95`: 52.6
+- `typing.main.store.off.x1.p95`: 12.6
+- `typing.main.store.on.x1.p95`: 17.0
+- `typing.main.store-single.off.x1.p95`: 164.9
+- `typing.main.store-single.on.x1.p95`: 19.2
+- `typing.main.context.off.x1.p95`: 159.8
+- `typing.main.context.on.x1.p95`: 20.5
+- `typing.main.context-split.off.x1.p95`: 15.7
+- `typing.main.context-split.on.x1.p95`: 16.7
+- `typing.main.redux.off.x1.p95`: 123.2
+- `typing.main.redux.on.x1.p95`: 44.5
+- `typing.main.zustand.off.x1.p95`: 98.1
+- `typing.main.zustand.on.x1.p95`: 30.3
+- `typing.main.zustand-granular.off.x1.p95`: 98.5
+- `typing.main.zustand-granular.on.x1.p95`: 29.2
+- `typing.main.store.off.x4.p95`: 42.3
+- `typing.main.store.on.x4.p95`: 39.9
+- `typing.main.store-single.off.x4.p95`: 1139.0
+- `typing.main.store-single.on.x4.p95`: 58.7
+- `typing.main.context.off.x4.p95`: 1153.0
+- `typing.main.context.on.x4.p95`: 57.8
+- `typing.main.context-split.off.x4.p95`: 49.0
+- `typing.main.context-split.on.x4.p95`: 40.8
+- `typing.main.redux.off.x4.p95`: 902.5
+- `typing.main.redux.on.x4.p95`: 193.5
+- `typing.main.zustand.off.x4.p95`: 421.8
+- `typing.main.zustand.on.x4.p95`: 131.7
+- `typing.main.zustand-granular.off.x4.p95`: 748.7
+- `typing.main.zustand-granular.on.x4.p95`: 120.7
+- `typing.suite.store.off.x1.p95`: 18.3
+- `typing.suite.store.on.x1.p95`: 17.8
+- `typing.suite.redux-deferred.off.x1.p95`: 15.5
+- `typing.suite.redux-deferred.on.x1.p95`: 14.1
+- `typing.suite.zustand-deferred.off.x1.p95`: 14.1
+- `typing.suite.zustand-deferred.on.x1.p95`: 19.9
+- `typing.suite.store.off.x4.p95`: 46.6
+- `typing.suite.store.on.x4.p95`: 44.2
+- `typing.suite.redux-deferred.off.x4.p95`: 63.3
+- `typing.suite.redux-deferred.on.x4.p95`: 61.1
+- `typing.suite.zustand-deferred.off.x4.p95`: 49.1
+- `typing.suite.zustand-deferred.on.x4.p95`: 49.1
 
 </details>
 
@@ -3520,34 +4169,48 @@ Typing: 95th percentile latency, ms.
 
 Typing: worst latency, ms.
 
-<details><summary>26 keys</summary>
+<details><summary>40 keys</summary>
 
-- `typing.main.store.on.x1.max`: 27.9
-- `typing.main.redux.on.x1.max`: 58.9
-- `typing.main.zustand.on.x1.max`: 34.3
-- `typing.main.store.on.x4.max`: 90.8
-- `typing.main.redux.on.x4.max`: 243.7
-- `typing.main.zustand.on.x4.max`: 178.9
-- `typing.suite.store.off.x1.max`: 18.4
-- `typing.suite.store.on.x1.max`: 30.3
-- `typing.suite.redux.off.x1.max`: 139.3
-- `typing.suite.redux.on.x1.max`: 65.2
-- `typing.suite.redux-deferred.off.x1.max`: 20.7
-- `typing.suite.redux-deferred.on.x1.max`: 22.3
-- `typing.suite.zustand.off.x1.max`: 109.4
-- `typing.suite.zustand.on.x1.max`: 35.0
-- `typing.suite.zustand-deferred.off.x1.max`: 21.3
-- `typing.suite.zustand-deferred.on.x1.max`: 21.6
-- `typing.suite.store.off.x4.max`: 43.8
-- `typing.suite.store.on.x4.max`: 49.8
-- `typing.suite.redux.off.x4.max`: 1096.0
-- `typing.suite.redux.on.x4.max`: 252.4
-- `typing.suite.redux-deferred.off.x4.max`: 70.4
-- `typing.suite.redux-deferred.on.x4.max`: 75.2
-- `typing.suite.zustand.off.x4.max`: 889.3
-- `typing.suite.zustand.on.x4.max`: 180.7
-- `typing.suite.zustand-deferred.off.x4.max`: 66.5
-- `typing.suite.zustand-deferred.on.x4.max`: 59.1
+- `typing.main.store.off.x1.max`: 18.5
+- `typing.main.store.on.x1.max`: 28.3
+- `typing.main.store-single.off.x1.max`: 169.8
+- `typing.main.store-single.on.x1.max`: 21.4
+- `typing.main.context.off.x1.max`: 163.3
+- `typing.main.context.on.x1.max`: 23.2
+- `typing.main.context-split.off.x1.max`: 17.7
+- `typing.main.context-split.on.x1.max`: 18.9
+- `typing.main.redux.off.x1.max`: 124.3
+- `typing.main.redux.on.x1.max`: 48.9
+- `typing.main.zustand.off.x1.max`: 99.4
+- `typing.main.zustand.on.x1.max`: 30.8
+- `typing.main.zustand-granular.off.x1.max`: 100.6
+- `typing.main.zustand-granular.on.x1.max`: 29.8
+- `typing.main.store.off.x4.max`: 47.4
+- `typing.main.store.on.x4.max`: 41.5
+- `typing.main.store-single.off.x4.max`: 1209.0
+- `typing.main.store-single.on.x4.max`: 59.9
+- `typing.main.context.off.x4.max`: 1204.0
+- `typing.main.context.on.x4.max`: 63.1
+- `typing.main.context-split.off.x4.max`: 50.7
+- `typing.main.context-split.on.x4.max`: 44.5
+- `typing.main.redux.off.x4.max`: 1008.0
+- `typing.main.redux.on.x4.max`: 224.2
+- `typing.main.zustand.off.x4.max`: 769.2
+- `typing.main.zustand.on.x4.max`: 133.0
+- `typing.main.zustand-granular.off.x4.max`: 766.4
+- `typing.main.zustand-granular.on.x4.max`: 123.2
+- `typing.suite.store.off.x1.max`: 19.1
+- `typing.suite.store.on.x1.max`: 28.3
+- `typing.suite.redux-deferred.off.x1.max`: 15.9
+- `typing.suite.redux-deferred.on.x1.max`: 14.6
+- `typing.suite.zustand-deferred.off.x1.max`: 19.4
+- `typing.suite.zustand-deferred.on.x1.max`: 22.7
+- `typing.suite.store.off.x4.max`: 95.9
+- `typing.suite.store.on.x4.max`: 46.9
+- `typing.suite.redux-deferred.off.x4.max`: 66.3
+- `typing.suite.redux-deferred.on.x4.max`: 64.2
+- `typing.suite.zustand-deferred.off.x4.max`: 54.4
+- `typing.suite.zustand-deferred.on.x4.max`: 50.9
 
 </details>
 
@@ -3555,34 +4218,48 @@ Typing: worst latency, ms.
 
 Typing: ms until the list settled after the last key (median of runs).
 
-<details><summary>26 keys</summary>
+<details><summary>40 keys</summary>
 
-- `typing.main.store.on.x1.settle`: 1,538
-- `typing.main.redux.on.x1.settle`: 1,909
-- `typing.main.zustand.on.x1.settle`: 1,677
-- `typing.main.store.on.x4.settle`: 1,753
-- `typing.main.redux.on.x4.settle`: 2,778
-- `typing.main.zustand.on.x4.settle`: 2,419
-- `typing.suite.store.off.x1.settle`: 1,670
-- `typing.suite.store.on.x1.settle`: 1,527
-- `typing.suite.redux.off.x1.settle`: 1,984
-- `typing.suite.redux.on.x1.settle`: 1,909
-- `typing.suite.redux-deferred.off.x1.settle`: 1,754
-- `typing.suite.redux-deferred.on.x1.settle`: 1,631
-- `typing.suite.zustand.off.x1.settle`: 1,799
-- `typing.suite.zustand.on.x1.settle`: 1,665
-- `typing.suite.zustand-deferred.off.x1.settle`: 1,709
-- `typing.suite.zustand-deferred.on.x1.settle`: 1,570
-- `typing.suite.store.off.x4.settle`: 1,757
-- `typing.suite.store.on.x4.settle`: 1,707
-- `typing.suite.redux.off.x4.settle`: 3,440
-- `typing.suite.redux.on.x4.settle`: 2,853
-- `typing.suite.redux-deferred.off.x4.settle`: 2,137
-- `typing.suite.redux-deferred.on.x4.settle`: 2,155
-- `typing.suite.zustand.off.x4.settle`: 2,965
-- `typing.suite.zustand.on.x4.settle`: 2,355
-- `typing.suite.zustand-deferred.off.x4.settle`: 1,975
-- `typing.suite.zustand-deferred.on.x4.settle`: 1,910
+- `typing.main.store.off.x1.settle`: 1,278
+- `typing.main.store.on.x1.settle`: 1,044
+- `typing.main.store-single.off.x1.settle`: 2,910
+- `typing.main.store-single.on.x1.settle`: 1,093
+- `typing.main.context.off.x1.settle`: 2,903
+- `typing.main.context.on.x1.settle`: 1,114
+- `typing.main.context-split.off.x1.settle`: 1,309
+- `typing.main.context-split.on.x1.settle`: 1,062
+- `typing.main.redux.off.x1.settle`: 1,457
+- `typing.main.redux.on.x1.settle`: 1,328
+- `typing.main.zustand.off.x1.settle`: 1,296
+- `typing.main.zustand.on.x1.settle`: 1,171
+- `typing.main.zustand-granular.off.x1.settle`: 1,332
+- `typing.main.zustand-granular.on.x1.settle`: 1,150
+- `typing.main.store.off.x4.settle`: 1,906
+- `typing.main.store.on.x4.settle`: 1,222
+- `typing.main.store-single.off.x4.settle`: 9,533
+- `typing.main.store-single.on.x4.settle`: 1,403
+- `typing.main.context.off.x4.settle`: 8,913
+- `typing.main.context.on.x4.settle`: 1,488
+- `typing.main.context-split.off.x4.settle`: 2,027
+- `typing.main.context-split.on.x4.settle`: 1,284
+- `typing.main.redux.off.x4.settle`: 2,591
+- `typing.main.redux.on.x4.settle`: 2,255
+- `typing.main.zustand.off.x4.settle`: 2,223
+- `typing.main.zustand.on.x4.settle`: 1,733
+- `typing.main.zustand-granular.off.x4.settle`: 2,127
+- `typing.main.zustand-granular.on.x4.settle`: 1,528
+- `typing.suite.store.off.x1.settle`: 1,295
+- `typing.suite.store.on.x1.settle`: 1,047
+- `typing.suite.redux-deferred.off.x1.settle`: 1,372
+- `typing.suite.redux-deferred.on.x1.settle`: 1,095
+- `typing.suite.zustand-deferred.off.x1.settle`: 1,305
+- `typing.suite.zustand-deferred.on.x1.settle`: 1,067
+- `typing.suite.store.off.x4.settle`: 1,944
+- `typing.suite.store.on.x4.settle`: 1,245
+- `typing.suite.redux-deferred.off.x4.settle`: 2,275
+- `typing.suite.redux-deferred.on.x4.settle`: 1,665
+- `typing.suite.zustand-deferred.off.x4.settle`: 2,109
+- `typing.suite.zustand-deferred.on.x4.settle`: 1,511
 
 </details>
 
@@ -3604,130 +4281,248 @@ Typing: keys typed per run.
 
 Heap growth after mounting N rows (after GC) / N, bytes (median of runs).
 
-- `memory.store.on.n1000.bytesPerRow`: 3,397
-- `memory.store-single.on.n1000.bytesPerRow`: 2,996
-- `memory.redux.on.n1000.bytesPerRow`: 9,020
-- `memory.zustand.on.n1000.bytesPerRow`: 5,665
-- `memory.store.on.n10000.bytesPerRow`: 2,892
-- `memory.store-single.on.n10000.bytesPerRow`: 2,487
-- `memory.redux.on.n10000.bytesPerRow`: 8,451
-- `memory.zustand.on.n10000.bytesPerRow`: 5,144
+<details><summary>42 keys</summary>
+
+- `memory.store.off.n100.bytesPerRow`: 7,165
+- `memory.store.on.n100.bytesPerRow`: 7,832
+- `memory.store-single.off.n100.bytesPerRow`: 6,569
+- `memory.store-single.on.n100.bytesPerRow`: 7,225
+- `memory.context.off.n100.bytesPerRow`: 5,657
+- `memory.context.on.n100.bytesPerRow`: 6,313
+- `memory.context-split.off.n100.bytesPerRow`: 5,958
+- `memory.context-split.on.n100.bytesPerRow`: 6,667
+- `memory.redux.off.n100.bytesPerRow`: 11,638
+- `memory.redux.on.n100.bytesPerRow`: 12,333
+- `memory.zustand.off.n100.bytesPerRow`: 8,417
+- `memory.zustand.on.n100.bytesPerRow`: 9,052
+- `memory.zustand-granular.off.n100.bytesPerRow`: 8,690
+- `memory.zustand-granular.on.n100.bytesPerRow`: 9,310
+- `memory.store.off.n1000.bytesPerRow`: 2,880
+- `memory.store.on.n1000.bytesPerRow`: 3,407
+- `memory.store-single.off.n1000.bytesPerRow`: 2,480
+- `memory.store-single.on.n1000.bytesPerRow`: 2,998
+- `memory.context.off.n1000.bytesPerRow`: 2,062
+- `memory.context.on.n1000.bytesPerRow`: 2,629
+- `memory.context-split.off.n1000.bytesPerRow`: 2,152
+- `memory.context-split.on.n1000.bytesPerRow`: 2,720
+- `memory.redux.off.n1000.bytesPerRow`: 7,204
+- `memory.redux.on.n1000.bytesPerRow`: 7,715
+- `memory.zustand.off.n1000.bytesPerRow`: 4,483
+- `memory.zustand.on.n1000.bytesPerRow`: 5,030
+- `memory.zustand-granular.off.n1000.bytesPerRow`: 4,726
+- `memory.zustand-granular.on.n1000.bytesPerRow`: 5,257
+- `memory.store.off.n10000.bytesPerRow`: 2,383
+- `memory.store.on.n10000.bytesPerRow`: 2,901
+- `memory.store-single.off.n10000.bytesPerRow`: 1,978
+- `memory.store-single.on.n10000.bytesPerRow`: 2,488
+- `memory.context.off.n10000.bytesPerRow`: 1,621
+- `memory.context.on.n10000.bytesPerRow`: 2,167
+- `memory.context-split.off.n10000.bytesPerRow`: 1,696
+- `memory.context-split.on.n10000.bytesPerRow`: 2,242
+- `memory.redux.off.n10000.bytesPerRow`: 6,664
+- `memory.redux.on.n10000.bytesPerRow`: 7,191
+- `memory.zustand.off.n10000.bytesPerRow`: 4,022
+- `memory.zustand.on.n10000.bytesPerRow`: 4,549
+- `memory.zustand-granular.off.n10000.bytesPerRow`: 4,234
+- `memory.zustand-granular.on.n10000.bytesPerRow`: 4,748
+
+</details>
 
 ### `memory.<variant>.<compiler>.n<n>.mountMs`
 
 Time to mount N rows, ms (median of runs).
 
-- `memory.store.on.n1000.mountMs`: 12.1
-- `memory.store-single.on.n1000.mountMs`: 12.6
-- `memory.redux.on.n1000.mountMs`: 19.1
-- `memory.zustand.on.n1000.mountMs`: 14.2
-- `memory.store.on.n10000.mountMs`: 61.1
-- `memory.store-single.on.n10000.mountMs`: 58.1
-- `memory.redux.on.n10000.mountMs`: 124.6
-- `memory.zustand.on.n10000.mountMs`: 76.4
+<details><summary>42 keys</summary>
+
+- `memory.store.off.n100.mountMs`: 4.5
+- `memory.store.on.n100.mountMs`: 4.6
+- `memory.store-single.off.n100.mountMs`: 4.2
+- `memory.store-single.on.n100.mountMs`: 4.4
+- `memory.context.off.n100.mountMs`: 4.3
+- `memory.context.on.n100.mountMs`: 4.4
+- `memory.context-split.off.n100.mountMs`: 4.3
+- `memory.context-split.on.n100.mountMs`: 4.6
+- `memory.redux.off.n100.mountMs`: 5.7
+- `memory.redux.on.n100.mountMs`: 5.9
+- `memory.zustand.off.n100.mountMs`: 4.6
+- `memory.zustand.on.n100.mountMs`: 4.7
+- `memory.zustand-granular.off.n100.mountMs`: 4.7
+- `memory.zustand-granular.on.n100.mountMs`: 4.7
+- `memory.store.off.n1000.mountMs`: 9.9
+- `memory.store.on.n1000.mountMs`: 10.9
+- `memory.store-single.off.n1000.mountMs`: 9.5
+- `memory.store-single.on.n1000.mountMs`: 10.7
+- `memory.context.off.n1000.mountMs`: 9.0
+- `memory.context.on.n1000.mountMs`: 9.4
+- `memory.context-split.off.n1000.mountMs`: 9.2
+- `memory.context-split.on.n1000.mountMs`: 10.1
+- `memory.redux.off.n1000.mountMs`: 14.2
+- `memory.redux.on.n1000.mountMs`: 15.8
+- `memory.zustand.off.n1000.mountMs`: 11.2
+- `memory.zustand.on.n1000.mountMs`: 12.0
+- `memory.zustand-granular.off.n1000.mountMs`: 11.5
+- `memory.zustand-granular.on.n1000.mountMs`: 12.2
+- `memory.store.off.n10000.mountMs`: 50.4
+- `memory.store.on.n10000.mountMs`: 51.8
+- `memory.store-single.off.n10000.mountMs`: 46.6
+- `memory.store-single.on.n10000.mountMs`: 49.7
+- `memory.context.off.n10000.mountMs`: 46.4
+- `memory.context.on.n10000.mountMs`: 48.0
+- `memory.context-split.off.n10000.mountMs`: 46.6
+- `memory.context-split.on.n10000.mountMs`: 48.0
+- `memory.redux.off.n10000.mountMs`: 94.4
+- `memory.redux.on.n10000.mountMs`: 97.4
+- `memory.zustand.off.n10000.mountMs`: 63.5
+- `memory.zustand.on.n10000.mountMs`: 66.4
+- `memory.zustand-granular.off.n10000.mountMs`: 66.1
+- `memory.zustand-granular.on.n10000.mountMs`: 75.9
+
+</details>
 
 ### `losses.<area>.count`
 
 Where it doesn't win: configurations the store side lost (outside two standard errors) in an area: main (vs the headline opponents), granular (main suite vs the granular control), suites, sweeps, spike.
 
-- `losses.main.count`: 0
-- `losses.suites.count`: 5
+- `losses.main.count`: 3
+- `losses.granular.count`: 8
+- `losses.suites.count`: 6
 - `losses.sweeps.count`: 14
-- `losses.spike.count`: 18
+- `losses.spike.count`: 12
 
 ### `losses.<area>.of`
 
 Where it doesn't win: configurations compared in the area.
 
-- `losses.main.of`: 36
-- `losses.suites.of`: 50
+- `losses.main.of`: 42
+- `losses.granular.of`: 42
+- `losses.suites.of`: 38
 - `losses.sweeps.of`: 56
-- `losses.spike.of`: 48
+- `losses.spike.of`: 32
 
 ### `losses.all.count`
 
 Where it doesn't win: losses over every area.
 
-- `losses.all.count`: 37
+- `losses.all.count`: 43
 
 ### `nobailout.main.<scenario>.n<n>.x<throttle>.<variant>.median`
 
 Without the same-element bailout (react-builds/head-nobailout): main suite median ms per update, compiler on.
 
-<details><summary>72 keys</summary>
+<details><summary>112 keys</summary>
 
-- `nobailout.main.selection.n100.x1.store.median`: 0.023
-- `nobailout.main.selection.n100.x1.redux.median`: 0.038
-- `nobailout.main.selection.n100.x1.zustand.median`: 0.021
-- `nobailout.main.selection.n100.x1.zustand-granular.median`: 0.019
-- `nobailout.main.selection.n100.x4.store.median`: 0.114
-- `nobailout.main.selection.n100.x4.redux.median`: 0.183
-- `nobailout.main.selection.n100.x4.zustand.median`: 0.100
-- `nobailout.main.selection.n100.x4.zustand-granular.median`: 0.085
-- `nobailout.main.selection.n1000.x1.store.median`: 0.200
-- `nobailout.main.selection.n1000.x1.redux.median`: 0.308
-- `nobailout.main.selection.n1000.x1.zustand.median`: 0.180
-- `nobailout.main.selection.n1000.x1.zustand-granular.median`: 0.145
+- `nobailout.main.selection.n1000.x1.store.median`: 0.207
+- `nobailout.main.selection.n1000.x1.redux.median`: 0.250
+- `nobailout.main.selection.n1000.x1.zustand.median`: 0.155
+- `nobailout.main.selection.n1000.x1.zustand-granular.median`: 0.121
 - `nobailout.main.selection.n1000.x4.store.median`: 0.850
-- `nobailout.main.selection.n1000.x4.redux.median`: 1.35
-- `nobailout.main.selection.n1000.x4.zustand.median`: 0.850
-- `nobailout.main.selection.n1000.x4.zustand-granular.median`: 0.617
-- `nobailout.main.selection.n10000.x1.store.median`: 2.15
-- `nobailout.main.selection.n10000.x1.redux.median`: 11.7
-- `nobailout.main.selection.n10000.x1.zustand.median`: 2.20
-- `nobailout.main.selection.n10000.x1.zustand-granular.median`: 1.80
-- `nobailout.main.selection.n10000.x4.store.median`: 10.0
-- `nobailout.main.selection.n10000.x4.redux.median`: 39.2
-- `nobailout.main.selection.n10000.x4.zustand.median`: 11.6
-- `nobailout.main.selection.n10000.x4.zustand-granular.median`: 13.4
-- `nobailout.main.entity.n100.x1.store.median`: 0.008
-- `nobailout.main.entity.n100.x1.redux.median`: 0.045
-- `nobailout.main.entity.n100.x1.zustand.median`: 0.025
-- `nobailout.main.entity.n100.x1.zustand-granular.median`: 0.010
-- `nobailout.main.entity.n100.x4.store.median`: 0.038
-- `nobailout.main.entity.n100.x4.redux.median`: 0.200
-- `nobailout.main.entity.n100.x4.zustand.median`: 0.106
-- `nobailout.main.entity.n100.x4.zustand-granular.median`: 0.046
-- `nobailout.main.entity.n1000.x1.store.median`: 0.055
-- `nobailout.main.entity.n1000.x1.redux.median`: 0.512
-- `nobailout.main.entity.n1000.x1.zustand.median`: 0.275
-- `nobailout.main.entity.n1000.x1.zustand-granular.median`: 0.067
-- `nobailout.main.entity.n1000.x4.store.median`: 0.225
-- `nobailout.main.entity.n1000.x4.redux.median`: 2.40
-- `nobailout.main.entity.n1000.x4.zustand.median`: 1.20
-- `nobailout.main.entity.n1000.x4.zustand-granular.median`: 0.280
-- `nobailout.main.entity.n10000.x1.store.median`: 0.488
-- `nobailout.main.entity.n10000.x1.redux.median`: 14.2
-- `nobailout.main.entity.n10000.x1.zustand.median`: 3.45
-- `nobailout.main.entity.n10000.x1.zustand-granular.median`: 0.500
-- `nobailout.main.entity.n10000.x4.store.median`: 1.88
-- `nobailout.main.entity.n10000.x4.redux.median`: 46.4
-- `nobailout.main.entity.n10000.x4.zustand.median`: 23.4
-- `nobailout.main.entity.n10000.x4.zustand-granular.median`: 2.25
-- `nobailout.main.filter.n100.x1.store.median`: 0.053
-- `nobailout.main.filter.n100.x1.redux.median`: 0.169
-- `nobailout.main.filter.n100.x1.zustand.median`: 0.092
-- `nobailout.main.filter.n100.x1.zustand-granular.median`: 0.082
-- `nobailout.main.filter.n100.x4.store.median`: 0.220
-- `nobailout.main.filter.n100.x4.redux.median`: 0.775
-- `nobailout.main.filter.n100.x4.zustand.median`: 0.375
-- `nobailout.main.filter.n100.x4.zustand-granular.median`: 0.363
-- `nobailout.main.filter.n1000.x1.store.median`: 0.475
-- `nobailout.main.filter.n1000.x1.redux.median`: 1.77
-- `nobailout.main.filter.n1000.x1.zustand.median`: 0.833
-- `nobailout.main.filter.n1000.x1.zustand-granular.median`: 0.783
-- `nobailout.main.filter.n1000.x4.store.median`: 2.00
-- `nobailout.main.filter.n1000.x4.redux.median`: 11.0
-- `nobailout.main.filter.n1000.x4.zustand.median`: 3.60
-- `nobailout.main.filter.n1000.x4.zustand-granular.median`: 4.00
-- `nobailout.main.filter.n10000.x1.store.median`: 6.40
-- `nobailout.main.filter.n10000.x1.redux.median`: 31.6
-- `nobailout.main.filter.n10000.x1.zustand.median`: 17.2
-- `nobailout.main.filter.n10000.x1.zustand-granular.median`: 16.7
-- `nobailout.main.filter.n10000.x4.store.median`: 32.7
-- `nobailout.main.filter.n10000.x4.redux.median`: 128.3
-- `nobailout.main.filter.n10000.x4.zustand.median`: 78.9
-- `nobailout.main.filter.n10000.x4.zustand-granular.median`: 73.1
+- `nobailout.main.selection.n1000.x4.redux.median`: 1.03
+- `nobailout.main.selection.n1000.x4.zustand.median`: 0.633
+- `nobailout.main.selection.n1000.x4.zustand-granular.median`: 0.513
+- `nobailout.main.selection.n10000.x1.store.median`: 2.10
+- `nobailout.main.selection.n10000.x1.redux.median`: 4.40
+- `nobailout.main.selection.n10000.x1.zustand.median`: 1.77
+- `nobailout.main.selection.n10000.x1.zustand-granular.median`: 1.42
+- `nobailout.main.selection.n10000.x4.store.median`: 8.40
+- `nobailout.main.selection.n10000.x4.redux.median`: 34.0
+- `nobailout.main.selection.n10000.x4.zustand.median`: 11.0
+- `nobailout.main.selection.n10000.x4.zustand-granular.median`: 7.80
+- `nobailout.main.entity.n1000.x1.store.median`: 0.057
+- `nobailout.main.entity.n1000.x1.redux.median`: 0.425
+- `nobailout.main.entity.n1000.x1.zustand.median`: 0.236
+- `nobailout.main.entity.n1000.x1.zustand-granular.median`: 0.063
+- `nobailout.main.entity.n1000.x4.store.median`: 0.217
+- `nobailout.main.entity.n1000.x4.redux.median`: 1.85
+- `nobailout.main.entity.n1000.x4.zustand.median`: 1.00
+- `nobailout.main.entity.n1000.x4.zustand-granular.median`: 0.270
+- `nobailout.main.entity.n10000.x1.store.median`: 0.450
+- `nobailout.main.entity.n10000.x1.redux.median`: 5.40
+- `nobailout.main.entity.n10000.x1.zustand.median`: 2.80
+- `nobailout.main.entity.n10000.x1.zustand-granular.median`: 0.487
+- `nobailout.main.entity.n10000.x4.store.median`: 1.80
+- `nobailout.main.entity.n10000.x4.redux.median`: 43.2
+- `nobailout.main.entity.n10000.x4.zustand.median`: 17.6
+- `nobailout.main.entity.n10000.x4.zustand-granular.median`: 2.00
+- `nobailout.main.filter.n1000.x1.store.median`: 0.462
+- `nobailout.main.filter.n1000.x1.redux.median`: 1.38
+- `nobailout.main.filter.n1000.x1.zustand.median`: 0.717
+- `nobailout.main.filter.n1000.x1.zustand-granular.median`: 0.683
+- `nobailout.main.filter.n1000.x4.store.median`: 1.95
+- `nobailout.main.filter.n1000.x4.redux.median`: 5.90
+- `nobailout.main.filter.n1000.x4.zustand.median`: 3.05
+- `nobailout.main.filter.n1000.x4.zustand-granular.median`: 2.85
+- `nobailout.main.filter.n10000.x1.store.median`: 5.60
+- `nobailout.main.filter.n10000.x1.redux.median`: 24.5
+- `nobailout.main.filter.n10000.x1.zustand.median`: 14.3
+- `nobailout.main.filter.n10000.x1.zustand-granular.median`: 13.1
+- `nobailout.main.filter.n10000.x4.store.median`: 28.9
+- `nobailout.main.filter.n10000.x4.redux.median`: 115.9
+- `nobailout.main.filter.n10000.x4.zustand.median`: 63.2
+- `nobailout.main.filter.n10000.x4.zustand-granular.median`: 61.8
+- `nobailout.main.details-inline.n1000.x1.store.median`: 0.057
+- `nobailout.main.details-inline.n1000.x1.redux.median`: 0.264
+- `nobailout.main.details-inline.n1000.x1.zustand.median`: 0.159
+- `nobailout.main.details-inline.n1000.x1.zustand-granular.median`: 0.121
+- `nobailout.main.details-inline.n1000.x4.store.median`: 0.243
+- `nobailout.main.details-inline.n1000.x4.redux.median`: 1.13
+- `nobailout.main.details-inline.n1000.x4.zustand.median`: 0.667
+- `nobailout.main.details-inline.n1000.x4.zustand-granular.median`: 0.533
+- `nobailout.main.details-inline.n10000.x1.store.median`: 0.563
+- `nobailout.main.details-inline.n10000.x1.redux.median`: 4.10
+- `nobailout.main.details-inline.n10000.x1.zustand.median`: 1.55
+- `nobailout.main.details-inline.n10000.x1.zustand-granular.median`: 1.17
+- `nobailout.main.details-inline.n10000.x4.store.median`: 2.25
+- `nobailout.main.details-inline.n10000.x4.redux.median`: 20.8
+- `nobailout.main.details-inline.n10000.x4.zustand.median`: 11.4
+- `nobailout.main.details-inline.n10000.x4.zustand-granular.median`: 6.80
+- `nobailout.main.details-component.n1000.x1.store.median`: 0.054
+- `nobailout.main.details-component.n1000.x1.redux.median`: 0.256
+- `nobailout.main.details-component.n1000.x1.zustand.median`: 0.150
+- `nobailout.main.details-component.n1000.x1.zustand-granular.median`: 0.115
+- `nobailout.main.details-component.n1000.x4.store.median`: 0.229
+- `nobailout.main.details-component.n1000.x4.redux.median`: 1.08
+- `nobailout.main.details-component.n1000.x4.zustand.median`: 0.633
+- `nobailout.main.details-component.n1000.x4.zustand-granular.median`: 0.500
+- `nobailout.main.details-component.n10000.x1.store.median`: 0.525
+- `nobailout.main.details-component.n10000.x1.redux.median`: 3.60
+- `nobailout.main.details-component.n10000.x1.zustand.median`: 1.52
+- `nobailout.main.details-component.n10000.x1.zustand-granular.median`: 1.13
+- `nobailout.main.details-component.n10000.x4.store.median`: 2.10
+- `nobailout.main.details-component.n10000.x4.redux.median`: 30.7
+- `nobailout.main.details-component.n10000.x4.zustand.median`: 9.30
+- `nobailout.main.details-component.n10000.x4.zustand-granular.median`: 6.00
+- `nobailout.main.details-churn.n1000.x1.store.median`: 0.320
+- `nobailout.main.details-churn.n1000.x1.redux.median`: 0.563
+- `nobailout.main.details-churn.n1000.x1.zustand.median`: 0.320
+- `nobailout.main.details-churn.n1000.x1.zustand-granular.median`: 0.283
+- `nobailout.main.details-churn.n1000.x4.store.median`: 1.45
+- `nobailout.main.details-churn.n1000.x4.redux.median`: 2.40
+- `nobailout.main.details-churn.n1000.x4.zustand.median`: 1.35
+- `nobailout.main.details-churn.n1000.x4.zustand-granular.median`: 1.22
+- `nobailout.main.details-churn.n10000.x1.store.median`: 3.80
+- `nobailout.main.details-churn.n10000.x1.redux.median`: 9.70
+- `nobailout.main.details-churn.n10000.x1.zustand.median`: 4.30
+- `nobailout.main.details-churn.n10000.x1.zustand-granular.median`: 4.10
+- `nobailout.main.details-churn.n10000.x4.store.median`: 20.4
+- `nobailout.main.details-churn.n10000.x4.redux.median`: 61.8
+- `nobailout.main.details-churn.n10000.x4.zustand.median`: 28.4
+- `nobailout.main.details-churn.n10000.x4.zustand-granular.median`: 26.7
+- `nobailout.main.structure.n1000.x1.store.median`: 0.225
+- `nobailout.main.structure.n1000.x1.redux.median`: 2.05
+- `nobailout.main.structure.n1000.x1.zustand.median`: 0.875
+- `nobailout.main.structure.n1000.x1.zustand-granular.median`: 0.617
+- `nobailout.main.structure.n1000.x4.store.median`: 0.950
+- `nobailout.main.structure.n1000.x4.redux.median`: 9.00
+- `nobailout.main.structure.n1000.x4.zustand.median`: 3.90
+- `nobailout.main.structure.n1000.x4.zustand-granular.median`: 2.40
+- `nobailout.main.structure.n10000.x1.store.median`: 2.25
+- `nobailout.main.structure.n10000.x1.redux.median`: 31.4
+- `nobailout.main.structure.n10000.x1.zustand.median`: 16.0
+- `nobailout.main.structure.n10000.x1.zustand-granular.median`: 14.1
+- `nobailout.main.structure.n10000.x4.store.median`: 10.1
+- `nobailout.main.structure.n10000.x4.redux.median`: 146.5
+- `nobailout.main.structure.n10000.x4.zustand.median`: 67.8
+- `nobailout.main.structure.n10000.x4.zustand-granular.median`: 60.5
 
 </details>
 
@@ -3735,26 +4530,36 @@ Without the same-element bailout (react-builds/head-nobailout): main suite media
 
 Without the same-element bailout: store + compiler vs the headline opponents.
 
-<details><summary>18 keys</summary>
+<details><summary>28 keys</summary>
 
-- `nobailout.main.selection.n100.x1.verdict`: 1.2× slower
-- `nobailout.main.selection.n100.x4.verdict`: 1.2× slower
-- `nobailout.main.selection.n1000.x1.verdict`: 1.1× slower
-- `nobailout.main.selection.n1000.x4.verdict`: 1.1× faster
-- `nobailout.main.selection.n10000.x1.verdict`: tie
+- `nobailout.main.selection.n1000.x1.verdict`: 1.4× slower
+- `nobailout.main.selection.n1000.x4.verdict`: 1.4× slower
+- `nobailout.main.selection.n10000.x1.verdict`: 1.2× slower
 - `nobailout.main.selection.n10000.x4.verdict`: 1.2× faster
-- `nobailout.main.entity.n100.x1.verdict`: 2.9× faster
-- `nobailout.main.entity.n100.x4.verdict`: 2.7× faster
-- `nobailout.main.entity.n1000.x1.verdict`: 5.2× faster
-- `nobailout.main.entity.n1000.x4.verdict`: 5.5× faster
-- `nobailout.main.entity.n10000.x1.verdict`: 7.3× faster
-- `nobailout.main.entity.n10000.x4.verdict`: 12.2× faster
-- `nobailout.main.filter.n100.x1.verdict`: 1.7× faster
-- `nobailout.main.filter.n100.x4.verdict`: 1.7× faster
-- `nobailout.main.filter.n1000.x1.verdict`: 1.8× faster
-- `nobailout.main.filter.n1000.x4.verdict`: 1.9× faster
-- `nobailout.main.filter.n10000.x1.verdict`: 2.6× faster
-- `nobailout.main.filter.n10000.x4.verdict`: 2.4× faster
+- `nobailout.main.entity.n1000.x1.verdict`: 4.2× faster
+- `nobailout.main.entity.n1000.x4.verdict`: 4.6× faster
+- `nobailout.main.entity.n10000.x1.verdict`: 6.3× faster
+- `nobailout.main.entity.n10000.x4.verdict`: 9.2× faster
+- `nobailout.main.filter.n1000.x1.verdict`: 1.6× faster
+- `nobailout.main.filter.n1000.x4.verdict`: 1.6× faster
+- `nobailout.main.filter.n10000.x1.verdict`: 2.5× faster
+- `nobailout.main.filter.n10000.x4.verdict`: 2.2× faster
+- `nobailout.main.details-inline.n1000.x1.verdict`: 2.7× faster
+- `nobailout.main.details-inline.n1000.x4.verdict`: 2.7× faster
+- `nobailout.main.details-inline.n10000.x1.verdict`: 2.8× faster
+- `nobailout.main.details-inline.n10000.x4.verdict`: 5.3× faster
+- `nobailout.main.details-component.n1000.x1.verdict`: 2.8× faster
+- `nobailout.main.details-component.n1000.x4.verdict`: 2.8× faster
+- `nobailout.main.details-component.n10000.x1.verdict`: 3.0× faster
+- `nobailout.main.details-component.n10000.x4.verdict`: 4.4× faster
+- `nobailout.main.details-churn.n1000.x1.verdict`: tie
+- `nobailout.main.details-churn.n1000.x4.verdict`: 1.1× slower
+- `nobailout.main.details-churn.n10000.x1.verdict`: 1.2× faster
+- `nobailout.main.details-churn.n10000.x4.verdict`: 1.4× faster
+- `nobailout.main.structure.n1000.x1.verdict`: 3.9× faster
+- `nobailout.main.structure.n1000.x4.verdict`: 3.8× faster
+- `nobailout.main.structure.n10000.x1.verdict`: 6.9× faster
+- `nobailout.main.structure.n10000.x4.verdict`: 6.7× faster
 
 </details>
 
@@ -3762,26 +4567,36 @@ Without the same-element bailout: store + compiler vs the headline opponents.
 
 Without the same-element bailout: store + compiler vs the granular control.
 
-<details><summary>18 keys</summary>
+<details><summary>28 keys</summary>
 
-- `nobailout.main.selection.n100.x1.vsGranular`: 1.3× slower
-- `nobailout.main.selection.n100.x4.vsGranular`: 1.3× slower
-- `nobailout.main.selection.n1000.x1.vsGranular`: 1.4× slower
-- `nobailout.main.selection.n1000.x4.vsGranular`: 1.4× slower
-- `nobailout.main.selection.n10000.x1.vsGranular`: 1.1× slower
-- `nobailout.main.selection.n10000.x4.vsGranular`: 1.3× faster
-- `nobailout.main.entity.n100.x1.vsGranular`: 1.2× faster
-- `nobailout.main.entity.n100.x4.vsGranular`: 1.2× faster
-- `nobailout.main.entity.n1000.x1.vsGranular`: 1.3× faster
+- `nobailout.main.selection.n1000.x1.vsGranular`: 1.7× slower
+- `nobailout.main.selection.n1000.x4.vsGranular`: 1.7× slower
+- `nobailout.main.selection.n10000.x1.vsGranular`: 1.5× slower
+- `nobailout.main.selection.n10000.x4.vsGranular`: 1.1× slower
+- `nobailout.main.entity.n1000.x1.vsGranular`: 1.1× faster
 - `nobailout.main.entity.n1000.x4.vsGranular`: 1.2× faster
-- `nobailout.main.entity.n10000.x1.vsGranular`: 1.0× faster
-- `nobailout.main.entity.n10000.x4.vsGranular`: 1.2× faster
-- `nobailout.main.filter.n100.x1.vsGranular`: 1.6× faster
-- `nobailout.main.filter.n100.x4.vsGranular`: 1.7× faster
-- `nobailout.main.filter.n1000.x1.vsGranular`: 1.6× faster
-- `nobailout.main.filter.n1000.x4.vsGranular`: 2.2× faster
-- `nobailout.main.filter.n10000.x1.vsGranular`: 2.6× faster
-- `nobailout.main.filter.n10000.x4.vsGranular`: 2.3× faster
+- `nobailout.main.entity.n10000.x1.vsGranular`: 1.1× faster
+- `nobailout.main.entity.n10000.x4.vsGranular`: 1.1× faster
+- `nobailout.main.filter.n1000.x1.vsGranular`: 1.5× faster
+- `nobailout.main.filter.n1000.x4.vsGranular`: 1.5× faster
+- `nobailout.main.filter.n10000.x1.vsGranular`: 2.3× faster
+- `nobailout.main.filter.n10000.x4.vsGranular`: 2.1× faster
+- `nobailout.main.details-inline.n1000.x1.vsGranular`: 2.1× faster
+- `nobailout.main.details-inline.n1000.x4.vsGranular`: 2.1× faster
+- `nobailout.main.details-inline.n10000.x1.vsGranular`: 2.1× faster
+- `nobailout.main.details-inline.n10000.x4.vsGranular`: 3.1× faster
+- `nobailout.main.details-component.n1000.x1.vsGranular`: 2.2× faster
+- `nobailout.main.details-component.n1000.x4.vsGranular`: 2.2× faster
+- `nobailout.main.details-component.n10000.x1.vsGranular`: 2.2× faster
+- `nobailout.main.details-component.n10000.x4.vsGranular`: 3.0× faster
+- `nobailout.main.details-churn.n1000.x1.vsGranular`: 1.1× slower
+- `nobailout.main.details-churn.n1000.x4.vsGranular`: 1.2× slower
+- `nobailout.main.details-churn.n10000.x1.vsGranular`: 1.1× faster
+- `nobailout.main.details-churn.n10000.x4.vsGranular`: 1.3× faster
+- `nobailout.main.structure.n1000.x1.vsGranular`: 2.7× faster
+- `nobailout.main.structure.n1000.x4.vsGranular`: 2.5× faster
+- `nobailout.main.structure.n10000.x1.vsGranular`: 6.1× faster
+- `nobailout.main.structure.n10000.x4.vsGranular`: 6.0× faster
 
 </details>
 
@@ -3789,26 +4604,36 @@ Without the same-element bailout: store + compiler vs the granular control.
 
 What the bailout buys store + compiler: the head build vs the build without it, same configuration ("1.4× faster" means faster with the bailout).
 
-<details><summary>18 keys</summary>
+<details><summary>28 keys</summary>
 
-- `nobailout.main.selection.n100.x1.bailoutGain`: 1.1× faster
-- `nobailout.main.selection.n100.x4.bailoutGain`: 1.2× faster
 - `nobailout.main.selection.n1000.x1.bailoutGain`: 1.2× faster
 - `nobailout.main.selection.n1000.x4.bailoutGain`: 1.2× faster
-- `nobailout.main.selection.n10000.x1.bailoutGain`: 1.0× faster
+- `nobailout.main.selection.n10000.x1.bailoutGain`: 1.3× faster
 - `nobailout.main.selection.n10000.x4.bailoutGain`: 1.1× faster
-- `nobailout.main.entity.n100.x1.bailoutGain`: tie
-- `nobailout.main.entity.n100.x4.bailoutGain`: tie
-- `nobailout.main.entity.n1000.x1.bailoutGain`: 1.0× slower
+- `nobailout.main.entity.n1000.x1.bailoutGain`: 1.1× faster
 - `nobailout.main.entity.n1000.x4.bailoutGain`: 1.1× slower
 - `nobailout.main.entity.n10000.x1.bailoutGain`: 1.0× faster
-- `nobailout.main.entity.n10000.x4.bailoutGain`: 1.1× slower
-- `nobailout.main.filter.n100.x1.bailoutGain`: 1.0× faster
-- `nobailout.main.filter.n100.x4.bailoutGain`: tie
-- `nobailout.main.filter.n1000.x1.bailoutGain`: 1.1× faster
-- `nobailout.main.filter.n1000.x4.bailoutGain`: 1.1× slower
+- `nobailout.main.entity.n10000.x4.bailoutGain`: 1.0× faster
+- `nobailout.main.filter.n1000.x1.bailoutGain`: 1.0× faster
+- `nobailout.main.filter.n1000.x4.bailoutGain`: 1.0× faster
 - `nobailout.main.filter.n10000.x1.bailoutGain`: 1.1× faster
 - `nobailout.main.filter.n10000.x4.bailoutGain`: 1.1× faster
+- `nobailout.main.details-inline.n1000.x1.bailoutGain`: 1.0× slower
+- `nobailout.main.details-inline.n1000.x4.bailoutGain`: 1.0× faster
+- `nobailout.main.details-inline.n10000.x1.bailoutGain`: 1.0× slower
+- `nobailout.main.details-inline.n10000.x4.bailoutGain`: 1.1× faster
+- `nobailout.main.details-component.n1000.x1.bailoutGain`: tie
+- `nobailout.main.details-component.n1000.x4.bailoutGain`: tie
+- `nobailout.main.details-component.n10000.x1.bailoutGain`: 1.0× faster
+- `nobailout.main.details-component.n10000.x4.bailoutGain`: 1.0× faster
+- `nobailout.main.details-churn.n1000.x1.bailoutGain`: 1.1× faster
+- `nobailout.main.details-churn.n1000.x4.bailoutGain`: 1.2× faster
+- `nobailout.main.details-churn.n10000.x1.bailoutGain`: 1.1× faster
+- `nobailout.main.details-churn.n10000.x4.bailoutGain`: 1.2× faster
+- `nobailout.main.structure.n1000.x1.bailoutGain`: 1.2× faster
+- `nobailout.main.structure.n1000.x4.bailoutGain`: 1.2× faster
+- `nobailout.main.structure.n10000.x1.bailoutGain`: 1.2× faster
+- `nobailout.main.structure.n10000.x4.bailoutGain`: 1.2× faster
 
 </details>
 
@@ -3816,17 +4641,25 @@ What the bailout buys store + compiler: the head build vs the build without it, 
 
 Without the same-element bailout: configurations store + compiler won vs the headline opponents.
 
-- `nobailout.main.tally.selection.wins`: 2
-- `nobailout.main.tally.entity.wins`: 6
-- `nobailout.main.tally.filter.wins`: 6
+- `nobailout.main.tally.selection.wins`: 1
+- `nobailout.main.tally.entity.wins`: 4
+- `nobailout.main.tally.filter.wins`: 4
+- `nobailout.main.tally.details-inline.wins`: 4
+- `nobailout.main.tally.details-component.wins`: 4
+- `nobailout.main.tally.details-churn.wins`: 2
+- `nobailout.main.tally.structure.wins`: 4
 
 ### `nobailout.main.tally.<scenario>.ties`
 
 Without the same-element bailout: ties.
 
-- `nobailout.main.tally.selection.ties`: 1
+- `nobailout.main.tally.selection.ties`: 0
 - `nobailout.main.tally.entity.ties`: 0
 - `nobailout.main.tally.filter.ties`: 0
+- `nobailout.main.tally.details-inline.ties`: 0
+- `nobailout.main.tally.details-component.ties`: 0
+- `nobailout.main.tally.details-churn.ties`: 1
+- `nobailout.main.tally.structure.ties`: 0
 
 ### `nobailout.main.tally.<scenario>.losses`
 
@@ -3835,28 +4668,40 @@ Without the same-element bailout: losses.
 - `nobailout.main.tally.selection.losses`: 3
 - `nobailout.main.tally.entity.losses`: 0
 - `nobailout.main.tally.filter.losses`: 0
+- `nobailout.main.tally.details-inline.losses`: 0
+- `nobailout.main.tally.details-component.losses`: 0
+- `nobailout.main.tally.details-churn.losses`: 1
+- `nobailout.main.tally.structure.losses`: 0
 
 ### `nobailout.main.tally.<scenario>.total`
 
 Without the same-element bailout: configurations compared.
 
-- `nobailout.main.tally.selection.total`: 6
-- `nobailout.main.tally.entity.total`: 6
-- `nobailout.main.tally.filter.total`: 6
+- `nobailout.main.tally.selection.total`: 4
+- `nobailout.main.tally.entity.total`: 4
+- `nobailout.main.tally.filter.total`: 4
+- `nobailout.main.tally.details-inline.total`: 4
+- `nobailout.main.tally.details-component.total`: 4
+- `nobailout.main.tally.details-churn.total`: 4
+- `nobailout.main.tally.structure.total`: 4
 
 ### `nobailout.main.tally.<scenario>.range`
 
 Without the same-element bailout: range of speedups as text.
 
-- `nobailout.main.tally.selection.range`: 1.2× slower to 1.2× faster (2 faster, 1 tie, 3 slower)
-- `nobailout.main.tally.entity.range`: 2.7–12× faster
-- `nobailout.main.tally.filter.range`: 1.7–2.6× faster
+- `nobailout.main.tally.selection.range`: 1.4× slower to 1.2× faster (1 faster, 3 slower)
+- `nobailout.main.tally.entity.range`: 4.2–9.2× faster
+- `nobailout.main.tally.filter.range`: 1.6–2.5× faster
+- `nobailout.main.tally.details-inline.range`: 2.7–5.3× faster
+- `nobailout.main.tally.details-component.range`: 2.8–4.4× faster
+- `nobailout.main.tally.details-churn.range`: 1.1× slower to 1.4× faster (2 faster, 1 tie, 1 slower)
+- `nobailout.main.tally.structure.range`: 3.8–6.9× faster
 
 ### `nobailout.main.tally.all.wins`
 
 Without the same-element bailout, every scenario: wins.
 
-- `nobailout.main.tally.all.wins`: 14
+- `nobailout.main.tally.all.wins`: 23
 
 ### `nobailout.main.tally.all.ties`
 
@@ -3868,59 +4713,276 @@ Without the same-element bailout, every scenario: ties.
 
 Without the same-element bailout, every scenario: losses.
 
-- `nobailout.main.tally.all.losses`: 3
+- `nobailout.main.tally.all.losses`: 4
 
 ### `nobailout.main.tally.all.total`
 
 Without the same-element bailout, every scenario: configurations compared.
 
-- `nobailout.main.tally.all.total`: 18
+- `nobailout.main.tally.all.total`: 28
 
 ### `nobailout.main.tally.all.range`
 
 Without the same-element bailout, every scenario: range of speedups as text.
 
-- `nobailout.main.tally.all.range`: 1.2× slower to 12× faster (14 faster, 1 tie, 3 slower)
+- `nobailout.main.tally.all.range`: 1.4× slower to 9.2× faster (23 faster, 1 tie, 4 slower)
 
 ### `nobailout.sweep.<scenario>.x<throttle>.<config>.<library>.median`
 
 Without the same-element bailout: Sweeps (N=1,000): median ms per update. Configs: c100/c90/c75/c50-w8 (% of rows compiled, 8 props), c0-w8 (no compiler), c100-w4, c100-w16 (props per row).
 
-_No values in the pinned data yet._
+<details><summary>112 keys</summary>
+
+- `nobailout.sweep.entity.x1.c100-w8.store.median`: 0.052
+- `nobailout.sweep.entity.x1.c100-w8.store-keyed.median`: 0.052
+- `nobailout.sweep.entity.x1.c100-w8.redux.median`: 0.283
+- `nobailout.sweep.entity.x1.c100-w8.zustand.median`: 0.139
+- `nobailout.sweep.entity.x1.c90-w8.store.median`: 0.053
+- `nobailout.sweep.entity.x1.c90-w8.store-keyed.median`: 0.053
+- `nobailout.sweep.entity.x1.c90-w8.redux.median`: 0.275
+- `nobailout.sweep.entity.x1.c90-w8.zustand.median`: 0.133
+- `nobailout.sweep.entity.x1.c75-w8.store.median`: 0.052
+- `nobailout.sweep.entity.x1.c75-w8.store-keyed.median`: 0.052
+- `nobailout.sweep.entity.x1.c75-w8.redux.median`: 0.267
+- `nobailout.sweep.entity.x1.c75-w8.zustand.median`: 0.128
+- `nobailout.sweep.entity.x1.c50-w8.store.median`: 0.052
+- `nobailout.sweep.entity.x1.c50-w8.store-keyed.median`: 0.055
+- `nobailout.sweep.entity.x1.c50-w8.redux.median`: 0.250
+- `nobailout.sweep.entity.x1.c50-w8.zustand.median`: 0.130
+- `nobailout.sweep.entity.x1.c0-w8.store.median`: 0.052
+- `nobailout.sweep.entity.x1.c0-w8.store-keyed.median`: 0.052
+- `nobailout.sweep.entity.x1.c0-w8.redux.median`: 0.258
+- `nobailout.sweep.entity.x1.c0-w8.zustand.median`: 0.139
+- `nobailout.sweep.entity.x1.c100-w4.store.median`: 0.050
+- `nobailout.sweep.entity.x1.c100-w4.store-keyed.median`: 0.050
+- `nobailout.sweep.entity.x1.c100-w4.redux.median`: 0.275
+- `nobailout.sweep.entity.x1.c100-w4.zustand.median`: 0.133
+- `nobailout.sweep.entity.x1.c100-w16.store.median`: 0.052
+- `nobailout.sweep.entity.x1.c100-w16.store-keyed.median`: 0.053
+- `nobailout.sweep.entity.x1.c100-w16.redux.median`: 0.290
+- `nobailout.sweep.entity.x1.c100-w16.zustand.median`: 0.133
+- `nobailout.sweep.selection.x1.c100-w8.store.median`: 0.193
+- `nobailout.sweep.selection.x1.c100-w8.store-keyed.median`: 0.055
+- `nobailout.sweep.selection.x1.c100-w8.redux.median`: 0.167
+- `nobailout.sweep.selection.x1.c100-w8.zustand.median`: 0.111
+- `nobailout.sweep.selection.x1.c90-w8.store.median`: 0.380
+- `nobailout.sweep.selection.x1.c90-w8.store-keyed.median`: 0.058
+- `nobailout.sweep.selection.x1.c90-w8.redux.median`: 0.172
+- `nobailout.sweep.selection.x1.c90-w8.zustand.median`: 0.112
+- `nobailout.sweep.selection.x1.c75-w8.store.median`: 0.667
+- `nobailout.sweep.selection.x1.c75-w8.store-keyed.median`: 0.057
+- `nobailout.sweep.selection.x1.c75-w8.redux.median`: 0.178
+- `nobailout.sweep.selection.x1.c75-w8.zustand.median`: 0.115
+- `nobailout.sweep.selection.x1.c50-w8.store.median`: 1.13
+- `nobailout.sweep.selection.x1.c50-w8.store-keyed.median`: 0.055
+- `nobailout.sweep.selection.x1.c50-w8.redux.median`: 0.172
+- `nobailout.sweep.selection.x1.c50-w8.zustand.median`: 0.112
+- `nobailout.sweep.selection.x1.c0-w8.store.median`: 2.00
+- `nobailout.sweep.selection.x1.c0-w8.store-keyed.median`: 0.055
+- `nobailout.sweep.selection.x1.c0-w8.redux.median`: 0.170
+- `nobailout.sweep.selection.x1.c0-w8.zustand.median`: 0.107
+- `nobailout.sweep.selection.x1.c100-w4.store.median`: 0.179
+- `nobailout.sweep.selection.x1.c100-w4.store-keyed.median`: 0.053
+- `nobailout.sweep.selection.x1.c100-w4.redux.median`: 0.172
+- `nobailout.sweep.selection.x1.c100-w4.zustand.median`: 0.111
+- `nobailout.sweep.selection.x1.c100-w16.store.median`: 0.193
+- `nobailout.sweep.selection.x1.c100-w16.store-keyed.median`: 0.055
+- `nobailout.sweep.selection.x1.c100-w16.redux.median`: 0.175
+- `nobailout.sweep.selection.x1.c100-w16.zustand.median`: 0.112
+- `nobailout.sweep.entity.x4.c100-w8.store.median`: 0.242
+- `nobailout.sweep.entity.x4.c100-w8.store-keyed.median`: 0.217
+- `nobailout.sweep.entity.x4.c100-w8.redux.median`: 1.30
+- `nobailout.sweep.entity.x4.c100-w8.zustand.median`: 0.633
+- `nobailout.sweep.entity.x4.c90-w8.store.median`: 0.217
+- `nobailout.sweep.entity.x4.c90-w8.store-keyed.median`: 0.220
+- `nobailout.sweep.entity.x4.c90-w8.redux.median`: 1.17
+- `nobailout.sweep.entity.x4.c90-w8.zustand.median`: 0.567
+- `nobailout.sweep.entity.x4.c75-w8.store.median`: 0.225
+- `nobailout.sweep.entity.x4.c75-w8.store-keyed.median`: 0.225
+- `nobailout.sweep.entity.x4.c75-w8.redux.median`: 1.25
+- `nobailout.sweep.entity.x4.c75-w8.zustand.median`: 0.617
+- `nobailout.sweep.entity.x4.c50-w8.store.median`: 0.220
+- `nobailout.sweep.entity.x4.c50-w8.store-keyed.median`: 0.225
+- `nobailout.sweep.entity.x4.c50-w8.redux.median`: 1.20
+- `nobailout.sweep.entity.x4.c50-w8.zustand.median`: 0.550
+- `nobailout.sweep.entity.x4.c0-w8.store.median`: 0.225
+- `nobailout.sweep.entity.x4.c0-w8.store-keyed.median`: 0.217
+- `nobailout.sweep.entity.x4.c0-w8.redux.median`: 1.15
+- `nobailout.sweep.entity.x4.c0-w8.zustand.median`: 0.567
+- `nobailout.sweep.entity.x4.c100-w4.store.median`: 0.217
+- `nobailout.sweep.entity.x4.c100-w4.store-keyed.median`: 0.225
+- `nobailout.sweep.entity.x4.c100-w4.redux.median`: 1.17
+- `nobailout.sweep.entity.x4.c100-w4.zustand.median`: 0.650
+- `nobailout.sweep.entity.x4.c100-w16.store.median`: 0.225
+- `nobailout.sweep.entity.x4.c100-w16.store-keyed.median`: 0.250
+- `nobailout.sweep.entity.x4.c100-w16.redux.median`: 1.33
+- `nobailout.sweep.entity.x4.c100-w16.zustand.median`: 0.617
+- `nobailout.sweep.selection.x4.c100-w8.store.median`: 0.800
+- `nobailout.sweep.selection.x4.c100-w8.store-keyed.median`: 0.240
+- `nobailout.sweep.selection.x4.c100-w8.redux.median`: 0.717
+- `nobailout.sweep.selection.x4.c100-w8.zustand.median`: 0.467
+- `nobailout.sweep.selection.x4.c90-w8.store.median`: 1.60
+- `nobailout.sweep.selection.x4.c90-w8.store-keyed.median`: 0.233
+- `nobailout.sweep.selection.x4.c90-w8.redux.median`: 0.717
+- `nobailout.sweep.selection.x4.c90-w8.zustand.median`: 0.462
+- `nobailout.sweep.selection.x4.c75-w8.store.median`: 2.85
+- `nobailout.sweep.selection.x4.c75-w8.store-keyed.median`: 0.233
+- `nobailout.sweep.selection.x4.c75-w8.redux.median`: 0.767
+- `nobailout.sweep.selection.x4.c75-w8.zustand.median`: 0.463
+- `nobailout.sweep.selection.x4.c50-w8.store.median`: 4.90
+- `nobailout.sweep.selection.x4.c50-w8.store-keyed.median`: 0.240
+- `nobailout.sweep.selection.x4.c50-w8.redux.median`: 0.750
+- `nobailout.sweep.selection.x4.c50-w8.zustand.median`: 0.475
+- `nobailout.sweep.selection.x4.c0-w8.store.median`: 8.40
+- `nobailout.sweep.selection.x4.c0-w8.store-keyed.median`: 0.233
+- `nobailout.sweep.selection.x4.c0-w8.redux.median`: 0.717
+- `nobailout.sweep.selection.x4.c0-w8.zustand.median`: 0.475
+- `nobailout.sweep.selection.x4.c100-w4.store.median`: 0.775
+- `nobailout.sweep.selection.x4.c100-w4.store-keyed.median`: 0.230
+- `nobailout.sweep.selection.x4.c100-w4.redux.median`: 0.700
+- `nobailout.sweep.selection.x4.c100-w4.zustand.median`: 0.450
+- `nobailout.sweep.selection.x4.c100-w16.store.median`: 0.900
+- `nobailout.sweep.selection.x4.c100-w16.store-keyed.median`: 0.242
+- `nobailout.sweep.selection.x4.c100-w16.redux.median`: 0.717
+- `nobailout.sweep.selection.x4.c100-w16.zustand.median`: 0.462
+
+</details>
 
 ### `nobailout.sweep.<scenario>.x<throttle>.<config>.<library>.verdict`
 
 Without the same-element bailout: Sweeps: store or store-keyed vs the faster of Redux and Zustand at the same config.
 
-_No values in the pinned data yet._
+<details><summary>56 keys</summary>
+
+- `nobailout.sweep.entity.x1.c100-w8.store.verdict`: 2.6× faster
+- `nobailout.sweep.entity.x1.c100-w8.store-keyed.verdict`: 2.5× faster
+- `nobailout.sweep.entity.x1.c90-w8.store.verdict`: 2.5× faster
+- `nobailout.sweep.entity.x1.c90-w8.store-keyed.verdict`: 2.5× faster
+- `nobailout.sweep.entity.x1.c75-w8.store.verdict`: 2.5× faster
+- `nobailout.sweep.entity.x1.c75-w8.store-keyed.verdict`: 2.4× faster
+- `nobailout.sweep.entity.x1.c50-w8.store.verdict`: 2.5× faster
+- `nobailout.sweep.entity.x1.c50-w8.store-keyed.verdict`: 2.5× faster
+- `nobailout.sweep.entity.x1.c0-w8.store.verdict`: 2.6× faster
+- `nobailout.sweep.entity.x1.c0-w8.store-keyed.verdict`: 2.7× faster
+- `nobailout.sweep.entity.x1.c100-w4.store.verdict`: 2.7× faster
+- `nobailout.sweep.entity.x1.c100-w4.store-keyed.verdict`: 2.7× faster
+- `nobailout.sweep.entity.x1.c100-w16.store.verdict`: 2.6× faster
+- `nobailout.sweep.entity.x1.c100-w16.store-keyed.verdict`: 2.5× faster
+- `nobailout.sweep.selection.x1.c100-w8.store.verdict`: 1.7× slower
+- `nobailout.sweep.selection.x1.c100-w8.store-keyed.verdict`: 2.1× faster
+- `nobailout.sweep.selection.x1.c90-w8.store.verdict`: 3.5× slower
+- `nobailout.sweep.selection.x1.c90-w8.store-keyed.verdict`: 1.9× faster
+- `nobailout.sweep.selection.x1.c75-w8.store.verdict`: 6.0× slower
+- `nobailout.sweep.selection.x1.c75-w8.store-keyed.verdict`: 2.0× faster
+- `nobailout.sweep.selection.x1.c50-w8.store.verdict`: 10.0× slower
+- `nobailout.sweep.selection.x1.c50-w8.store-keyed.verdict`: 2.1× faster
+- `nobailout.sweep.selection.x1.c0-w8.store.verdict`: 19.7× slower
+- `nobailout.sweep.selection.x1.c0-w8.store-keyed.verdict`: 1.9× faster
+- `nobailout.sweep.selection.x1.c100-w4.store.verdict`: 1.6× slower
+- `nobailout.sweep.selection.x1.c100-w4.store-keyed.verdict`: 2.1× faster
+- `nobailout.sweep.selection.x1.c100-w16.store.verdict`: 1.8× slower
+- `nobailout.sweep.selection.x1.c100-w16.store-keyed.verdict`: 2.0× faster
+- `nobailout.sweep.entity.x4.c100-w8.store.verdict`: 2.7× faster
+- `nobailout.sweep.entity.x4.c100-w8.store-keyed.verdict`: 3.0× faster
+- `nobailout.sweep.entity.x4.c90-w8.store.verdict`: 2.6× faster
+- `nobailout.sweep.entity.x4.c90-w8.store-keyed.verdict`: 2.6× faster
+- `nobailout.sweep.entity.x4.c75-w8.store.verdict`: 2.8× faster
+- `nobailout.sweep.entity.x4.c75-w8.store-keyed.verdict`: 2.9× faster
+- `nobailout.sweep.entity.x4.c50-w8.store.verdict`: 2.5× faster
+- `nobailout.sweep.entity.x4.c50-w8.store-keyed.verdict`: 2.5× faster
+- `nobailout.sweep.entity.x4.c0-w8.store.verdict`: 2.6× faster
+- `nobailout.sweep.entity.x4.c0-w8.store-keyed.verdict`: 2.6× faster
+- `nobailout.sweep.entity.x4.c100-w4.store.verdict`: 3.1× faster
+- `nobailout.sweep.entity.x4.c100-w4.store-keyed.verdict`: 2.9× faster
+- `nobailout.sweep.entity.x4.c100-w16.store.verdict`: 2.7× faster
+- `nobailout.sweep.entity.x4.c100-w16.store-keyed.verdict`: 2.5× faster
+- `nobailout.sweep.selection.x4.c100-w8.store.verdict`: 1.7× slower
+- `nobailout.sweep.selection.x4.c100-w8.store-keyed.verdict`: 2.0× faster
+- `nobailout.sweep.selection.x4.c90-w8.store.verdict`: 3.5× slower
+- `nobailout.sweep.selection.x4.c90-w8.store-keyed.verdict`: 2.0× faster
+- `nobailout.sweep.selection.x4.c75-w8.store.verdict`: 6.0× slower
+- `nobailout.sweep.selection.x4.c75-w8.store-keyed.verdict`: 2.0× faster
+- `nobailout.sweep.selection.x4.c50-w8.store.verdict`: 10.6× slower
+- `nobailout.sweep.selection.x4.c50-w8.store-keyed.verdict`: 2.0× faster
+- `nobailout.sweep.selection.x4.c0-w8.store.verdict`: 18.7× slower
+- `nobailout.sweep.selection.x4.c0-w8.store-keyed.verdict`: 2.1× faster
+- `nobailout.sweep.selection.x4.c100-w4.store.verdict`: 1.8× slower
+- `nobailout.sweep.selection.x4.c100-w4.store-keyed.verdict`: 1.9× faster
+- `nobailout.sweep.selection.x4.c100-w16.store.verdict`: 1.9× slower
+- `nobailout.sweep.selection.x4.c100-w16.store-keyed.verdict`: 1.9× faster
+
+</details>
 
 ### `nobailout.sweep.<scenario>.<config>.<library>.range`
 
 Without the same-element bailout: Sweeps: store or store-keyed vs the faster of Redux and Zustand, range of ratios across CPU throttles as text.
 
-_No values in the pinned data yet._
+<details><summary>28 keys</summary>
+
+- `nobailout.sweep.entity.c100-w8.store.range`: 2.6–2.7× faster
+- `nobailout.sweep.entity.c100-w8.store-keyed.range`: 2.5–3.0× faster
+- `nobailout.sweep.entity.c90-w8.store.range`: 2.5–2.6× faster
+- `nobailout.sweep.entity.c90-w8.store-keyed.range`: 2.5–2.6× faster
+- `nobailout.sweep.entity.c75-w8.store.range`: 2.5–2.8× faster
+- `nobailout.sweep.entity.c75-w8.store-keyed.range`: 2.4–2.9× faster
+- `nobailout.sweep.entity.c50-w8.store.range`: 2.5× faster
+- `nobailout.sweep.entity.c50-w8.store-keyed.range`: 2.5× faster
+- `nobailout.sweep.entity.c0-w8.store.range`: 2.6× faster
+- `nobailout.sweep.entity.c0-w8.store-keyed.range`: 2.6–2.7× faster
+- `nobailout.sweep.entity.c100-w4.store.range`: 2.7–3.1× faster
+- `nobailout.sweep.entity.c100-w4.store-keyed.range`: 2.7–2.9× faster
+- `nobailout.sweep.entity.c100-w16.store.range`: 2.6–2.7× faster
+- `nobailout.sweep.entity.c100-w16.store-keyed.range`: 2.5× faster
+- `nobailout.sweep.selection.c100-w8.store.range`: 1.7× slower
+- `nobailout.sweep.selection.c100-w8.store-keyed.range`: 2.0–2.1× faster
+- `nobailout.sweep.selection.c90-w8.store.range`: 3.5× slower
+- `nobailout.sweep.selection.c90-w8.store-keyed.range`: 1.9–2.0× faster
+- `nobailout.sweep.selection.c75-w8.store.range`: 6.0× slower
+- `nobailout.sweep.selection.c75-w8.store-keyed.range`: 2.0× faster
+- `nobailout.sweep.selection.c50-w8.store.range`: 10.0–11× slower
+- `nobailout.sweep.selection.c50-w8.store-keyed.range`: 2.0–2.1× faster
+- `nobailout.sweep.selection.c0-w8.store.range`: 19–20× slower
+- `nobailout.sweep.selection.c0-w8.store-keyed.range`: 1.9–2.1× faster
+- `nobailout.sweep.selection.c100-w4.store.range`: 1.6–1.8× slower
+- `nobailout.sweep.selection.c100-w4.store-keyed.range`: 1.9–2.1× faster
+- `nobailout.sweep.selection.c100-w16.store.range`: 1.8–1.9× slower
+- `nobailout.sweep.selection.c100-w16.store-keyed.range`: 1.9–2.0× faster
+
+</details>
 
 ### `nobailout.sweep.tally.<library>.<scenario>.wins`
 
 Without the same-element bailout: Sweeps: configs (all, × throttles) won.
 
-_No values in the pinned data yet._
+- `nobailout.sweep.tally.store.entity.wins`: 14
+- `nobailout.sweep.tally.store.selection.wins`: 0
+- `nobailout.sweep.tally.store-keyed.entity.wins`: 14
+- `nobailout.sweep.tally.store-keyed.selection.wins`: 14
 
 ### `nobailout.sweep.tally.<library>.<scenario>.ties`
 
 Without the same-element bailout: Sweeps: ties.
 
-_No values in the pinned data yet._
+- `nobailout.sweep.tally.store.entity.ties`: 0
+- `nobailout.sweep.tally.store.selection.ties`: 0
+- `nobailout.sweep.tally.store-keyed.entity.ties`: 0
+- `nobailout.sweep.tally.store-keyed.selection.ties`: 0
 
 ### `nobailout.sweep.tally.<library>.<scenario>.losses`
 
 Without the same-element bailout: Sweeps: losses.
 
-_No values in the pinned data yet._
+- `nobailout.sweep.tally.store.entity.losses`: 0
+- `nobailout.sweep.tally.store.selection.losses`: 14
+- `nobailout.sweep.tally.store-keyed.entity.losses`: 0
+- `nobailout.sweep.tally.store-keyed.selection.losses`: 0
 
 ### `nobailout.sweep.tally.<library>.<scenario>.total`
 
 Without the same-element bailout: Sweeps: configs compared.
 
-_No values in the pinned data yet._
+- `nobailout.sweep.tally.store.entity.total`: 14
+- `nobailout.sweep.tally.store.selection.total`: 14
+- `nobailout.sweep.tally.store-keyed.entity.total`: 14
+- `nobailout.sweep.tally.store-keyed.selection.total`: 14
 
