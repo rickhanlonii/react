@@ -2107,6 +2107,109 @@ describe('Suspense and Activity', () => {
   });
 
   // @gate enableStore
+  it('a store update does not retry a boundary for a sibling that mounts after the suspended component', async () => {
+    const store = createStore('A');
+    let resolve;
+    const promise = new Promise(r => (resolve = r));
+    let resolved = false;
+    promise.then(() => {
+      resolved = true;
+    });
+
+    function Suspender() {
+      if (!resolved) {
+        Scheduler.log('Suspend!');
+        throw promise;
+      }
+      return <Text text="Suspender" />;
+    }
+
+    function Reader() {
+      return <Text text={'Reader: ' + use(store)} />;
+    }
+
+    const root = ReactNoop.createRoot();
+    await act(() => {
+      root.render(
+        <Suspense fallback={<Text text="Loading" />}>
+          <Suspender />
+          <Reader />
+        </Suspense>,
+      );
+    });
+    // The fallback commits, then the siblings of the suspended component
+    // render in a prerender pass.
+    assertLog(['Suspend!', 'Loading', 'Suspend!', 'Reader: A']);
+    expect(root).toMatchRenderedOutput('Loading');
+
+    await act(() => store.update('B'));
+    // The Reader never committed, so it isn't subscribed, and the boundary
+    // only waits on stores read by the component that suspended and the
+    // components above it. Retrying wouldn't stop it from suspending.
+    assertLog([]);
+
+    await act(() => resolve());
+    // The boundary retries when the data resolves, and the Reader mounts with
+    // the latest value.
+    assertLog(['Suspender', 'Reader: B']);
+    expect(root).toMatchRenderedOutput('SuspenderReader: B');
+  });
+
+  // @gate enableStore
+  it('a hidden reader in a boundary showing its fallback renders store updates', async () => {
+    const store = createStore('A');
+    let resolve;
+    const promise = new Promise(r => (resolve = r));
+    let resolved = false;
+    promise.then(() => {
+      resolved = true;
+    });
+
+    function Suspender({suspend}) {
+      if (suspend && !resolved) {
+        Scheduler.log('Suspend!');
+        throw promise;
+      }
+      return <Text text="Suspender" />;
+    }
+
+    function Reader() {
+      return <Text text={'Reader: ' + use(store)} />;
+    }
+
+    let setSuspend;
+    function App() {
+      const [suspend, _setSuspend] = useState(false);
+      setSuspend = _setSuspend;
+      return (
+        <Suspense fallback={<Text text="Loading" />}>
+          <Reader />
+          <Suspender suspend={suspend} />
+        </Suspense>
+      );
+    }
+
+    const root = ReactNoop.createRoot();
+    await act(() => root.render(<App />));
+    assertLog(['Reader: A', 'Suspender']);
+
+    // The content hides and the fallback shows. The Reader stays mounted.
+    await act(() => setSuspend(true));
+    assertLog(['Reader: A', 'Suspend!', 'Loading', 'Reader: A', 'Suspend!']);
+    expect(root).toMatchRenderedOutput('Loading');
+
+    await act(() => store.update('B'));
+    // The hidden Reader stays subscribed, so the store update renders it. The
+    // component that suspended still suspends, so the fallback stays.
+    assertLog(['Reader: B', 'Suspend!', 'Reader: B', 'Suspend!']);
+    expect(root).toMatchRenderedOutput('Loading');
+
+    await act(() => resolve());
+    assertLog(['Reader: B', 'Suspender']);
+    expect(root).toMatchRenderedOutput('Reader: BSuspender');
+  });
+
+  // @gate enableStore
   it('a store update retries a boundary whose reader suspended on mount', async () => {
     const store = createStore(new Promise(() => {}));
 
