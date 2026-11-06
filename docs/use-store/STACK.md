@@ -5,12 +5,14 @@ Built 2026-11-01 from `rh/use-store`, which is unchanged and keeps the full hist
 | # | Branch | Commit | PR title |
 |---|---|---|---|
 | 1 | `rh/store-1-same-element-bailout` | `6743fc72b2` | Skip reconciling a child when a function component returns the same element |
-| 2 | `rh/store-2-core` | `412baada1c` | Add experimental use(store) |
-| 3 | `rh/store-3-server` | `c67631e384` | use(store): server rendering and hydration |
-| 4 | `rh/store-4-devtools` | `24ef413447` | use(store): DevTools support, and report hook ids in "Why did this render?" |
-| 5 | `rh/store-5-tests` | `a11c4942b7` | use(store): Fast Refresh and ESLint tests |
+| 2 | `rh/store-2-core` | `2b91348360` | Add experimental use(store) |
+| 3 | `rh/store-3-server` | `24c633771f` | use(store): server rendering and hydration |
+| 4 | `rh/store-4-devtools` | `6cf4ba9583` | use(store): DevTools support, and report hook ids in "Why did this render?" |
+| 5 | `rh/store-5-tests` | `fd9667d1eb` | use(store): Fast Refresh and ESLint tests |
 
-The top of the stack's `packages/` is byte-identical to `rh/use-store` at `9e5cf4076a`, which also carries the local docs.
+The top of the stack's `packages/` is byte-identical to `rh/use-store` at `19c1ac6408`, which also carries the local docs.
+
+**Rebuilt 2026-11-06:** layers 2–5 got two Suspense sibling tests in `ReactUseStore-test.js` (from a code review), and nothing else changed. The old commits are kept as `refs/backup/store-{2-core,3-server,4-devtools,5-tests}-20261106`. The store suites pass on experimental, www-modern (variant true and false), stable and xplat at the top of the stack. Layer 2 wasn't rerun on its own.
 
 ## Verification
 
