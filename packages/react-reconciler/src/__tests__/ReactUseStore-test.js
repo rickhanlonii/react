@@ -2961,16 +2961,17 @@ describe('reducer errors', () => {
     assertLog(['Nothing']);
 
     // No root reads the store, so the update is held. The transition has
-    // nothing else to render, so it's done.
+    // nothing else to render, so it's done at the end of the event, and the
+    // held update is applied. The error is reported, not silently dropped.
     await act(() => {
       startTransition(() => {
         store.update('throw');
       });
     });
-    // The held update is applied when the first reader mounts. The error is
-    // reported, not silently dropped.
+    assertLog(['reportError: Oops']);
+
     await act(() => root.render(<Reader />));
-    assertLog(['reportError: Oops', 'Reader: 0']);
+    assertLog(['Reader: 0']);
   });
 
   // @gate enableStore
@@ -2994,15 +2995,17 @@ describe('reducer errors', () => {
       .spyOn(console, 'error')
       .mockImplementation(() => {});
     try {
-      // No root reads the store, so the update is held.
+      // No root reads the store, so the update is held. Its transition has
+      // nothing else to render, so it's applied at the end of the event. The
+      // error is reported, and the update is dropped.
       await act(() => {
         startTransition(() => {
           store.update('read context');
         });
       });
-      // The first reader applies the held update while it renders, with its
-      // dispatcher installed. The reducer still runs without one. The error
-      // is reported, and the update is dropped.
+      assertLog([
+        "reportError: Cannot read properties of null (reading 'useContext')",
+      ]);
       const root = ReactNoop.createRoot();
       await act(() => {
         root.render(
@@ -3013,10 +3016,7 @@ describe('reducer errors', () => {
           </Context>,
         );
       });
-      assertLog([
-        "reportError: Cannot read properties of null (reading 'useContext')",
-        'Reader: 0',
-      ]);
+      assertLog(['Reader: 0']);
 
       // When the HostRoot processes an update, the reader throws the error.
       // The reducer never sees the reader's context.
@@ -3072,7 +3072,7 @@ describe('reducer errors', () => {
   // readers throw the error, and the update that threw is dropped when that
   // render commits. These tests pin what that does in the cases we still
   // need to decide on.
-  describe('reducer errors to follow up on', () => {
+  describe('reducer errors and the order updates apply in', () => {
     // A reducer that only accepts 'next' after 'ready'.
     function reducer(state, action) {
       if (action === 'ready') {
@@ -3088,7 +3088,7 @@ describe('reducer errors', () => {
     }
 
     // @gate enableStore
-    it('applies an urgent update that only throws because a pending transition was skipped, when error recovery includes the transition', async () => {
+    it('defers an urgent update that only throws because a pending transition was skipped, and applies it after the transition', async () => {
       const store = createStore('initial', reducer);
       function Reader() {
         return <Text text={'Value: ' + use(store)} />;
@@ -3106,27 +3106,20 @@ describe('reducer errors', () => {
 
       await act(async () => {
         startTransition(() => store.update('ready'));
-        // In dispatch order, 'next' is valid: it comes after 'ready'. But
-        // the urgent render skips the transition and applies 'next' to
-        // 'initial', so the reader throws.
-        store.update('next');
+        // In dispatch order, 'next' is valid: it comes after 'ready'. The
+        // sync render skips the transition, so it would apply 'next' to
+        // 'initial' and throw. Instead it defers 'next' until it applies
+        // after 'ready'. The value doesn't change, and nothing throws.
+        ReactNoop.flushSync(() => store.update('next'));
+        assertLog([]);
+        expect(root).toMatchRenderedOutput('Value: initial');
       });
-      // React recovers from the error by rendering the root again
-      // synchronously with every pending lane. That includes the
-      // transition, so 'next' is applied after 'ready' and nothing is lost.
-      // FIXME: this relies on error recovery, which logs a recoverable error
-      // and throws away the urgent render. It's the only reason the write
-      // survives (see the next test for when recovery is skipped).
-      assertLog(['Caught: Not ready', 'Value: next']);
-      assertConsoleErrorDev([
-        'Error: There was an error during concurrent rendering but React was able to recover by instead synchronously rendering the entire root.' +
-          '\n    in <stack>',
-      ]);
+      assertLog(['Value: next']);
       expect(root).toMatchRenderedOutput('Value: next');
     });
 
     // @gate enableStore
-    it('drops an urgent update that only throws because a pending transition was skipped, when the transition is waiting on data', async () => {
+    it('does not show an error or lose an urgent update that only throws because a pending transition waiting on data was skipped', async () => {
       const store = createStore('initial', reducer);
       function Reader() {
         return <Text text={'Value: ' + use(store)} />;
@@ -3151,7 +3144,7 @@ describe('reducer errors', () => {
 
       await act(async () => {
         // The transition also renders a page that suspends with no Suspense
-        // boundary, so it waits on the data.
+        // boundary, so it waits on the data. Nothing from it is on screen.
         startTransition(() => {
           store.update('ready');
           root.render(
@@ -3165,40 +3158,76 @@ describe('reducer errors', () => {
         });
         store.update('next');
       });
-      // React tries to recover by rendering every pending lane, including
-      // the transition, but the page suspends, so that render can't finish
-      // and nothing commits. The urgent update is stuck behind the
-      // transition, and error recovery is now off for these lanes.
-      assertLog(['Caught: Not ready', 'Value: next']);
+      // 'next' only throws because the urgent render skipped 'ready', so it's
+      // deferred. No error boundary shows, and no error recovery runs. The
+      // transition renders 'next' after 'ready', but it suspends on the
+      // page, so that render is thrown away.
+      assertLog(['Value: next']);
       expect(root).toMatchRenderedOutput('Value: initial');
 
-      // When the data resolves, the urgent lanes render first without error
-      // recovery. 'next' throws again, the boundary commits, and the update
-      // that threw is dropped. Then the transition commits.
+      // When the data resolves, the transition commits with 'next' applied
+      // after 'ready'.
       await act(() => resolve('loaded'));
-      assertLog(['Caught: Not ready', 'Caught: Not ready', 'Page: loaded']);
-      expect(root).toMatchRenderedOutput('Caught: Not readyPage: loaded');
+      assertLog(['Value: next', 'Page: loaded']);
+      expect(root).toMatchRenderedOutput('Value: nextPage: loaded');
 
-      // FIXME: the store ends up at 'ready' instead of 'next'. The write was
-      // valid in dispatch order, and it's lost because of the order the
-      // renders happened to apply it in.
+      // A root that starts reading the store agrees.
+      const otherRoot = ReactNoop.createRoot();
+      await act(() => otherRoot.render(<Reader />));
+      assertLog(['Value: next']);
+    });
+
+    // @gate enableStore
+    it('does not replace content on screen with a fallback because of an urgent update that only throws because a pending transition was skipped', async () => {
+      const store = createStore('initial', reducer);
+      function Reader() {
+        return <Text text={'Value: ' + use(store)} />;
+      }
+      let setPage;
+      function Page() {
+        const [page, _setPage] = useState('a');
+        setPage = _setPage;
+        return <AsyncText text={'Page ' + page} />;
+      }
+
+      resolveText('Page a');
+      const root = ReactNoop.createRoot();
       await act(() => {
         root.render(
           <>
-            <ErrorBoundary key="2">
+            <ErrorBoundary>
               <Reader />
             </ErrorBoundary>
-            <Page />
+            <Suspense fallback={<Text text="Loading page" />}>
+              <Page />
+            </Suspense>
           </>,
         );
       });
-      assertLog(['Value: ready', 'Page: loaded']);
+      assertLog(['Value: initial', 'Page a']);
 
-      // A root that starts reading the store now agrees: once nothing is
-      // pending, the latest value is the committed one.
-      const otherRoot = ReactNoop.createRoot();
-      await act(() => otherRoot.render(<Reader />));
-      assertLog(['Value: ready']);
+      // The page that's on screen suspends again in the transition, so the
+      // transition waits on the data.
+      await act(() => {
+        startTransition(() => {
+          store.update('ready');
+          setPage('b');
+        });
+      });
+      assertLog(['Value: ready', 'Suspend! [Page b]', 'Loading page']);
+      expect(root).toMatchRenderedOutput('Value: initialPage a');
+
+      // An urgent update that's only invalid out of order is deferred. It
+      // doesn't throw, so there's no synchronous error recovery that would
+      // show the fallback in place of the page. The value doesn't change, so
+      // only the transition renders again, with 'next', and waits.
+      await act(() => store.update('next'));
+      assertLog(['Value: next', 'Suspend! [Page b]', 'Loading page']);
+      expect(root).toMatchRenderedOutput('Value: initialPage a');
+
+      await act(() => resolveText('Page b'));
+      assertLog(['Value: next', 'Page b']);
+      expect(root).toMatchRenderedOutput('Value: nextPage b');
     });
 
     // @gate enableStore

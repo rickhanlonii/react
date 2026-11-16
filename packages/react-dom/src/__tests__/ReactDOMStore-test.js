@@ -902,7 +902,7 @@ describe('ReactDOMStore', () => {
     });
 
     // @gate enableStore
-    it('hydrates with the server value when a reducer throws, and reports the error', async () => {
+    it('hydrates with the server value when a reducer throws, and throws the error once the update applies in order', async () => {
       const store = createStore('A', (state, action) => {
         if (action === 'throw') {
           throw new Error('Oops');
@@ -910,16 +910,33 @@ describe('ReactDOMStore', () => {
         return action;
       });
 
+      class ErrorBoundary extends React.Component {
+        state = {error: null};
+        static getDerivedStateFromError(error) {
+          return {error};
+        }
+        render() {
+          if (this.state.error !== null) {
+            return <Text text={'Caught: ' + this.state.error.message} />;
+          }
+          return this.props.children;
+        }
+      }
+
       function App() {
         return <Text text={use(store)} />;
       }
 
       const container = document.createElement('div');
-      container.innerHTML = ReactDOMServer.renderToString(<App />);
+      container.innerHTML = ReactDOMServer.renderToString(
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>,
+      );
       assertLog(['A']);
 
       // Nothing reads the store, so these updates are held until the action
-      // is done. The urgent one throws in every render.
+      // is done. The urgent one is held behind the action's.
       let resolve;
       await act(() => {
         startTransition(async () => {
@@ -930,23 +947,36 @@ describe('ReactDOMStore', () => {
       store.update('throw');
 
       const errors = [];
+      const caughtErrors = [];
       await act(() => {
-        ReactDOMClient.hydrateRoot(container, <App />, {
-          onRecoverableError(error) {
-            errors.push(error.message);
+        ReactDOMClient.hydrateRoot(
+          container,
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>,
+          {
+            onRecoverableError(error) {
+              errors.push(error.message);
+            },
+            onCaughtError(error) {
+              caughtErrors.push(error.message);
+            },
           },
-        });
+        );
       });
-      // The reader hydrates with the server value instead of throwing. No
-      // component threw the error, so it's reported, and the update that
-      // threw is dropped.
-      assertLog(['A', 'reportError: Oops']);
+      // The reader hydrates with the server value instead of throwing. The
+      // hydration skips the action's update, so the urgent one would apply
+      // out of order. It's deferred until it applies in order.
+      assertLog(['A']);
       expect(errors).toEqual([]);
       expect(container.textContent).toBe('A');
 
+      // It throws in dispatch order too, so the reader throws it once the
+      // action's update renders.
       await act(() => resolve());
-      assertLog(['B']);
-      expect(container.textContent).toBe('B');
+      assertLog(['Caught: Oops', 'Caught: Oops']);
+      expect(caughtErrors).toEqual(['Oops']);
+      expect(container.textContent).toBe('Caught: Oops');
     });
   });
 });

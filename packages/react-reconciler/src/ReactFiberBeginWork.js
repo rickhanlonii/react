@@ -125,7 +125,7 @@ import {
 import {
   takeStoreReadsOfSuspendedTree,
   processStoreRecords,
-  suspendIfUnreadStoreReadFromEntangledAsyncAction,
+  suspendIfStoreReadFromEntangledAsyncAction,
 } from './ReactFiberStore';
 import shallowEqual from 'shared/shallowEqual';
 import getComponentNameFromFiber from 'react-reconciler/src/getComponentNameFromFiber';
@@ -1972,7 +1972,7 @@ function updateHostRoot(
   // context stack mismatch. A bit unfortunate.
   suspendIfUpdateReadFromEntangledAsyncAction();
   if (enableStore) {
-    suspendIfUnreadStoreReadFromEntangledAsyncAction(nextState.storeStates);
+    suspendIfStoreReadFromEntangledAsyncAction(nextState.storeStates);
   }
 
   // Caution: React DevTools currently depends on this property

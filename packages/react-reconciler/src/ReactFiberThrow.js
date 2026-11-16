@@ -384,6 +384,18 @@ function throwException(
     if (typeof value.then === 'function') {
       // This is a wakeable. The component suspended.
       const wakeable: Wakeable = value as any;
+      let sourceStoreReads = null;
+      if (enableStore) {
+        // In legacy mode, resetSuspendedComponent discards the render of the
+        // component that suspended, including the stores it read.
+        const sourceUpdateQueue: any = sourceFiber.updateQueue;
+        if (
+          sourceUpdateQueue !== null &&
+          sourceUpdateQueue.storeReads != null
+        ) {
+          sourceStoreReads = sourceUpdateQueue.storeReads;
+        }
+      }
       resetSuspendedComponent(sourceFiber, rootRenderLanes);
 
       if (__DEV__) {
@@ -470,7 +482,11 @@ function throwException(
               suspenseBoundary.flags |= ScheduleRetry;
             } else {
               if (enableStore && suspenseBoundary.tag === SuspenseComponent) {
-                collectStoreReadsOfSuspendedTree(sourceFiber, suspenseBoundary);
+                collectStoreReadsOfSuspendedTree(
+                  sourceFiber,
+                  sourceStoreReads,
+                  suspenseBoundary,
+                );
               }
               const retryQueue: RetryQueue | null =
                 suspenseBoundary.updateQueue as any;

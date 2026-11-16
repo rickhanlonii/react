@@ -70,30 +70,84 @@ function updateStore<T, A>(this: ReactStore<T, A>, action: A): void {
   } else {
     headQueue.push(action);
   }
-  // Dispatching can render synchronously, which can update the store again,
-  // so remember where this action is.
-  const headIndex = headQueue.length - 1;
-  if (records.length === 1) {
-    try {
-      records[0].dispatch(records[0], action);
-    } catch (error) {
-      // The root rejected the update before queueing it, for example because
-      // of an infinite update loop. Don't apply it to the latest value either.
-      removeHeadAction(this, headQueue, headIndex);
-      throw error;
-    }
-  } else {
+  const dispatching = dispatchingStores.get(this);
+  if (dispatching !== undefined) {
+    // A root rendered synchronously while this store was dispatching an
+    // earlier update to its records, and updated the store again. Every
+    // root has to get the updates in the order they were dispatched, so
+    // deliver this one to each root after the earlier ones.
+    dispatching.updates.push({action, delivered: 0});
+    deliverStoreUpdates(dispatching);
+    return;
+  }
+  const updates = [{action, delivered: 0}];
+  const dispatch: StoreDispatch<A> = {
     // A legacy root renders synchronously when it's updated, and its commit
-    // can drop records, so iterate over a copy.
-    const snapshot = records.slice();
-    try {
-      snapshot[0].dispatch(snapshot[0], action);
-    } catch (error) {
-      removeHeadAction(this, headQueue, headIndex);
-      throw error;
+    // can drop records, so deliver to a copy.
+    records: this._records.slice(),
+    updates,
+  };
+  dispatchingStores.set(this, dispatch);
+  try {
+    deliverStoreUpdates(dispatch);
+  } catch (error) {
+    // The root rejected the update before queueing it, for example because
+    // of an infinite update loop. Don't apply the updates that no root
+    // queued to the latest value either. They're the last ones in the head
+    // queue, so remove them from the end.
+    for (let i = updates.length - 1; i >= 0; i--) {
+      const update = updates[i];
+      if (update.delivered > 0) {
+        break;
+      }
+      const currentHeadQueue = this._headQueue;
+      if (currentHeadQueue !== null) {
+        const index = currentHeadQueue.lastIndexOf(update.action);
+        if (index !== -1) {
+          removeHeadAction(this, currentHeadQueue, index);
+        }
+      }
     }
-    for (let i = 1; i < snapshot.length; i++) {
-      snapshot[i].dispatch(snapshot[i], action);
+    throw error;
+  } finally {
+    dispatchingStores.delete(this);
+  }
+}
+
+type StoreDispatch<A> = {
+  records: Array<any>,
+  // For each update, the number of records it has been delivered to.
+  updates: Array<{action: A, delivered: number}>,
+};
+
+// The stores that are dispatching updates to their records.
+const dispatchingStores: Map<
+  ReactStore<any, any>,
+  StoreDispatch<any>,
+> = new Map();
+
+// Delivers each update to the records, in order, after every earlier update
+// has been delivered to the same record. Delivering can render a legacy root
+// synchronously, and the commit can update the store again, which adds an
+// update and delivers again before this returns.
+function deliverStoreUpdates<A>(dispatch: StoreDispatch<A>): void {
+  const {records, updates} = dispatch;
+  for (let i = 0; i < updates.length; i++) {
+    const entry = updates[i];
+    const limit = i === 0 ? records.length : updates[i - 1].delivered;
+    while (entry.delivered < limit) {
+      const record = records[entry.delivered];
+      // Count it before dispatching, so an update the record's commit
+      // dispatches isn't delivered ahead of this one.
+      entry.delivered++;
+      try {
+        record.dispatch(record, entry.action);
+      } catch (error) {
+        // The root rejected the update before queueing it, for example
+        // because of an infinite update loop.
+        entry.delivered--;
+        throw error;
+      }
     }
   }
 }

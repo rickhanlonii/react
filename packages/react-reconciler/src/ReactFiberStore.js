@@ -14,7 +14,11 @@ import type {FunctionComponentUpdateQueue} from './ReactFiberHooks';
 import type {SuspenseState} from './ReactFiberSuspenseComponent';
 import type {RootState} from './ReactFiberRoot';
 
-import {enableSchedulingProfiler, enableStore} from 'shared/ReactFeatureFlags';
+import {
+  disableLegacyMode,
+  enableSchedulingProfiler,
+  enableStore,
+} from 'shared/ReactFeatureFlags';
 import {
   NoLane,
   NoLanes,
@@ -34,6 +38,7 @@ import {
   ClassComponent,
   HostRoot,
 } from './ReactWorkTags';
+import {LegacyRoot} from './ReactRootTags';
 import {
   enqueueConcurrentRenderForLane,
   enqueueConcurrentRenderForLaneOnMountedFiber,
@@ -52,6 +57,7 @@ import {requestCurrentTransition} from './ReactFiberTransition';
 import {
   requestTransitionLane,
   ensureScheduleIsScheduled,
+  isLanePendingOnScheduledRoot,
 } from './ReactFiberRootScheduler';
 import {
   peekEntangledActionLane,
@@ -188,11 +194,16 @@ let staleHydratedReaders: Array<Fiber> | null = null;
 // skips the work of tracking them.
 let didReadStores: boolean = false;
 
-// The stores read by the primary children of a Suspense boundary that
-// suspended during the current render. The boundary subscribes to them if it
-// commits its fallback.
-let suspendedBoundary: Fiber | null = null;
-let suspendedBoundaryStoreReads: Array<StoreRecord<any, any>> | null = null;
+// The stores read by the primary children of each Suspense boundary that
+// suspended during the current render. A boundary subscribes to them if it
+// commits its fallback. They're kept per boundary for the whole render: a
+// render that doesn't skip siblings can suspend in a nested boundary before
+// it unwinds to the outer one, and a SuspenseList renders a row's boundary a
+// second time.
+let suspendedBoundaryStoreReads: Map<
+  Fiber,
+  Array<StoreRecord<any, any>>,
+> | null = null;
 
 function createStoreState<T, A>(state: T): StoreState<T, A> {
   const storeState: StoreState<T, A> = {
@@ -271,7 +282,12 @@ export function getStoreRecord<T, A>(
     for (let i = 0; i < pendingTransitionUpdates.length; i++) {
       const heldUpdate = pendingTransitionUpdates[i];
       const action = heldUpdate.action;
-      const lane = getHeldStoreUpdateLane(heldUpdate);
+      let lane = getHeldStoreUpdateLane(heldUpdate);
+      if (lane !== NoLane && !disableLegacyMode && root.tag === LegacyRoot) {
+        // A legacy root renders every update synchronously, including the
+        // ones in a transition, like a setState in an action on a legacy root.
+        lane = SyncLane;
+      }
       const update: StoreUpdate<A> = {
         lane,
         action,
@@ -344,8 +360,10 @@ const storesWithPendingTransitionUpdates: Set<ReactStore<any, any>> = new Set();
 // has NoLane.
 const heldStoreUpdateLanes: WeakMap<HeldStoreUpdate<any>, Lane> = new WeakMap();
 
-// The held updates dispatched in the current event's transition.
-let heldStoreUpdatesOfEvent: Array<HeldStoreUpdate<any>> | null = null;
+// The held updates dispatched in the current event's transition, and in the
+// pending async action, as pairs of store and update.
+let heldStoreUpdatesOfEvent: Array<any> | null = null;
+let heldStoreUpdatesOfAction: Array<any> | null = null;
 
 function getHeldStoreUpdateLane(update: HeldStoreUpdate<any>): Lane {
   const lane = heldStoreUpdateLanes.get(update);
@@ -375,13 +393,17 @@ function dispatchUnreadStoreUpdate<T, A>(
     let lane = NoLane;
     if (transition !== null) {
       lane = requestTransitionLane(transition);
-      // Like any other transition update, reset the event's transition lane
-      // once the event is over, so a later transition gets its own.
-      ensureScheduleIsScheduled();
-      if (heldStoreUpdatesOfEvent === null) {
-        heldStoreUpdatesOfEvent = [update];
+      if (lane === peekEntangledActionLane()) {
+        holdStoreUpdateUntilActionIsDone(store, update);
       } else {
-        heldStoreUpdatesOfEvent.push(update);
+        // Like any other transition update, reset the event's transition
+        // lane once the event is over, so a later transition gets its own.
+        ensureScheduleIsScheduled();
+        if (heldStoreUpdatesOfEvent === null) {
+          heldStoreUpdatesOfEvent = [store, update];
+        } else {
+          heldStoreUpdatesOfEvent.push(store, update);
+        }
       }
     }
     heldStoreUpdateLanes.set(update, lane);
@@ -418,22 +440,83 @@ export function finishHeldStoreUpdatesOfEvent(
     return;
   }
   heldStoreUpdatesOfEvent = null;
-  if (isTransitionPending) {
+  // The updates an async action dispatched before it awaited have the
+  // event's lane, which is now the action's. They're done when the action is.
+  const entangledActionLane = peekEntangledActionLane();
+  let finished = null;
+  for (let i = 0; i < updates.length; i += 2) {
+    const store: ReactStore<any, any> = updates[i];
+    const update: HeldStoreUpdate<any> = updates[i + 1];
+    if (
+      entangledActionLane !== NoLane &&
+      heldStoreUpdateLanes.get(update) === entangledActionLane
+    ) {
+      holdStoreUpdateUntilActionIsDone(store, update);
+    } else if (!isTransitionPending) {
+      if (finished === null) {
+        finished = [store, update];
+      } else {
+        finished.push(store, update);
+      }
+    }
+  }
+  if (finished !== null) {
+    finishHeldStoreUpdates(finished);
+  }
+}
+
+function holdStoreUpdateUntilActionIsDone(
+  store: ReactStore<any, any>,
+  update: HeldStoreUpdate<any>,
+): void {
+  if (heldStoreUpdatesOfAction === null) {
+    heldStoreUpdatesOfAction = [store, update];
+    const entangledActionThenable = peekEntangledActionThenable();
+    if (entangledActionThenable !== null) {
+      entangledActionThenable.then(
+        finishHeldStoreUpdatesOfAction,
+        finishHeldStoreUpdatesOfAction,
+      );
+    }
+  } else {
+    heldStoreUpdatesOfAction.push(store, update);
+  }
+}
+
+// Called when the pending async action is done. The same as at the end of an
+// event: unless a root still has the action's lane pending, its held updates
+// are done.
+function finishHeldStoreUpdatesOfAction(): void {
+  const updates = heldStoreUpdatesOfAction;
+  if (updates === null) {
     return;
   }
-  const entangledActionLane = peekEntangledActionLane();
-  for (let i = 0; i < updates.length; i++) {
-    const update = updates[i];
-    const lane = heldStoreUpdateLanes.get(update);
-    if (lane !== undefined && lane !== entangledActionLane) {
+  heldStoreUpdatesOfAction = null;
+  const lane = heldStoreUpdateLanes.get(updates[1]);
+  if (lane === undefined || !isLanePendingOnScheduledRoot(lane)) {
+    finishHeldStoreUpdates(updates);
+  }
+}
+
+function finishHeldStoreUpdates(updates: Array<any>): void {
+  for (let i = 0; i < updates.length; i += 2) {
+    const update: HeldStoreUpdate<any> = updates[i + 1];
+    if (heldStoreUpdateLanes.has(update)) {
       heldStoreUpdateLanes.set(update, NoLane);
     }
+  }
+  // Apply the ones that are done now, instead of at the next commit, so an
+  // urgent update isn't held behind them, a reducer error is reported, and
+  // the store isn't kept alive until then.
+  for (let i = 0; i < updates.length; i += 2) {
+    settlePendingTransitionUpdates(updates[i], null);
   }
 }
 
 // Applies the held updates whose transitions are done to the latest value of
 // the store. A transition is done unless it's the pending async action, or
-// it's still pending on the given root.
+// it's still pending on the given root. With no root, only the updates whose
+// transitions are known to be done are applied.
 function settlePendingTransitionUpdates(
   store: ReactStore<any, any>,
   root: FiberRoot | null,
@@ -450,8 +533,9 @@ function settlePendingTransitionUpdates(
     const lane = getHeldStoreUpdateLane(pending[i]);
     if (
       lane !== NoLane &&
-      (lane === entangledActionLane ||
-        (root !== null && (root.pendingLanes & lane) !== NoLanes))
+      (root === null ||
+        lane === entangledActionLane ||
+        (root.pendingLanes & lane) !== NoLanes)
     ) {
       break;
     }
@@ -511,13 +595,11 @@ function canUseCommittedStoreState(
   record: StoreRecord<any, any>,
   renderLanes: Lanes,
 ): boolean {
-  if (record.pending !== null) {
-    return false;
-  }
-  if (record.committed.baseQueue === null) {
+  if (record.pending === null && record.committed.baseQueue === null) {
     return true;
   }
-  // The record's lanes include the lanes of every update in its queue.
+  // The record's lanes include the lanes of every update in its queues,
+  // including the ones that haven't been processed yet.
   return (
     !record.hasUnprocessedHeldUpdates &&
     (record.lanes & renderLanes) === NoLanes
@@ -536,13 +618,15 @@ function getStoreQueueLanes(last: StoreUpdate<any> | null): Lanes {
   return lanes;
 }
 
-// Called after the HostRoot processes its stores. A reader that renders an
-// update from a pending async action suspends until the action is done, like
-// a component that reads state the action updated. A store that no component
-// is subscribed to has no reader to suspend, so the HostRoot suspends instead.
-// Otherwise this render would commit the update before the action is done, and
-// a reader that mounts before then would show it early.
-export function suspendIfUnreadStoreReadFromEntangledAsyncAction(
+// Called after the HostRoot processes its stores. If a store applied an
+// update from a pending async action and its value changed, the HostRoot
+// suspends until the action is done, like a useState Hook that applied one.
+// Suspending in the readers isn't enough: a hidden reader doesn't render in
+// the action's lane, and a reader inside a boundary that shows its fallback
+// doesn't block the commit. Either way the HostRoot would commit the update
+// before the action is done, and a reader that mounts before then would show
+// it early.
+export function suspendIfStoreReadFromEntangledAsyncAction(
   storeStates: ?StoreStates,
 ): void {
   if (storeStates == null) {
@@ -550,7 +634,7 @@ export function suspendIfUnreadStoreReadFromEntangledAsyncAction(
   }
   let shouldSuspend = false;
   storeStates.map.forEach((state, record) => {
-    if (state.didReadEntangledAction && record.readers.size === 0) {
+    if (didApplyEntangledActionUpdate(record, state)) {
       shouldSuspend = true;
     }
   });
@@ -560,6 +644,19 @@ export function suspendIfUnreadStoreReadFromEntangledAsyncAction(
       throw entangledActionThenable;
     }
   }
+}
+
+// Whether the state includes an update from the pending async action that
+// changes the committed value. If a later update masks it, nothing this
+// render shows comes from the action.
+function didApplyEntangledActionUpdate<T, A>(
+  record: StoreRecord<T, A>,
+  state: StoreState<T, A>,
+): boolean {
+  return (
+    state.didReadEntangledAction &&
+    !is(state.memoizedState, record.committed.memoizedState)
+  );
 }
 
 // Called when the HostRoot begins work. Computes the state of every store
@@ -675,11 +772,26 @@ function processStoreRecord<T, A>(
         try {
           nextState = reducer(newState, update.action);
         } catch (error) {
-          // Drop the update, the same way an error boundary drops the update
-          // queue of a useReducer Hook. Every component that reads the store
-          // in this render throws the error.
           didThrow = true;
-          if (state.error === NO_ERROR) {
+          if (newBaseQueueLast !== null) {
+            // An earlier update was skipped, so this one is applied out of
+            // the order it was dispatched in, and may only throw because of
+            // that. Defer it: keep it in the queue so it's applied on top of
+            // the skipped update, and don't throw or change the state. If
+            // it's invalid in dispatch order too, it throws then.
+            const clone: StoreUpdate<A> = {
+              lane: NoLane,
+              action: update.action,
+              hasEagerState: update.hasEagerState,
+              eagerState: update.eagerState,
+              eagerBaseState: update.eagerBaseState,
+              next: null as any,
+            };
+            newBaseQueueLast = newBaseQueueLast.next = clone;
+          } else if (state.error === NO_ERROR) {
+            // Drop the update, the same way an error boundary drops the
+            // update queue of a useReducer Hook. Every component that reads
+            // the store in this render throws the error.
             state.error = error;
             state.errorUpdate = update;
           }
@@ -776,6 +888,14 @@ export function getStoreStateForRender<T, A>(
     state = processStoreRecord(record, renderLanes);
   } finally {
     ReactSharedInternals.H = prevDispatcher;
+  }
+  if (didApplyEntangledActionUpdate(record, state)) {
+    // It applied an update from a pending async action. Suspend before the
+    // state is kept on the HostRoot, so this render can't commit it.
+    const entangledActionThenable = peekEntangledActionThenable();
+    if (entangledActionThenable !== null) {
+      throw entangledActionThenable;
+    }
   }
   const current = hostRoot.alternate;
   let nextStoreStates = storeStates;
@@ -1065,39 +1185,49 @@ export function unsubscribeFromStoresOnDeletion(fiber: Fiber): void {
 // boundary, like an update to a context they read.
 export function collectStoreReadsOfSuspendedTree(
   sourceFiber: Fiber,
+  // The stores the component that suspended read. In legacy mode its render
+  // has already been reset, so they're read before that.
+  sourceStoreReads: Array<mixed> | null,
   boundary: Fiber,
 ): void {
   if (!didReadStores) {
     return;
   }
   let records =
-    suspendedBoundary === boundary ? suspendedBoundaryStoreReads : null;
+    suspendedBoundaryStoreReads === null
+      ? null
+      : suspendedBoundaryStoreReads.get(boundary) || null;
   let fiber: Fiber | null = sourceFiber;
   while (fiber !== null && fiber !== boundary) {
-    if (
+    let reads = null;
+    if (fiber === sourceFiber) {
+      reads = sourceStoreReads;
+    } else if (
       fiber.tag === FunctionComponent ||
       fiber.tag === ForwardRef ||
       fiber.tag === SimpleMemoComponent
     ) {
       const updateQueue: FunctionComponentUpdateQueue | null =
         fiber.updateQueue as any;
-      const reads = updateQueue === null ? null : updateQueue.storeReads;
-      if (reads != null) {
-        for (let i = 0; i < reads.length; i += 2) {
-          const record: StoreRecord<any, any> = reads[i] as any;
-          if (records === null) {
-            records = [record];
-          } else if (records.indexOf(record) === -1) {
-            records.push(record);
-          }
+      reads = updateQueue === null ? null : updateQueue.storeReads;
+    }
+    if (reads != null) {
+      for (let i = 0; i < reads.length; i += 2) {
+        const record: StoreRecord<any, any> = reads[i] as any;
+        if (records === null) {
+          records = [record];
+        } else if (records.indexOf(record) === -1) {
+          records.push(record);
         }
       }
     }
     fiber = fiber.return;
   }
   if (records !== null) {
-    suspendedBoundary = boundary;
-    suspendedBoundaryStoreReads = records;
+    if (suspendedBoundaryStoreReads === null) {
+      suspendedBoundaryStoreReads = new Map();
+    }
+    suspendedBoundaryStoreReads.set(boundary, records);
   }
 }
 
@@ -1106,17 +1236,13 @@ export function collectStoreReadsOfSuspendedTree(
 export function takeStoreReadsOfSuspendedTree(
   boundary: Fiber,
 ): Array<StoreRecord<any, any>> | null {
-  if (suspendedBoundary !== boundary) {
+  if (suspendedBoundaryStoreReads === null) {
     return null;
   }
-  const records = suspendedBoundaryStoreReads;
-  suspendedBoundary = null;
-  suspendedBoundaryStoreReads = null;
-  return records;
+  return suspendedBoundaryStoreReads.get(boundary) || null;
 }
 
 export function resetStoreReadsOfSuspendedTree(): void {
-  suspendedBoundary = null;
   suspendedBoundaryStoreReads = null;
 }
 

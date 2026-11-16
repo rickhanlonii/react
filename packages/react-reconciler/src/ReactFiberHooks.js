@@ -1295,34 +1295,6 @@ function useStore<T>(store: ReactStore<T>): T {
   }
   record.readEpoch = storeReadsEpoch;
   storeReads.push(record, value);
-  // finishStoreReads compares the values with the previous render. Unless
-  // the value comes from a pending async action. Then, if it changed, the
-  // component suspends until the action has finished, so that it's batched
-  // together with future updates in the same action.
-  const entangledActionLane = peekEntangledActionLane();
-  if (entangledActionLane !== NoLane && !isHydrating) {
-    const current = fiber.alternate;
-    const currentUpdateQueue: null | FunctionComponentUpdateQueue =
-      current === null ? null : (current.updateQueue as any);
-    const previousReads =
-      currentUpdateQueue === null ? null : currentUpdateQueue.storeReads;
-    if (previousReads != null) {
-      const previousIndex = previousReads.indexOf(record);
-      if (
-        previousIndex !== -1 &&
-        !is(value, previousReads[previousIndex + 1]) &&
-        // The committed state wasn't processed by this render, so it can't
-        // include an update from the pending action that this render applied.
-        state !== record.committed &&
-        state.didReadEntangledAction
-      ) {
-        const entangledActionThenable = peekEntangledActionThenable();
-        if (entangledActionThenable !== null) {
-          throw entangledActionThenable;
-        }
-      }
-    }
-  }
   return value;
 }
 

@@ -346,19 +346,27 @@ function processRootScheduleInMicrotask() {
     if (enableStore) {
       // Store updates that this event's transition held are done if the
       // transition has nothing else to render.
-      let isTransitionPending = false;
-      let scheduledRoot = firstScheduledRoot;
-      while (scheduledRoot !== null && !isTransitionPending) {
-        isTransitionPending =
-          (scheduledRoot.pendingLanes & currentEventTransitionLane) !== NoLanes;
-        scheduledRoot = scheduledRoot.next;
-      }
-      finishHeldStoreUpdatesOfEvent(isTransitionPending);
+      finishHeldStoreUpdatesOfEvent(
+        isLanePendingOnScheduledRoot(currentEventTransitionLane),
+      );
     }
     // Reset Event Transition Lane so that we allocate a new one next time.
     currentEventTransitionLane = NoLane;
     startDefaultTransitionIndicatorIfNeeded();
   }
+}
+
+// Whether any root has work pending in the lane. A root with pending work is
+// always scheduled.
+export function isLanePendingOnScheduledRoot(lane: Lane): boolean {
+  let root = firstScheduledRoot;
+  while (root !== null) {
+    if ((root.pendingLanes & lane) !== NoLanes) {
+      return true;
+    }
+    root = root.next;
+  }
+  return false;
 }
 
 function startDefaultTransitionIndicatorIfNeeded() {
