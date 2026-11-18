@@ -67,6 +67,7 @@ import {markStateUpdateScheduled} from './ReactFiberDevToolsHook';
 import ReactSharedInternals from 'shared/ReactSharedInternals';
 import is from 'shared/objectIs';
 import getStoreHead from 'shared/getStoreHead';
+import {runStoreReducer, readStoreHeadAt} from 'shared/ReactStoreReducer';
 import reportGlobalError from 'shared/reportGlobalError';
 
 // A store is shared by every root that reads it, but each root commits on its
@@ -80,6 +81,9 @@ import reportGlobalError from 'shared/reportGlobalError';
 type StoreUpdate<A> = {
   lane: Lane,
   action: A,
+  // The order it was dispatched in, across all stores. A reducer that reads
+  // another store gets the other store's value as of this point.
+  sequence: number,
   // Like useState, the state after this update is computed eagerly when the
   // queue is empty, so the reducer doesn't have to run again during render.
   hasEagerState: boolean,
@@ -181,7 +185,7 @@ export type StoreRecord<T, A> = {
   // processed yet. The committed state doesn't include the ones that aren't
   // part of a transition, so the HostRoot always processes the record.
   hasUnprocessedHeldUpdates: boolean,
-  dispatch: (record: StoreRecord<T, A>, action: A) => void,
+  dispatch: (record: StoreRecord<T, A>, action: A, sequence: number) => void,
 };
 
 const NO_ERROR: any = {};
@@ -291,6 +295,7 @@ export function getStoreRecord<T, A>(
       const update: StoreUpdate<A> = {
         lane,
         action,
+        sequence: heldUpdate.sequence,
         hasEagerState: false,
         eagerState: null,
         eagerBaseState: null,
@@ -304,10 +309,11 @@ export function getStoreRecord<T, A>(
       }
       last = update;
       record.lanes = mergeLanes(record.lanes, lane);
+      const entry = {action, sequence: heldUpdate.sequence};
       if (headQueue === null) {
-        headQueue = store._headQueue = [action];
+        headQueue = store._headQueue = [entry];
       } else {
-        headQueue.push(action);
+        headQueue.push(entry);
       }
     }
     record.committed.baseQueue = last;
@@ -551,7 +557,13 @@ function settlePendingTransitionUpdates(
   let head = getStoreHead(store);
   for (let j = 0; j < i; j++) {
     try {
-      head = reducer(head, pending[j].action);
+      head = runStoreReducer(
+        reducer,
+        head,
+        pending[j].action,
+        pending[j].sequence,
+        readStoreHeadAt,
+      );
     } catch (error) {
       reportGlobalError(error);
     }
@@ -739,6 +751,12 @@ function processStoreRecord<T, A>(
   const reducer = record.store._reducer;
   const entangledActionLane = peekEntangledActionLane();
   const appliedUpdatesDEV: Array<mixed> | null = __DEV__ ? [] : null;
+  // A reducer that reads another store reads it on this root, with these
+  // lanes.
+  const prevReducerRoot = reducerRoot;
+  const prevReducerLanes = reducerLanes;
+  reducerRoot = record.root;
+  reducerLanes = renderLanes;
   let newState = current.baseState;
   let newBaseState = null;
   let newBaseQueueFirst: StoreUpdate<A> | null = null;
@@ -751,6 +769,7 @@ function processStoreRecord<T, A>(
       const clone: StoreUpdate<A> = {
         lane: updateLane,
         action: update.action,
+        sequence: update.sequence,
         hasEagerState: update.hasEagerState,
         eagerState: update.eagerState,
         eagerBaseState: update.eagerBaseState,
@@ -770,7 +789,13 @@ function processStoreRecord<T, A>(
         nextState = update.eagerState as any as T;
       } else {
         try {
-          nextState = reducer(newState, update.action);
+          nextState = runStoreReducer(
+            reducer,
+            newState,
+            update.action,
+            update.sequence,
+            readStoreForReducer,
+          );
         } catch (error) {
           didThrow = true;
           if (newBaseQueueLast !== null) {
@@ -782,6 +807,7 @@ function processStoreRecord<T, A>(
             const clone: StoreUpdate<A> = {
               lane: NoLane,
               action: update.action,
+              sequence: update.sequence,
               hasEagerState: update.hasEagerState,
               eagerState: update.eagerState,
               eagerBaseState: update.eagerBaseState,
@@ -806,6 +832,7 @@ function processStoreRecord<T, A>(
           const clone: StoreUpdate<A> = {
             lane: NoLane,
             action: update.action,
+            sequence: update.sequence,
             hasEagerState: update.hasEagerState,
             eagerState: update.eagerState,
             eagerBaseState: update.eagerBaseState,
@@ -817,13 +844,15 @@ function processStoreRecord<T, A>(
           state.didReadEntangledAction = true;
         }
         if (__DEV__ && appliedUpdatesDEV !== null) {
-          appliedUpdatesDEV.push(newState, update.action);
+          appliedUpdatesDEV.push(newState, update.action, update.sequence);
         }
         newState = nextState as any;
       }
     }
     update = update.next;
   } while (update !== first);
+  reducerRoot = prevReducerRoot;
+  reducerLanes = prevReducerLanes;
 
   if (newBaseQueueLast === null) {
     newBaseState = newState;
@@ -835,6 +864,71 @@ function processStoreRecord<T, A>(
   state.memoizedState = newState;
   if (__DEV__) {
     state.appliedUpdatesDEV = appliedUpdatesDEV;
+  }
+  return state;
+}
+
+// The root and lanes a store's reducer is running with, if it's running in a
+// render. A reducer that reads another store reads it here.
+let reducerRoot: FiberRoot | null = null;
+let reducerLanes: Lanes = NoLanes;
+
+// Reads another store from a store's reducer, in a render: its value on the
+// root with only the updates dispatched before the given one, and only the
+// ones in the render's lanes, rebased like the root's own processing.
+function readStoreForReducer(
+  store: ReactStore<any, any>,
+  sequence: number,
+): mixed {
+  const root = reducerRoot;
+  if (root === null) {
+    return readStoreHeadAt(store, sequence);
+  }
+  const records = store._records;
+  let record = null;
+  for (let i = 0; i < records.length; i++) {
+    if (records[i].root === root) {
+      record = records[i];
+      break;
+    }
+  }
+  if (record === null) {
+    // No component on this root reads it.
+    return readStoreHeadAt(store, sequence);
+  }
+  const committed = record.committed;
+  let state = committed.baseState;
+  // The updates that haven't been applied to the base state, in dispatch
+  // order: the base queue, then the ones that haven't been processed yet.
+  const queues: Array<StoreUpdate<any> | null> = [
+    committed.baseQueue,
+    record.pending,
+  ];
+  for (let q = 0; q < queues.length; q++) {
+    const last = queues[q];
+    if (last === null) {
+      continue;
+    }
+    let update = last.next;
+    do {
+      if (update.sequence >= sequence) {
+        return state;
+      }
+      if (isSubsetOfLanes(reducerLanes, update.lane)) {
+        try {
+          state = runStoreReducer(
+            store._reducer,
+            state,
+            update.action,
+            update.sequence,
+            readStoreForReducer,
+          );
+        } catch (error) {
+          // Skip it. The store's own readers throw it.
+        }
+      }
+      update = update.next;
+    } while (update !== last.next);
   }
   return state;
 }
@@ -967,17 +1061,39 @@ export function doubleInvokeStoreReducerDEV(
     }
     state.didDoubleInvokeReducerDEV = true;
     const reducer = record.store._reducer;
-    for (let i = 0; i < applied.length; i += 2) {
+    const prevReducerRoot = reducerRoot;
+    const prevReducerLanes = reducerLanes;
+    reducerRoot = record.root;
+    reducerLanes = storeRenderLanes;
+    for (let i = 0; i < applied.length; i += 3) {
       try {
-        reducer(applied[i], applied[i + 1]);
+        runStoreReducer(
+          reducer,
+          applied[i],
+          applied[i + 1],
+          applied[i + 2] as any,
+          readStoreForReducer,
+        );
       } catch (error) {
         // It didn't throw the first time.
       }
     }
+    reducerRoot = prevReducerRoot;
+    reducerLanes = prevReducerLanes;
   }
 }
 
-function dispatchStoreUpdate<T, A>(record: StoreRecord<T, A>, action: A): void {
+const EagerStateAborted: any = {};
+
+function abortEagerState(): empty {
+  throw EagerStateAborted;
+}
+
+function dispatchStoreUpdate<T, A>(
+  record: StoreRecord<T, A>,
+  action: A,
+  sequence: number,
+): void {
   if (record.isRemoved) {
     // The record was dropped while the store was dispatching to its records.
     return;
@@ -998,6 +1114,7 @@ function dispatchStoreUpdate<T, A>(record: StoreRecord<T, A>, action: A): void {
   const update: StoreUpdate<A> = {
     lane,
     action,
+    sequence,
     hasEagerState: false,
     eagerState: null,
     eagerBaseState: null,
@@ -1008,7 +1125,15 @@ function dispatchStoreUpdate<T, A>(record: StoreRecord<T, A>, action: A): void {
     // the eager state of useState.
     const baseState = record.committed.memoizedState;
     try {
-      const eagerState = record.store._reducer(baseState, action);
+      // A reducer that reads another store gets a value that depends on the
+      // render's lanes, so it has no eager state.
+      const eagerState = runStoreReducer(
+        record.store._reducer,
+        baseState,
+        action,
+        sequence,
+        abortEagerState,
+      );
       if (is(eagerState, baseState)) {
         // The state is the same, so there's nothing to do. Drop the action
         // from the head queue, if every root has committed every update.

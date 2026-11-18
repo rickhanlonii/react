@@ -9,6 +9,8 @@
 
 import type {ReactStore} from 'shared/ReactTypes';
 
+import {runStoreReducer, readStoreHeadAt} from 'shared/ReactStoreReducer';
+
 // The value of the store with every update applied, in the order they were
 // dispatched. The updates are applied lazily, so the reducer only runs when
 // something needs the latest value.
@@ -19,8 +21,15 @@ export default function getStoreHead<T, A>(store: ReactStore<T, A>): T {
     const reducer = store._reducer;
     let head = store._head;
     for (let i = 0; i < headQueue.length; i++) {
+      const entry = headQueue[i];
       try {
-        head = reducer(head, headQueue[i]);
+        head = runStoreReducer(
+          reducer,
+          head,
+          entry.action,
+          entry.sequence,
+          readStoreHeadAt,
+        );
       } catch (error) {
         // Skip the update. Every root that read the store when it was
         // dispatched throws the error during render, and drops the update

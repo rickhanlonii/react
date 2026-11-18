@@ -74,6 +74,14 @@ export type ReactContext<T> = {
 // renderer that holds it keeps its own lane for it.
 export type HeldStoreUpdate<A = mixed> = {
   action: A,
+  // The order it was dispatched in, across all stores.
+  sequence: number,
+};
+
+// An update that hasn't been applied to the latest value of a store yet.
+export type StoreHeadEntry<A = mixed> = {
+  action: A,
+  sequence: number,
 };
 
 export type ReactStore<T, A = mixed> = {
@@ -81,7 +89,7 @@ export type ReactStore<T, A = mixed> = {
   _reducer: (T, A) => T,
   _head: T,
   _initial: T,
-  _headQueue: Array<A> | null,
+  _headQueue: Array<StoreHeadEntry<A>> | null,
   // Transition updates dispatched while no root read the store, in the order
   // they were dispatched. Shared by every renderer that holds them.
   _pendingTransitionUpdates: Array<HeldStoreUpdate<A>> | null,
