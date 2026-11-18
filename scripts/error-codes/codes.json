@@ -601,5 +601,6 @@
   "613": "Cannot update a store inside a startGestureTransition. Gestures can only update the useOptimistic() hook. There should be no side-effects associated with starting a Gesture until its Action is invoked. Move side-effects to the Action instead.",
   "614": "use(store) is not supported by this renderer.",
   "615": "Cannot read a store from a Server Component.",
-  "616": "Stores can't be passed from a Server Component to a Client Component. Create the store in a Client Component module instead.%s"
+  "616": "Stores can't be passed from a Server Component to a Client Component. Create the store in a Client Component module instead.%s",
+  "617": "A store reducer can only call use() with another store. Other Hooks can't be called in a reducer."
 }

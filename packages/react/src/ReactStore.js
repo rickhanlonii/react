@@ -7,11 +7,17 @@
  * @flow
  */
 
-import type {ReactStore} from 'shared/ReactTypes';
+import type {ReactStore, StoreHeadEntry} from 'shared/ReactTypes';
 import {REACT_STORE_TYPE} from 'shared/ReactSymbols';
 import {enableStore, enableGestureTransition} from 'shared/ReactFeatureFlags';
 import ReactSharedInternals from 'shared/ReactSharedInternals';
 import getStoreHead from 'shared/getStoreHead';
+import {
+  claimStoreUpdateSequence,
+  readStoreHeadAt,
+  recordStoreHeadHistory,
+  runStoreReducer,
+} from 'shared/ReactStoreReducer';
 
 function basicStateReducer<T>(state: T, action: T | (T => T)): T {
   // $FlowFixMe[incompatible-use]: Flow doesn't like mixed types
@@ -43,6 +49,7 @@ function updateStore<T, A>(this: ReactStore<T, A>, action: A): void {
       );
     }
   }
+  const sequence = claimStoreUpdateSequence();
   const records = this._records;
   if (records.length === 0) {
     // No root reads the store. If this update is part of a transition, the
@@ -51,24 +58,27 @@ function updateStore<T, A>(this: ReactStore<T, A>, action: A): void {
     const dispatchUnreadStoreUpdate = (ReactSharedInternals as any).U;
     if (
       dispatchUnreadStoreUpdate != null &&
-      dispatchUnreadStoreUpdate(this, {action})
+      dispatchUnreadStoreUpdate(this, {action, sequence})
     ) {
       return;
     }
     // Otherwise apply the update right away. There's no render to throw a
     // reducer error in, so it throws here, and the update isn't applied.
-    this._head = this._reducer(getStoreHead(this), action);
+    const head = getStoreHead(this);
+    recordStoreHeadHistory(this, sequence, head);
+    this._head = runStoreReducer(this, head, action, sequence, readStoreHeadAt);
     return;
   }
   // Each root that reads this store keeps its own version of it, so that it
   // can render the update with the right priority and rebase it on top of
   // other pending updates. The latest value is only computed when something
   // needs it, so the reducer runs as often as it would for useReducer.
-  let headQueue = this._headQueue;
+  const entry: StoreHeadEntry<A> = {action, sequence};
+  const headQueue = this._headQueue;
   if (headQueue === null) {
-    headQueue = this._headQueue = [action];
+    this._headQueue = [entry];
   } else {
-    headQueue.push(action);
+    headQueue.push(entry);
   }
   const dispatching = dispatchingStores.get(this);
   if (dispatching !== undefined) {
@@ -76,11 +86,11 @@ function updateStore<T, A>(this: ReactStore<T, A>, action: A): void {
     // earlier update to its records, and updated the store again. Every
     // root has to get the updates in the order they were dispatched, so
     // deliver this one to each root after the earlier ones.
-    dispatching.updates.push({action, delivered: 0});
+    dispatching.updates.push({entry, delivered: 0});
     deliverStoreUpdates(dispatching);
     return;
   }
-  const updates = [{action, delivered: 0}];
+  const updates = [{entry, delivered: 0}];
   const dispatch: StoreDispatch<A> = {
     // A legacy root renders synchronously when it's updated, and its commit
     // can drop records, so deliver to a copy.
@@ -102,7 +112,7 @@ function updateStore<T, A>(this: ReactStore<T, A>, action: A): void {
       }
       const currentHeadQueue = this._headQueue;
       if (currentHeadQueue !== null) {
-        const index = currentHeadQueue.lastIndexOf(update.action);
+        const index = currentHeadQueue.lastIndexOf(update.entry);
         if (index !== -1) {
           removeHeadAction(this, currentHeadQueue, index);
         }
@@ -117,7 +127,7 @@ function updateStore<T, A>(this: ReactStore<T, A>, action: A): void {
 type StoreDispatch<A> = {
   records: Array<any>,
   // For each update, the number of records it has been delivered to.
-  updates: Array<{action: A, delivered: number}>,
+  updates: Array<{entry: StoreHeadEntry<A>, delivered: number}>,
 };
 
 // The stores that are dispatching updates to their records.
@@ -133,19 +143,19 @@ const dispatchingStores: Map<
 function deliverStoreUpdates<A>(dispatch: StoreDispatch<A>): void {
   const {records, updates} = dispatch;
   for (let i = 0; i < updates.length; i++) {
-    const entry = updates[i];
+    const update = updates[i];
     const limit = i === 0 ? records.length : updates[i - 1].delivered;
-    while (entry.delivered < limit) {
-      const record = records[entry.delivered];
+    while (update.delivered < limit) {
+      const record = records[update.delivered];
       // Count it before dispatching, so an update the record's commit
       // dispatches isn't delivered ahead of this one.
-      entry.delivered++;
+      update.delivered++;
       try {
-        record.dispatch(record, entry.action);
+        record.dispatch(record, update.entry.action, update.entry.sequence);
       } catch (error) {
         // The root rejected the update before queueing it, for example
         // because of an infinite update loop.
-        entry.delivered--;
+        update.delivered--;
         throw error;
       }
     }
@@ -154,7 +164,7 @@ function deliverStoreUpdates<A>(dispatch: StoreDispatch<A>): void {
 
 function removeHeadAction<T, A>(
   store: ReactStore<T, A>,
-  headQueue: Array<A>,
+  headQueue: Array<StoreHeadEntry<A>>,
   index: number,
 ): void {
   if (store._headQueue !== headQueue) {
@@ -192,6 +202,10 @@ export function createStore<T, A>(
     // One record per root that reads the store. Each renderer creates its
     // records, and dispatches to them through record.dispatch.
     _records: [],
+    // Set once its reducer reads another store, or another store's reducer
+    // reads it.
+    _crossStore: false,
+    _headHistory: null,
     update: null as any,
   };
   store.update = updateStore.bind(store);

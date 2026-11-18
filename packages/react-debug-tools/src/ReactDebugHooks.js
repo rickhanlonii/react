@@ -129,6 +129,8 @@ function getPrimitiveStackCache(): Map<string, Array<any>> {
           _headQueue: null,
           _pendingTransitionUpdates: null,
           _records: [],
+          _crossStore: false,
+          _headHistory: null,
           update() {},
         } as any);
         Dispatcher.use({

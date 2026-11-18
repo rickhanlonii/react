@@ -67,6 +67,11 @@ import {markStateUpdateScheduled} from './ReactFiberDevToolsHook';
 import ReactSharedInternals from 'shared/ReactSharedInternals';
 import is from 'shared/objectIs';
 import getStoreHead from 'shared/getStoreHead';
+import {
+  runStoreReducer,
+  readStoreHeadAt,
+  recordStoreHeadHistory,
+} from 'shared/ReactStoreReducer';
 import reportGlobalError from 'shared/reportGlobalError';
 
 // A store is shared by every root that reads it, but each root commits on its
@@ -80,6 +85,9 @@ import reportGlobalError from 'shared/reportGlobalError';
 type StoreUpdate<A> = {
   lane: Lane,
   action: A,
+  // The order it was dispatched in, across all stores. A reducer that reads
+  // another store gets the other store's value as of this point.
+  sequence: number,
   // Like useState, the state after this update is computed eagerly when the
   // queue is empty, so the reducer doesn't have to run again during render.
   hasEagerState: boolean,
@@ -103,6 +111,10 @@ export type StoreState<T, A> = {
   // The lanes of the updates that weren't applied to memoizedState. A
   // component that reads the store renders again when they are.
   skippedLanes: Lanes,
+  // The lanes of updates to other stores that were skipped before an update
+  // this state kept to rebase. A reducer may have read those stores, so the
+  // store is processed again when they render.
+  crossStoreLanes: Lanes,
   // Whether memoizedState includes an update from the pending async action.
   didReadEntangledAction: boolean,
   // The first error a reducer threw, which every component that reads the
@@ -175,13 +187,15 @@ export type StoreRecord<T, A> = {
   // and the readers are already scheduled in them.
   enqueuedLanes: Lanes,
   enqueuedEpoch: number,
+  // The sequence number of the first update dispatched since then.
+  enqueuedSequence: number,
   // The reader those updates were attributed to, for DevTools.
   scheduledFiber: Fiber | null,
   // Whether the committed state's queue has held updates that no render has
   // processed yet. The committed state doesn't include the ones that aren't
   // part of a transition, so the HostRoot always processes the record.
   hasUnprocessedHeldUpdates: boolean,
-  dispatch: (record: StoreRecord<T, A>, action: A) => void,
+  dispatch: (record: StoreRecord<T, A>, action: A, sequence: number) => void,
 };
 
 const NO_ERROR: any = {};
@@ -211,6 +225,7 @@ function createStoreState<T, A>(state: T): StoreState<T, A> {
     baseQueue: null,
     memoizedState: state,
     skippedLanes: NoLanes,
+    crossStoreLanes: NoLanes,
     didReadEntangledAction: false,
     error: NO_ERROR,
     errorUpdate: null,
@@ -265,6 +280,7 @@ export function getStoreRecord<T, A>(
     readEpoch: -1,
     enqueuedLanes: NoLanes,
     enqueuedEpoch: -1,
+    enqueuedSequence: Infinity,
     scheduledFiber: null,
     hasUnprocessedHeldUpdates: false,
     dispatch: dispatchStoreUpdate,
@@ -291,6 +307,7 @@ export function getStoreRecord<T, A>(
       const update: StoreUpdate<A> = {
         lane,
         action,
+        sequence: heldUpdate.sequence,
         hasEagerState: false,
         eagerState: null,
         eagerBaseState: null,
@@ -304,10 +321,11 @@ export function getStoreRecord<T, A>(
       }
       last = update;
       record.lanes = mergeLanes(record.lanes, lane);
+      const entry = {action, sequence: heldUpdate.sequence};
       if (headQueue === null) {
-        headQueue = store._headQueue = [action];
+        headQueue = store._headQueue = [entry];
       } else {
-        headQueue.push(action);
+        headQueue.push(entry);
       }
     }
     record.committed.baseQueue = last;
@@ -316,6 +334,7 @@ export function getStoreRecord<T, A>(
     const pending = root.pendingStoreRecords;
     if (pending === null) {
       root.pendingStoreRecords = [record];
+      rootsWithPendingStoreRecords.add(root);
     } else {
       pending.push(record);
     }
@@ -423,9 +442,54 @@ function dispatchUnreadStoreUpdate<T, A>(
   return isHeld || isHeldByEarlierRenderer;
 }
 
+let prevGetOldestPendingStoreSequence: null | (() => number) = null;
+
+// The roots with store updates they haven't committed. A root that's waiting
+// on data or an action isn't scheduled, but its updates are still pending.
+const rootsWithPendingStoreRecords: Set<FiberRoot> = new Set();
+
+// The sequence number of the oldest store update this renderer hasn't
+// committed yet: in a record's queues on a root, enqueued since the last
+// render started, or held for a store no root reads.
+function getOldestPendingStoreSequence(): number {
+  const prev = prevGetOldestPendingStoreSequence;
+  let oldest = prev != null ? prev() : Infinity;
+  storesWithPendingTransitionUpdates.forEach(store => {
+    const held = store._pendingTransitionUpdates;
+    if (held !== null && held.length > 0 && held[0].sequence < oldest) {
+      oldest = held[0].sequence;
+    }
+  });
+  const epoch = getConcurrentQueuesEpoch();
+  rootsWithPendingStoreRecords.forEach(root => {
+    const pending = root.pendingStoreRecords;
+    if (pending !== null) {
+      for (let i = 0; i < pending.length; i++) {
+        const record = pending[i];
+        const baseQueue = record.committed.baseQueue;
+        if (baseQueue !== null && baseQueue.next.sequence < oldest) {
+          oldest = baseQueue.next.sequence;
+        }
+        if (record.pending !== null && record.pending.next.sequence < oldest) {
+          oldest = record.pending.next.sequence;
+        }
+        if (
+          record.enqueuedEpoch === epoch &&
+          record.enqueuedSequence < oldest
+        ) {
+          oldest = record.enqueuedSequence;
+        }
+      }
+    }
+  });
+  return oldest;
+}
+
 if (enableStore) {
   prevDispatchUnreadStoreUpdate = ReactSharedInternals.U;
   ReactSharedInternals.U = dispatchUnreadStoreUpdate as any;
+  prevGetOldestPendingStoreSequence = ReactSharedInternals.P;
+  ReactSharedInternals.P = getOldestPendingStoreSequence;
 }
 
 // Called at the end of an event that dispatched transition updates. If no
@@ -547,11 +611,17 @@ function settlePendingTransitionUpdates(
   // reducer error is reported, like it would be if no update were held. They
   // are removed from the store, so they're applied once, even if several
   // renderers held them.
-  const reducer = store._reducer;
   let head = getStoreHead(store);
   for (let j = 0; j < i; j++) {
+    recordStoreHeadHistory(store, pending[j].sequence, head);
     try {
-      head = reducer(head, pending[j].action);
+      head = runStoreReducer(
+        store,
+        head,
+        pending[j].action,
+        pending[j].sequence,
+        readStoreHeadAt,
+      );
     } catch (error) {
       reportGlobalError(error);
     }
@@ -682,6 +752,7 @@ export function processStoreRecords(
   // A reducer isn't part of any component, so it runs without a dispatcher,
   // the same as when its eager state is computed outside of render. Calling
   // a Hook or reading context in it throws, and the readers throw the error.
+  findSkippedStoreUpdates(pending, renderLanes);
   const prevDispatcher = ReactSharedInternals.H;
   ReactSharedInternals.H = null;
   try {
@@ -736,9 +807,19 @@ function processStoreRecord<T, A>(
   if (baseQueue === null) {
     return state;
   }
-  const reducer = record.store._reducer;
   const entangledActionLane = peekEntangledActionLane();
   const appliedUpdatesDEV: Array<mixed> | null = __DEV__ ? [] : null;
+  // Updates dispatched after the first skipped one are kept to rebase, if
+  // this store takes part in rebasing across stores.
+  const firstSkippedSequence = record.store._crossStore
+    ? firstSkippedStoreSequence
+    : NO_SKIPPED_SEQUENCE;
+  // A reducer that reads another store reads it on this root, with these
+  // lanes.
+  const prevReducerRoot = reducerRoot;
+  const prevReducerLanes = reducerLanes;
+  reducerRoot = record.root;
+  reducerLanes = renderLanes;
   let newState = current.baseState;
   let newBaseState = null;
   let newBaseQueueFirst: StoreUpdate<A> | null = null;
@@ -751,6 +832,7 @@ function processStoreRecord<T, A>(
       const clone: StoreUpdate<A> = {
         lane: updateLane,
         action: update.action,
+        sequence: update.sequence,
         hasEagerState: update.hasEagerState,
         eagerState: update.eagerState,
         eagerBaseState: update.eagerBaseState,
@@ -770,10 +852,19 @@ function processStoreRecord<T, A>(
         nextState = update.eagerState as any as T;
       } else {
         try {
-          nextState = reducer(newState, update.action);
+          nextState = runStoreReducer(
+            record.store,
+            newState,
+            update.action,
+            update.sequence,
+            readStoreForReducer,
+          );
         } catch (error) {
           didThrow = true;
-          if (newBaseQueueLast !== null) {
+          if (
+            newBaseQueueLast !== null ||
+            update.sequence > firstSkippedSequence
+          ) {
             // An earlier update was skipped, so this one is applied out of
             // the order it was dispatched in, and may only throw because of
             // that. Defer it: keep it in the queue so it's applied on top of
@@ -782,12 +873,21 @@ function processStoreRecord<T, A>(
             const clone: StoreUpdate<A> = {
               lane: NoLane,
               action: update.action,
+              sequence: update.sequence,
               hasEagerState: update.hasEagerState,
               eagerState: update.eagerState,
               eagerBaseState: update.eagerBaseState,
               next: null as any,
             };
-            newBaseQueueLast = newBaseQueueLast.next = clone;
+            if (newBaseQueueLast === null) {
+              newBaseQueueFirst = newBaseQueueLast = clone;
+              newBaseState = newState;
+            } else {
+              newBaseQueueLast = newBaseQueueLast.next = clone;
+            }
+            if (update.sequence > firstSkippedSequence) {
+              state.crossStoreLanes = skippedStoreLanes;
+            }
           } else if (state.error === NO_ERROR) {
             // Drop the update, the same way an error boundary drops the
             // update queue of a useReducer Hook. Every component that reads
@@ -798,32 +898,46 @@ function processStoreRecord<T, A>(
         }
       }
       if (!didThrow) {
-        if (newBaseQueueLast !== null) {
-          // This update is applied, but an earlier update was skipped. Keep
-          // it in the queue so it can be rebased on top of the earlier one.
-          // It will never be skipped again since NoLane is a subset of every
-          // set of lanes.
+        if (
+          newBaseQueueLast !== null ||
+          update.sequence > firstSkippedSequence
+        ) {
+          // This update is applied, but an earlier update was skipped, in
+          // this store or another. Keep it in the queue so it can be rebased
+          // on top of the earlier one. It will never be skipped again since
+          // NoLane is a subset of every set of lanes.
           const clone: StoreUpdate<A> = {
             lane: NoLane,
             action: update.action,
+            sequence: update.sequence,
             hasEagerState: update.hasEagerState,
             eagerState: update.eagerState,
             eagerBaseState: update.eagerBaseState,
             next: null as any,
           };
-          newBaseQueueLast = newBaseQueueLast.next = clone;
+          if (newBaseQueueLast === null) {
+            newBaseQueueFirst = newBaseQueueLast = clone;
+            newBaseState = newState;
+          } else {
+            newBaseQueueLast = newBaseQueueLast.next = clone;
+          }
+          if (update.sequence > firstSkippedSequence) {
+            state.crossStoreLanes = skippedStoreLanes;
+          }
         }
         if (updateLane !== NoLane && updateLane === entangledActionLane) {
           state.didReadEntangledAction = true;
         }
         if (__DEV__ && appliedUpdatesDEV !== null) {
-          appliedUpdatesDEV.push(newState, update.action);
+          appliedUpdatesDEV.push(newState, update.action, update.sequence);
         }
         newState = nextState as any;
       }
     }
     update = update.next;
   } while (update !== first);
+  reducerRoot = prevReducerRoot;
+  reducerLanes = prevReducerLanes;
 
   if (newBaseQueueLast === null) {
     newBaseState = newState;
@@ -833,8 +947,75 @@ function processStoreRecord<T, A>(
   state.baseState = newBaseState as any;
   state.baseQueue = newBaseQueueLast;
   state.memoizedState = newState;
+  // The readers render again when the skipped updates to other stores do.
+  state.skippedLanes = mergeLanes(state.skippedLanes, state.crossStoreLanes);
   if (__DEV__) {
     state.appliedUpdatesDEV = appliedUpdatesDEV;
+  }
+  return state;
+}
+
+// The root and lanes a store's reducer is running with, if it's running in a
+// render. A reducer that reads another store reads it here.
+let reducerRoot: FiberRoot | null = null;
+let reducerLanes: Lanes = NoLanes;
+
+// Reads another store from a store's reducer, in a render: its value on the
+// root with only the updates dispatched before the given one, and only the
+// ones in the render's lanes, rebased like the root's own processing.
+function readStoreForReducer(
+  store: ReactStore<any, any>,
+  sequence: number,
+): mixed {
+  const root = reducerRoot;
+  if (root === null) {
+    return readStoreHeadAt(store, sequence);
+  }
+  const records = store._records;
+  let record = null;
+  for (let i = 0; i < records.length; i++) {
+    if (records[i].root === root) {
+      record = records[i];
+      break;
+    }
+  }
+  if (record === null) {
+    // No component on this root reads it.
+    return readStoreHeadAt(store, sequence);
+  }
+  const committed = record.committed;
+  let state = committed.baseState;
+  // The updates that haven't been applied to the base state, in dispatch
+  // order: the base queue, then the ones that haven't been processed yet.
+  const queues: Array<StoreUpdate<any> | null> = [
+    committed.baseQueue,
+    record.pending,
+  ];
+  for (let q = 0; q < queues.length; q++) {
+    const last = queues[q];
+    if (last === null) {
+      continue;
+    }
+    let update = last.next;
+    do {
+      if (update.sequence >= sequence) {
+        return state;
+      }
+      if (isSubsetOfLanes(reducerLanes, update.lane)) {
+        try {
+          state = runStoreReducer(
+            store,
+            state,
+            update.action,
+            update.sequence,
+            readStoreForReducer,
+          );
+        } catch (error) {
+          // Skip it. The store's own readers throw it.
+        }
+      }
+      update = update.next;
+    } while (update !== last.next);
   }
   return state;
 }
@@ -966,18 +1147,39 @@ export function doubleInvokeStoreReducerDEV(
       return;
     }
     state.didDoubleInvokeReducerDEV = true;
-    const reducer = record.store._reducer;
-    for (let i = 0; i < applied.length; i += 2) {
+    const prevReducerRoot = reducerRoot;
+    const prevReducerLanes = reducerLanes;
+    reducerRoot = record.root;
+    reducerLanes = storeRenderLanes;
+    for (let i = 0; i < applied.length; i += 3) {
       try {
-        reducer(applied[i], applied[i + 1]);
+        runStoreReducer(
+          record.store,
+          applied[i],
+          applied[i + 1],
+          applied[i + 2] as any,
+          readStoreForReducer,
+        );
       } catch (error) {
         // It didn't throw the first time.
       }
     }
+    reducerRoot = prevReducerRoot;
+    reducerLanes = prevReducerLanes;
   }
 }
 
-function dispatchStoreUpdate<T, A>(record: StoreRecord<T, A>, action: A): void {
+const EagerStateAborted: any = {};
+
+function abortEagerState(): empty {
+  throw EagerStateAborted;
+}
+
+function dispatchStoreUpdate<T, A>(
+  record: StoreRecord<T, A>,
+  action: A,
+  sequence: number,
+): void {
   if (record.isRemoved) {
     // The record was dropped while the store was dispatching to its records.
     return;
@@ -998,6 +1200,7 @@ function dispatchStoreUpdate<T, A>(record: StoreRecord<T, A>, action: A): void {
   const update: StoreUpdate<A> = {
     lane,
     action,
+    sequence,
     hasEagerState: false,
     eagerState: null,
     eagerBaseState: null,
@@ -1008,7 +1211,15 @@ function dispatchStoreUpdate<T, A>(record: StoreRecord<T, A>, action: A): void {
     // the eager state of useState.
     const baseState = record.committed.memoizedState;
     try {
-      const eagerState = record.store._reducer(baseState, action);
+      // A reducer that reads another store gets a value that depends on the
+      // render's lanes, so it has no eager state.
+      const eagerState = runStoreReducer(
+        record.store,
+        baseState,
+        action,
+        sequence,
+        abortEagerState,
+      );
       if (is(eagerState, baseState)) {
         // The state is the same, so there's nothing to do. Drop the action
         // from the head queue, if every root has committed every update.
@@ -1028,6 +1239,7 @@ function dispatchStoreUpdate<T, A>(record: StoreRecord<T, A>, action: A): void {
     const pending = root.pendingStoreRecords;
     if (pending === null) {
       root.pendingStoreRecords = [record];
+      rootsWithPendingStoreRecords.add(root);
     } else {
       pending.push(record);
     }
@@ -1043,6 +1255,7 @@ function dispatchStoreUpdate<T, A>(record: StoreRecord<T, A>, action: A): void {
   if (record.enqueuedEpoch !== epoch) {
     record.enqueuedEpoch = epoch;
     record.enqueuedLanes = NoLanes;
+    record.enqueuedSequence = sequence;
   }
   if (!isSubsetOfLanes(record.enqueuedLanes, lane)) {
     record.enqueuedLanes = mergeLanes(record.enqueuedLanes, lane);
@@ -1251,9 +1464,57 @@ export function resetStoreReadsOfSuspendedTree(): void {
 // processed with the same lanes.
 let storeRenderLanes: Lanes = NoLanes;
 
+// The first update the HostRoot skipped in this render, across the stores on
+// the root that read or are read by another store's reducer, and the lanes of
+// the updates it skipped. An update to such a store dispatched after a
+// skipped one may depend on it through a reducer, so those stores keep the
+// updates dispatched after it to rebase them, as if they shared one queue.
+// Other stores rebase on their own, like useReducer.
+const NO_SKIPPED_SEQUENCE = Infinity;
+let firstSkippedStoreSequence: number = NO_SKIPPED_SEQUENCE;
+let skippedStoreLanes: Lanes = NoLanes;
+
 export function prepareStoresForRender(entangledRenderLanes: Lanes): void {
   storeRenderLanes = entangledRenderLanes;
+  firstSkippedStoreSequence = NO_SKIPPED_SEQUENCE;
+  skippedStoreLanes = NoLanes;
   resetStoreReadsOfSuspendedTree();
+}
+
+function findSkippedStoreUpdates(
+  pending: Array<StoreRecord<any, any>>,
+  renderLanes: Lanes,
+): void {
+  let first = NO_SKIPPED_SEQUENCE;
+  let lanes = NoLanes;
+  for (let i = 0; i < pending.length; i++) {
+    const record = pending[i];
+    if (!record.store._crossStore) {
+      continue;
+    }
+    const queues: Array<StoreUpdate<any> | null> = [
+      record.committed.baseQueue,
+      record.pending,
+    ];
+    for (let q = 0; q < queues.length; q++) {
+      const last = queues[q];
+      if (last === null) {
+        continue;
+      }
+      let update = last.next;
+      do {
+        if (!isSubsetOfLanes(renderLanes, update.lane)) {
+          lanes = mergeLanes(lanes, update.lane);
+          if (update.sequence < first) {
+            first = update.sequence;
+          }
+        }
+        update = update.next;
+      } while (update !== last.next);
+    }
+  }
+  firstSkippedStoreSequence = first;
+  skippedStoreLanes = lanes;
 }
 
 // Called when a Suspense boundary commits. It subscribes to the stores its
@@ -1373,10 +1634,15 @@ export function commitStoreStates(root: FiberRoot, finishedWork: Fiber): void {
     const record = pending[i];
     record.lanes = mergeLanes(
       mergeLanes(
-        getStoreQueueLanes(record.committed.baseQueue),
-        getStoreQueueLanes(record.pending),
+        mergeLanes(
+          getStoreQueueLanes(record.committed.baseQueue),
+          getStoreQueueLanes(record.pending),
+        ),
+        record.enqueuedEpoch === epoch ? record.enqueuedLanes : NoLanes,
       ),
-      record.enqueuedEpoch === epoch ? record.enqueuedLanes : NoLanes,
+      // The record kept updates that may depend on skipped updates to other
+      // stores. Process it again when those render.
+      intersectLanes(record.committed.crossStoreLanes, root.pendingLanes),
     );
     if (hasPendingStoreUpdates(record)) {
       pending[writeIndex++] = record;
@@ -1388,6 +1654,7 @@ export function commitStoreStates(root: FiberRoot, finishedWork: Fiber): void {
   pending.length = writeIndex;
   if (writeIndex === 0) {
     root.pendingStoreRecords = null;
+    rootsWithPendingStoreRecords.delete(root);
   }
 }
 
@@ -1533,6 +1800,11 @@ function syncStoreHead(record: StoreRecord<any, any>): void {
     if (hasPendingStoreUpdates(storeRecords[i])) {
       return;
     }
+  }
+  if (store._crossStore) {
+    // Fold the queue first, so the latest value keeps the history an update
+    // that's still pending in another store may read.
+    getStoreHead(store);
   }
   store._head = record.committed.memoizedState;
   store._headQueue = null;

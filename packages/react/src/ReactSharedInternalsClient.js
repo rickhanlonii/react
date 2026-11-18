@@ -41,6 +41,10 @@ export type SharedStateClient = {
         store: ReactStore<any, any>,
         update: HeldStoreUpdate<mixed>,
       ) => boolean),
+  // The sequence number of the oldest store update that a renderer hasn't
+  // committed yet, or Infinity. Each renderer chains to the one that was
+  // loaded before it.
+  P: null | (() => number),
 
   // DEV-only
 
@@ -82,6 +86,7 @@ if (enableGestureTransition) {
 }
 if (enableStore) {
   ReactSharedInternals.U = null;
+  ReactSharedInternals.P = null;
 }
 
 if (__DEV__) {

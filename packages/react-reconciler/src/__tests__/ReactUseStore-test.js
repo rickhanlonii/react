@@ -3451,7 +3451,7 @@ describe('reducer errors', () => {
   });
 
   // @gate enableStore
-  it('runs the reducer without a dispatcher', async () => {
+  it('runs the reducer outside of any component, where only use() with another store works', async () => {
     const Context = React.createContext('default');
     const store = createStore(0, (state, action) => {
       if (action === 'read context') {
@@ -3466,44 +3466,39 @@ describe('reducer errors', () => {
 
     // A store is shared by components under different providers, so its
     // reducer runs outside of any component, like the eager state of
-    // useReducer. Calling a Hook in it logs an invalid Hook call and throws.
-    const consoleError = jest
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
-    try {
-      // No root reads the store, so the update is held. Its transition has
-      // nothing else to render, so it's applied at the end of the event. The
-      // error is reported, and the update is dropped.
-      await act(() => {
-        startTransition(() => {
-          store.update('read context');
-        });
-      });
-      assertLog([
-        "reportError: Cannot read properties of null (reading 'useContext')",
-      ]);
-      const root = ReactNoop.createRoot();
-      await act(() => {
-        root.render(
-          <Context value="provided">
-            <ErrorBoundary>
-              <Reader />
-            </ErrorBoundary>
-          </Context>,
-        );
-      });
-      assertLog(['Reader: 0']);
+    // useReducer. It can read other stores with use(), and any other Hook
+    // throws.
 
-      // When the HostRoot processes an update, the reader throws the error.
-      // The reducer never sees the reader's context.
-      await act(() => store.update('read context'));
-      assertLog([
-        "Caught: Cannot read properties of null (reading 'useContext')",
-        "Caught: Cannot read properties of null (reading 'useContext')",
-      ]);
-    } finally {
-      consoleError.mockRestore();
-    }
+    // No root reads the store, so the update is held. Its transition has
+    // nothing else to render, so it's applied at the end of the event. The
+    // error is reported, and the update is dropped.
+    await act(() => {
+      startTransition(() => {
+        store.update('read context');
+      });
+    });
+    assertLog([
+      'reportError: A store reducer can only call use() with another store',
+    ]);
+    const root = ReactNoop.createRoot();
+    await act(() => {
+      root.render(
+        <Context value="provided">
+          <ErrorBoundary>
+            <Reader />
+          </ErrorBoundary>
+        </Context>,
+      );
+    });
+    assertLog(['Reader: 0']);
+
+    // When the HostRoot processes an update, the reader throws the error.
+    // The reducer never sees the reader's context.
+    await act(() => store.update('read context'));
+    assertLog([
+      "Caught: A store reducer can only call use() with another store. Other Hooks can't be called in a reducer.",
+      "Caught: A store reducer can only call use() with another store. Other Hooks can't be called in a reducer.",
+    ]);
   });
 
   // @gate enableStore
