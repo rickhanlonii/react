@@ -1,0 +1,16 @@
+{
+  "steps": [
+    {"expectText": ".First", "equals": "First: old"},
+    {"click": "button.transition"},
+    {"expectStepper": {"pending": true}},
+    {"expectText": ".First", "equals": "First: old"},
+    {"click": "button.mount"},
+    {"expectText": ".Second", "equals": "Second: old"},
+    {"expectText": ".First", "equals": "First: old"},
+    {"clearConsole": true},
+    {"stepper": "paint"},
+    {"expectText": ".First", "equals": "First: new"},
+    {"expectText": ".Second", "equals": "Second: new"},
+    {"expectConsole": {"kind": "log", "contains": "Second rendered new"}}
+  ]
+}

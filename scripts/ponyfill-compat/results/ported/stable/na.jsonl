@@ -1,0 +1,1 @@
+{"testPath":"/private/tmp/usestore-base/packages/react-dom/src/__tests__/ReactUseStorePonyfill-test.js","name":"ReactUseStorePonyfill Selectors can be dynamic dynamic selectors are supported","reasons":["test reads store._records"]}

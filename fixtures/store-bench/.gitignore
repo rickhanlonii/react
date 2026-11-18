@@ -1,0 +1,6 @@
+node_modules
+dist
+dist-count
+results
+react-builds
+dist-*

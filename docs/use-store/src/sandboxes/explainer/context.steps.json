@@ -1,0 +1,12 @@
+{
+  "steps": [
+    {"resetRenders": true},
+    {"click": "button.context"},
+    {"expectText": ".context-count", "equals": "Count: 1"},
+    {"expectRenders": {"CountProvider": 1, "ContextCount": 1, "ContextTheme": 1, "App": 0}},
+    {"resetRenders": true},
+    {"click": "button.store"},
+    {"expectText": ".store-count", "equals": "Count: 1"},
+    {"expectRenders": {"StoreCount": 1, "StoreTheme": 0, "App": 0}}
+  ]
+}

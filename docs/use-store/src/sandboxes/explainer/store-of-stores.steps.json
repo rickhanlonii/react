@@ -1,0 +1,13 @@
+{
+  "steps": [
+    {"expectCount": "li", "equals": 2},
+    {"resetRenders": true},
+    {"click": "li:nth-child(2)"},
+    {"expectText": "li:nth-child(2)", "equals": "Done: Try the sandboxes"},
+    {"expectRenders": {"Todo": 1, "TodoList": 0}},
+    {"resetRenders": true},
+    {"click": "button"},
+    {"expectCount": "li", "equals": 3},
+    {"expectRenders": {"TodoList": 1, "Todo": 3}}
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {"expectText": ".Visible", "equals": "Visible: online"},
+    {"clearConsole": true},
+    {"click": "button.update"},
+    {"expectText": ".Visible", "equals": "Visible: away"},
+    {"expectNoConsole": {"contains": "Hidden rendered away"}},
+    {"expectStepper": {"pending": true}},
+    {"stepper": "flush"},
+    {"expectConsole": {"kind": "log", "contains": "Hidden rendered away"}},
+    {"click": "button.reveal"},
+    {"expectText": ".Hidden", "equals": "Hidden: away"}
+  ]
+}

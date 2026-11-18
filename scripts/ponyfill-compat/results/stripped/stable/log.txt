@@ -1,0 +1,2180 @@
+FAIL scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js (14.469 s)
+  ● ReactUseStorePonyfill › useStore › should update store value with reducer
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   0,
+        1,
+      ]
+
+      422 |
+      423 |       expect(result).toEqual({count: 1});
+    > 424 |       assertLog([1]);
+          |       ^
+      425 |
+      426 |       await act(async () => {
+      427 |         store.update({type: 'INCREMENT', payload: 3});
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:424:7)
+
+  ● ReactUseStorePonyfill › useStore › should work with array values
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "1,2,3",
+        "1,2,3,4",
+      ]
+
+      482 |
+      483 |       expect(result).toEqual([1, 2, 3, 4]);
+    > 484 |       assertLog(['1,2,3,4']);
+          |       ^
+      485 |
+      486 |       await act(async () => {
+      487 |         store.update({type: 'POP'});
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:484:7)
+
+  ● ReactUseStorePonyfill › useStore › should handle complex state updates
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        "render",
+    +   "render",
+      ]
+
+      544 |         settings: {theme: 'light', notifications: true},
+      545 |       });
+    > 546 |       assertLog(['render']);
+          |       ^
+      547 |
+      548 |       await act(async () => {
+      549 |         store.update({type: 'UPDATE_SETTINGS', payload: {theme: 'dark'}});
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:546:7)
+
+  ● ReactUseStorePonyfill › useStore › should work with multiple components using same store
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "1: 0",
+    +   "2: 0",
+        "1: 1",
+        "2: 1",
+      ]
+
+      611 |       expect(queryByTestId(container, 'counter-1').textContent).toBe('1');
+      612 |       expect(queryByTestId(container, 'counter-2').textContent).toBe('1');
+    > 613 |       assertLog(['1: 1', '2: 1']);
+          |       ^
+      614 |     });
+      615 |
+      616 |     // useStore.spec.tsx: "should change value when updated without reducer"
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:613:7)
+
+  ● ReactUseStorePonyfill › useStore › should change value when updated without reducer
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   0,
+        100,
+      ]
+
+      640 |
+      641 |       expect(result).toEqual({count: 100});
+    > 642 |       assertLog([100]);
+          |       ^
+      643 |     });
+      644 |
+      645 |     // useStore.spec.tsx: "should change value when updated with setter"
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:642:7)
+
+  ● ReactUseStorePonyfill › useStore › should change value when updated with setter
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   0,
+        1,
+      ]
+
+      672 |
+      673 |       expect(result).toEqual({count: 1});
+    > 674 |       assertLog([1]);
+          |       ^
+      675 |     });
+      676 |
+      677 |     // useStore.spec.tsx: "should handle an initial value of undefined"
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:674:7)
+
+  ● ReactUseStorePonyfill › useStore › should handle an initial value of undefined
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "undefined",
+        42,
+      ]
+
+      699 |
+      700 |       expect(result).toBe(42);
+    > 701 |       assertLog([42]);
+          |       ^
+      702 |     });
+      703 |   });
+      704 |
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:701:7)
+
+  ● ReactUseStorePonyfill › useStore(suspense) › should handle transition interruption and resolve to the final state
+
+    expect(received).not.toBe(expected) // Object.is equality
+
+    Expected: not null
+
+      908 |
+      909 |       expect(queryByTestId(container, 'error-boundary')).toBe(null);
+    > 910 |       expect(queryByTestId(container, 'loading')).not.toBe(null);
+          |                                                       ^
+      911 |
+      912 |       await act(async () => resolve());
+      913 |
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:910:55)
+
+  ● ReactUseStorePonyfill › useStore(suspense) › should handle transition interruption and resolve to the final state
+
+    Log of yielded values is not empty. Call assertLog first.
+
+    Received:
+    + 0
+
+      152 |     for (let i = 0; i < containers.length; i++) {
+      153 |       const {root, container} = containers[i];
+    > 154 |       await act(() => root.unmount());
+          |             ^
+      155 |       container.remove();
+      156 |     }
+      157 |     containers = [];
+
+      at _loop (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:154:13)
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:155:300)
+
+  ● ReactUseStorePonyfill › Experimental Userland Store › Does not tear when new component mounts mid transition
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "count": 1,
+    +     "testid": "count",
+    +   },
+    + ]
+
+      1017 |       });
+      1018 |
+    > 1019 |       assertLog([]);
+           |       ^
+      1020 |
+      1021 |       // Check that the update has not flushed yet
+      1022 |       expect(container.innerHTML).toBe('<div>1</div>');
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:1019:7)
+
+  ● ReactUseStorePonyfill › Experimental Userland Store › Does not tear when new component mounts in its own transition mid transition
+
+    Log of yielded values is not empty. Call assertLog first.
+
+    Received:
+    + [object Object]
+
+      1105 |
+      1106 |       // Reveal a new component which must read state on mount
+    > 1107 |       await act(async () => {
+           |             ^
+      1108 |         startTransition(() => {
+      1109 |           setShowOther(true);
+      1110 |         });
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:1107:13)
+
+  ● ReactUseStorePonyfill › Experimental Userland Store › Does not miss updates triggered in useEffect or useLayoutEffect
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        Object {
+          "count": 1,
+          "testid": "count",
+        },
+    -   Object {
+    -     "count": 2,
+    -     "testid": "count",
+    -   },
+      ]
+
+      1167 |       });
+      1168 |
+    > 1169 |       assertLog([
+           |       ^
+      1170 |         {testid: 'count', count: 1},
+      1171 |         {testid: 'count', count: 2}, // Fixup render triggered by increment on mount
+      1172 |       ]);
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:1169:7)
+
+  ● ReactUseStorePonyfill › Experimental Userland Store › Does not miss sync updates triggered in useEffect or useLayoutEffect during a long-running transition
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        Object {
+    -     "count": 4,
+    -     "testid": "count",
+    -   },
+    -   Object {
+    -     "count": 5,
+    +     "count": 2,
+          "testid": "count",
+        },
+      ]
+
+      1297 |       // the last reader unmounted does not see a pending transition early"),
+      1298 |       // but not when the store had no record when the update was dispatched.
+    > 1299 |       assertLog([
+           |       ^
+      1300 |         {testid: 'count', count: 4},
+      1301 |         {testid: 'count', count: 5},
+      1302 |       ]);
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:1299:7)
+
+  ● ReactUseStorePonyfill › Experimental Userland Store › Sync update interrupting transition correctly tracks committed state
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "count": 2,
+    +     "testid": "count",
+    +   },
+    + ]
+
+      1419 |       });
+      1420 |
+    > 1421 |       assertLog([]);
+           |       ^
+      1422 |
+      1423 |       // Ensure no update is made yet
+      1424 |       expect(container.innerHTML).toBe('<div>2</div>');
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:1421:7)
+
+  ● ReactUseStorePonyfill › Experimental Userland Store › Multiple sync updates interrupting transition correctly tracks committed state
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "count": 2,
+    +     "testid": "count",
+    +   },
+    + ]
+
+      1519 |       });
+      1520 |
+    > 1521 |       assertLog([]);
+           |       ^
+      1522 |
+      1523 |       // Ensure no update is made yet
+      1524 |       expect(container.innerHTML).toBe('<div>2</div>');
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:1521:7)
+
+  ● ReactUseStorePonyfill › Experimental Userland Store › flushSync update interrupting transition correctly tracks committed state
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "count": 2,
+    +     "testid": "count",
+    +   },
+    + ]
+
+      1621 |       });
+      1622 |
+    > 1623 |       assertLog([]);
+           |       ^
+      1624 |
+      1625 |       expect(container.innerHTML).toBe('<div>2</div>');
+      1626 |
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:1623:7)
+
+  ● ReactUseStorePonyfill › Experimental Userland Store › correctly handles consecutive sync updates
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        Object {
+    +     "count": 1,
+    +     "testid": "count",
+    +   },
+    +   Object {
+          "count": 3,
+          "testid": "count",
+        },
+      ]
+
+      1704 |
+      1705 |       // Autobatching means these flush together
+    > 1706 |       assertLog([{testid: 'count', count: 3}]);
+           |       ^
+      1707 |
+      1708 |       expect(container.innerHTML).toBe('<div>3</div>');
+      1709 |       await act(() => unmount());
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:1706:7)
+
+  ● ReactUseStorePonyfill › Experimental Userland Store › dynamic stores are not yet supported
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        Object {
+    -     "count": 10,
+    +     "count": 1,
+          "testid": "count",
+        },
+      ]
+
+      1749 |       });
+      1750 |
+    > 1751 |       assertLog([{testid: 'count', count: 10}]);
+           |       ^
+      1752 |       expect(container.innerHTML).toBe('<div>10</div>');
+      1753 |       await act(() => unmount());
+      1754 |     });
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:1751:7)
+
+  ● ReactUseStorePonyfill › Experimental Userland Store › transition store update causes new store reader to mount
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        Object {
+          "action": "render",
+    +     "count": 1,
+    +     "testid": "countIfEven",
+    +   },
+    +   Object {
+    +     "action": "render",
+          "count": 2,
+          "testid": "countIfEven",
+        },
+        Object {
+          "action": "render",
+          "count": 2,
+          "testid": "count",
+        },
+        Object {
+          "action": "mount",
+          "count": 2,
+          "testid": "count",
+        },
+      ]
+
+      1794 |         });
+      1795 |       });
+    > 1796 |       assertLog([
+           |       ^
+      1797 |         {action: 'render', testid: 'countIfEven', count: 2},
+      1798 |         {action: 'render', testid: 'count', count: 2},
+      1799 |         {action: 'mount', testid: 'count', count: 2},
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:1796:7)
+
+  ● ReactUseStorePonyfill › Experimental Userland Store › gets stuck in suspense when transition state suspends on mount
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        Object {
+    +     "action": "render",
+    +     "count": 1,
+    +     "testid": "count",
+    +   },
+    +   Object {
+          "action": "suspend",
+          "count": 2,
+          "testid": "count",
+        },
+      ]
+
+      1865 |
+      1866 |       // We try to render the new state, and suspend...
+    > 1867 |       assertLog([{action: 'suspend', testid: 'count', count: 2}]);
+           |       ^
+      1868 |
+      1869 |       // ...and keep showing the old state due to the transition.
+      1870 |       expect(container.innerHTML).toBe('<div>1</div>');
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:1867:7)
+
+  ● ReactUseStorePonyfill › Experimental Userland Store › can read from multiple different stores updating independently
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        Object {
+    +     "count": 50,
+    +     "testid": "CountB",
+    +     "type": "render",
+    +   },
+    +   Object {
+          "count": 51,
+          "testid": "CountB",
+          "type": "render",
+        },
+      ]
+
+      1962 |       });
+      1963 |
+    > 1964 |       assertLog([
+           |       ^
+      1965 |         {
+      1966 |           type: 'render',
+      1967 |           testid: 'CountB',
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:1964:7)
+
+  ● ReactUseStorePonyfill › Selectors can be dynamic › selector changes sync during a transition update to the store
+
+    Log of yielded values is not empty. Call assertLog first.
+
+    Received:
+    + [object Object]
+
+      2060 |       });
+      2061 |
+    > 2062 |       await act(async () => {
+           |             ^
+      2063 |         setSelector(() => s => s * 2);
+      2064 |       });
+      2065 |
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:2062:13)
+
+  ● ReactUseStorePonyfill › createStore for Redux › Using Redux Toolkit's configureStore
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "count": 1,
+    +     "testid": "count",
+    +   },
+    + ]
+
+      2232 |       });
+      2233 |
+    > 2234 |       assertLog([]);
+           |       ^
+      2235 |
+      2236 |       // Check that the update has not flushed yet
+      2237 |       expect(container.innerHTML).toBe('<div>1</div>');
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:2234:7)
+
+  ● ReactUseStorePonyfill › createStore for a Relay-like state solution › Minimal example of MiniRelay
+
+    No record found for id: ROOT
+
+      2332 |       const rootRecord = source.get(ref.startingID);
+      2333 |       if (rootRecord == null) {
+    > 2334 |         throw new Error('No record found for id: ' + ref.startingID);
+           |               ^
+      2335 |       }
+      2336 |       const rootData = {};
+      2337 |       readNode(source, rootRecord, fragment, rootData, seenIds);
+
+      at read (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:2334:15)
+      at scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:2430:26
+      at useStoreSelector (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:953:12)
+      at useFragment (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:2435:14)
+      at FragmentComponent (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:2529:20)
+      at Object.react_stack_bottom_frame (packages/react-reconciler/src/ReactFiberCallUserSpace.js:30:20)
+      at renderWithHooks (packages/react-reconciler/src/ReactFiberHooks.js:615:51)
+      at updateFunctionComponent (packages/react-reconciler/src/ReactFiberBeginWork.js:1533:57)
+      at beginWork (packages/react-reconciler/src/ReactFiberBeginWork.js:4444:16)
+      at runWithFiberInDEV (packages/react-reconciler/src/ReactCurrentFiber.js:64:14)
+      at performUnitOfWork (packages/react-reconciler/src/ReactFiberWorkLoop.js:3174:55)
+      at workLoopSync (packages/react-reconciler/src/ReactFiberWorkLoop.js:2858:5)
+      at renderRootSync (packages/react-reconciler/src/ReactFiberWorkLoop.js:2808:7)
+      at recoverFromConcurrentError (packages/react-reconciler/src/ReactFiberWorkLoop.js:1418:20)
+      at performWorkOnRoot (packages/react-reconciler/src/ReactFiberWorkLoop.js:1331:24)
+      at performWorkOnRootViaSchedulerTask (packages/react-reconciler/src/ReactFiberRootScheduler.js:590:45)
+      at workLoop (packages/scheduler/src/forks/SchedulerMock.js:220:34)
+      at flushWork (packages/scheduler/src/forks/SchedulerMock.js:179:14)
+      at Object.unstable_flushUntilNextPaint (packages/scheduler/src/forks/SchedulerMock.js:540:23)
+      at act (packages/internal-test-utils/internalAct.js:156:17)
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:2552:9)
+
+  ● ReactUseStorePonyfill › createStore for a Relay-like state solution › Minimal example of MiniRelay
+
+    Log of yielded values is not empty. Call assertLog first.
+
+    Received:
+    + [object Object]
+    + [object Object]
+
+      152 |     for (let i = 0; i < containers.length; i++) {
+      153 |       const {root, container} = containers[i];
+    > 154 |       await act(() => root.unmount());
+          |             ^
+      155 |       container.remove();
+      156 |     }
+      157 |     containers = [];
+
+      at _loop (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:154:13)
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:155:300)
+
+  ● ReactUseStorePonyfill › createStore for a Relay-like state solution › Avoids rerendering the component if the fragment value computes the same output
+
+    No record found for id: ROOT
+
+      2332 |       const rootRecord = source.get(ref.startingID);
+      2333 |       if (rootRecord == null) {
+    > 2334 |         throw new Error('No record found for id: ' + ref.startingID);
+           |               ^
+      2335 |       }
+      2336 |       const rootData = {};
+      2337 |       readNode(source, rootRecord, fragment, rootData, seenIds);
+
+      at read (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:2334:15)
+      at scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:2430:26
+      at useStoreSelector (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:953:12)
+      at useFragment (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:2435:14)
+      at FragmentComponent (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:2597:20)
+      at Object.react_stack_bottom_frame (packages/react-reconciler/src/ReactFiberCallUserSpace.js:30:20)
+      at renderWithHooks (packages/react-reconciler/src/ReactFiberHooks.js:615:51)
+      at updateFunctionComponent (packages/react-reconciler/src/ReactFiberBeginWork.js:1533:57)
+      at beginWork (packages/react-reconciler/src/ReactFiberBeginWork.js:4444:16)
+      at runWithFiberInDEV (packages/react-reconciler/src/ReactCurrentFiber.js:64:14)
+      at performUnitOfWork (packages/react-reconciler/src/ReactFiberWorkLoop.js:3174:55)
+      at workLoopSync (packages/react-reconciler/src/ReactFiberWorkLoop.js:2858:5)
+      at renderRootSync (packages/react-reconciler/src/ReactFiberWorkLoop.js:2808:7)
+      at recoverFromConcurrentError (packages/react-reconciler/src/ReactFiberWorkLoop.js:1418:20)
+      at performWorkOnRoot (packages/react-reconciler/src/ReactFiberWorkLoop.js:1331:24)
+      at performWorkOnRootViaSchedulerTask (packages/react-reconciler/src/ReactFiberRootScheduler.js:590:45)
+      at workLoop (packages/scheduler/src/forks/SchedulerMock.js:220:34)
+      at flushWork (packages/scheduler/src/forks/SchedulerMock.js:179:14)
+      at Object.unstable_flushUntilNextPaint (packages/scheduler/src/forks/SchedulerMock.js:540:23)
+      at act (packages/internal-test-utils/internalAct.js:156:17)
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:2611:9)
+
+  ● ReactUseStorePonyfill › createStore for a Relay-like state solution › Avoids rerendering the component if the fragment value computes the same output
+
+    Log of yielded values is not empty. Call assertLog first.
+
+    Received:
+    + [object Object]
+    + [object Object]
+
+      152 |     for (let i = 0; i < containers.length; i++) {
+      153 |       const {root, container} = containers[i];
+    > 154 |       await act(() => root.unmount());
+          |             ^
+      155 |       container.remove();
+      156 |     }
+      157 |     containers = [];
+
+      at _loop (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:154:13)
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:155:300)
+
+  ● ReactUseStorePonyfill › createStore for a Relay-like state solution › Implements structural sharing such that substructures remain referential identical even if parent object change
+
+    No record found for id: ROOT
+
+      2332 |       const rootRecord = source.get(ref.startingID);
+      2333 |       if (rootRecord == null) {
+    > 2334 |         throw new Error('No record found for id: ' + ref.startingID);
+           |               ^
+      2335 |       }
+      2336 |       const rootData = {};
+      2337 |       readNode(source, rootRecord, fragment, rootData, seenIds);
+
+      at read (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:2334:15)
+      at scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:2430:26
+      at useStoreSelector (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:953:12)
+      at useFragment (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:2435:14)
+      at FragmentComponent (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:2663:20)
+      at Object.react_stack_bottom_frame (packages/react-reconciler/src/ReactFiberCallUserSpace.js:30:20)
+      at renderWithHooks (packages/react-reconciler/src/ReactFiberHooks.js:615:51)
+      at updateFunctionComponent (packages/react-reconciler/src/ReactFiberBeginWork.js:1533:57)
+      at beginWork (packages/react-reconciler/src/ReactFiberBeginWork.js:4444:16)
+      at runWithFiberInDEV (packages/react-reconciler/src/ReactCurrentFiber.js:64:14)
+      at performUnitOfWork (packages/react-reconciler/src/ReactFiberWorkLoop.js:3174:55)
+      at workLoopSync (packages/react-reconciler/src/ReactFiberWorkLoop.js:2858:5)
+      at renderRootSync (packages/react-reconciler/src/ReactFiberWorkLoop.js:2808:7)
+      at recoverFromConcurrentError (packages/react-reconciler/src/ReactFiberWorkLoop.js:1418:20)
+      at performWorkOnRoot (packages/react-reconciler/src/ReactFiberWorkLoop.js:1331:24)
+      at performWorkOnRootViaSchedulerTask (packages/react-reconciler/src/ReactFiberRootScheduler.js:590:45)
+      at workLoop (packages/scheduler/src/forks/SchedulerMock.js:220:34)
+      at flushWork (packages/scheduler/src/forks/SchedulerMock.js:179:14)
+      at Object.unstable_flushUntilNextPaint (packages/scheduler/src/forks/SchedulerMock.js:540:23)
+      at act (packages/internal-test-utils/internalAct.js:156:17)
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:2699:9)
+
+  ● ReactUseStorePonyfill › createStore for a Relay-like state solution › Implements structural sharing such that substructures remain referential identical even if parent object change
+
+    Log of yielded values is not empty. Call assertLog first.
+
+    Received:
+    + [object Object]
+    + [object Object]
+
+      152 |     for (let i = 0; i < containers.length; i++) {
+      153 |       const {root, container} = containers[i];
+    > 154 |       await act(() => root.unmount());
+          |             ^
+      155 |       container.remove();
+      156 |     }
+      157 |     containers = [];
+
+      at _loop (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:154:13)
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js:155:300)
+
+FAIL scripts/ponyfill-compat/stripped/ReactUseStore-test.js (14.698 s)
+  ● ReactUseStore › reads updates made before the first render
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   3,
+    +   1,
+      ]
+
+       96 |       root.render(<App />);
+       97 |     });
+    >  98 |     assertLog([3]);
+          |     ^
+       99 |     expect(root).toMatchRenderedOutput(<span>3</span>);
+      100 |   });
+      101 |
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:98:5)
+
+  ● ReactUseStore › passes actions to the reducer
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 1
+
+      <span>
+    -   5
+    +   0
+      </span>
+
+      116 |       root.render(<App />);
+      117 |     });
+    > 118 |     expect(root).toMatchRenderedOutput(<span>5</span>);
+          |                  ^
+      119 |
+      120 |     await act(() => {
+      121 |       store.update({type: 'add', amount: 2});
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:118:18)
+
+  ● ReactUseStore › re-renders readers when the store is updated
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "A: 0",
+    +   "B: 0",
+        "A: 1",
+        "B: 1",
+      ]
+
+      151 |       store.update(1);
+      152 |     });
+    > 153 |     assertLog(['A: 1', 'B: 1']);
+          |     ^
+      154 |     expect(root).toMatchRenderedOutput('A: 1B: 1');
+      155 |
+      156 |     await act(() => {
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:153:5)
+
+  ● ReactUseStore › only re-renders the components that read the store
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Reader: 0",
+        "Reader: 1",
+      ]
+
+      183 |       store.update(1);
+      184 |     });
+    > 185 |     assertLog(['Reader: 1']);
+          |     ^
+      186 |   });
+      187 |
+      188 |   // @gate enableStore
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:185:5)
+
+  ● ReactUseStore › bails out when the value does not change
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+    - Array []
+    + Array [
+    +   "Reader: 0",
+    +   "Reader: 0",
+    + ]
+
+      203 |       store.update(0);
+      204 |     });
+    > 205 |     assertLog([]);
+          |     ^
+      206 |
+      207 |     // An object store that's updated to the same object.
+      208 |     const objectStore = createStore({a: 1});
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:205:5)
+
+  ● ReactUseStore › renders a transition update without blocking
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "A",
+        "B",
+      ]
+
+      240 |       // A sync update to unrelated state does not include the transition.
+      241 |       expect(root).toMatchRenderedOutput('A');
+    > 242 |       await waitForPaint(['B']);
+          |             ^
+      243 |       expect(root).toMatchRenderedOutput('B');
+      244 |     });
+      245 |   });
+
+      at scripts/ponyfill-compat/stripped/ReactUseStore-test.js:242:13
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:236:5)
+
+  ● ReactUseStore › a sync update interrupts a transition and is rebased
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+    - Array []
+    + Array [
+    +   2,
+    + ]
+
+      276 |     });
+      277 |     // The transition is blocked on the async action.
+    > 278 |     assertLog([]);
+          |     ^
+      279 |     expect(root).toMatchRenderedOutput('2');
+      280 |
+      281 |     await act(() => {
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:278:5)
+
+  ● ReactUseStore › a reader that mounts during a transition shows the committed value, then updates with the transition
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+    - Array []
+    + Array [
+    +   "Stable: 1",
+    + ]
+
+      328 |       });
+      329 |     });
+    > 330 |     assertLog([]);
+          |     ^
+      331 |     expect(root).toMatchRenderedOutput('Stable: 1');
+      332 |
+      333 |     // Mount a new reader with a sync update. It should match its sibling,
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:330:5)
+
+  ● ReactUseStore › a reader that mounts during a non-blocked transition joins it
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        "Stable: 1",
+    -   "Conditional: 1",
+    +   "Conditional: 2",
+      ]
+
+      381 |         setShowConditional(true);
+      382 |       });
+    > 383 |       assertLog(['Stable: 1', 'Conditional: 1']);
+          |       ^
+      384 |       expect(root).toMatchRenderedOutput('Stable: 1Conditional: 1');
+      385 |     });
+      386 |     // The transition includes the new reader.
+
+      at scripts/ponyfill-compat/stripped/ReactUseStore-test.js:383:7
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:375:5)
+
+  ● ReactUseStore › a reader that mounts as part of the transition that updates the store reads the new value
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "App: 1",
+        "App: 2",
+        "Conditional: 2",
+      ]
+
+      414 |       });
+      415 |     });
+    > 416 |     assertLog(['App: 2', 'Conditional: 2']);
+          |     ^
+      417 |     expect(root).toMatchRenderedOutput('Conditional: 2');
+      418 |   });
+      419 |
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:416:5)
+
+  ● ReactUseStore › a reader that mounts after a sync interruption shows the rebased value
+
+    Log of yielded values is not empty. Call assertLog first.
+
+    Received:
+    + Stable: 2
+
+      453 |       });
+      454 |     });
+    > 455 |     await act(() => {
+          |           ^
+      456 |       store.update('double');
+      457 |     });
+      458 |     assertLog(['Stable: 4']);
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:455:11)
+
+  ● ReactUseStore › a reader that mounts after a transition commits reads the new value
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Stable: 1",
+        "Stable: 2",
+      ]
+
+      502 |       });
+      503 |     });
+    > 504 |     assertLog(['Stable: 2']);
+          |     ^
+      505 |
+      506 |     await act(() => {
+      507 |       setShowConditional(true);
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:504:5)
+
+  ● ReactUseStore › does not miss updates dispatched in a layout effect before the reader subscribes
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        "Reader: 1",
+        "Layout effect",
+    -   "Reader: 2",
+      ]
+
+      535 |       );
+      536 |     });
+    > 537 |     assertLog(['Reader: 1', 'Layout effect', 'Reader: 2']);
+          |     ^
+      538 |     expect(root).toMatchRenderedOutput('Reader: 2');
+      539 |   });
+      540 |
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:537:5)
+
+  ● ReactUseStore › does not miss updates dispatched in a passive effect before the reader subscribes
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        "Reader: 1",
+        "Effect",
+    -   "Reader: 2",
+      ]
+
+      564 |       );
+      565 |     });
+    > 566 |     assertLog(['Reader: 1', 'Effect', 'Reader: 2']);
+          |     ^
+      567 |     expect(root).toMatchRenderedOutput('Reader: 2');
+      568 |   });
+      569 |
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:566:5)
+
+  ● ReactUseStore › does not miss updates dispatched while a concurrent render is in progress
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        "B: 1",
+    -   "A: 2",
+    -   "B: 2",
+      ]
+
+      591 |       store.update(2);
+      592 |     });
+    > 593 |     assertLog(['B: 1', 'A: 2', 'B: 2']);
+          |     ^
+      594 |     expect(root).toMatchRenderedOutput('A: 2B: 2');
+      595 |   });
+      596 |
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:593:5)
+
+  ● ReactUseStore › updates sibling readers whether or not a render is in progress
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "A0",
+    +   "B0",
+    +   "C0",
+    +   "D0",
+        "A1",
+        "B1",
+        "C1",
+        "D1",
+      ]
+
+      639 |     // Nothing is rendering: the readers are marked right away.
+      640 |     await act(() => store.update(1));
+    > 641 |     assertLog(['A1', 'B1', 'C1', 'D1']);
+          |     ^
+      642 |
+      643 |     // In a transition.
+      644 |     await act(() => startTransition(() => store.update(2)));
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:641:5)
+
+  ● ReactUseStore › never commits readers showing different versions of the store
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   "A: 2",
+    +   "A: 1",
+    +   "B: 1",
+      ]
+
+      707 |         store.update(2);
+      708 |       });
+    > 709 |       await waitFor(['A: 2']);
+          |             ^
+      710 |       // Interleave another transition update before B renders.
+      711 |       startTransition(() => {
+      712 |         store.update(3);
+
+      at scripts/ponyfill-compat/stripped/ReactUseStore-test.js:709:13
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:705:5)
+
+  ● ReactUseStore › can be read conditionally
+
+    Rendered fewer hooks than expected. This may be caused by an accidental early return statement.
+
+      725 |
+      726 |   if (didRenderTooFewHooks) {
+    > 727 |     throw new Error(
+          |           ^
+      728 |       'Rendered fewer hooks than expected. This may be caused by an accidental ' +
+      729 |         'early return statement.',
+      730 |     );
+
+      at finishRenderingHooks (packages/react-reconciler/src/ReactFiberHooks.js:727:11)
+      at renderWithHooks (packages/react-reconciler/src/ReactFiberHooks.js:646:3)
+      at updateFunctionComponent (packages/react-reconciler/src/ReactFiberBeginWork.js:1533:57)
+      at beginWork (packages/react-reconciler/src/ReactFiberBeginWork.js:4444:16)
+      at runWithFiberInDEV (packages/react-reconciler/src/ReactCurrentFiber.js:64:14)
+      at performUnitOfWork (packages/react-reconciler/src/ReactFiberWorkLoop.js:3174:55)
+      at workLoopSync (packages/react-reconciler/src/ReactFiberWorkLoop.js:2858:5)
+      at renderRootSync (packages/react-reconciler/src/ReactFiberWorkLoop.js:2808:7)
+      at recoverFromConcurrentError (packages/react-reconciler/src/ReactFiberWorkLoop.js:1418:20)
+      at performWorkOnRoot (packages/react-reconciler/src/ReactFiberWorkLoop.js:1331:24)
+      at performWorkOnRootViaSchedulerTask (packages/react-reconciler/src/ReactFiberRootScheduler.js:590:45)
+      at workLoop (packages/scheduler/src/forks/SchedulerMock.js:220:34)
+      at flushWork (packages/scheduler/src/forks/SchedulerMock.js:179:14)
+      at Object.unstable_flushUntilNextPaint (packages/scheduler/src/forks/SchedulerMock.js:540:23)
+      at act (packages/internal-test-utils/internalAct.js:156:17)
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:743:5)
+
+  ● ReactUseStore › can read a list of stores in a loop
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Sum: 6",
+        "Sum: 14",
+      ]
+
+      785 |       stores[1].update(10);
+      786 |     });
+    > 787 |     assertLog(['Sum: 14']);
+          |     ^
+      788 |   });
+      789 |
+      790 |   // @gate enableStore
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:787:5)
+
+  ● ReactUseStore › supports stores of stores for granular updates
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Two",
+        "Two!",
+      ]
+
+      813 |       todoTwo.update(prev => ({...prev, text: 'Two!'}));
+      814 |     });
+    > 815 |     assertLog(['Two!']);
+          |     ^
+      816 |
+      817 |     await act(() => {
+      818 |       todos.update(prev => [...prev, createStore({id: 3, text: 'Three'})]);
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:815:5)
+
+  ● ReactUseStore › switches stores when a different store is passed
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   "B",
+    +   "A",
+      ]
+
+      840 |       root.render(<Reader store={storeB} />);
+      841 |     });
+    > 842 |     assertLog(['B']);
+          |     ^
+      843 |
+      844 |     // Updates to the old store are ignored.
+      845 |     await act(() => {
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:842:5)
+
+  ● ReactUseStore › unsubscribes on unmount after re-rendering with the same stores
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Reader: 0a",
+        "Reader: 1a",
+      ]
+
+      899 |       store.update(1);
+      900 |     });
+    > 901 |     assertLog(['Reader: 1a']);
+          |     ^
+      902 |     await act(() => {
+      903 |       other.update('b');
+      904 |     });
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:901:5)
+
+  ● ReactUseStore › keeps subscriptions when the same stores are read in a different order
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   "BA",
+    +   "AB",
+      ]
+
+      939 |       setReversed(true);
+      940 |     });
+    > 941 |     assertLog(['BA']);
+          |     ^
+      942 |
+      943 |     await act(() => {
+      944 |       storeA.update('A2');
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:941:5)
+
+  ● ReactUseStore › subscribes to an added store and unsubscribes from a dropped one, keeping the rest
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   "SB",
+    +   "SA",
+      ]
+
+      970 |       root.render(<Reader store={storeB} />);
+      971 |     });
+    > 972 |     assertLog(['SB']);
+          |     ^
+      973 |
+      974 |     await act(() => {
+      975 |       storeA.update('A2');
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:972:5)
+
+  ● ReactUseStore › drops the records of stores that are no longer read, among many
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   0,
+        100,
+      ]
+
+      1029 |       stores[0].update(100);
+      1030 |     });
+    > 1031 |     assertLog([100]);
+           |     ^
+      1032 |
+      1033 |     // Updates to stores that aren't read anymore are applied to the value
+      1034 |     // a new reader starts from.
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1031:5)
+
+  ● ReactUseStore › state survives remounting, unlike component state
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Count: 0",
+        "Count: 1",
+      ]
+
+      1060 |       store.update(1);
+      1061 |     });
+    > 1062 |     assertLog(['Count: 1']);
+           |     ^
+      1063 |
+      1064 |     await act(() => {
+      1065 |       root.render(<Counter key="b" />);
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1062:5)
+
+  ● ReactUseStore › a reader in a suspended tree mounts with the latest value
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   "Reader: B",
+    +   "Reader: A",
+      ]
+
+      1107 |       resolve();
+      1108 |     });
+    > 1109 |     assertLog(['Reader: B']);
+           |     ^
+      1110 |     expect(root).toMatchRenderedOutput('Reader: B');
+      1111 |
+      1112 |     await act(() => {
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1109:5)
+
+  ● ReactUseStore › readers in a hidden Activity update in the background
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Visible: A",
+        "Visible: B",
+      ]
+
+      1153 |       // The visible reader updates first. The hidden one updates later, at
+      1154 |       // offscreen priority.
+    > 1155 |       await waitForPaint(['Visible: B']);
+           |             ^
+      1156 |     });
+      1157 |     assertLog(['Hidden: B']);
+      1158 |
+
+      at scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1155:13
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1151:5)
+
+  ● ReactUseStore › works with multiple roots
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "A: 0",
+    +   "B: 0",
+        "A: 1",
+        "B: 1",
+      ]
+
+      1184 |       store.update(1);
+      1185 |     });
+    > 1186 |     assertLog(['A: 1', 'B: 1']);
+           |     ^
+      1187 |     expect(rootA).toMatchRenderedOutput('A: 1');
+      1188 |     expect(rootB).toMatchRenderedOutput('B: 1');
+      1189 |
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1186:5)
+
+  ● ReactUseStore › batches updates to the store with state updates in the same event
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Total: 0",
+        "Total: 2",
+      ]
+
+      1219 |       store.update(2);
+      1220 |     });
+    > 1221 |     assertLog(['Total: 2']);
+           |     ^
+      1222 |   });
+      1223 |
+      1224 |   // @gate enableStore
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1221:5)
+
+  ● ReactUseStore › applies updates inside flushSync synchronously
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   "Count: 1",
+    +   "Count: 0",
+      ]
+
+      1240 |         store.update(1);
+      1241 |       });
+    > 1242 |       assertLog(['Count: 1']);
+           |       ^
+      1243 |       expect(root).toMatchRenderedOutput('Count: 1');
+      1244 |     });
+      1245 |   });
+
+      at scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1242:7
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1238:5)
+
+  ● ReactUseStore › async actions batch store updates with updates after await
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+    - Array []
+    + Array [
+    +   "Initial A",
+    + ]
+
+      1272 |       });
+      1273 |     });
+    > 1274 |     assertLog([]);
+           |     ^
+      1275 |     expect(root).toMatchRenderedOutput('Initial A');
+      1276 |
+      1277 |     await act(() => {
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1274:5)
+
+  ● ReactUseStore › works with useDeferredValue
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   "Value: B",
+    +   "Value: A",
+        "Deferred: A",
+    +   "Value: B",
+    +   "Deferred: B",
+      ]
+
+      1305 |     await act(async () => {
+      1306 |       store.update('B');
+    > 1307 |       await waitForPaint(['Value: B', 'Deferred: A']);
+           |             ^
+      1308 |     });
+      1309 |     assertLog(['Value: B', 'Deferred: B']);
+      1310 |   });
+
+      at scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1307:13
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1305:5)
+
+  ● ReactUseStore › works in StrictMode
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Reader: 0",
+        "Reader: 1",
+      ]
+
+      1331 |       store.update(1);
+      1332 |     });
+    > 1333 |     assertLog(['Reader: 1']);
+           |     ^
+      1334 |     expect(root).toMatchRenderedOutput('Reader: 1');
+      1335 |   });
+      1336 |
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1333:5)
+
+  ● ReactUseStore › a second transition that reverts the first commits the original value
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+    - Array []
+    + Array [
+    +   1,
+    +   1,
+    + ]
+
+      1359 |     // Both updates are in the same transition, so the value doesn't change
+      1360 |     // and the component bails out.
+    > 1361 |     assertLog([]);
+           |     ^
+      1362 |     expect(root).toMatchRenderedOutput('1');
+      1363 |   });
+      1364 |
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1361:5)
+
+  ● ReactUseStore › a sync update that produces the committed value during a transition still renders the rebased value
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+    - Array []
+    + Array [
+    +   1,
+    + ]
+
+      1384 |       });
+      1385 |     });
+    > 1386 |     assertLog([]);
+           |     ^
+      1387 |
+      1388 |     // A sync update to the committed value. The transition is still pending.
+      1389 |     await act(() => {
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1386:5)
+
+  ● ReactUseStore › multiple transitions that update the same store are entangled
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   "B",
+    +   "A",
+      ]
+
+      1418 |       // Start rendering the first transition, then dispatch a second one in a
+      1419 |       // separate event before the first one commits.
+    > 1420 |       await waitFor(['B']);
+           |             ^
+      1421 |       startTransition(() => {
+      1422 |         store.update('C');
+      1423 |       });
+
+      at scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1420:13
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1414:5)
+
+  ● ReactUseStore › a transition does not entangle with a pending urgent update to the same store
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   1,
+    +   0,
+        2,
+      ]
+
+      1466 |     });
+      1467 |     // The urgent update renders on its own, then the transition.
+    > 1468 |     assertLog([1, 2]);
+           |     ^
+      1469 |     expect(root).toMatchRenderedOutput('2');
+      1470 |   });
+      1471 |
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1468:5)
+
+  ● ReactUseStore › runs the reducer as often as useReducer
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Value: 0",
+        "Value: 1",
+      ]
+
+      1493 |       assertLog(['Reduce 0 + 1']);
+      1494 |     });
+    > 1495 |     assertLog(['Value: 1']);
+           |     ^
+      1496 |
+      1497 |     // Later updates in the same batch are computed during render.
+      1498 |     await act(() => {
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1495:5)
+
+  ● ReactUseStore › warns when a store is updated during render, and renders the update after
+
+    assertConsoleErrorDev(expected)
+
+    Unexpected error(s) recorded.
+
+    - Expected errors
+    + Received errors
+
+    - Cannot update a store while rendering a component (`App`). Updating a store is a side effect, so it should happen in an event handler or an effect. The update will be rendered after the current render. To locate the bad store.update() call inside `App`, follow the stack trace as described in https://react.dev/link/setstate-in-render     in App (at **)
+    + Cannot call startTransition while rendering.     in App (at **)
+
+      1525 |       store.update(1);
+      1526 |     });
+    > 1527 |     assertConsoleErrorDev([
+           |     ^
+      1528 |       'Cannot update a store while rendering a component (`App`). ' +
+      1529 |         'Updating a store is a side effect, so it should happen in an event ' +
+      1530 |         'handler or an effect. The update will be rendered after the ' +
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1527:5)
+
+  ● ReactUseStore › throws a reducer error during render, not when the store is updated
+
+    Oops
+
+      1560 |     const store = createStore(0, (state, action) => {
+      1561 |       if (action === 'throw') {
+    > 1562 |         throw new Error('Oops');
+           |               ^
+      1563 |       }
+      1564 |       return action;
+      1565 |     });
+
+      at scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1562:15
+      at Object.update (scripts/ponyfill-compat/dist/stable.js:57:39)
+      at Proxy.update (scripts/ponyfill-compat/adapter.js:69:15)
+      at scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1596:13
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1594:5)
+
+  ● ReactUseStore › warns about a second callback argument to store.update
+
+    assertConsoleErrorDev(expected)
+
+    Expected error was not recorded.
+
+    - Expected errors
+    + Received errors
+
+    - store.update() doesn't support a second callback argument. To execute a side effect after rendering, declare it in the component body with useEffect().
+
+      1617 |       store.update(1, () => {});
+      1618 |     });
+    > 1619 |     assertConsoleErrorDev(
+           |     ^
+      1620 |       [
+      1621 |         "store.update() doesn't support a second callback argument. " +
+      1622 |           'To execute a side effect after rendering, declare it in the ' +
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1619:5)
+
+  ● ReactUseStore › a reader that mounts after the last reader unmounted does not see a pending transition early
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        "Tab: a 0",
+        "Tab: a 1",
+        "Tab: a 1",
+    -   "Reader: 0",
+    +   "Reader: 1",
+      ]
+
+      1715 |       // until it commits, like the tab.
+      1716 |       ReactNoop.flushSync(() => setShow(true));
+    > 1717 |       assertLog(['Tab: a 0', 'Tab: a 1', 'Tab: a 1', 'Reader: 0']);
+           |       ^
+      1718 |       expect(root).toMatchRenderedOutput('Tab: a 1Reader: 0');
+      1719 |     });
+      1720 |     assertLog(['Tab: b 1', 'Reader: 1']);
+
+      at scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1717:7
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1705:5)
+
+  ● ReactUseStore › drops an update whose reducer throws once an error boundary handles it
+
+    Oops
+
+      1726 |     const store = createStore(0, (state, action) => {
+      1727 |       if (action === 'throw') {
+    > 1728 |         throw new Error('Oops');
+           |               ^
+      1729 |       }
+      1730 |       return action;
+      1731 |     });
+
+      at scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1728:15
+      at Object.update (scripts/ponyfill-compat/dist/stable.js:57:39)
+      at Proxy.update (scripts/ponyfill-compat/adapter.js:69:15)
+      at scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1761:13
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1760:5)
+
+  ● ReactUseStore › reports a reducer error that no component rendered, and drops the update
+
+    Oops
+
+      1800 |     const store = createStore(0, (state, action) => {
+      1801 |       if (action === 'throw') {
+    > 1802 |         throw new Error('Oops');
+           |               ^
+      1803 |       }
+      1804 |       return action;
+      1805 |     });
+
+      at scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1802:15
+      at Object.update (scripts/ponyfill-compat/dist/stable.js:57:39)
+      at Proxy.update (scripts/ponyfill-compat/adapter.js:69:15)
+      at scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1824:13
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1823:5)
+
+  ● ReactUseStore › throws a reducer error from store.update when nothing reads the store
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   "Value: 2",
+    +   "Value: 0",
+      ]
+
+      1854 |       root.render(<App />);
+      1855 |     });
+    > 1856 |     assertLog(['Value: 2']);
+           |     ^
+      1857 |   });
+      1858 |
+      1859 |   // @gate enableStore
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1856:5)
+
+  ● ReactUseStore › double invokes reducers in StrictMode even when a reader outside StrictMode reads first
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        "reducer",
+    +   "Loose: 0",
+    +   "Strict: 0",
+        "Loose: 1",
+    -   "reducer",
+        "Strict: 1",
+      ]
+
+      1885 |     });
+      1886 |     // Once for the eager state, and once more for the reader in StrictMode.
+    > 1887 |     assertLog(['reducer', 'Loose: 1', 'reducer', 'Strict: 1']);
+           |     ^
+      1888 |   });
+      1889 |
+      1890 |   // @gate enableStore
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1887:5)
+
+  ● ReactUseStore › a store update retries a boundary whose reader suspended on mount
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+    - Array [
+    -   "Result",
+    - ]
+    + Array []
+
+      1910 |       store.update({status: 'fulfilled', value: 'Result', then() {}});
+      1911 |     });
+    > 1912 |     assertLog(['Result']);
+           |     ^
+      1913 |     expect(root).toMatchRenderedOutput('Result');
+      1914 |     // Now the Consumer is subscribed, and the boundary isn't.
+      1915 |     const readers = Array.from(store._records[0].readers);
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1912:5)
+
+  ● ReactUseStore › a store update retries a boundary whose new reader suspended during an update
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+    - Array [
+    -   "Result",
+    - ]
+    + Array []
+
+      1952 |       store.update({status: 'fulfilled', value: 'Result', then() {}});
+      1953 |     });
+    > 1954 |     assertLog(['Result']);
+           |     ^
+      1955 |     expect(root).toMatchRenderedOutput('Result');
+      1956 |   });
+      1957 |
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:1954:5)
+
+  ● ReactUseStore › two stores rebase like one combined store when a sync update interrupts a transition
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   "A:1",
+    +   "A:0",
+    +   "B:0",
+    +   "Both:0,0",
+      ]
+
+      2019 |       });
+      2020 |       // Render part of the transition, then interrupt it.
+    > 2021 |       await waitFor(['A:1']);
+           |             ^
+      2022 |       ReactNoop.flushSync(() => {
+      2023 |         b.update(n => n * 10);
+      2024 |       });
+
+      at scripts/ponyfill-compat/stripped/ReactUseStore-test.js:2021:13
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:2014:5)
+
+  ● ReactUseStore › a transition that updates two stores commits them together, even when they are read in separate subtrees
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   "A:1",
+    +   "A:0",
+    +   "B:0",
+      ]
+
+      2067 |         b.update(1);
+      2068 |       });
+    > 2069 |       await waitFor(['A:1']);
+           |             ^
+      2070 |       // Partially rendered: nothing has committed yet.
+      2071 |       expect(root).toMatchRenderedOutput('A:0 B:0');
+      2072 |     });
+
+      at scripts/ponyfill-compat/stripped/ReactUseStore-test.js:2069:13
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:2064:5)
+
+  ● ReactUseStore › a value derived from several stores outside of render tears with a pending transition
+
+    expect(received).toEqual(expected) // deep equality
+
+    Expected: "score:0 total:1000 comments:1"
+    Received: "score:0 total:0 comments:0"
+
+      2127 |     // Torn: Score doesn't include the pending transition, but the derived
+      2128 |     // value does, because it was computed from the latest values.
+    > 2129 |     expect(root).toMatchRenderedOutput('score:0 total:1000 comments:1');
+           |                  ^
+      2130 |
+      2131 |     await act(() => resolve());
+      2132 |     expect(root).toMatchRenderedOutput('score:1000 total:1000 comments:1');
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:2129:18)
+
+  ● ReactUseStore › a component that starts reading a store stays subscribed when its render bails out
+
+    Rendered more hooks than during the previous render.
+
+      1066 |       } else {
+      1067 |         // This is an update. We should always have a current hook.
+    > 1068 |         throw new Error('Rendered more hooks than during the previous render.');
+           |               ^
+      1069 |       }
+      1070 |     }
+      1071 |
+
+      at updateWorkInProgressHook (packages/react-reconciler/src/ReactFiberHooks.js:1068:15)
+      at updateReducer (packages/react-reconciler/src/ReactFiberHooks.js:1572:14)
+      at updateState (packages/react-reconciler/src/ReactFiberHooks.js:2225:10)
+      at Object.useState (packages/react-reconciler/src/ReactFiberHooks.js:4718:16)
+      at useState (packages/react/src/ReactHooks.js:70:21)
+      at Object.useStore (scripts/ponyfill-compat/dist/stable.js:69:33)
+      at use (scripts/ponyfill-compat/adapter.js:98:23)
+      at Reader (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:2144:31)
+      at Object.react_stack_bottom_frame (packages/react-reconciler/src/ReactFiberCallUserSpace.js:30:20)
+      at renderWithHooks (packages/react-reconciler/src/ReactFiberHooks.js:615:51)
+      at updateFunctionComponent (packages/react-reconciler/src/ReactFiberBeginWork.js:1533:57)
+      at beginWork (packages/react-reconciler/src/ReactFiberBeginWork.js:4444:16)
+      at runWithFiberInDEV (packages/react-reconciler/src/ReactCurrentFiber.js:64:14)
+      at performUnitOfWork (packages/react-reconciler/src/ReactFiberWorkLoop.js:3174:55)
+      at workLoopSync (packages/react-reconciler/src/ReactFiberWorkLoop.js:2858:5)
+      at renderRootSync (packages/react-reconciler/src/ReactFiberWorkLoop.js:2808:7)
+      at recoverFromConcurrentError (packages/react-reconciler/src/ReactFiberWorkLoop.js:1418:20)
+      at performWorkOnRoot (packages/react-reconciler/src/ReactFiberWorkLoop.js:1331:24)
+      at performWorkOnRootViaSchedulerTask (packages/react-reconciler/src/ReactFiberRootScheduler.js:590:45)
+      at workLoop (packages/scheduler/src/forks/SchedulerMock.js:220:34)
+      at flushWork (packages/scheduler/src/forks/SchedulerMock.js:179:14)
+      at Object.unstable_flushUntilNextPaint (packages/scheduler/src/forks/SchedulerMock.js:540:23)
+      at act (packages/internal-test-utils/internalAct.js:156:17)
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:2159:5)
+
+  ● ReactUseStore › a component that starts reading a store stays subscribed when its render bails out
+
+    asserConsoleLogsCleared(expected)
+
+    console.error was called without assertConsoleErrorDev:
+    + React has detected a change in the order of Hooks called by %s. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://react.dev/link/rules-of-hooks
+    +
+    +    Previous render            Next render
+    +    ------------------------------------------------------
+    + %s   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    + %s,Reader,1. useState                   useState
+    + 2. undefined                  useState
+    + ,
+    +     in Reader (at **)
+
+    You must call one of the assertConsoleDev helpers between each act call.
+
+      at Promise.finally.completed (../../../Users/rickhanlonii/oss/react/node_modules/jest-circus/build/jestAdapterInit.js:1561:28)
+
+  ● ReactUseStore › a store update that throws inside a gesture transition does not change the store
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   "reportError: Cannot update a store inside a startGestureTransition",
+    +   "A: 0",
+    +   "A: 1",
+      ]
+
+      2203 |       });
+      2204 |     });
+    > 2205 |     assertLog([
+           |     ^
+      2206 |       'reportError: Cannot update a store inside a startGestureTransition',
+      2207 |     ]);
+      2208 |     expect(root1).toMatchRenderedOutput('A: 0');
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactUseStore-test.js:2205:5)
+
+FAIL scripts/ponyfill-compat/stripped/TODOCorrectnessUseStore-test.js
+  ● TODOCorrectnessUseStore › noop › [GATED, SHOULD FAIL] a transition still commits when its only reader unmounts in a root render before it renders
+
+    Gated test was expected to fail, but it passed.
+
+      56 |
+      57 |     // @gate enableStore && TODO
+    > 58 |     it('a transition still commits when its only reader unmounts in a root render before it renders', async () => {
+         |     ^
+      59 |       const store = createStore(0);
+      60 |
+      61 |       function Reader() {
+
+      at scripts/ponyfill-compat/stripped/TODOCorrectnessUseStore-test.js:58:5
+      at scripts/ponyfill-compat/stripped/TODOCorrectnessUseStore-test.js:43:3
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/TODOCorrectnessUseStore-test.js:26:1)
+
+FAIL scripts/ponyfill-compat/stripped/ReactDOMStore-test.js
+  ● ReactDOMStore › a reader inside a newly inserted host component catches up without warnings
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        "B: 1",
+    -   "A: 2",
+    -   "B: 2",
+      ]
+
+      68 |       store.update(2);
+      69 |     });
+    > 70 |     assertLog(['B: 1', 'A: 2', 'B: 2']);
+         |     ^
+      71 |     expect(container.textContent).toBe('A: 2B: 2');
+      72 |   });
+      73 |
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactDOMStore-test.js:70:5)
+
+  ● ReactDOMStore › hydrates with the initial value of the store
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        "A",
+    -   "B",
+      ]
+
+       97 |     });
+       98 |     // It hydrates with the server value, then updates to the latest value.
+    >  99 |     assertLog(['A', 'B']);
+          |     ^
+      100 |     expect(errors).toEqual([]);
+      101 |     expect(container.textContent).toBe('B');
+      102 |
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactDOMStore-test.js:99:5)
+
+  ● ReactDOMStore › a store update before a dehydrated reader hydrates does not cause a mismatch
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "B"
+    Received: "A"
+
+      164 |     });
+      165 |     expect(errors).toEqual([]);
+    > 166 |     expect(container.textContent).toBe('B');
+          |                                   ^
+      167 |   });
+      168 |
+      169 |   // @gate enableStore
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactDOMStore-test.js:166:35)
+
+  ● ReactDOMStore › a hydrated reader keeps updating when an unrelated store updated before it hydrated
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Reader: A",
+        "Reader: B",
+      ]
+
+      294 |       store.update('B');
+      295 |     });
+    > 296 |     assertLog(['Reader: B']);
+          |     ^
+      297 |     expect(container.textContent).toBe('Reader: B');
+      298 |   });
+      299 |
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactDOMStore-test.js:296:5)
+
+  ● ReactDOMStore › a reader that hydrates while a transition is pending joins the transition
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+    - Array []
+    + Array [
+    +   "A: A",
+    + ]
+
+      359 |       startTransition(() => store.update('T'));
+      360 |     });
+    > 361 |     assertLog([]);
+          |     ^
+      362 |     expect(container.textContent).toBe('AA');
+      363 |
+      364 |     // A discrete event hydrates the boundary at a higher priority than the
+
+      at Object.<anonymous> (scripts/ponyfill-compat/stripped/ReactDOMStore-test.js:361:5)
+
+PASS scripts/ponyfill-compat/stripped/ReactTestRendererUseStoreContext-test.internal.js
+
+Test Suites: 4 failed, 1 passed, 5 total
+Tests:       85 failed, 1 skipped, 24 passed, 110 total
+Snapshots:   0 total
+Time:        17.948 s
+Ran all test suites.

@@ -1,0 +1,16 @@
+{
+  "steps": [
+    {"expectText": "p", "equals": "Count: 0"},
+    {"resetRenders": true},
+    {"click": "button"},
+    {"expectText": "p", "equals": "Count: 1"},
+    {"expectRenders": {"Count": 1, "App": 0}}
+  ],
+  "edit": {
+    "replace": {"find": "n + 1", "with": "n + 10"},
+    "steps": [
+      {"click": "button"},
+      {"expectText": "p", "equals": "Count: 10"}
+    ]
+  }
+}

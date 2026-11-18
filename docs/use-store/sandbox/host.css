@@ -1,0 +1,296 @@
+/* Sandboxes in the page (host.js). Colors follow the page's --panel, --text,
+   --muted, --border and --accent when it defines them. */
+.sandbox {
+  --sb-bg: var(--panel, #f7f7f8);
+  --sb-bg2: var(--panel2, #eeeef0);
+  --sb-text: var(--text, #1c1d21);
+  --sb-muted: var(--muted, #60646c);
+  --sb-border: var(--border, #d9d9de);
+  --sb-accent: var(--accent, #0b6bcb);
+  --sb-warn: var(--warn, #ad5700);
+  --sb-bad: var(--bad, #ce2c31);
+  margin: 20px 0;
+  border: 1px solid var(--sb-border);
+  border-radius: 10px;
+  background: var(--sb-bg);
+  color: var(--sb-text);
+  overflow: hidden;
+  font-size: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  .sandbox {
+    --sb-bg: var(--panel, #17191e);
+    --sb-bg2: var(--panel2, #1f2228);
+    --sb-text: var(--text, #e6e8ee);
+    --sb-muted: var(--muted, #9aa3b2);
+    --sb-border: var(--border, #2e333d);
+    --sb-accent: var(--accent, #58c4dc);
+    --sb-warn: var(--warn, #fbbf24);
+    --sb-bad: var(--bad, #f87171);
+  }
+}
+.sb-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--sb-border);
+}
+.sb-title {
+  flex: 1;
+  font-weight: 600;
+}
+.sb-toolbar,
+.sb-stepper {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.sb-btn {
+  font: inherit;
+  font-size: 13px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--sb-border);
+  background: var(--sb-bg2);
+  color: var(--sb-text);
+  cursor: pointer;
+}
+.sb-btn:hover {
+  border-color: var(--sb-accent);
+}
+.sb-btn:focus-visible,
+.sb-code:focus-visible,
+.sb-placeholder:focus-visible {
+  outline: 2px solid var(--sb-accent);
+  outline-offset: 2px;
+}
+.sb-btn[aria-pressed='true'] {
+  border-color: var(--sb-accent);
+  font-weight: 600;
+}
+.sb-small {
+  font-size: 12px;
+  padding: 1px 8px;
+}
+.sb-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--sb-muted);
+}
+.sb-code,
+.sb-editor {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 10px 14px;
+  max-height: 420px;
+  overflow: auto;
+  font: 13px/1.55 ui-monospace, Menlo, monospace;
+  tab-size: 2;
+  background: var(--sb-bg2);
+  color: var(--sb-text);
+  border: 0;
+  border-bottom: 1px solid var(--sb-border);
+  white-space: pre;
+}
+.sb-editor {
+  resize: vertical;
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--sb-accent);
+}
+.sb-code .tc { color: var(--sb-muted); font-style: italic; }
+.sb-code .ts { color: #3d8b40; }
+.sb-code .tt { color: #b0458a; }
+.sb-code .tn { color: #b35c00; }
+.sb-code .tk { color: #5a4fcf; }
+.sb-code .th { color: var(--sb-accent); font-weight: 600; }
+@media (prefers-color-scheme: dark) {
+  .sb-code .ts { color: #86d993; }
+  .sb-code .tt { color: #f0a6d8; }
+  .sb-code .tn { color: #f5b971; }
+  .sb-code .tk { color: #b4a7ff; }
+}
+.sb-stepper {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--sb-border);
+  font-size: 13px;
+}
+.sb-pending {
+  color: var(--sb-muted);
+}
+.sb-is-pending {
+  color: var(--sb-warn);
+  font-weight: 600;
+}
+.sb-steplog {
+  font: 12px ui-monospace, Menlo, monospace;
+  color: var(--sb-muted);
+}
+.sb-preview {
+  position: relative;
+  min-height: 80px;
+}
+.sb-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+}
+.sb-preview.sb-has-error {
+  min-height: 180px;
+}
+.sb-placeholder {
+  display: block;
+  width: 100%;
+  min-height: 80px;
+  border: 0;
+  background: transparent;
+  color: var(--sb-accent);
+  font: inherit;
+  cursor: pointer;
+}
+.sb-overlay {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--sb-bg) 94%, var(--sb-bad));
+  border-left: 4px solid var(--sb-bad);
+}
+.sb-overlay[hidden] {
+  display: none;
+}
+.sb-overlay-title {
+  font-weight: 700;
+  color: var(--sb-bad);
+}
+.sb-overlay-message,
+.sb-overlay-stack {
+  margin: 6px 0;
+  white-space: pre-wrap;
+  font: 12px/1.45 ui-monospace, Menlo, monospace;
+}
+.sb-overlay-stack {
+  color: var(--sb-muted);
+}
+.sb-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--sb-border);
+  font-size: 12px;
+}
+.sb-strip-label {
+  color: var(--sb-muted);
+  font-weight: 600;
+}
+.sb-chip {
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--sb-border);
+  font-family: ui-monospace, Menlo, monospace;
+}
+.sb-last {
+  border-color: var(--sb-accent);
+  font-weight: 700;
+}
+.sb-dot {
+  margin-right: 4px;
+  color: var(--sb-accent);
+}
+.sb-console {
+  max-height: 180px;
+  overflow: auto;
+  padding: 4px 0;
+  border-top: 1px solid var(--sb-border);
+  font: 12px/1.45 ui-monospace, Menlo, monospace;
+}
+.sb-line {
+  display: flex;
+  gap: 8px;
+  padding: 1px 12px;
+}
+.sb-kind {
+  flex: none;
+  width: 3.5em;
+  color: var(--sb-muted);
+}
+.sb-text {
+  flex: 1;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.sb-warn {
+  background: color-mix(in srgb, var(--sb-warn) 10%, transparent);
+}
+.sb-warn .sb-kind {
+  color: var(--sb-warn);
+}
+.sb-error {
+  background: color-mix(in srgb, var(--sb-bad) 10%, transparent);
+}
+.sb-error .sb-kind {
+  color: var(--sb-bad);
+}
+.sb-repeat {
+  color: var(--sb-muted);
+}
+.sb-empty {
+  padding: 0 12px;
+  color: var(--sb-muted);
+}
+.sb-strip .sb-empty {
+  padding: 0;
+}
+.sb-stores {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--sb-border);
+  font-size: 12px;
+}
+.sb-stores[hidden] {
+  display: none;
+}
+.sb-store-label {
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.sb-store-error {
+  color: var(--sb-bad);
+  font-weight: 600;
+}
+.sb-store-rows {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 1px 10px;
+  margin: 0;
+}
+.sb-store-rows dt {
+  color: var(--sb-muted);
+}
+.sb-store-rows dd {
+  margin: 0;
+  font-family: ui-monospace, Menlo, monospace;
+  word-break: break-word;
+}
+.sb-foot {
+  padding: 5px 12px;
+  border-top: 1px solid var(--sb-border);
+  font-size: 11px;
+  color: var(--sb-muted);
+}
+/* host.js toggles parts with the hidden attribute; the display rules above
+   would otherwise win. */
+.sandbox [hidden] {
+  display: none !important;
+}

@@ -1,0 +1,7 @@
+{
+  "build": {"sha": "fixture"},
+  "values": {
+    "demo.speedup": {"value": 1.5, "display": "1.5×", "unit": "ratio", "source": "fixture"},
+    "demo.count": {"value": 36, "display": "36", "unit": "configs", "source": "fixture"}
+  }
+}

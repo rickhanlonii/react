@@ -1,0 +1,1161 @@
+{
+  "dir": "/tmp/usestore-base/scripts/ponyfill-compat/results/core",
+  "baseSuiteErrors": [],
+  "impls": {
+    "experimental": {
+      "totals": {
+        "fail-ponyfill-only": 26,
+        "pass-both": 32,
+        "na": 9
+      },
+      "gatedTotals": {},
+      "buckets": {
+        "render log mismatch": 12,
+        "rendered output mismatch": 2,
+        "other": 4,
+        "hook order (conditional/changing use(store) reads)": 2,
+        "store switching (dynamic stores)": 3,
+        "update during render: warning text differs": 1,
+        "use(store)-specific API errors/warnings": 2
+      },
+      "suiteErrors": [],
+      "rows": [
+        {
+          "key": "packages/react-dom/src/__tests__/ReactDOMStore-test.js :: ReactDOMStore a reader inside a newly inserted host component catches up without warnings",
+          "file": "packages/react-dom/src/__tests__/ReactDOMStore-test.js",
+          "name": "ReactDOMStore a reader inside a newly inserted host component catches up without warnings",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"B: 1\",\n-   \"A: 2\",\n    \"B: 2\",\n+   \"A: 2\",\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactDOMStore-test.js :: ReactDOMStore hydrates with the initial value of the store",
+          "file": "packages/react-dom/src/__tests__/ReactDOMStore-test.js",
+          "name": "ReactDOMStore hydrates with the initial value of the store",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"A\",\n+   \"B\",\n    \"B\",\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactDOMStore-test.js :: ReactDOMStore the server renders the initial value, not updates",
+          "file": "packages/react-dom/src/__tests__/ReactDOMStore-test.js",
+          "name": "ReactDOMStore the server renders the initial value, not updates",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "rendered output mismatch",
+          "ponyMessage": "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: \"A\"\nReceived: \"B\""
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactDOMStore-test.js :: ReactDOMStore a store update before a dehydrated reader hydrates does not cause a mismatch",
+          "file": "packages/react-dom/src/__tests__/ReactDOMStore-test.js",
+          "name": "ReactDOMStore a store update before a dehydrated reader hydrates does not cause a mismatch",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "rendered output mismatch",
+          "ponyMessage": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  -  1\n+ Received  + 13\n\n- Array []\n+ Array [\n+   \"Hydration failed because the server rendered text didn't match the client. As a result this tree will be regenerated on the client. This can happen if a SSR-ed Client Component used:\n+\n+ - A server/client branch `if (typeof window !== 'undefined')`.\n+ - Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.\n+ - Date formatting in a user's locale which doesn't match the server.\n+ - External changing data without sending a snapshot of it along with the HTML.\n+ - Invalid HTML tag nesting.\n+\n+ It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.\n+\n+ https://react.dev/link/hydration-mismatch\",\n+ ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactDOMStore-test.js :: ReactDOMStore keeps a controlled input in sync",
+          "file": "packages/react-dom/src/__tests__/ReactDOMStore-test.js",
+          "name": "ReactDOMStore keeps a controlled input in sync",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactDOMStore-test.js :: ReactDOMStore releases the root when it unmounts, without another store update",
+          "file": "packages/react-dom/src/__tests__/ReactDOMStore-test.js",
+          "name": "ReactDOMStore releases the root when it unmounts, without another store update",
+          "gated": false,
+          "cls": "na",
+          "ponyMessage": "Error: PONYFILL_ADAPTER_NA: test reads store._records"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactDOMStore-test.js :: ReactDOMStore a hydrated reader keeps updating when an unrelated store updated before it hydrated",
+          "file": "packages/react-dom/src/__tests__/ReactDOMStore-test.js",
+          "name": "ReactDOMStore a hydrated reader keeps updating when an unrelated store updated before it hydrated",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactDOMStore-test.js :: ReactDOMStore a reader that hydrates while a transition is pending joins the transition",
+          "file": "packages/react-dom/src/__tests__/ReactDOMStore-test.js",
+          "name": "ReactDOMStore a reader that hydrates while a transition is pending joins the transition",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: Hydration failed because the server rendered text didn't match the client. As a result this tree will be regenerated on the client. This can happen if a SSR-ed Client Component used:\n\n- A server/client branch `if (typeof window !== 'undefined')`.\n- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.\n- Date formatting in a user's locale which doesn't match the server.\n- External changing data without sending a snapshot of it along with the HTML.\n- Invalid HTML tag nesting.\n\nIt can also happen if the client has a browser extension installed which messes with the HTML before React loaded.\n\nhttps://react.dev/link/hydration-mismatch\n\n  <StoreProvider>\n    <App>\n      <A>\n      <Suspense fallback=\"Loading\">\n        <B>\n          <span id=\"b\" onClick={function onClick}>\n+           T\n-           A\n        ..."
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore should read the current value",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore should read the current value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore reads updates made before the first render",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore reads updates made before the first render",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore passes actions to the reducer",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore passes actions to the reducer",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore re-renders readers when the store is updated",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore re-renders readers when the store is updated",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore only re-renders the components that read the store",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore only re-renders the components that read the store",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore bails out when the value does not change",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore bails out when the value does not change",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore renders a transition update without blocking",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore renders a transition update without blocking",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a sync update interrupts a transition and is rebased",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a sync update interrupts a transition and is rebased",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a reader that mounts during a transition shows the committed value, then updates with the transition",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader that mounts during a transition shows the committed value, then updates with the transition",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"Stable: 1\",\n+   \"Conditional: 2\",\n    \"Conditional: 1\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a reader that mounts during a non-blocked transition joins it",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader that mounts during a non-blocked transition joins it",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"Stable: 1\",\n+   \"Conditional: 2\",\n    \"Conditional: 1\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a reader that mounts as part of the transition that updates the store reads the new value",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader that mounts as part of the transition that updates the store reads the new value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a reader that mounts after a sync interruption shows the rebased value",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader that mounts after a sync interruption shows the rebased value",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"Stable: 4\",\n+   \"Conditional: 6\",\n    \"Conditional: 4\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a reader that mounts after a transition commits reads the new value",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader that mounts after a transition commits reads the new value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore does not miss updates dispatched in a layout effect before the reader subscribes",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore does not miss updates dispatched in a layout effect before the reader subscribes",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore does not miss updates dispatched in a passive effect before the reader subscribes",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore does not miss updates dispatched in a passive effect before the reader subscribes",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore does not miss updates dispatched while a concurrent render is in progress",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore does not miss updates dispatched while a concurrent render is in progress",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"B: 1\",\n-   \"A: 2\",\n    \"B: 2\",\n+   \"A: 2\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore updates sibling readers whether or not a render is in progress",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore updates sibling readers whether or not a render is in progress",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore never commits readers showing different versions of the store",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore never commits readers showing different versions of the store",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore can be read conditionally",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore can be read conditionally",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "hook order (conditional/changing use(store) reads)",
+          "ponyMessage": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement."
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore can read a list of stores in a loop",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore can read a list of stores in a loop",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore supports stores of stores for granular updates",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore supports stores of stores for granular updates",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore switches stores when a different store is passed",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore switches stores when a different store is passed",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "store switching (dynamic stores)",
+          "ponyMessage": "Error: useStoreSelector does not currently support dynamic stores"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore stops updating unmounted readers and releases the root",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore stops updating unmounted readers and releases the root",
+          "gated": false,
+          "cls": "na",
+          "ponyMessage": "Error: PONYFILL_ADAPTER_NA: test reads store._records"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore unsubscribes on unmount after re-rendering with the same stores",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore unsubscribes on unmount after re-rendering with the same stores",
+          "gated": false,
+          "cls": "na",
+          "ponyMessage": "Error: PONYFILL_ADAPTER_NA: test reads store._records"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore keeps subscriptions when the same stores are read in a different order",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore keeps subscriptions when the same stores are read in a different order",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "store switching (dynamic stores)",
+          "ponyMessage": "Error: useStoreSelector does not currently support dynamic stores"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore subscribes to an added store and unsubscribes from a dropped one, keeping the rest",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore subscribes to an added store and unsubscribes from a dropped one, keeping the rest",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "store switching (dynamic stores)",
+          "ponyMessage": "Error: useStoreSelector does not currently support dynamic stores"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore drops the records of stores that are no longer read, among many",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore drops the records of stores that are no longer read, among many",
+          "gated": false,
+          "cls": "na",
+          "ponyMessage": "Error: PONYFILL_ADAPTER_NA: test reads store._records"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore state survives remounting, unlike component state",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore state survives remounting, unlike component state",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a reader in a suspended tree mounts with the latest value",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader in a suspended tree mounts with the latest value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore readers in a hidden Activity update in the background",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore readers in a hidden Activity update in the background",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array [\n-   \"Hidden: B\",\n- ]\n+ Array []"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore works with multiple roots",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore works with multiple roots",
+          "gated": false,
+          "cls": "na",
+          "ponyMessage": "Error: PONYFILL_ADAPTER_NA: test reads store._records"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore batches updates to the store with state updates in the same event",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore batches updates to the store with state updates in the same event",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore applies updates inside flushSync synchronously",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore applies updates inside flushSync synchronously",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore async actions batch store updates with updates after await",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore async actions batch store updates with updates after await",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore works with useDeferredValue",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore works with useDeferredValue",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore works in StrictMode",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore works in StrictMode",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a second transition that reverts the first commits the original value",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a second transition that reverts the first commits the original value",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   1,\n+ ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a sync update that produces the committed value during a transition still renders the rebased value",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a sync update that produces the committed value during a transition still renders the rebased value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore multiple transitions that update the same store are entangled",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore multiple transitions that update the same store are entangled",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a transition does not entangle with a pending urgent update to the same store",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a transition does not entangle with a pending urgent update to the same store",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore runs the reducer as often as useReducer",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore runs the reducer as often as useReducer",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"Reduce 1 + 1\",\n+   \"Reduce 2 + 1\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore warns when a store is updated during render, and renders the update after",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore warns when a store is updated during render, and renders the update after",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "update during render: warning text differs",
+          "ponyMessage": "Error: assertConsoleErrorDev(expected)\n\nUnexpected error(s) recorded.\n\n- Expected errors\n+ Received errors\n\n- Cannot update a store while rendering a component (`App`). Updating a store is a side effect, so it should happen in an event handler or an effect. The update will be rendered after the current render. To locate the bad store.update() call inside `App`, follow the stack trace as described in https://react.dev/link/setstate-in-render     in App (at **)\n+ Cannot update a component (`Unknown`) while rendering a different component (`App`). To locate the bad setState() call inside `App`, follow the stack trace as described in https://react.dev/link/setstate-in-render     in App (at **)"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore throws an invalid hook call error when read outside a function component",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore throws an invalid hook call error when read outside a function component",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore throws a reducer error during render, not when the store is updated",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore throws a reducer error during render, not when the store is updated",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: Oops"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore warns about a second callback argument to store.update",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore warns about a second callback argument to store.update",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "use(store)-specific API errors/warnings",
+          "ponyMessage": "Error: assertConsoleErrorDev(expected)\n\nExpected error was not recorded.\n\n- Expected errors\n+ Received errors\n\n- store.update() doesn't support a second callback argument. To execute a side effect after rendering, declare it in the component body with useEffect()."
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore readers inside a revealed Activity read the same version as the rest of the tree",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore readers inside a revealed Activity read the same version as the rest of the tree",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"Outside: 0\",\n    \"Inside: 0\",\n+   \"Inside: 1\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a reader that mounts after the last reader unmounted does not see a pending transition early",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader that mounts after the last reader unmounted does not see a pending transition early",
+          "gated": false,
+          "cls": "na",
+          "ponyMessage": "Error: PONYFILL_ADAPTER_NA: test reads store._records"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore drops an update whose reducer throws once an error boundary handles it",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore drops an update whose reducer throws once an error boundary handles it",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: Oops"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore reports a reducer error that no component rendered, and drops the update",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore reports a reducer error that no component rendered, and drops the update",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: Oops"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore throws a reducer error from store.update when nothing reads the store",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore throws a reducer error from store.update when nothing reads the store",
+          "gated": false,
+          "cls": "na",
+          "ponyMessage": "Error: PONYFILL_ADAPTER_NA: test reads store._headQueue"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore double invokes reducers in StrictMode even when a reader outside StrictMode reads first",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore double invokes reducers in StrictMode even when a reader outside StrictMode reads first",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"reducer\",\n    \"Loose: 1\",\n-   \"reducer\",\n    \"Strict: 1\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a store update retries a boundary whose reader suspended on mount",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a store update retries a boundary whose reader suspended on mount",
+          "gated": false,
+          "cls": "na",
+          "ponyMessage": "Error: PONYFILL_ADAPTER_NA: test reads store._records"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a store update retries a boundary whose new reader suspended during an update",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a store update retries a boundary whose new reader suspended during an update",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array [\n-   \"Result\",\n- ]\n+ Array []"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a boundary waiting on a store unsubscribes when it unmounts",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a boundary waiting on a store unsubscribes when it unmounts",
+          "gated": false,
+          "cls": "na",
+          "ponyMessage": "Error: PONYFILL_ADAPTER_NA: test reads store._records"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore two stores rebase like one combined store when a sync update interrupts a transition",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore two stores rebase like one combined store when a sync update interrupts a transition",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a transition that updates two stores commits them together, even when they are read in separate subtrees",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a transition that updates two stores commits them together, even when they are read in separate subtrees",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a value derived from several stores outside of render tears with a pending transition",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a value derived from several stores outside of render tears with a pending transition",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a component that starts reading a store stays subscribed when its render bails out",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a component that starts reading a store stays subscribed when its render bails out",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "hook order (conditional/changing use(store) reads)",
+          "ponyMessage": "Error: Rendered more hooks than during the previous render.\nError: asserConsoleLogsCleared(expected)\n\nconsole.error was called without assertConsoleErrorDev:\n+ React has detected a change in the order of Hooks called by %s. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://react.dev/link/rules-of-hooks\n+\n+    Previous render            Next render\n+    ------------------------------------------------------\n+ %s   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n+ %s,Reader,1. useState                   useState\n+ 2. undefined                  useContext\n+ ,\n+     in Reader (at **)\n\nYou must call one of the assertConsoleDev helpers between each act call."
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a store update that throws inside a gesture transition does not change the store",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a store update that throws inside a gesture transition does not change the store",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "use(store)-specific API errors/warnings",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"reportError: Cannot update a store inside a startGestureTransition\",\n+   \"reportError: Cannot setState on regular state inside a startGestureTransition\",\n  ]"
+        }
+      ]
+    },
+    "stable": {
+      "totals": {
+        "fail-ponyfill-only": 55,
+        "pass-both": 5,
+        "na": 7
+      },
+      "gatedTotals": {},
+      "buckets": {
+        "render log mismatch": 43,
+        "rendered output mismatch": 3,
+        "other": 4,
+        "hook order (conditional/changing use(store) reads)": 2,
+        "console mismatch": 1,
+        "use(store)-specific API errors/warnings": 2
+      },
+      "suiteErrors": [],
+      "rows": [
+        {
+          "key": "packages/react-dom/src/__tests__/ReactDOMStore-test.js :: ReactDOMStore a reader inside a newly inserted host component catches up without warnings",
+          "file": "packages/react-dom/src/__tests__/ReactDOMStore-test.js",
+          "name": "ReactDOMStore a reader inside a newly inserted host component catches up without warnings",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"B: 1\",\n-   \"A: 2\",\n-   \"B: 2\",\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactDOMStore-test.js :: ReactDOMStore hydrates with the initial value of the store",
+          "file": "packages/react-dom/src/__tests__/ReactDOMStore-test.js",
+          "name": "ReactDOMStore hydrates with the initial value of the store",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"A\",\n-   \"B\",\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactDOMStore-test.js :: ReactDOMStore the server renders the initial value, not updates",
+          "file": "packages/react-dom/src/__tests__/ReactDOMStore-test.js",
+          "name": "ReactDOMStore the server renders the initial value, not updates",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactDOMStore-test.js :: ReactDOMStore a store update before a dehydrated reader hydrates does not cause a mismatch",
+          "file": "packages/react-dom/src/__tests__/ReactDOMStore-test.js",
+          "name": "ReactDOMStore a store update before a dehydrated reader hydrates does not cause a mismatch",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "rendered output mismatch",
+          "ponyMessage": "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: \"B\"\nReceived: \"A\""
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactDOMStore-test.js :: ReactDOMStore keeps a controlled input in sync",
+          "file": "packages/react-dom/src/__tests__/ReactDOMStore-test.js",
+          "name": "ReactDOMStore keeps a controlled input in sync",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactDOMStore-test.js :: ReactDOMStore releases the root when it unmounts, without another store update",
+          "file": "packages/react-dom/src/__tests__/ReactDOMStore-test.js",
+          "name": "ReactDOMStore releases the root when it unmounts, without another store update",
+          "gated": false,
+          "cls": "na",
+          "ponyMessage": "Error: PONYFILL_ADAPTER_NA: test reads store._records"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactDOMStore-test.js :: ReactDOMStore a hydrated reader keeps updating when an unrelated store updated before it hydrated",
+          "file": "packages/react-dom/src/__tests__/ReactDOMStore-test.js",
+          "name": "ReactDOMStore a hydrated reader keeps updating when an unrelated store updated before it hydrated",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Reader: A\",\n    \"Reader: B\",\n  ]"
+        },
+        {
+          "key": "packages/react-dom/src/__tests__/ReactDOMStore-test.js :: ReactDOMStore a reader that hydrates while a transition is pending joins the transition",
+          "file": "packages/react-dom/src/__tests__/ReactDOMStore-test.js",
+          "name": "ReactDOMStore a reader that hydrates while a transition is pending joins the transition",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   \"A: A\",\n+ ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore should read the current value",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore should read the current value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore reads updates made before the first render",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore reads updates made before the first render",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   3,\n+   1,\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore passes actions to the reducer",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore passes actions to the reducer",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "rendered output mismatch",
+          "ponyMessage": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 1\n\n  <span>\n-   5\n+   0\n  </span>"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore re-renders readers when the store is updated",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore re-renders readers when the store is updated",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"A: 0\",\n+   \"B: 0\",\n    \"A: 1\",\n    \"B: 1\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore only re-renders the components that read the store",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore only re-renders the components that read the store",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Reader: 0\",\n    \"Reader: 1\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore bails out when the value does not change",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore bails out when the value does not change",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   \"Reader: 0\",\n+   \"Reader: 0\",\n+ ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore renders a transition update without blocking",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore renders a transition update without blocking",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"A\",\n    \"B\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a sync update interrupts a transition and is rebased",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a sync update interrupts a transition and is rebased",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   2,\n+ ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a reader that mounts during a transition shows the committed value, then updates with the transition",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader that mounts during a transition shows the committed value, then updates with the transition",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   \"Stable: 1\",\n+ ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a reader that mounts during a non-blocked transition joins it",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader that mounts during a non-blocked transition joins it",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"Stable: 1\",\n-   \"Conditional: 1\",\n+   \"Conditional: 2\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a reader that mounts as part of the transition that updates the store reads the new value",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader that mounts as part of the transition that updates the store reads the new value",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"App: 1\",\n    \"App: 2\",\n    \"Conditional: 2\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a reader that mounts after a sync interruption shows the rebased value",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader that mounts after a sync interruption shows the rebased value",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: Log of yielded values is not empty. Call assertLog first.\n\nReceived:\n+ Stable: 2"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a reader that mounts after a transition commits reads the new value",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader that mounts after a transition commits reads the new value",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Stable: 1\",\n    \"Stable: 2\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore does not miss updates dispatched in a layout effect before the reader subscribes",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore does not miss updates dispatched in a layout effect before the reader subscribes",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"Reader: 1\",\n    \"Layout effect\",\n-   \"Reader: 2\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore does not miss updates dispatched in a passive effect before the reader subscribes",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore does not miss updates dispatched in a passive effect before the reader subscribes",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"Reader: 1\",\n    \"Effect\",\n-   \"Reader: 2\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore does not miss updates dispatched while a concurrent render is in progress",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore does not miss updates dispatched while a concurrent render is in progress",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"B: 1\",\n-   \"A: 2\",\n-   \"B: 2\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore updates sibling readers whether or not a render is in progress",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore updates sibling readers whether or not a render is in progress",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"A0\",\n+   \"B0\",\n+   \"C0\",\n+   \"D0\",\n    \"A1\",\n    \"B1\",\n    \"C1\",\n    \"D1\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore never commits readers showing different versions of the store",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore never commits readers showing different versions of the store",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"A: 2\",\n+   \"A: 1\",\n+   \"B: 1\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore can be read conditionally",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore can be read conditionally",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "hook order (conditional/changing use(store) reads)",
+          "ponyMessage": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement."
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore can read a list of stores in a loop",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore can read a list of stores in a loop",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Sum: 6\",\n    \"Sum: 14\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore supports stores of stores for granular updates",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore supports stores of stores for granular updates",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Two\",\n    \"Two!\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore switches stores when a different store is passed",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore switches stores when a different store is passed",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"B\",\n+   \"A\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore stops updating unmounted readers and releases the root",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore stops updating unmounted readers and releases the root",
+          "gated": false,
+          "cls": "na",
+          "ponyMessage": "Error: PONYFILL_ADAPTER_NA: test reads store._records"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore unsubscribes on unmount after re-rendering with the same stores",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore unsubscribes on unmount after re-rendering with the same stores",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Reader: 0a\",\n    \"Reader: 1a\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore keeps subscriptions when the same stores are read in a different order",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore keeps subscriptions when the same stores are read in a different order",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"BA\",\n+   \"AB\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore subscribes to an added store and unsubscribes from a dropped one, keeping the rest",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore subscribes to an added store and unsubscribes from a dropped one, keeping the rest",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"SB\",\n+   \"SA\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore drops the records of stores that are no longer read, among many",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore drops the records of stores that are no longer read, among many",
+          "gated": false,
+          "cls": "na",
+          "ponyMessage": "Error: PONYFILL_ADAPTER_NA: test reads store._records"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore state survives remounting, unlike component state",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore state survives remounting, unlike component state",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Count: 0\",\n    \"Count: 1\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a reader in a suspended tree mounts with the latest value",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader in a suspended tree mounts with the latest value",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"Reader: B\",\n+   \"Reader: A\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore readers in a hidden Activity update in the background",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore readers in a hidden Activity update in the background",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Visible: A\",\n    \"Visible: B\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore works with multiple roots",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore works with multiple roots",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"A: 0\",\n+   \"B: 0\",\n    \"A: 1\",\n    \"B: 1\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore batches updates to the store with state updates in the same event",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore batches updates to the store with state updates in the same event",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Total: 0\",\n    \"Total: 2\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore applies updates inside flushSync synchronously",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore applies updates inside flushSync synchronously",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"Count: 1\",\n+   \"Count: 0\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore async actions batch store updates with updates after await",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore async actions batch store updates with updates after await",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   \"Initial A\",\n+ ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore works with useDeferredValue",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore works with useDeferredValue",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"Value: B\",\n+   \"Value: A\",\n    \"Deferred: A\",\n+   \"Value: B\",\n+   \"Deferred: B\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore works in StrictMode",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore works in StrictMode",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Reader: 0\",\n    \"Reader: 1\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a second transition that reverts the first commits the original value",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a second transition that reverts the first commits the original value",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   1,\n+   1,\n+ ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a sync update that produces the committed value during a transition still renders the rebased value",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a sync update that produces the committed value during a transition still renders the rebased value",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   1,\n+ ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore multiple transitions that update the same store are entangled",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore multiple transitions that update the same store are entangled",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"B\",\n+   \"A\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a transition does not entangle with a pending urgent update to the same store",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a transition does not entangle with a pending urgent update to the same store",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   1,\n+   0,\n    2,\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore runs the reducer as often as useReducer",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore runs the reducer as often as useReducer",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Value: 0\",\n    \"Value: 1\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore warns when a store is updated during render, and renders the update after",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore warns when a store is updated during render, and renders the update after",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "console mismatch",
+          "ponyMessage": "Error: assertConsoleErrorDev(expected)\n\nUnexpected error(s) recorded.\n\n- Expected errors\n+ Received errors\n\n- Cannot update a store while rendering a component (`App`). Updating a store is a side effect, so it should happen in an event handler or an effect. The update will be rendered after the current render. To locate the bad store.update() call inside `App`, follow the stack trace as described in https://react.dev/link/setstate-in-render     in App (at **)\n+ Cannot call startTransition while rendering.     in App (at **)"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore throws an invalid hook call error when read outside a function component",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore throws an invalid hook call error when read outside a function component",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore throws a reducer error during render, not when the store is updated",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore throws a reducer error during render, not when the store is updated",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: Oops"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore warns about a second callback argument to store.update",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore warns about a second callback argument to store.update",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "use(store)-specific API errors/warnings",
+          "ponyMessage": "Error: assertConsoleErrorDev(expected)\n\nExpected error was not recorded.\n\n- Expected errors\n+ Received errors\n\n- store.update() doesn't support a second callback argument. To execute a side effect after rendering, declare it in the component body with useEffect()."
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore readers inside a revealed Activity read the same version as the rest of the tree",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore readers inside a revealed Activity read the same version as the rest of the tree",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a reader that mounts after the last reader unmounted does not see a pending transition early",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader that mounts after the last reader unmounted does not see a pending transition early",
+          "gated": false,
+          "cls": "na",
+          "ponyMessage": "Error: PONYFILL_ADAPTER_NA: test reads store._records"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore drops an update whose reducer throws once an error boundary handles it",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore drops an update whose reducer throws once an error boundary handles it",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: Oops"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore reports a reducer error that no component rendered, and drops the update",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore reports a reducer error that no component rendered, and drops the update",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: Oops"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore throws a reducer error from store.update when nothing reads the store",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore throws a reducer error from store.update when nothing reads the store",
+          "gated": false,
+          "cls": "na",
+          "ponyMessage": "Error: PONYFILL_ADAPTER_NA: test reads store._headQueue"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore double invokes reducers in StrictMode even when a reader outside StrictMode reads first",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore double invokes reducers in StrictMode even when a reader outside StrictMode reads first",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"reducer\",\n+   \"Loose: 0\",\n+   \"Strict: 0\",\n    \"Loose: 1\",\n-   \"reducer\",\n    \"Strict: 1\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a store update retries a boundary whose reader suspended on mount",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a store update retries a boundary whose reader suspended on mount",
+          "gated": false,
+          "cls": "na",
+          "ponyMessage": "Error: PONYFILL_ADAPTER_NA: test reads store._records"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a store update retries a boundary whose new reader suspended during an update",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a store update retries a boundary whose new reader suspended during an update",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array [\n-   \"Result\",\n- ]\n+ Array []"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a boundary waiting on a store unsubscribes when it unmounts",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a boundary waiting on a store unsubscribes when it unmounts",
+          "gated": false,
+          "cls": "na",
+          "ponyMessage": "Error: PONYFILL_ADAPTER_NA: test reads store._records"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore two stores rebase like one combined store when a sync update interrupts a transition",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore two stores rebase like one combined store when a sync update interrupts a transition",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"A:1\",\n+   \"A:0\",\n+   \"B:0\",\n+   \"Both:0,0\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a transition that updates two stores commits them together, even when they are read in separate subtrees",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a transition that updates two stores commits them together, even when they are read in separate subtrees",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"A:1\",\n+   \"A:0\",\n+   \"B:0\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a value derived from several stores outside of render tears with a pending transition",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a value derived from several stores outside of render tears with a pending transition",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "rendered output mismatch",
+          "ponyMessage": "Error: expect(received).toEqual(expected) // deep equality\n\nExpected: \"score:0 total:1000 comments:1\"\nReceived: \"score:0 total:0 comments:0\""
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a component that starts reading a store stays subscribed when its render bails out",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a component that starts reading a store stays subscribed when its render bails out",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "hook order (conditional/changing use(store) reads)",
+          "ponyMessage": "Error: Rendered more hooks than during the previous render.\nError: asserConsoleLogsCleared(expected)\n\nconsole.error was called without assertConsoleErrorDev:\n+ React has detected a change in the order of Hooks called by %s. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://react.dev/link/rules-of-hooks\n+\n+    Previous render            Next render\n+    ------------------------------------------------------\n+ %s   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n+ %s,Reader,1. useState                   useState\n+ 2. undefined                  useState\n+ ,\n+     in Reader (at **)\n\nYou must call one of the assertConsoleDev helpers between each act call."
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js :: ReactUseStore a store update that throws inside a gesture transition does not change the store",
+          "file": "packages/react-reconciler/src/__tests__/ReactUseStore-test.js",
+          "name": "ReactUseStore a store update that throws inside a gesture transition does not change the store",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "use(store)-specific API errors/warnings",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"reportError: Cannot update a store inside a startGestureTransition\",\n+   \"A: 0\",\n+   \"A: 1\",\n  ]"
+        }
+      ]
+    }
+  }
+}

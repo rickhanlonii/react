@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>use(store) interactive explainers</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel-2: #1e222b; --text: #e6e8ee; --muted: #9aa3b2;
+    --accent: #58c4dc; --good: #4ade80; --bad: #f87171; --border: #2a2f3a;
+  }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 24px; }
+  h1 { font-size: 28px; }
+  h2 { font-size: 20px; margin-top: 40px; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>use(store) interactive explainers</h1>
+  <p>Every explainer here runs the real React build (the development build, without the compiler, except where it says so) in frames. This page is for checking them. The reports embed them the same way (see <code>README.md</code>).</p>
+
+  <h2 id="queue">Queue and lanes</h2>
+  <div class="explainer" data-explainer="queue"></div>
+
+  <h2 id="tearing">Tearing</h2>
+  <div class="explainer" data-explainer="tearing"></div>
+
+  <h2 id="rerenders">Who re-renders</h2>
+  <div class="explainer" data-explainer="rerenders"></div>
+
+  <h2 id="subscriptions">Conditional subscriptions</h2>
+  <div class="explainer" data-explainer="subscriptions"></div>
+</main>
+<script src="generated/explainers.js"></script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>build-docs fixture</title>
+</head>
+<body>
+<h1 id="top">build-docs fixture</h1>
+<p>Speedup: <span data-n="demo.speedup"></span> in <span data-n="demo.count"></span> configs.</p>
+<p><!-- gen:sandbox-build --><!-- /gen:sandbox-build --></p>
+<!-- gen:demo-table {"rows": 2} /-->
+<h2 id="code">Code</h2>
+<!-- gen:code:fixtures/store-bench/src/apps/store.jsx#Row {"marks": ["use(s.details)"]} --><!-- /gen:code:fixtures/store-bench/src/apps/store.jsx#Row -->
+<!-- gen:code:sandboxes/hello.jsx#App /-->
+<h2 id="sandboxes">Sandboxes</h2>
+<div class="sandbox" id="hello" data-title="A counter" data-src="sandboxes/hello.jsx"></div>
+<div class="sandbox" id="compiled" data-title="Compiled rows" data-src="sandboxes/compiled.jsx" data-compile="react-compiler"></div>
+<p><a href="#top">Back to top</a></p>
+</body>
+</html>

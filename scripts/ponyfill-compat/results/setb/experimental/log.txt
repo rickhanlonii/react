@@ -1,0 +1,61 @@
+PASS packages/react-reconciler/src/__tests__/TODOCorrectnessUseStore-test.js
+PASS packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js
+FAIL packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStoreContext-test.js
+  ● ReactSameElementBailout › keeps the context dependencies of the render that bailed out
+
+    useStoreSelector does not currently support dynamic stores
+
+      234 |   const previousStoreRef = (0, import_react2.useRef)(store);
+      235 |   if (store !== previousStoreRef.current) {
+    > 236 |     throw new Error(
+          |             ^
+      237 |       "useStoreSelector does not currently support dynamic stores"
+      238 |     );
+      239 |   }
+
+      at useStoreSelector (scripts/ponyfill-compat/dist/experimental.js:236:13)
+      at Object.useStore (scripts/ponyfill-compat/dist/experimental.js:287:12)
+      at use (scripts/ponyfill-compat/adapter.js:98:23)
+      at Parent (packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStoreContext-test.js:84:26)
+      at Object.react_stack_bottom_frame (packages/react-reconciler/src/ReactFiberCallUserSpace.js:30:20)
+      at renderWithHooks (packages/react-reconciler/src/ReactFiberHooks.js:615:51)
+      at updateFunctionComponent (packages/react-reconciler/src/ReactFiberBeginWork.js:1533:57)
+      at updateSimpleMemoComponent (packages/react-reconciler/src/ReactFiberBeginWork.js:621:10)
+      at beginWork (packages/react-reconciler/src/ReactFiberBeginWork.js:4516:16)
+      at runWithFiberInDEV (packages/react-reconciler/src/ReactCurrentFiber.js:64:14)
+      at performUnitOfWork (packages/react-reconciler/src/ReactFiberWorkLoop.js:3174:55)
+      at workLoopSync (packages/react-reconciler/src/ReactFiberWorkLoop.js:2858:5)
+      at renderRootSync (packages/react-reconciler/src/ReactFiberWorkLoop.js:2808:7)
+      at recoverFromConcurrentError (packages/react-reconciler/src/ReactFiberWorkLoop.js:1418:20)
+      at performWorkOnRoot (packages/react-reconciler/src/ReactFiberWorkLoop.js:1331:24)
+      at performWorkOnRootViaSchedulerTask (packages/react-reconciler/src/ReactFiberRootScheduler.js:590:45)
+      at workLoop (packages/scheduler/src/forks/SchedulerMock.js:220:34)
+      at flushWork (packages/scheduler/src/forks/SchedulerMock.js:179:14)
+      at Object.unstable_flushUntilNextPaint (packages/scheduler/src/forks/SchedulerMock.js:540:23)
+      at act (packages/internal-test-utils/internalAct.js:156:17)
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStoreContext-test.js:99:5)
+
+  ● ReactSameElementBailout › keeps the context dependencies of the render that bailed out
+
+    asserConsoleLogsCleared(expected)
+
+    console.error was called without assertConsoleErrorDev:
+    + React has detected a change in the order of Hooks called by %s. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://react.dev/link/rules-of-hooks
+    +
+    +    Previous render            Next render
+    +    ------------------------------------------------------
+    + %s   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    + %s,Parent,1. useState                   useState
+    + 2. useMemo                    useContext
+    + ,
+    +     in App (at **)
+
+    You must call one of the assertConsoleDev helpers between each act call.
+
+      at Promise.finally.completed (../../../Users/rickhanlonii/oss/react/node_modules/jest-circus/build/jestAdapterInit.js:1561:28)
+
+Test Suites: 1 failed, 2 passed, 3 total
+Tests:       1 failed, 12 passed, 13 total
+Snapshots:   0 total
+Time:        4.696 s
+Ran all test suites matching packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js|packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStoreContext-test.js|packages/react-reconciler/src/__tests__/TODOCorrectnessUseStore-test.js.

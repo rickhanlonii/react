@@ -1,0 +1,15 @@
+{
+  "steps": [
+    {"expectText": ".reader", "equals": "No reader yet"},
+    {"expectStore": "count", "path": "records.length", "equals": 0},
+    {"click": "button.start"},
+    {"expectText": ".status", "equals": "Transition pending"},
+    {"expectStore": "count", "path": "heldTransitionUpdates.length", "equals": 1},
+    {"click": "button.mount"},
+    {"expectText": ".reader", "equals": "Reader: 1"},
+    {"expectStore": "count", "path": "record.readerCount", "equals": 1},
+    {"click": "button.finish"},
+    {"expectText": ".reader", "equals": "Reader: 2"},
+    {"expectText": ".status", "equals": "Idle"}
+  ]
+}

@@ -1,0 +1,1440 @@
+FAIL packages/react-dom/src/__tests__/ReactDOMStore-test.js (7.311 s)
+  ● ReactDOMStore › a reader inside a newly inserted host component catches up without warnings
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        "B: 1",
+    -   "A: 2",
+    -   "B: 2",
+      ]
+
+      68 |       store.update(2);
+      69 |     });
+    > 70 |     assertLog(['B: 1', 'A: 2', 'B: 2']);
+         |     ^
+      71 |     expect(container.textContent).toBe('A: 2B: 2');
+      72 |   });
+      73 |
+
+      at Object.<anonymous> (packages/react-dom/src/__tests__/ReactDOMStore-test.js:70:5)
+
+  ● ReactDOMStore › hydrates with the initial value of the store
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        "A",
+    -   "B",
+      ]
+
+       97 |     });
+       98 |     // It hydrates with the server value, then updates to the latest value.
+    >  99 |     assertLog(['A', 'B']);
+          |     ^
+      100 |     expect(errors).toEqual([]);
+      101 |     expect(container.textContent).toBe('B');
+      102 |
+
+      at Object.<anonymous> (packages/react-dom/src/__tests__/ReactDOMStore-test.js:99:5)
+
+  ● ReactDOMStore › a store update before a dehydrated reader hydrates does not cause a mismatch
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "B"
+    Received: "A"
+
+      164 |     });
+      165 |     expect(errors).toEqual([]);
+    > 166 |     expect(container.textContent).toBe('B');
+          |                                   ^
+      167 |   });
+      168 |
+      169 |   // @gate enableStore
+
+      at Object.<anonymous> (packages/react-dom/src/__tests__/ReactDOMStore-test.js:166:35)
+
+  ● ReactDOMStore › releases the root when it unmounts, without another store update
+
+    PONYFILL_ADAPTER_NA: test reads store._records
+
+      22 |   global.__ponyfillNotApplicable = global.__ponyfillNotApplicable || [];
+      23 |   global.__ponyfillNotApplicable.push(reason);
+    > 24 |   throw new Error(`${NA_PREFIX}: ${reason}`);
+         |         ^
+      25 | }
+      26 |
+      27 | function createAdaptedReact(RealReact, impl) {
+
+      at markNotApplicable (scripts/ponyfill-compat/adapter.js:24:9)
+      at Object.get (scripts/ponyfill-compat/adapter.js:76:11)
+      at Object.<anonymous> (packages/react-dom/src/__tests__/ReactDOMStore-test.js:229:18)
+
+  ● ReactDOMStore › a hydrated reader keeps updating when an unrelated store updated before it hydrated
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Reader: A",
+        "Reader: B",
+      ]
+
+      296 |       store.update('B');
+      297 |     });
+    > 298 |     assertLog(['Reader: B']);
+          |     ^
+      299 |     expect(container.textContent).toBe('Reader: B');
+      300 |   });
+      301 |
+
+      at Object.<anonymous> (packages/react-dom/src/__tests__/ReactDOMStore-test.js:298:5)
+
+  ● ReactDOMStore › a reader that hydrates while a transition is pending joins the transition
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+    - Array []
+    + Array [
+    +   "A: A",
+    + ]
+
+      361 |       startTransition(() => store.update('T'));
+      362 |     });
+    > 363 |     assertLog([]);
+          |     ^
+      364 |     expect(container.textContent).toBe('AA');
+      365 |
+      366 |     // A discrete event hydrates the boundary at a higher priority than the
+
+      at Object.<anonymous> (packages/react-dom/src/__tests__/ReactDOMStore-test.js:363:5)
+
+FAIL packages/react-reconciler/src/__tests__/ReactUseStore-test.js (24.711 s)
+  ● ReactUseStore › reads updates made before the first render
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   3,
+    +   1,
+      ]
+
+       96 |       root.render(<App />);
+       97 |     });
+    >  98 |     assertLog([3]);
+          |     ^
+       99 |     expect(root).toMatchRenderedOutput(<span>3</span>);
+      100 |   });
+      101 |
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:98:5)
+
+  ● ReactUseStore › passes actions to the reducer
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 1
+
+      <span>
+    -   5
+    +   0
+      </span>
+
+      116 |       root.render(<App />);
+      117 |     });
+    > 118 |     expect(root).toMatchRenderedOutput(<span>5</span>);
+          |                  ^
+      119 |
+      120 |     await act(() => {
+      121 |       store.update({type: 'add', amount: 2});
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:118:18)
+
+  ● ReactUseStore › re-renders readers when the store is updated
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "A: 0",
+    +   "B: 0",
+        "A: 1",
+        "B: 1",
+      ]
+
+      151 |       store.update(1);
+      152 |     });
+    > 153 |     assertLog(['A: 1', 'B: 1']);
+          |     ^
+      154 |     expect(root).toMatchRenderedOutput('A: 1B: 1');
+      155 |
+      156 |     await act(() => {
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:153:5)
+
+  ● ReactUseStore › only re-renders the components that read the store
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Reader: 0",
+        "Reader: 1",
+      ]
+
+      183 |       store.update(1);
+      184 |     });
+    > 185 |     assertLog(['Reader: 1']);
+          |     ^
+      186 |   });
+      187 |
+      188 |   // @gate enableStore
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:185:5)
+
+  ● ReactUseStore › bails out when the value does not change
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+    - Array []
+    + Array [
+    +   "Reader: 0",
+    +   "Reader: 0",
+    + ]
+
+      203 |       store.update(0);
+      204 |     });
+    > 205 |     assertLog([]);
+          |     ^
+      206 |
+      207 |     // An object store that's updated to the same object.
+      208 |     const objectStore = createStore({a: 1});
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:205:5)
+
+  ● ReactUseStore › renders a transition update without blocking
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "A",
+        "B",
+      ]
+
+      240 |       // A sync update to unrelated state does not include the transition.
+      241 |       expect(root).toMatchRenderedOutput('A');
+    > 242 |       await waitForPaint(['B']);
+          |             ^
+      243 |       expect(root).toMatchRenderedOutput('B');
+      244 |     });
+      245 |   });
+
+      at packages/react-reconciler/src/__tests__/ReactUseStore-test.js:242:13
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:236:5)
+
+  ● ReactUseStore › a sync update interrupts a transition and is rebased
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+    - Array []
+    + Array [
+    +   2,
+    + ]
+
+      276 |     });
+      277 |     // The transition is blocked on the async action.
+    > 278 |     assertLog([]);
+          |     ^
+      279 |     expect(root).toMatchRenderedOutput('2');
+      280 |
+      281 |     await act(() => {
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:278:5)
+
+  ● ReactUseStore › a reader that mounts during a transition shows the committed value, then updates with the transition
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+    - Array []
+    + Array [
+    +   "Stable: 1",
+    + ]
+
+      328 |       });
+      329 |     });
+    > 330 |     assertLog([]);
+          |     ^
+      331 |     expect(root).toMatchRenderedOutput('Stable: 1');
+      332 |
+      333 |     // Mount a new reader with a sync update. It should match its sibling,
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:330:5)
+
+  ● ReactUseStore › a reader that mounts during a non-blocked transition joins it
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        "Stable: 1",
+    -   "Conditional: 1",
+    +   "Conditional: 2",
+      ]
+
+      381 |         setShowConditional(true);
+      382 |       });
+    > 383 |       assertLog(['Stable: 1', 'Conditional: 1']);
+          |       ^
+      384 |       expect(root).toMatchRenderedOutput('Stable: 1Conditional: 1');
+      385 |     });
+      386 |     // The transition includes the new reader.
+
+      at packages/react-reconciler/src/__tests__/ReactUseStore-test.js:383:7
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:375:5)
+
+  ● ReactUseStore › a reader that mounts as part of the transition that updates the store reads the new value
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "App: 1",
+        "App: 2",
+        "Conditional: 2",
+      ]
+
+      414 |       });
+      415 |     });
+    > 416 |     assertLog(['App: 2', 'Conditional: 2']);
+          |     ^
+      417 |     expect(root).toMatchRenderedOutput('Conditional: 2');
+      418 |   });
+      419 |
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:416:5)
+
+  ● ReactUseStore › a reader that mounts after a sync interruption shows the rebased value
+
+    Log of yielded values is not empty. Call assertLog first.
+
+    Received:
+    + Stable: 2
+
+      453 |       });
+      454 |     });
+    > 455 |     await act(() => {
+          |           ^
+      456 |       store.update('double');
+      457 |     });
+      458 |     assertLog(['Stable: 4']);
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:455:11)
+
+  ● ReactUseStore › a reader that mounts after a transition commits reads the new value
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Stable: 1",
+        "Stable: 2",
+      ]
+
+      502 |       });
+      503 |     });
+    > 504 |     assertLog(['Stable: 2']);
+          |     ^
+      505 |
+      506 |     await act(() => {
+      507 |       setShowConditional(true);
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:504:5)
+
+  ● ReactUseStore › does not miss updates dispatched in a layout effect before the reader subscribes
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        "Reader: 1",
+        "Layout effect",
+    -   "Reader: 2",
+      ]
+
+      535 |       );
+      536 |     });
+    > 537 |     assertLog(['Reader: 1', 'Layout effect', 'Reader: 2']);
+          |     ^
+      538 |     expect(root).toMatchRenderedOutput('Reader: 2');
+      539 |   });
+      540 |
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:537:5)
+
+  ● ReactUseStore › does not miss updates dispatched in a passive effect before the reader subscribes
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        "Reader: 1",
+        "Effect",
+    -   "Reader: 2",
+      ]
+
+      564 |       );
+      565 |     });
+    > 566 |     assertLog(['Reader: 1', 'Effect', 'Reader: 2']);
+          |     ^
+      567 |     expect(root).toMatchRenderedOutput('Reader: 2');
+      568 |   });
+      569 |
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:566:5)
+
+  ● ReactUseStore › does not miss updates dispatched while a concurrent render is in progress
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        "B: 1",
+    -   "A: 2",
+    -   "B: 2",
+      ]
+
+      591 |       store.update(2);
+      592 |     });
+    > 593 |     assertLog(['B: 1', 'A: 2', 'B: 2']);
+          |     ^
+      594 |     expect(root).toMatchRenderedOutput('A: 2B: 2');
+      595 |   });
+      596 |
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:593:5)
+
+  ● ReactUseStore › updates sibling readers whether or not a render is in progress
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "A0",
+    +   "B0",
+    +   "C0",
+    +   "D0",
+        "A1",
+        "B1",
+        "C1",
+        "D1",
+      ]
+
+      639 |     // Nothing is rendering: the readers are marked right away.
+      640 |     await act(() => store.update(1));
+    > 641 |     assertLog(['A1', 'B1', 'C1', 'D1']);
+          |     ^
+      642 |
+      643 |     // In a transition.
+      644 |     await act(() => startTransition(() => store.update(2)));
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:641:5)
+
+  ● ReactUseStore › never commits readers showing different versions of the store
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   "A: 2",
+    +   "A: 1",
+    +   "B: 1",
+      ]
+
+      707 |         store.update(2);
+      708 |       });
+    > 709 |       await waitFor(['A: 2']);
+          |             ^
+      710 |       // Interleave another transition update before B renders.
+      711 |       startTransition(() => {
+      712 |         store.update(3);
+
+      at packages/react-reconciler/src/__tests__/ReactUseStore-test.js:709:13
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:705:5)
+
+  ● ReactUseStore › can be read conditionally
+
+    Rendered fewer hooks than expected. This may be caused by an accidental early return statement.
+
+      725 |
+      726 |   if (didRenderTooFewHooks) {
+    > 727 |     throw new Error(
+          |           ^
+      728 |       'Rendered fewer hooks than expected. This may be caused by an accidental ' +
+      729 |         'early return statement.',
+      730 |     );
+
+      at finishRenderingHooks (packages/react-reconciler/src/ReactFiberHooks.js:727:11)
+      at renderWithHooks (packages/react-reconciler/src/ReactFiberHooks.js:646:3)
+      at updateFunctionComponent (packages/react-reconciler/src/ReactFiberBeginWork.js:1533:57)
+      at beginWork (packages/react-reconciler/src/ReactFiberBeginWork.js:4444:16)
+      at runWithFiberInDEV (packages/react-reconciler/src/ReactCurrentFiber.js:64:14)
+      at performUnitOfWork (packages/react-reconciler/src/ReactFiberWorkLoop.js:3174:55)
+      at workLoopSync (packages/react-reconciler/src/ReactFiberWorkLoop.js:2858:5)
+      at renderRootSync (packages/react-reconciler/src/ReactFiberWorkLoop.js:2808:7)
+      at recoverFromConcurrentError (packages/react-reconciler/src/ReactFiberWorkLoop.js:1418:20)
+      at performWorkOnRoot (packages/react-reconciler/src/ReactFiberWorkLoop.js:1331:24)
+      at performWorkOnRootViaSchedulerTask (packages/react-reconciler/src/ReactFiberRootScheduler.js:590:45)
+      at workLoop (packages/scheduler/src/forks/SchedulerMock.js:220:34)
+      at flushWork (packages/scheduler/src/forks/SchedulerMock.js:179:14)
+      at Object.unstable_flushUntilNextPaint (packages/scheduler/src/forks/SchedulerMock.js:540:23)
+      at act (packages/internal-test-utils/internalAct.js:156:17)
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:743:5)
+
+  ● ReactUseStore › can read a list of stores in a loop
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Sum: 6",
+        "Sum: 14",
+      ]
+
+      786 |       stores[1].update(10);
+      787 |     });
+    > 788 |     assertLog(['Sum: 14']);
+          |     ^
+      789 |   });
+      790 |
+      791 |   // @gate enableStore
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:788:5)
+
+  ● ReactUseStore › supports stores of stores for granular updates
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Two",
+        "Two!",
+      ]
+
+      814 |       todoTwo.update(prev => ({...prev, text: 'Two!'}));
+      815 |     });
+    > 816 |     assertLog(['Two!']);
+          |     ^
+      817 |
+      818 |     await act(() => {
+      819 |       todos.update(prev => [...prev, createStore({id: 3, text: 'Three'})]);
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:816:5)
+
+  ● ReactUseStore › switches stores when a different store is passed
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   "B",
+    +   "A",
+      ]
+
+      841 |       root.render(<Reader store={storeB} />);
+      842 |     });
+    > 843 |     assertLog(['B']);
+          |     ^
+      844 |
+      845 |     // Updates to the old store are ignored.
+      846 |     await act(() => {
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:843:5)
+
+  ● ReactUseStore › stops updating unmounted readers and releases the root
+
+    PONYFILL_ADAPTER_NA: test reads store._records
+
+      22 |   global.__ponyfillNotApplicable = global.__ponyfillNotApplicable || [];
+      23 |   global.__ponyfillNotApplicable.push(reason);
+    > 24 |   throw new Error(`${NA_PREFIX}: ${reason}`);
+         |         ^
+      25 | }
+      26 |
+      27 | function createAdaptedReact(RealReact, impl) {
+
+      at markNotApplicable (scripts/ponyfill-compat/adapter.js:24:9)
+      at Object.get (scripts/ponyfill-compat/adapter.js:76:11)
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:870:18)
+
+  ● ReactUseStore › unsubscribes on unmount after re-rendering with the same stores
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Reader: 0a",
+        "Reader: 1a",
+      ]
+
+      903 |       store.update(1);
+      904 |     });
+    > 905 |     assertLog(['Reader: 1a']);
+          |     ^
+      906 |     await act(() => {
+      907 |       other.update('b');
+      908 |     });
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:905:5)
+
+  ● ReactUseStore › keeps subscriptions when the same stores are read in a different order
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   "BA",
+    +   "AB",
+      ]
+
+      949 |       setReversed(true);
+      950 |     });
+    > 951 |     assertLog(['BA']);
+          |     ^
+      952 |
+      953 |     await act(() => {
+      954 |       storeA.update('A2');
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:951:5)
+
+  ● ReactUseStore › subscribes to an added store and unsubscribes from a dropped one, keeping the rest
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   "SB",
+    +   "SA",
+      ]
+
+      982 |       root.render(<Reader store={storeB} />);
+      983 |     });
+    > 984 |     assertLog(['SB']);
+          |     ^
+      985 |
+      986 |     await act(() => {
+      987 |       storeA.update('A2');
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:984:5)
+
+  ● ReactUseStore › drops the records of stores that are no longer read, among many
+
+    PONYFILL_ADAPTER_NA: test reads store._records
+
+      22 |   global.__ponyfillNotApplicable = global.__ponyfillNotApplicable || [];
+      23 |   global.__ponyfillNotApplicable.push(reason);
+    > 24 |   throw new Error(`${NA_PREFIX}: ${reason}`);
+         |         ^
+      25 | }
+      26 |
+      27 | function createAdaptedReact(RealReact, impl) {
+
+      at markNotApplicable (scripts/ponyfill-compat/adapter.js:24:9)
+      at Object.get (scripts/ponyfill-compat/adapter.js:76:11)
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1043:25)
+
+  ● ReactUseStore › state survives remounting, unlike component state
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Count: 0",
+        "Count: 1",
+      ]
+
+      1078 |       store.update(1);
+      1079 |     });
+    > 1080 |     assertLog(['Count: 1']);
+           |     ^
+      1081 |
+      1082 |     await act(() => {
+      1083 |       root.render(<Counter key="b" />);
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1080:5)
+
+  ● ReactUseStore › a reader in a suspended tree mounts with the latest value
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   "Reader: B",
+    +   "Reader: A",
+      ]
+
+      1125 |       resolve();
+      1126 |     });
+    > 1127 |     assertLog(['Reader: B']);
+           |     ^
+      1128 |     expect(root).toMatchRenderedOutput('Reader: B');
+      1129 |
+      1130 |     await act(() => {
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1127:5)
+
+  ● ReactUseStore › readers in a hidden Activity update in the background
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Visible: A",
+        "Visible: B",
+      ]
+
+      1171 |       // The visible reader updates first. The hidden one updates later, at
+      1172 |       // offscreen priority.
+    > 1173 |       await waitForPaint(['Visible: B']);
+           |             ^
+      1174 |     });
+      1175 |     assertLog(['Hidden: B']);
+      1176 |
+
+      at packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1173:13
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1169:5)
+
+  ● ReactUseStore › works with multiple roots
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "A: 0",
+    +   "B: 0",
+        "A: 1",
+        "B: 1",
+      ]
+
+      1202 |       store.update(1);
+      1203 |     });
+    > 1204 |     assertLog(['A: 1', 'B: 1']);
+           |     ^
+      1205 |     expect(rootA).toMatchRenderedOutput('A: 1');
+      1206 |     expect(rootB).toMatchRenderedOutput('B: 1');
+      1207 |
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1204:5)
+
+  ● ReactUseStore › batches updates to the store with state updates in the same event
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Total: 0",
+        "Total: 2",
+      ]
+
+      1238 |       store.update(2);
+      1239 |     });
+    > 1240 |     assertLog(['Total: 2']);
+           |     ^
+      1241 |   });
+      1242 |
+      1243 |   // @gate enableStore
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1240:5)
+
+  ● ReactUseStore › applies updates inside flushSync synchronously
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   "Count: 1",
+    +   "Count: 0",
+      ]
+
+      1259 |         store.update(1);
+      1260 |       });
+    > 1261 |       assertLog(['Count: 1']);
+           |       ^
+      1262 |       expect(root).toMatchRenderedOutput('Count: 1');
+      1263 |     });
+      1264 |   });
+
+      at packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1261:7
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1257:5)
+
+  ● ReactUseStore › async actions batch store updates with updates after await
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+    - Array []
+    + Array [
+    +   "Initial A",
+    + ]
+
+      1291 |       });
+      1292 |     });
+    > 1293 |     assertLog([]);
+           |     ^
+      1294 |     expect(root).toMatchRenderedOutput('Initial A');
+      1295 |
+      1296 |     await act(() => {
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1293:5)
+
+  ● ReactUseStore › works with useDeferredValue
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   "Value: B",
+    +   "Value: A",
+        "Deferred: A",
+    +   "Value: B",
+    +   "Deferred: B",
+      ]
+
+      1324 |     await act(async () => {
+      1325 |       store.update('B');
+    > 1326 |       await waitForPaint(['Value: B', 'Deferred: A']);
+           |             ^
+      1327 |     });
+      1328 |     assertLog(['Value: B', 'Deferred: B']);
+      1329 |   });
+
+      at packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1326:13
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1324:5)
+
+  ● ReactUseStore › works in StrictMode
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Reader: 0",
+        "Reader: 1",
+      ]
+
+      1350 |       store.update(1);
+      1351 |     });
+    > 1352 |     assertLog(['Reader: 1']);
+           |     ^
+      1353 |     expect(root).toMatchRenderedOutput('Reader: 1');
+      1354 |   });
+      1355 |
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1352:5)
+
+  ● ReactUseStore › a second transition that reverts the first commits the original value
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+    - Array []
+    + Array [
+    +   1,
+    +   1,
+    + ]
+
+      1378 |     // Both updates are in the same transition, so the value doesn't change
+      1379 |     // and the component bails out.
+    > 1380 |     assertLog([]);
+           |     ^
+      1381 |     expect(root).toMatchRenderedOutput('1');
+      1382 |   });
+      1383 |
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1380:5)
+
+  ● ReactUseStore › a sync update that produces the committed value during a transition still renders the rebased value
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+    - Array []
+    + Array [
+    +   1,
+    + ]
+
+      1403 |       });
+      1404 |     });
+    > 1405 |     assertLog([]);
+           |     ^
+      1406 |
+      1407 |     // A sync update to the committed value. The transition is still pending.
+      1408 |     await act(() => {
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1405:5)
+
+  ● ReactUseStore › multiple transitions that update the same store are entangled
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   "B",
+    +   "A",
+      ]
+
+      1437 |       // Start rendering the first transition, then dispatch a second one in a
+      1438 |       // separate event before the first one commits.
+    > 1439 |       await waitFor(['B']);
+           |             ^
+      1440 |       startTransition(() => {
+      1441 |         store.update('C');
+      1442 |       });
+
+      at packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1439:13
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1433:5)
+
+  ● ReactUseStore › a transition does not entangle with a pending urgent update to the same store
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   1,
+    +   0,
+        2,
+      ]
+
+      1485 |     });
+      1486 |     // The urgent update renders on its own, then the transition.
+    > 1487 |     assertLog([1, 2]);
+           |     ^
+      1488 |     expect(root).toMatchRenderedOutput('2');
+      1489 |   });
+      1490 |
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1487:5)
+
+  ● ReactUseStore › runs the reducer as often as useReducer
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    +   "Value: 0",
+        "Value: 1",
+      ]
+
+      1512 |       assertLog(['Reduce 0 + 1']);
+      1513 |     });
+    > 1514 |     assertLog(['Value: 1']);
+           |     ^
+      1515 |
+      1516 |     // Later updates in the same batch are computed during render.
+      1517 |     await act(() => {
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1514:5)
+
+  ● ReactUseStore › warns when a store is updated during render, and renders the update after
+
+    assertConsoleErrorDev(expected)
+
+    Unexpected error(s) recorded.
+
+    - Expected errors
+    + Received errors
+
+    - Cannot update a store while rendering a component (`App`). Updating a store is a side effect, so it should happen in an event handler or an effect. The update will be rendered after the current render. To locate the bad store.update() call inside `App`, follow the stack trace as described in https://react.dev/link/setstate-in-render     in App (at **)
+    + Cannot call startTransition while rendering.     in App (at **)
+
+      1544 |       store.update(1);
+      1545 |     });
+    > 1546 |     assertConsoleErrorDev([
+           |     ^
+      1547 |       'Cannot update a store while rendering a component (`App`). ' +
+      1548 |         'Updating a store is a side effect, so it should happen in an event ' +
+      1549 |         'handler or an effect. The update will be rendered after the ' +
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1546:5)
+
+  ● ReactUseStore › throws a reducer error during render, not when the store is updated
+
+    Oops
+
+      1579 |     const store = createStore(0, (state, action) => {
+      1580 |       if (action === 'throw') {
+    > 1581 |         throw new Error('Oops');
+           |               ^
+      1582 |       }
+      1583 |       return action;
+      1584 |     });
+
+      at packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1581:15
+      at Object.update (scripts/ponyfill-compat/dist/stable.js:57:39)
+      at Proxy.update (scripts/ponyfill-compat/adapter.js:69:15)
+      at packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1615:13
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1613:5)
+
+  ● ReactUseStore › warns about a second callback argument to store.update
+
+    assertConsoleErrorDev(expected)
+
+    Expected error was not recorded.
+
+    - Expected errors
+    + Received errors
+
+    - store.update() doesn't support a second callback argument. To execute a side effect after rendering, declare it in the component body with useEffect().
+
+      1636 |       store.update(1, () => {});
+      1637 |     });
+    > 1638 |     assertConsoleErrorDev(
+           |     ^
+      1639 |       [
+      1640 |         "store.update() doesn't support a second callback argument. " +
+      1641 |           'To execute a side effect after rendering, declare it in the ' +
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1638:5)
+
+  ● ReactUseStore › a reader that mounts after the last reader unmounted does not see a pending transition early
+
+    PONYFILL_ADAPTER_NA: test reads store._records
+
+      22 |   global.__ponyfillNotApplicable = global.__ponyfillNotApplicable || [];
+      23 |   global.__ponyfillNotApplicable.push(reason);
+    > 24 |   throw new Error(`${NA_PREFIX}: ${reason}`);
+         |         ^
+      25 | }
+      26 |
+      27 | function createAdaptedReact(RealReact, impl) {
+
+      at markNotApplicable (scripts/ponyfill-compat/adapter.js:24:9)
+      at Object.get (scripts/ponyfill-compat/adapter.js:76:11)
+      at packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1733:20
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1724:5)
+
+  ● ReactUseStore › drops an update whose reducer throws once an error boundary handles it
+
+    Oops
+
+      1746 |     const store = createStore(0, (state, action) => {
+      1747 |       if (action === 'throw') {
+    > 1748 |         throw new Error('Oops');
+           |               ^
+      1749 |       }
+      1750 |       return action;
+      1751 |     });
+
+      at packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1748:15
+      at Object.update (scripts/ponyfill-compat/dist/stable.js:57:39)
+      at Proxy.update (scripts/ponyfill-compat/adapter.js:69:15)
+      at packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1781:13
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1780:5)
+
+  ● ReactUseStore › reports a reducer error that no component rendered, and drops the update
+
+    Oops
+
+      1821 |     const store = createStore(0, (state, action) => {
+      1822 |       if (action === 'throw') {
+    > 1823 |         throw new Error('Oops');
+           |               ^
+      1824 |       }
+      1825 |       return action;
+      1826 |     });
+
+      at packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1823:15
+      at Object.update (scripts/ponyfill-compat/dist/stable.js:57:39)
+      at Proxy.update (scripts/ponyfill-compat/adapter.js:69:15)
+      at packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1845:13
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1844:5)
+
+  ● ReactUseStore › throws a reducer error from store.update when nothing reads the store
+
+    PONYFILL_ADAPTER_NA: test reads store._headQueue
+
+      22 |   global.__ponyfillNotApplicable = global.__ponyfillNotApplicable || [];
+      23 |   global.__ponyfillNotApplicable.push(reason);
+    > 24 |   throw new Error(`${NA_PREFIX}: ${reason}`);
+         |         ^
+      25 | }
+      26 |
+      27 | function createAdaptedReact(RealReact, impl) {
+
+      at markNotApplicable (scripts/ponyfill-compat/adapter.js:24:9)
+      at Object.get (scripts/ponyfill-compat/adapter.js:76:11)
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1869:18)
+
+  ● ReactUseStore › double invokes reducers in StrictMode even when a reader outside StrictMode reads first
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+        "reducer",
+    +   "Loose: 0",
+    +   "Strict: 0",
+        "Loose: 1",
+    -   "reducer",
+        "Strict: 1",
+      ]
+
+      1907 |     });
+      1908 |     // Once for the eager state, and once more for the reader in StrictMode.
+    > 1909 |     assertLog(['reducer', 'Loose: 1', 'reducer', 'Strict: 1']);
+           |     ^
+      1910 |   });
+      1911 |
+      1912 |   // @gate enableStore
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1909:5)
+
+  ● ReactUseStore › a store update retries a boundary whose reader suspended on mount
+
+    PONYFILL_ADAPTER_NA: test reads store._records
+
+      22 |   global.__ponyfillNotApplicable = global.__ponyfillNotApplicable || [];
+      23 |   global.__ponyfillNotApplicable.push(reason);
+    > 24 |   throw new Error(`${NA_PREFIX}: ${reason}`);
+         |         ^
+      25 | }
+      26 |
+      27 | function createAdaptedReact(RealReact, impl) {
+
+      at markNotApplicable (scripts/ponyfill-compat/adapter.js:24:9)
+      at Object.get (scripts/ponyfill-compat/adapter.js:76:11)
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1930:18)
+
+  ● ReactUseStore › a store update retries a boundary whose new reader suspended during an update
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+    - Array [
+    -   "Result",
+    - ]
+    + Array []
+
+      1975 |       store.update({status: 'fulfilled', value: 'Result', then() {}});
+      1976 |     });
+    > 1977 |     assertLog(['Result']);
+           |     ^
+      1978 |     expect(root).toMatchRenderedOutput('Result');
+      1979 |   });
+      1980 |
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1977:5)
+
+  ● ReactUseStore › a boundary waiting on a store unsubscribes when it unmounts
+
+    PONYFILL_ADAPTER_NA: test reads store._records
+
+      22 |   global.__ponyfillNotApplicable = global.__ponyfillNotApplicable || [];
+      23 |   global.__ponyfillNotApplicable.push(reason);
+    > 24 |   throw new Error(`${NA_PREFIX}: ${reason}`);
+         |         ^
+      25 | }
+      26 |
+      27 | function createAdaptedReact(RealReact, impl) {
+
+      at markNotApplicable (scripts/ponyfill-compat/adapter.js:24:9)
+      at Object.get (scripts/ponyfill-compat/adapter.js:76:11)
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:1998:18)
+
+  ● ReactUseStore › two stores rebase like one combined store when a sync update interrupts a transition
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   "A:1",
+    +   "A:0",
+    +   "B:0",
+    +   "Both:0,0",
+      ]
+
+      2044 |       });
+      2045 |       // Render part of the transition, then interrupt it.
+    > 2046 |       await waitFor(['A:1']);
+           |             ^
+      2047 |       ReactNoop.flushSync(() => {
+      2048 |         b.update(n => n * 10);
+      2049 |       });
+
+      at packages/react-reconciler/src/__tests__/ReactUseStore-test.js:2046:13
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:2039:5)
+
+  ● ReactUseStore › a transition that updates two stores commits them together, even when they are read in separate subtrees
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   "A:1",
+    +   "A:0",
+    +   "B:0",
+      ]
+
+      2092 |         b.update(1);
+      2093 |       });
+    > 2094 |       await waitFor(['A:1']);
+           |             ^
+      2095 |       // Partially rendered: nothing has committed yet.
+      2096 |       expect(root).toMatchRenderedOutput('A:0 B:0');
+      2097 |     });
+
+      at packages/react-reconciler/src/__tests__/ReactUseStore-test.js:2094:13
+      at act (packages/internal-test-utils/internalAct.js:116:24)
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:2089:5)
+
+  ● ReactUseStore › a value derived from several stores outside of render tears with a pending transition
+
+    expect(received).toEqual(expected) // deep equality
+
+    Expected: "score:0 total:1000 comments:1"
+    Received: "score:0 total:0 comments:0"
+
+      2152 |     // Torn: Score doesn't include the pending transition, but the derived
+      2153 |     // value does, because it was computed from the latest values.
+    > 2154 |     expect(root).toMatchRenderedOutput('score:0 total:1000 comments:1');
+           |                  ^
+      2155 |
+      2156 |     await act(() => resolve());
+      2157 |     expect(root).toMatchRenderedOutput('score:1000 total:1000 comments:1');
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:2154:18)
+
+  ● ReactUseStore › a component that starts reading a store stays subscribed when its render bails out
+
+    Rendered more hooks than during the previous render.
+
+      1066 |       } else {
+      1067 |         // This is an update. We should always have a current hook.
+    > 1068 |         throw new Error('Rendered more hooks than during the previous render.');
+           |               ^
+      1069 |       }
+      1070 |     }
+      1071 |
+
+      at updateWorkInProgressHook (packages/react-reconciler/src/ReactFiberHooks.js:1068:15)
+      at updateReducer (packages/react-reconciler/src/ReactFiberHooks.js:1572:14)
+      at updateState (packages/react-reconciler/src/ReactFiberHooks.js:2225:10)
+      at Object.useState (packages/react-reconciler/src/ReactFiberHooks.js:4718:16)
+      at useState (packages/react/src/ReactHooks.js:70:21)
+      at Object.useStore (scripts/ponyfill-compat/dist/stable.js:69:33)
+      at use (scripts/ponyfill-compat/adapter.js:98:23)
+      at Reader (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:2169:31)
+      at Object.react_stack_bottom_frame (packages/react-reconciler/src/ReactFiberCallUserSpace.js:30:20)
+      at renderWithHooks (packages/react-reconciler/src/ReactFiberHooks.js:615:51)
+      at updateFunctionComponent (packages/react-reconciler/src/ReactFiberBeginWork.js:1533:57)
+      at beginWork (packages/react-reconciler/src/ReactFiberBeginWork.js:4444:16)
+      at runWithFiberInDEV (packages/react-reconciler/src/ReactCurrentFiber.js:64:14)
+      at performUnitOfWork (packages/react-reconciler/src/ReactFiberWorkLoop.js:3174:55)
+      at workLoopSync (packages/react-reconciler/src/ReactFiberWorkLoop.js:2858:5)
+      at renderRootSync (packages/react-reconciler/src/ReactFiberWorkLoop.js:2808:7)
+      at recoverFromConcurrentError (packages/react-reconciler/src/ReactFiberWorkLoop.js:1418:20)
+      at performWorkOnRoot (packages/react-reconciler/src/ReactFiberWorkLoop.js:1331:24)
+      at performWorkOnRootViaSchedulerTask (packages/react-reconciler/src/ReactFiberRootScheduler.js:590:45)
+      at workLoop (packages/scheduler/src/forks/SchedulerMock.js:220:34)
+      at flushWork (packages/scheduler/src/forks/SchedulerMock.js:179:14)
+      at Object.unstable_flushUntilNextPaint (packages/scheduler/src/forks/SchedulerMock.js:540:23)
+      at act (packages/internal-test-utils/internalAct.js:156:17)
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:2184:5)
+
+  ● ReactUseStore › a component that starts reading a store stays subscribed when its render bails out
+
+    asserConsoleLogsCleared(expected)
+
+    console.error was called without assertConsoleErrorDev:
+    + React has detected a change in the order of Hooks called by %s. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://react.dev/link/rules-of-hooks
+    +
+    +    Previous render            Next render
+    +    ------------------------------------------------------
+    + %s   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    + %s,Reader,1. useState                   useState
+    + 2. undefined                  useState
+    + ,
+    +     in Reader (at **)
+
+    You must call one of the assertConsoleDev helpers between each act call.
+
+      at Promise.finally.completed (../../../Users/rickhanlonii/oss/react/node_modules/jest-circus/build/jestAdapterInit.js:1561:28)
+
+  ● ReactUseStore › a store update that throws inside a gesture transition does not change the store
+
+
+    Expected sequence of events did not occur.
+
+    - Expected
+    + Received
+
+      Array [
+    -   "reportError: Cannot update a store inside a startGestureTransition",
+    +   "A: 0",
+    +   "A: 1",
+      ]
+
+      2228 |       });
+      2229 |     });
+    > 2230 |     assertLog([
+           |     ^
+      2231 |       'reportError: Cannot update a store inside a startGestureTransition',
+      2232 |     ]);
+      2233 |     expect(root1).toMatchRenderedOutput('A: 0');
+
+      at Object.<anonymous> (packages/react-reconciler/src/__tests__/ReactUseStore-test.js:2230:5)
+
+Test Suites: 2 failed, 2 total
+Tests:       62 failed, 5 passed, 67 total
+Snapshots:   0 total
+Time:        26.336 s
+Ran all test suites matching packages/react-reconciler/src/__tests__/ReactUseStore-test.js|packages/react-dom/src/__tests__/ReactDOMStore-test.js.

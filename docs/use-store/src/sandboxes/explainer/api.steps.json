@@ -1,0 +1,13 @@
+{
+  "steps": [
+    {"expectCount": "li", "equals": 1},
+    {"click": "button.add"},
+    {"expectCount": "li", "equals": 2},
+    {"click": "li:nth-child(1)"},
+    {"expectText": "li:nth-child(1)", "equals": "Done: Write the explainer"},
+    {"click": "button.filter"},
+    {"expectText": "button.filter", "equals": "Showing open"},
+    {"expectCount": "li", "equals": 1},
+    {"expectText": "li", "equals": "Ship it"}
+  ]
+}

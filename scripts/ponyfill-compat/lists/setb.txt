@@ -1,0 +1,3 @@
+packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js
+packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStoreContext-test.js
+packages/react-reconciler/src/__tests__/TODOCorrectnessUseStore-test.js

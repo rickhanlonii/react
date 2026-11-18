@@ -1,0 +1,77 @@
+{
+  "_doc": "G5 fixture: pins the counts, which are from the frozen build, and the history-final set (an older run, status history, which the head check ignores), so a page can pass every check. Regenerate bench-data.json with: node fixtures/store-bench/report-data.mjs --sources=docs/use-store/tools/fixtures-numbers/report-sources.json --out=docs/use-store/tools/fixtures-numbers/bench-data.json",
+  "expectBuild": {
+    "dir": "react-builds/head",
+    "sha": "a3d8e745a9089d82f0f928dfeb7e6c00cd171a44"
+  },
+  "pinnedAt": "2026-11-02",
+  "sets": {
+    "counts": {
+      "status": "head",
+      "files": [
+        "counts-head-1793581952626.json"
+      ],
+      "headPattern": "^counts-head-\\d+\\.json$",
+      "expectFiles": 1,
+      "newestPerLabel": true
+    },
+    "suite-counts": {
+      "status": "head",
+      "files": [
+        "counts-head-q-deeptree-nested-hooks-1793581993581.json",
+        "counts-head-q-derived-selectors-1793581967781.json",
+        "counts-head-q-derived-selectors-spike-1793582130747.json",
+        "counts-head-q-fairness-1793582010042.json",
+        "counts-head-q-many-components-same-slice-1793581978759.json",
+        "counts-head-q-rapid-dispatch-1793581974133.json",
+        "counts-head-q-sweeps-1793582023560.json"
+      ],
+      "headPattern": "^counts-head-q-[a-z-]+-\\d+\\.json$",
+      "expectFiles": 7,
+      "newestPerLabel": true
+    },
+    "history-final": {
+      "status": "history",
+      "files": [
+        "full-final-r1-details-component-x1-1793418786553.json",
+        "full-final-r1-details-component-x4-1793418922669.json",
+        "full-final-r1-details-inline-x1-1793418577080.json",
+        "full-final-r1-details-inline-x4-1793418726766.json",
+        "full-final-r1-entity-x1-1793417616448.json",
+        "full-final-r1-entity-x4-1793417789974.json",
+        "full-final-r1-filter-x1-1793418157209.json",
+        "full-final-r1-filter-x4-1793418517841.json",
+        "full-final-r1-selection-x1-1793417861101.json",
+        "full-final-r1-selection-x4-1793418048918.json",
+        "full-final-r1-structure-x1-1793419052134.json",
+        "full-final-r1-structure-x4-1793419484533.json",
+        "full-final-r2-details-component-x1-1793421011576.json",
+        "full-final-r2-details-component-x4-1793421343056.json",
+        "full-final-r2-details-inline-x1-1793420810072.json",
+        "full-final-r2-details-inline-x4-1793420953581.json",
+        "full-final-r2-entity-x1-1793419705365.json",
+        "full-final-r2-entity-x4-1793419893608.json",
+        "full-final-r2-filter-x1-1793420309393.json",
+        "full-final-r2-filter-x4-1793420710202.json",
+        "full-final-r2-selection-x1-1793419966948.json",
+        "full-final-r2-selection-x4-1793420177038.json",
+        "full-final-r2-structure-x1-1793421473804.json",
+        "full-final-r2-structure-x4-1793421932185.json",
+        "full-final-r3-details-component-x1-1793424427811.json",
+        "full-final-r3-details-component-x4-1793424567136.json",
+        "full-final-r3-details-inline-x1-1793424229735.json",
+        "full-final-r3-details-inline-x4-1793424370219.json",
+        "full-final-r3-entity-x1-1793422115497.json",
+        "full-final-r3-entity-x4-1793422304247.json",
+        "full-final-r3-filter-x1-1793422973104.json",
+        "full-final-r3-filter-x4-1793424169305.json",
+        "full-final-r3-selection-x1-1793422377518.json",
+        "full-final-r3-selection-x4-1793422581328.json",
+        "full-final-r3-structure-x1-1793424694244.json",
+        "full-final-r3-structure-x4-1793425138214.json"
+      ],
+      "historyPattern": "^full-final-r\\d+-(entity|selection|filter|details-inline|details-component|details-churn|structure)-x\\d+-\\d+\\.json$",
+      "note": "The old final-build main run (docs/use-store/OVERNIGHT.md, full-final-r), kept to show how the headline moved. It predates the HostRoot redesign and the benchmark fairness fix, and its files record no env.react build."
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "steps": [
+    {"expectCount": "li", "equals": 5},
+    {"expectText": "li:nth-child(1)", "equals": "news: 1 post, 4 points"},
+    {"expectText": "li:nth-child(4)", "equals": "sports: 1 post, 2 points"},
+    {"expectConsole": {"kind": "log", "contains": "(2 so far)"}},
+    {"expectNoConsole": {"contains": "(3 so far)"}},
+    {"resetRenders": true},
+    {"click": "button"},
+    {"expectText": "li:nth-child(1)", "equals": "news: 2 posts, 5 points"},
+    {"expectRenders": {"CategoryStats": 5}},
+    {"expectConsole": {"kind": "log", "contains": "(4 so far)"}},
+    {"expectNoConsole": {"contains": "(5 so far)"}}
+  ]
+}

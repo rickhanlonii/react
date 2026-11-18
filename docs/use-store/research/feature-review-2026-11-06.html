@@ -1,0 +1,1894 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>use(store) feature-interaction review, 2026-11-06</title><style>
+:root{color-scheme:light dark;--bg:#fbfbf9;--fg:#141413;--muted:#5d5c57;--border:#e3e2dc;--card:#fff;--code:#f4f3ef;--add:#e6f4ea;--del:#fbe9e9;--accent:#2a64b8;--ok:#1e7a3c;--warn:#a15c00;--bad:#b42318}
+@media (prefers-color-scheme:dark){:root{--bg:#111110;--fg:#ecebe6;--muted:#a9a8a1;--border:#2e2e2b;--card:#191918;--code:#1f1f1d;--add:#16301e;--del:#3a1b1b;--accent:#6aa3ef;--ok:#5cc27e;--warn:#e0a24a;--bad:#f08070}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1040px;margin:0 auto;padding:36px 22px 80px}h1{font-size:30px;line-height:1.2;margin:0 0 6px}h2{font-size:22px;margin:44px 0 10px;padding-top:12px;border-top:1px solid var(--border)}h3{font-size:17px;margin:0 0 6px}
+p{margin:0 0 10px}a{color:var(--accent)}code{font:0.88em ui-monospace,SFMono-Regular,Menlo,monospace}
+.lede{color:var(--muted);margin-bottom:18px}.by{color:var(--muted);font-size:13.5px}
+.card{background:var(--card);border:1px solid var(--border);border-left:4px solid var(--ok);border-radius:8px;padding:16px 18px;margin:14px 0}
+.card.blocked{border-left-color:var(--warn)}.card.open{border-left-color:var(--accent)}.card.main{border-left-color:var(--bad)}
+.tag{display:inline-block;font:600 12px ui-monospace,monospace;background:var(--code);border:1px solid var(--border);border-radius:5px;padding:1px 6px;margin-right:4px;vertical-align:2px}
+details{margin:8px 0;border:1px solid var(--border);border-radius:6px;background:var(--bg)}summary{cursor:pointer;padding:7px 10px;font-size:14px}summary .file{color:var(--muted);font-size:12px}
+pre.code{margin:0;padding:10px 12px;overflow-x:auto;background:var(--code);border-top:1px solid var(--border);font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre.code .add{background:var(--add);display:inline-block;min-width:100%}pre.code .del{background:var(--del);display:inline-block;min-width:100%}pre.code .hunk{color:var(--muted)}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:14px}th,td{border:1px solid var(--border);padding:6px 9px;text-align:left;vertical-align:top}th{background:var(--code)}
+.ok{color:var(--ok);font-weight:600}.warn{color:var(--warn);font-weight:600}.bad{color:var(--bad);font-weight:600}
+ul{margin:0 0 10px;padding-left:22px}li{margin:3px 0}nav ul{columns:2}
+</style></head>
+<body><main>
+<h1><code>use(store)</code> feature-interaction review</h1>
+<p class="lede">2026-11-06. Six reviewers, each covering one slice of React's features, against <code>rh/use-store</code> at <code>8af80d5c1a</code>. Fixes are uncommitted in the main checkout (HEAD <code>8af80d5c1a</code>). Every diff and test on this page is generated from the tree.</p>
+
+<nav><ul>
+<li><a href="#summary">Summary</a></li><li><a href="#method">How the review ran</a></li>
+<li><a href="#fixed">Fixed (8)</a></li><li><a href="#blocked">Blocked (1)</a></li>
+<li><a href="#open">Needs your decision (6)</a></li><li><a href="#main">Bugs on main (4)</a></li>
+<li><a href="#verify">Verification</a></li><li><a href="#files">Files and next steps</a></li>
+</ul></nav>
+
+<h2 id="summary">Summary</h2>
+<ul>
+<li><strong>8 store bugs fixed</strong>, each reproduced on two channels before the fix and passing after. Two were found independently by two reviewers (F1).</li>
+<li><strong>1 bug in stack PR #1</strong> (the same-element bailout) has a three-line fix written but not applied: auto mode blocked the edit.</li>
+<li><strong>6 items need a decision</strong>: two reducer-error questions, a SuspenseList scope question, two server questions, and one performance note.</li>
+<li><strong>4 React bugs on main</strong>, not caused by the stack, each verified failing in a fresh main worktree.</li>
+<li><strong>A correction:</strong> I'd said the <code>store.update</code> dispatch loop had no reachable failure. It did, through re-entrancy from a legacy root's synchronous commit (F6).</li>
+</ul>
+<table><tr><th>#</th><th>Finding</th><th>Found by</th><th>Status</th></tr><tr><td><a href="#F1">F1</a></td><td>An async action&#x27;s store update committed before the action finished</td><td>Slice 1 (finding 4) and slice 2 (F1), independently</td><td class="ok">Fixed</td></tr><tr><td><a href="#F2">F2</a></td><td>A Suspense boundary lost the store reads of the component that suspended</td><td>Slice 1 (findings 1 and 2)</td><td class="ok">Fixed</td></tr><tr><td><a href="#F3">F3</a></td><td>A finished async action&#x27;s held updates were hidden again when their lane was reused</td><td>Slice 2 (F2)</td><td class="ok">Fixed</td></tr><tr><td><a href="#F4">F4</a></td><td>Done held updates stayed on the store until some unrelated commit</td><td>Fuzzer (finding 1) and slice 4 (F2, memory)</td><td class="ok">Fixed</td></tr><tr><td><a href="#F5">F5</a></td><td>A render that skipped a store re-ran its reducer, giving the value a new identity</td><td>Fuzzer (finding 2)</td><td class="ok">Fixed</td></tr><tr><td><a href="#F6">F6</a></td><td>Legacy: nested updates from a synchronous commit reached later roots before the outer update</td><td>Slice 5 (F1)</td><td class="ok">Fixed</td></tr><tr><td><a href="#F7">F7</a></td><td>Legacy: a held action update gave a legacy root a transition lane, and a thenable escaped act</td><td>Slice 5 (F2)</td><td class="ok">Fixed</td></tr><tr><td><a href="#F8">F8</a></td><td>Legacy: a store update never retried a boundary whose reader suspended on mount (B-18)</td><td>Slice 5 (F3)</td><td class="ok">Fixed</td></tr><tr><td><a href="#B1">B1</a></td><td>The same-element bailout skips a child consumer&#x27;s context check (stack PR #1)</td><td>Fuzzer (finding 3)</td><td class="warn">Fix written, blocked</td></tr><tr><td><a href="#Q1">Q1</a></td><td>After a reducer error that throws in only one root, the roots never converge</td><td>Slice 4 (F1)</td><td>Needs your decision</td></tr><tr><td><a href="#Q2">Q2</a></td><td>A store drops the update that hits the nested update limit; setState keeps it</td><td>Slice 4 (Q1)</td><td>Needs your decision</td></tr><tr><td><a href="#Q3">Q3</a></td><td>A row that a &quot;forwards&quot; SuspenseList with a hidden tail drops never subscribes</td><td>Slice 1 (F3)</td><td>Needs your decision</td></tr><tr><td><a href="#Q4">Q4</a></td><td>A transition made before hydration replaces visible server HTML with a fallback</td><td>Slice 3 (finding 1)</td><td>Needs your decision</td></tr><tr><td><a href="#Q5">Q5</a></td><td>Stores passed to Server Functions: a DEV stack overflow, and a missing warning</td><td>Slice 3 (findings 2 and 3)</td><td>Needs your decision</td></tr><tr><td><a href="#Q6">Q6</a></td><td>The HostRoot processes every store before a reader can suspend (design note)</td><td>Fuzzer (D1)</td><td>Needs your decision</td></tr><tr><td><a href="#M1">M1</a></td><td>A context consumer in a hidden Activity misses the update after a consumer above it re-renders</td><td>Fuzzer</td><td class="bad">Bug on main</td></tr><tr><td><a href="#M2">M2</a></td><td>A consumer in a nested boundary tears when its parent boundary shows its content again (visible tearing)</td><td>Fuzzer</td><td class="bad">Bug on main</td></tr><tr><td><a href="#M3">M3</a></td><td>Resolving data for a component in a deleted hidden Activity crashes</td><td>Fuzzer</td><td class="bad">Bug on main</td></tr><tr><td><a href="#M4">M4</a></td><td>A context tear that only happens with enableDefaultTransitionIndicator</td><td>Fuzzer</td><td class="bad">Bug on main</td></tr></table>
+
+<h2 id="method">How the review ran</h2>
+<p>Each reviewer was a fresh session with a brief that pointed at the code, the tests and the decisions, but not my conclusions. The rule was that a finding is a test that fails on the current code. The oracles:</p>
+<ul>
+<li><strong>Comparison against <code>useReducer</code> + Context:</strong> for a single root that reads the store from the start, a store app should commit the same output as the same app with <code>useReducer</code> at the root. Most reviewers wrote a helper that runs each scenario both ways and compares checkpoints.</li>
+<li><strong>Invariants:</strong> every reader in a root shows one version per commit; once idle, the value equals the actions in dispatch order; the reducer runs no more than <code>useReducer</code>; nothing is retained after unmount.</li>
+<li><strong>A differential fuzzer</strong> (slice 6): random apps and action sequences, seeded and shrunk, 20,000 runs on experimental and www variant=true.</li>
+</ul>
+<table><tr><th>Slice</th><th>Tests written</th><th>Result</th></tr>
+<tr><td>1. Suspense, Activity, hidden trees</td><td>62</td><td>4 findings (F1, F2, Q3)</td></tr>
+<tr><td>2. Transitions, priorities, async actions</td><td>47</td><td>2 findings (F1, F3)</td></tr>
+<tr><td>3. Server, hydration, Flight</td><td>39</td><td>no store logic bugs; Q4, Q5</td></tr>
+<tr><td>4. Errors, StrictMode, lifetime</td><td>37</td><td>F4 (memory), Q1, Q2</td></tr>
+<tr><td>5. Roots, renderers, legacy, tooling</td><td>41</td><td>3 legacy bugs (F6, F7, F8); Profiler mismatch ruled out</td></tr>
+<tr><td>6. Differential fuzzer</td><td>12 + fuzz</td><td>F4, F5, F1 refinement, B1, M1–M4, Q6</td></tr>
+</table>
+
+<h2 id="fixed">Fixed</h2>
+<section class="card fixed" id="F1">
+<h3><span class="tag">F1</span> An async action&#x27;s store update committed before the action finished</h3>
+<p class="by">Found by: Slice 1 (finding 4) and slice 2 (F1), independently. Refined by the fuzzer (finding 7).</p>
+<p>The HostRoot only suspended on a pending async action when the store had <em>no</em> readers, and a reader only suspended when it had a previous read of the store. Hidden readers, readers inside a boundary already showing its fallback, and readers on their first read fell through both checks. The HostRoot then committed the action's value, and a reader that mounted urgently, or a hidden reader that was revealed, showed it early. With <code>useReducer</code> at the root, nothing commits until the action is done.</p>
+<p><strong>Fix:</strong> after the HostRoot processes its stores, it suspends if any store applied the pending action's update <em>and</em> its value differs from the committed value. Records first processed mid-render get the same check, before their state is kept on the HostRoot. The reader-side check could no longer be reached, so it's removed. The "value differs" part comes from the fuzzer's finding 7: <code>useState</code> only suspends when its new state differs from the state its Hook committed (<code>ReactFiberHooks.js</code>, <code>updateReducerImpl</code>), so a store mustn't suspend a reveal whose value a later update already made the committed one.</p>
+<details open><summary>Fix (diff)</summary><pre class="code diff"><code><span class="hunk">--- packages/react-reconciler/src/ReactFiberStore.js</span>
+<span class="hunk">@@ -536,13 +618,15 @@ function getStoreQueueLanes(last: StoreUpdate&lt;any&gt; | null): Lanes {</span>
+   return lanes;
+ }
+ 
+<span class="del">-// Called after the HostRoot processes its stores. A reader that renders an</span>
+<span class="del">-// update from a pending async action suspends until the action is done, like</span>
+<span class="del">-// a component that reads state the action updated. A store that no component</span>
+<span class="del">-// is subscribed to has no reader to suspend, so the HostRoot suspends instead.</span>
+<span class="del">-// Otherwise this render would commit the update before the action is done, and</span>
+<span class="del">-// a reader that mounts before then would show it early.</span>
+<span class="del">-export function suspendIfUnreadStoreReadFromEntangledAsyncAction(</span>
+<span class="add">+// Called after the HostRoot processes its stores. If a store applied an</span>
+<span class="add">+// update from a pending async action and its value changed, the HostRoot</span>
+<span class="add">+// suspends until the action is done, like a useState Hook that applied one.</span>
+<span class="add">+// Suspending in the readers isn&#x27;t enough: a hidden reader doesn&#x27;t render in</span>
+<span class="add">+// the action&#x27;s lane, and a reader inside a boundary that shows its fallback</span>
+<span class="add">+// doesn&#x27;t block the commit. Either way the HostRoot would commit the update</span>
+<span class="add">+// before the action is done, and a reader that mounts before then would show</span>
+<span class="add">+// it early.</span>
+<span class="add">+export function suspendIfStoreReadFromEntangledAsyncAction(</span>
+   storeStates: ?StoreStates,
+ ): void {
+   if (storeStates == null) {
+
+<span class="hunk">@@ -550,7 +634,7 @@ export function suspendIfUnreadStoreReadFromEntangledAsyncAction(</span>
+   }
+   let shouldSuspend = false;
+   storeStates.map.forEach((state, record) =&gt; {
+<span class="del">-    if (state.didReadEntangledAction &amp;&amp; record.readers.size === 0) {</span>
+<span class="add">+    if (didApplyEntangledActionUpdate(record, state)) {</span>
+       shouldSuspend = true;
+     }
+   });
+
+<span class="hunk">@@ -562,6 +646,19 @@ export function suspendIfUnreadStoreReadFromEntangledAsyncAction(</span>
+   }
+ }
+ 
+<span class="add">+// Whether the state includes an update from the pending async action that</span>
+<span class="add">+// changes the committed value. If a later update masks it, nothing this</span>
+<span class="add">+// render shows comes from the action.</span>
+<span class="add">+function didApplyEntangledActionUpdate&lt;T, A&gt;(</span>
+<span class="add">+  record: StoreRecord&lt;T, A&gt;,</span>
+<span class="add">+  state: StoreState&lt;T, A&gt;,</span>
+<span class="add">+): boolean {</span>
+<span class="add">+  return (</span>
+<span class="add">+    state.didReadEntangledAction &amp;&amp;</span>
+<span class="add">+    !is(state.memoizedState, record.committed.memoizedState)</span>
+<span class="add">+  );</span>
+<span class="add">+}</span>
+<span class="add">+</span>
+ // Called when the HostRoot begins work. Computes the state of every store
+ // with pending updates for this render, the same way the update queue of
+ // useReducer does: updates with insufficient priority are skipped, and
+
+<span class="hunk">@@ -777,6 +874,14 @@ export function getStoreStateForRender&lt;T, A&gt;(</span>
+   } finally {
+     ReactSharedInternals.H = prevDispatcher;
+   }
+<span class="add">+  if (didApplyEntangledActionUpdate(record, state)) {</span>
+<span class="add">+    // It applied an update from a pending async action. Suspend before the</span>
+<span class="add">+    // state is kept on the HostRoot, so this render can&#x27;t commit it.</span>
+<span class="add">+    const entangledActionThenable = peekEntangledActionThenable();</span>
+<span class="add">+    if (entangledActionThenable !== null) {</span>
+<span class="add">+      throw entangledActionThenable;</span>
+<span class="add">+    }</span>
+<span class="add">+  }</span>
+   const current = hostRoot.alternate;
+   let nextStoreStates = storeStates;
+   if (</code></pre><pre class="code diff"><code><span class="hunk">--- packages/react-reconciler/src/ReactFiberHooks.js</span>
+<span class="hunk">@@ -1295,34 +1295,6 @@ function useStore&lt;T&gt;(store: ReactStore&lt;T&gt;): T {</span>
+   }
+   record.readEpoch = storeReadsEpoch;
+   storeReads.push(record, value);
+<span class="del">-  // finishStoreReads compares the values with the previous render. Unless</span>
+<span class="del">-  // the value comes from a pending async action. Then, if it changed, the</span>
+<span class="del">-  // component suspends until the action has finished, so that it&#x27;s batched</span>
+<span class="del">-  // together with future updates in the same action.</span>
+<span class="del">-  const entangledActionLane = peekEntangledActionLane();</span>
+<span class="del">-  if (entangledActionLane !== NoLane &amp;&amp; !isHydrating) {</span>
+<span class="del">-    const current = fiber.alternate;</span>
+<span class="del">-    const currentUpdateQueue: null | FunctionComponentUpdateQueue =</span>
+<span class="del">-      current === null ? null : (current.updateQueue as any);</span>
+<span class="del">-    const previousReads =</span>
+<span class="del">-      currentUpdateQueue === null ? null : currentUpdateQueue.storeReads;</span>
+<span class="del">-    if (previousReads != null) {</span>
+<span class="del">-      const previousIndex = previousReads.indexOf(record);</span>
+<span class="del">-      if (</span>
+<span class="del">-        previousIndex !== -1 &amp;&amp;</span>
+<span class="del">-        !is(value, previousReads[previousIndex + 1]) &amp;&amp;</span>
+<span class="del">-        // The committed state wasn&#x27;t processed by this render, so it can&#x27;t</span>
+<span class="del">-        // include an update from the pending action that this render applied.</span>
+<span class="del">-        state !== record.committed &amp;&amp;</span>
+<span class="del">-        state.didReadEntangledAction</span>
+<span class="del">-      ) {</span>
+<span class="del">-        const entangledActionThenable = peekEntangledActionThenable();</span>
+<span class="del">-        if (entangledActionThenable !== null) {</span>
+<span class="del">-          throw entangledActionThenable;</span>
+<span class="del">-        }</span>
+<span class="del">-      }</span>
+<span class="del">-    }</span>
+<span class="del">-  }</span>
+   return value;
+ }</code></pre></details>
+<details><summary>Test: <code>does not reveal an action update in a boundary that was waiting on the store before the action is done</code> <span class="file">packages/react-reconciler/src/__tests__/ReactUseStoreReviewTransitions-test.js</span></summary><pre class="code js"><code>// @gate enableStore
+it(&#x27;does not reveal an action update in a boundary that was waiting on the store before the action is done&#x27;, async () =&gt; {
+  await compareStateAndStore(async (createSource, check) =&gt; {
+    const source = createSource(0);
+    // Suspends until the data for the value it read is loaded. It never
+    // committed, so the boundary is what subscribes to the store.
+    function Child() {
+      return &lt;AsyncText text={&#x27;Data &#x27; + source.read()} /&gt;;
+    }
+    const root = ReactNoop.createRoot();
+    await act(() =&gt;
+      root.render(
+        &lt;source.Root&gt;
+          &lt;Suspense fallback={&lt;Text text=&quot;Loading&quot; /&gt;}&gt;
+            &lt;Child /&gt;
+          &lt;/Suspense&gt;
+        &lt;/source.Root&gt;,
+      ),
+    );
+    check(root, &#x27;mount&#x27;);
+    // The data for the action&#x27;s value is already loaded.
+    resolveText(&#x27;Data 1&#x27;);
+    let resolve;
+    await act(() =&gt; {
+      startTransition(async () =&gt; {
+        source.update(1);
+        await new Promise(r =&gt; (resolve = r));
+      });
+    });
+    check(root, &#x27;action pending&#x27;);
+    await act(() =&gt; resolve());
+    check(root, &#x27;action done&#x27;);
+  });
+});</code></pre></details>
+<details><summary>Test: <code>a reader that mounts urgently while an action is pending shows the committed value when the other reader is hidden</code> <span class="file">packages/react-reconciler/src/__tests__/ReactUseStoreReviewTransitions-test.js</span></summary><pre class="code js"><code>// @gate enableStore
+it(&#x27;a reader that mounts urgently while an action is pending shows the committed value when the other reader is hidden&#x27;, async () =&gt; {
+  await runWithStateAndStore(async createSource =&gt; {
+    const source = createSource(0);
+    function HiddenReader() {
+      source.read();
+      return null;
+    }
+    function Reader() {
+      return &lt;Text text={&#x27;Visible: &#x27; + source.read()} /&gt;;
+    }
+    let setShow;
+    function App() {
+      const [show, _setShow] = useState(false);
+      setShow = _setShow;
+      return (
+        &lt;&gt;
+          &lt;Activity mode=&quot;hidden&quot;&gt;
+            &lt;HiddenReader /&gt;
+          &lt;/Activity&gt;
+          {show ? &lt;Reader /&gt; : &lt;Text text=&quot;Nothing&quot; /&gt;}
+        &lt;/&gt;
+      );
+    }
+
+    const root = ReactNoop.createRoot();
+    await act(() =&gt;
+      root.render(
+        &lt;source.Root&gt;
+          &lt;App /&gt;
+        &lt;/source.Root&gt;,
+      ),
+    );
+    assertLog([&#x27;Nothing&#x27;]);
+
+    let resolve;
+    await act(() =&gt; {
+      startTransition(async () =&gt; {
+        source.update(1);
+        await new Promise(r =&gt; (resolve = r));
+      });
+    });
+    assertLog([]);
+
+    await act(() =&gt; ReactNoop.flushSync(() =&gt; setShow(true)));
+    // The action hasn&#x27;t finished, so its update isn&#x27;t visible yet.
+    assertLog([&#x27;Visible: 0&#x27;]);
+    expect(root).toMatchRenderedOutput(&#x27;Visible: 0&#x27;);
+
+    await act(() =&gt; resolve());
+    assertLog([&#x27;Visible: 1&#x27;]);
+    expect(root).toMatchRenderedOutput(&#x27;Visible: 1&#x27;);
+  });
+});</code></pre></details>
+<details><summary>Test: <code>a hidden reader that is revealed does not wait for an async action whose update it does not show</code> <span class="file">packages/react-reconciler/src/__tests__/ReactUseStoreFuzz-test.internal.js</span></summary><pre class="code js"><code>// @gate enableStore
+it(&#x27;a hidden reader that is revealed does not wait for an async action whose update it does not show&#x27;, async () =&gt; {
+  const store = createStore(&#x27;A&#x27;);
+  let setVisible;
+  function Reader({name}) {
+    const value = use(store);
+    Scheduler.log(name + &#x27;: &#x27; + value);
+    return &lt;span prop={name + &#x27;: &#x27; + value} /&gt;;
+  }
+  function Gate({children}) {
+    const [visible, _setVisible] = useState(false);
+    setVisible = _setVisible;
+    return (
+      &lt;Activity mode={visible ? &#x27;visible&#x27; : &#x27;hidden&#x27;}&gt;{children}&lt;/Activity&gt;
+    );
+  }
+
+  const root = ReactNoop.createRoot();
+  await act(() =&gt;
+    root.render(
+      &lt;&gt;
+        &lt;Reader name=&quot;Visible&quot; /&gt;
+        &lt;Gate&gt;
+          &lt;Reader name=&quot;Hidden&quot; /&gt;
+        &lt;/Gate&gt;
+      &lt;/&gt;,
+    ),
+  );
+  Scheduler.unstable_clearLog();
+
+  // A transition updates the store and reveals the hidden reader. It
+  // starts rendering.
+  startTransition(() =&gt; {
+    store.update(&#x27;B&#x27;);
+    setVisible(true);
+  });
+  await waitFor([&#x27;Visible: B&#x27;]);
+  // An async action updates the store, and is still pending.
+  let resolveAction;
+  startTransition(async () =&gt; {
+    store.update(&#x27;C&#x27;);
+    await new Promise(resolve =&gt; (resolveAction = resolve));
+  });
+  // A sync update sets the store to a new value. The transition and the
+  // action are rebased under it, so they render &#x27;D&#x27; too, the committed
+  // value: nothing they render comes from the pending action.
+  ReactNoop.flushSync(() =&gt; store.update(&#x27;D&#x27;));
+  Scheduler.unstable_clearLog();
+  expect(root).toMatchRenderedOutput(
+    &lt;&gt;
+      &lt;span prop=&quot;Visible: D&quot; /&gt;
+      &lt;span hidden={true} prop=&quot;Hidden: A&quot; /&gt;
+    &lt;/&gt;,
+  );
+
+  // Like useState, the transition commits without waiting for the action.
+  // The hidden reader read &#x27;A&#x27; before it was hidden, so its value changed,
+  // but it isn&#x27;t a value the root hasn&#x27;t committed.
+  await act(() =&gt; {});
+  Scheduler.unstable_clearLog();
+  expect(root).toMatchRenderedOutput(
+    &lt;&gt;
+      &lt;span prop=&quot;Visible: D&quot; /&gt;
+      &lt;span prop=&quot;Hidden: D&quot; /&gt;
+    &lt;/&gt;,
+  );
+  await act(() =&gt; resolveAction());
+  Scheduler.unstable_clearLog();
+});</code></pre></details>
+</section>
+<section class="card fixed" id="F2">
+<h3><span class="tag">F2</span> A Suspense boundary lost the store reads of the component that suspended</h3>
+<p class="by">Found by: Slice 1 (findings 1 and 2)</p>
+<p>The reads a suspended boundary collects were kept in one module-level slot. In a render that doesn't skip siblings (prerendering, or any render that includes <code>OffscreenLane</code>, so every mount inside a hidden Activity), a nested boundary that also suspended overwrote the slot before the outer boundary took it. A SuspenseList <code>together</code> list renders a row's boundary twice, and the first pass took the slot. Either way the boundary committed its fallback without subscribing, and a store update never retried it. Context handles both cases.</p>
+<p><strong>Fix:</strong> keep the reads per boundary for the whole render, in a map reset by <code>prepareFreshStack</code>. Taking them no longer clears them, so the second SuspenseList pass finds them too.</p>
+<details open><summary>Fix (diff)</summary><pre class="code diff"><code><span class="hunk">--- packages/react-reconciler/src/ReactFiberStore.js</span>
+<span class="hunk">@@ -188,11 +194,16 @@ let staleHydratedReaders: Array&lt;Fiber&gt; | null = null;</span>
+ // skips the work of tracking them.
+ let didReadStores: boolean = false;
+ 
+<span class="del">-// The stores read by the primary children of a Suspense boundary that</span>
+<span class="del">-// suspended during the current render. The boundary subscribes to them if it</span>
+<span class="del">-// commits its fallback.</span>
+<span class="del">-let suspendedBoundary: Fiber | null = null;</span>
+<span class="del">-let suspendedBoundaryStoreReads: Array&lt;StoreRecord&lt;any, any&gt;&gt; | null = null;</span>
+<span class="add">+// The stores read by the primary children of each Suspense boundary that</span>
+<span class="add">+// suspended during the current render. A boundary subscribes to them if it</span>
+<span class="add">+// commits its fallback. They&#x27;re kept per boundary for the whole render: a</span>
+<span class="add">+// render that doesn&#x27;t skip siblings can suspend in a nested boundary before</span>
+<span class="add">+// it unwinds to the outer one, and a SuspenseList renders a row&#x27;s boundary a</span>
+<span class="add">+// second time.</span>
+<span class="add">+let suspendedBoundaryStoreReads: Map&lt;</span>
+<span class="add">+  Fiber,</span>
+<span class="add">+  Array&lt;StoreRecord&lt;any, any&gt;&gt;,</span>
+<span class="add">+&gt; | null = null;</span>
+ 
+ function createStoreState&lt;T, A&gt;(state: T): StoreState&lt;T, A&gt; {
+   const storeState: StoreState&lt;T, A&gt; = {
+
+<span class="hunk">@@ -1065,39 +1170,49 @@ export function unsubscribeFromStoresOnDeletion(fiber: Fiber): void {</span>
+ // boundary, like an update to a context they read.
+ export function collectStoreReadsOfSuspendedTree(
+   sourceFiber: Fiber,
+<span class="add">+  // The stores the component that suspended read. In legacy mode its render</span>
+<span class="add">+  // has already been reset, so they&#x27;re read before that.</span>
+<span class="add">+  sourceStoreReads: Array&lt;mixed&gt; | null,</span>
+   boundary: Fiber,
+ ): void {
+   if (!didReadStores) {
+     return;
+   }
+   let records =
+<span class="del">-    suspendedBoundary === boundary ? suspendedBoundaryStoreReads : null;</span>
+<span class="add">+    suspendedBoundaryStoreReads === null</span>
+<span class="add">+      ? null</span>
+<span class="add">+      : suspendedBoundaryStoreReads.get(boundary) || null;</span>
+   let fiber: Fiber | null = sourceFiber;
+   while (fiber !== null &amp;&amp; fiber !== boundary) {
+<span class="del">-    if (</span>
+<span class="add">+    let reads = null;</span>
+<span class="add">+    if (fiber === sourceFiber) {</span>
+<span class="add">+      reads = sourceStoreReads;</span>
+<span class="add">+    } else if (</span>
+       fiber.tag === FunctionComponent ||
+       fiber.tag === ForwardRef ||
+       fiber.tag === SimpleMemoComponent
+     ) {
+       const updateQueue: FunctionComponentUpdateQueue | null =
+         fiber.updateQueue as any;
+<span class="del">-      const reads = updateQueue === null ? null : updateQueue.storeReads;</span>
+<span class="del">-      if (reads != null) {</span>
+<span class="del">-        for (let i = 0; i &lt; reads.length; i += 2) {</span>
+<span class="del">-          const record: StoreRecord&lt;any, any&gt; = reads[i] as any;</span>
+<span class="del">-          if (records === null) {</span>
+<span class="del">-            records = [record];</span>
+<span class="del">-          } else if (records.indexOf(record) === -1) {</span>
+<span class="del">-            records.push(record);</span>
+<span class="del">-          }</span>
+<span class="add">+      reads = updateQueue === null ? null : updateQueue.storeReads;</span>
+<span class="add">+    }</span>
+<span class="add">+    if (reads != null) {</span>
+<span class="add">+      for (let i = 0; i &lt; reads.length; i += 2) {</span>
+<span class="add">+        const record: StoreRecord&lt;any, any&gt; = reads[i] as any;</span>
+<span class="add">+        if (records === null) {</span>
+<span class="add">+          records = [record];</span>
+<span class="add">+        } else if (records.indexOf(record) === -1) {</span>
+<span class="add">+          records.push(record);</span>
+         }
+       }
+     }
+     fiber = fiber.return;
+   }
+   if (records !== null) {
+<span class="del">-    suspendedBoundary = boundary;</span>
+<span class="del">-    suspendedBoundaryStoreReads = records;</span>
+<span class="add">+    if (suspendedBoundaryStoreReads === null) {</span>
+<span class="add">+      suspendedBoundaryStoreReads = new Map();</span>
+<span class="add">+    }</span>
+<span class="add">+    suspendedBoundaryStoreReads.set(boundary, records);</span>
+   }
+ }
+
+<span class="hunk">@@ -1106,17 +1221,13 @@ export function collectStoreReadsOfSuspendedTree(</span>
+ export function takeStoreReadsOfSuspendedTree(
+   boundary: Fiber,
+ ): Array&lt;StoreRecord&lt;any, any&gt;&gt; | null {
+<span class="del">-  if (suspendedBoundary !== boundary) {</span>
+<span class="add">+  if (suspendedBoundaryStoreReads === null) {</span>
+     return null;
+   }
+<span class="del">-  const records = suspendedBoundaryStoreReads;</span>
+<span class="del">-  suspendedBoundary = null;</span>
+<span class="del">-  suspendedBoundaryStoreReads = null;</span>
+<span class="del">-  return records;</span>
+<span class="add">+  return suspendedBoundaryStoreReads.get(boundary) || null;</span>
+ }
+ 
+ export function resetStoreReadsOfSuspendedTree(): void {
+<span class="del">-  suspendedBoundary = null;</span>
+   suspendedBoundaryStoreReads = null;
+ }</code></pre></details>
+<details><summary>Test: <code>a store update retries an outer boundary in a hidden Activity when a nested boundary also suspends</code> <span class="file">packages/react-reconciler/src/__tests__/ReactUseStoreReviewSuspenseActivity-test.js</span></summary><pre class="code js"><code>// @gate enableStore
+it(&#x27;a store update retries an outer boundary in a hidden Activity when a nested boundary also suspends&#x27;, async () =&gt; {
+  const outer = createStore(never);
+  const inner = createStore(never);
+
+  function OuterReader() {
+    return &lt;Text text={&#x27;Outer: &#x27; + use(use(outer))} /&gt;;
+  }
+  function InnerReader() {
+    return &lt;Text text={&#x27;Inner: &#x27; + use(use(inner))} /&gt;;
+  }
+
+  const content = (
+    &lt;Suspense fallback={&lt;Text text=&quot;Loading outer&quot; /&gt;}&gt;
+      &lt;OuterReader /&gt;
+      &lt;Suspense fallback={&lt;Text text=&quot;Loading inner&quot; /&gt;}&gt;
+        &lt;InnerReader /&gt;
+      &lt;/Suspense&gt;
+    &lt;/Suspense&gt;
+  );
+
+  let setMode;
+  function App() {
+    const [mode, _setMode] = useState(&#x27;hidden&#x27;);
+    setMode = _setMode;
+    return &lt;Activity mode={mode}&gt;{content}&lt;/Activity&gt;;
+  }
+
+  const root = ReactNoop.createRoot();
+  await act(() =&gt; root.render(&lt;App /&gt;));
+  assertLog([&#x27;Loading inner&#x27;, &#x27;Loading outer&#x27;]);
+
+  // The outer reader&#x27;s store gets a value. Without Activity, this retries
+  // the outer boundary.
+  await act(() =&gt; outer.update(fulfilled(&#x27;A&#x27;)));
+  // It retries in the background, like the context version below.
+  assertLog([&#x27;Outer: A&#x27;, &#x27;Loading inner&#x27;]);
+  await act(() =&gt; setMode(&#x27;visible&#x27;));
+  assertLog([]);
+  expect(root).toMatchRenderedOutput(&#x27;Outer: ALoading inner&#x27;);
+});</code></pre></details>
+<details><summary>Test: <code>a store update retries a row of a &quot;together&quot; list whose reader suspended on mount</code> <span class="file">packages/react-reconciler/src/__tests__/ReactUseStoreReviewSuspenseActivity-test.js</span></summary><pre class="code js"><code>// @gate enableStore &amp;&amp; enableSuspenseList
+it(&#x27;a store update retries a row of a &quot;together&quot; list whose reader suspended on mount&#x27;, async () =&gt; {
+  const SuspenseList = React.unstable_SuspenseList;
+  const store = createStore(never);
+  function Row() {
+    return &lt;Text text={&#x27;A: &#x27; + use(use(store))} /&gt;;
+  }
+
+  const root = ReactNoop.createRoot();
+  await renderList(root, SuspenseList, &#x27;together&#x27;, Row);
+  assertLog([&#x27;Loading A&#x27;, &#x27;B&#x27;, &#x27;Loading A&#x27;, &#x27;Loading B&#x27;]);
+  expect(root).toMatchRenderedOutput(&#x27;Loading ALoading B&#x27;);
+
+  await act(() =&gt; store.update(fulfilled(&#x27;Result&#x27;)));
+  assertLog([&#x27;A: Result&#x27;, &#x27;B&#x27;]);
+  expect(root).toMatchRenderedOutput(&#x27;A: ResultB&#x27;);
+});</code></pre></details>
+</section>
+<section class="card fixed" id="F3">
+<h3><span class="tag">F3</span> A finished async action&#x27;s held updates were hidden again when their lane was reused</h3>
+<p class="by">Found by: Slice 2 (F2)</p>
+<p>An update to a store no root reads, made in an async action, is held with the action's lane. Nothing marked it done when the action finished, so once lanes cycled and an unrelated transition got the same lane and suspended, a reader that mounted urgently treated the finished action's update as pending.</p>
+<p><strong>Fix:</strong> a held update in the action's lane registers with the action, including the updates the action dispatched before its first <code>await</code>, which have the event's lane until the action is entangled. When the action scope finishes, they're done unless a scheduled root still has the lane pending, the same rule DCP-18 uses at the end of an event.</p>
+<details open><summary>Fix (diff)</summary><pre class="code diff"><code><span class="hunk">--- packages/react-reconciler/src/ReactFiberStore.js</span>
+<span class="hunk">@@ -344,8 +360,10 @@ const storesWithPendingTransitionUpdates: Set&lt;ReactStore&lt;any, any&gt;&gt; = new Set();</span>
+ // has NoLane.
+ const heldStoreUpdateLanes: WeakMap&lt;HeldStoreUpdate&lt;any&gt;, Lane&gt; = new WeakMap();
+ 
+<span class="del">-// The held updates dispatched in the current event&#x27;s transition.</span>
+<span class="del">-let heldStoreUpdatesOfEvent: Array&lt;HeldStoreUpdate&lt;any&gt;&gt; | null = null;</span>
+<span class="add">+// The held updates dispatched in the current event&#x27;s transition, and in the</span>
+<span class="add">+// pending async action, as pairs of store and update.</span>
+<span class="add">+let heldStoreUpdatesOfEvent: Array&lt;any&gt; | null = null;</span>
+<span class="add">+let heldStoreUpdatesOfAction: Array&lt;any&gt; | null = null;</span>
+ 
+ function getHeldStoreUpdateLane(update: HeldStoreUpdate&lt;any&gt;): Lane {
+   const lane = heldStoreUpdateLanes.get(update);
+
+<span class="hunk">@@ -375,13 +393,17 @@ function dispatchUnreadStoreUpdate&lt;T, A&gt;(</span>
+     let lane = NoLane;
+     if (transition !== null) {
+       lane = requestTransitionLane(transition);
+<span class="del">-      // Like any other transition update, reset the event&#x27;s transition lane</span>
+<span class="del">-      // once the event is over, so a later transition gets its own.</span>
+<span class="del">-      ensureScheduleIsScheduled();</span>
+<span class="del">-      if (heldStoreUpdatesOfEvent === null) {</span>
+<span class="del">-        heldStoreUpdatesOfEvent = [update];</span>
+<span class="add">+      if (lane === peekEntangledActionLane()) {</span>
+<span class="add">+        holdStoreUpdateUntilActionIsDone(store, update);</span>
+       } else {
+<span class="del">-        heldStoreUpdatesOfEvent.push(update);</span>
+<span class="add">+        // Like any other transition update, reset the event&#x27;s transition</span>
+<span class="add">+        // lane once the event is over, so a later transition gets its own.</span>
+<span class="add">+        ensureScheduleIsScheduled();</span>
+<span class="add">+        if (heldStoreUpdatesOfEvent === null) {</span>
+<span class="add">+          heldStoreUpdatesOfEvent = [store, update];</span>
+<span class="add">+        } else {</span>
+<span class="add">+          heldStoreUpdatesOfEvent.push(store, update);</span>
+<span class="add">+        }</span>
+       }
+     }
+     heldStoreUpdateLanes.set(update, lane);
+
+<span class="hunk">@@ -418,22 +440,83 @@ export function finishHeldStoreUpdatesOfEvent(</span>
+     return;
+   }
+   heldStoreUpdatesOfEvent = null;
+<span class="del">-  if (isTransitionPending) {</span>
+<span class="add">+  // The updates an async action dispatched before it awaited have the</span>
+<span class="add">+  // event&#x27;s lane, which is now the action&#x27;s. They&#x27;re done when the action is.</span>
+<span class="add">+  const entangledActionLane = peekEntangledActionLane();</span>
+<span class="add">+  let finished = null;</span>
+<span class="add">+  for (let i = 0; i &lt; updates.length; i += 2) {</span>
+<span class="add">+    const store: ReactStore&lt;any, any&gt; = updates[i];</span>
+<span class="add">+    const update: HeldStoreUpdate&lt;any&gt; = updates[i + 1];</span>
+<span class="add">+    if (</span>
+<span class="add">+      entangledActionLane !== NoLane &amp;&amp;</span>
+<span class="add">+      heldStoreUpdateLanes.get(update) === entangledActionLane</span>
+<span class="add">+    ) {</span>
+<span class="add">+      holdStoreUpdateUntilActionIsDone(store, update);</span>
+<span class="add">+    } else if (!isTransitionPending) {</span>
+<span class="add">+      if (finished === null) {</span>
+<span class="add">+        finished = [store, update];</span>
+<span class="add">+      } else {</span>
+<span class="add">+        finished.push(store, update);</span>
+<span class="add">+      }</span>
+<span class="add">+    }</span>
+<span class="add">+  }</span>
+<span class="add">+  if (finished !== null) {</span>
+<span class="add">+    finishHeldStoreUpdates(finished);</span>
+<span class="add">+  }</span>
+<span class="add">+}</span>
+<span class="add">+</span>
+<span class="add">+function holdStoreUpdateUntilActionIsDone(</span>
+<span class="add">+  store: ReactStore&lt;any, any&gt;,</span>
+<span class="add">+  update: HeldStoreUpdate&lt;any&gt;,</span>
+<span class="add">+): void {</span>
+<span class="add">+  if (heldStoreUpdatesOfAction === null) {</span>
+<span class="add">+    heldStoreUpdatesOfAction = [store, update];</span>
+<span class="add">+    const entangledActionThenable = peekEntangledActionThenable();</span>
+<span class="add">+    if (entangledActionThenable !== null) {</span>
+<span class="add">+      entangledActionThenable.then(</span>
+<span class="add">+        finishHeldStoreUpdatesOfAction,</span>
+<span class="add">+        finishHeldStoreUpdatesOfAction,</span>
+<span class="add">+      );</span>
+<span class="add">+    }</span>
+<span class="add">+  } else {</span>
+<span class="add">+    heldStoreUpdatesOfAction.push(store, update);</span>
+<span class="add">+  }</span>
+<span class="add">+}</span>
+<span class="add">+</span>
+<span class="add">+// Called when the pending async action is done. The same as at the end of an</span>
+<span class="add">+// event: unless a root still has the action&#x27;s lane pending, its held updates</span>
+<span class="add">+// are done.</span>
+<span class="add">+function finishHeldStoreUpdatesOfAction(): void {</span>
+<span class="add">+  const updates = heldStoreUpdatesOfAction;</span>
+<span class="add">+  if (updates === null) {</span>
+     return;
+   }
+<span class="del">-  const entangledActionLane = peekEntangledActionLane();</span>
+<span class="del">-  for (let i = 0; i &lt; updates.length; i++) {</span>
+<span class="del">-    const update = updates[i];</span>
+<span class="del">-    const lane = heldStoreUpdateLanes.get(update);</span>
+<span class="del">-    if (lane !== undefined &amp;&amp; lane !== entangledActionLane) {</span>
+<span class="add">+  heldStoreUpdatesOfAction = null;</span>
+<span class="add">+  const lane = heldStoreUpdateLanes.get(updates[1]);</span>
+<span class="add">+  if (lane === undefined || !isLanePendingOnScheduledRoot(lane)) {</span>
+<span class="add">+    finishHeldStoreUpdates(updates);</span>
+<span class="add">+  }</span>
+<span class="add">+}</span>
+<span class="add">+</span>
+<span class="add">+function finishHeldStoreUpdates(updates: Array&lt;any&gt;): void {</span>
+<span class="add">+  for (let i = 0; i &lt; updates.length; i += 2) {</span>
+<span class="add">+    const update: HeldStoreUpdate&lt;any&gt; = updates[i + 1];</span>
+<span class="add">+    if (heldStoreUpdateLanes.has(update)) {</span>
+       heldStoreUpdateLanes.set(update, NoLane);
+     }
+   }
+<span class="add">+  // Apply the ones that are done now, instead of at the next commit, so an</span>
+<span class="add">+  // urgent update isn&#x27;t held behind them, a reducer error is reported, and</span>
+<span class="add">+  // the store isn&#x27;t kept alive until then.</span>
+<span class="add">+  for (let i = 0; i &lt; updates.length; i += 2) {</span>
+<span class="add">+    settlePendingTransitionUpdates(updates[i], null);</span>
+<span class="add">+  }</span>
+ }
+ 
+ // Applies the held updates whose transitions are done to the latest value of
+ // the store. A transition is done unless it&#x27;s the pending async action, or
+<span class="del">-// it&#x27;s still pending on the given root.</span>
+<span class="add">+// it&#x27;s still pending on the given root. With no root, only the updates whose</span>
+<span class="add">+// transitions are known to be done are applied.</span>
+ function settlePendingTransitionUpdates(
+   store: ReactStore&lt;any, any&gt;,
+   root: FiberRoot | null,</code></pre><pre class="code diff"><code><span class="hunk">--- packages/react-reconciler/src/ReactFiberRootScheduler.js</span>
+<span class="hunk">@@ -346,14 +346,9 @@ function processRootScheduleInMicrotask() {</span>
+     if (enableStore) {
+       // Store updates that this event&#x27;s transition held are done if the
+       // transition has nothing else to render.
+<span class="del">-      let isTransitionPending = false;</span>
+<span class="del">-      let scheduledRoot = firstScheduledRoot;</span>
+<span class="del">-      while (scheduledRoot !== null &amp;&amp; !isTransitionPending) {</span>
+<span class="del">-        isTransitionPending =</span>
+<span class="del">-          (scheduledRoot.pendingLanes &amp; currentEventTransitionLane) !== NoLanes;</span>
+<span class="del">-        scheduledRoot = scheduledRoot.next;</span>
+<span class="del">-      }</span>
+<span class="del">-      finishHeldStoreUpdatesOfEvent(isTransitionPending);</span>
+<span class="add">+      finishHeldStoreUpdatesOfEvent(</span>
+<span class="add">+        isLanePendingOnScheduledRoot(currentEventTransitionLane),</span>
+<span class="add">+      );</span>
+     }
+     // Reset Event Transition Lane so that we allocate a new one next time.
+     currentEventTransitionLane = NoLane;
+
+<span class="hunk">@@ -361,6 +356,19 @@ function processRootScheduleInMicrotask() {</span>
+   }
+ }
+ 
+<span class="add">+// Whether any root has work pending in the lane. A root with pending work is</span>
+<span class="add">+// always scheduled.</span>
+<span class="add">+export function isLanePendingOnScheduledRoot(lane: Lane): boolean {</span>
+<span class="add">+  let root = firstScheduledRoot;</span>
+<span class="add">+  while (root !== null) {</span>
+<span class="add">+    if ((root.pendingLanes &amp; lane) !== NoLanes) {</span>
+<span class="add">+      return true;</span>
+<span class="add">+    }</span>
+<span class="add">+    root = root.next;</span>
+<span class="add">+  }</span>
+<span class="add">+  return false;</span>
+<span class="add">+}</span>
+<span class="add">+</span>
+ function startDefaultTransitionIndicatorIfNeeded() {
+   if (!enableDefaultTransitionIndicator) {
+     return;</code></pre></details>
+<details><summary>Test: <code>a held update from an async action that is done is visible after its lane is reused</code> <span class="file">packages/react-reconciler/src/__tests__/ReactUseStoreReviewTransitions-test.js</span></summary><pre class="code js"><code>// @gate enableStore
+it(&#x27;a held update from an async action that is done is visible after its lane is reused&#x27;, async () =&gt; {
+  await renderHeldActionUpdateAfterTransitions(9);
+});</code></pre></details>
+</section>
+<section class="card fixed" id="F4">
+<h3><span class="tag">F4</span> Done held updates stayed on the store until some unrelated commit</h3>
+<p class="by">Found by: Fuzzer (finding 1) and slice 4 (F2, memory)</p>
+<p>When a transition with nothing else to render finished, its held updates only had their lane cleared. They were applied at the next commit of any root. Until then, every later urgent update was held behind them, <code>update()</code> didn't throw a reducer error synchronously (DCP-14), and a module-level <code>Set</code> kept the store alive, so a store only components held couldn't be garbage collected after they unmounted (slice 4 proved this with a real GC test).</p>
+<p><strong>Fix:</strong> when an event's transition or an async action is done, apply its done held updates right away. <code>settlePendingTransitionUpdates(store, null)</code> now means "apply only the updates known to be done". Two existing tests see the held reducer error one <code>act</code> earlier, when the transition's event ends, and their expectations moved.</p>
+<details open><summary>Fix (diff)</summary><pre class="code diff"><code><span class="hunk">--- packages/react-reconciler/src/ReactFiberStore.js</span>
+<span class="hunk">@@ -418,22 +440,83 @@ export function finishHeldStoreUpdatesOfEvent(</span>
+     return;
+   }
+   heldStoreUpdatesOfEvent = null;
+<span class="del">-  if (isTransitionPending) {</span>
+<span class="add">+  // The updates an async action dispatched before it awaited have the</span>
+<span class="add">+  // event&#x27;s lane, which is now the action&#x27;s. They&#x27;re done when the action is.</span>
+<span class="add">+  const entangledActionLane = peekEntangledActionLane();</span>
+<span class="add">+  let finished = null;</span>
+<span class="add">+  for (let i = 0; i &lt; updates.length; i += 2) {</span>
+<span class="add">+    const store: ReactStore&lt;any, any&gt; = updates[i];</span>
+<span class="add">+    const update: HeldStoreUpdate&lt;any&gt; = updates[i + 1];</span>
+<span class="add">+    if (</span>
+<span class="add">+      entangledActionLane !== NoLane &amp;&amp;</span>
+<span class="add">+      heldStoreUpdateLanes.get(update) === entangledActionLane</span>
+<span class="add">+    ) {</span>
+<span class="add">+      holdStoreUpdateUntilActionIsDone(store, update);</span>
+<span class="add">+    } else if (!isTransitionPending) {</span>
+<span class="add">+      if (finished === null) {</span>
+<span class="add">+        finished = [store, update];</span>
+<span class="add">+      } else {</span>
+<span class="add">+        finished.push(store, update);</span>
+<span class="add">+      }</span>
+<span class="add">+    }</span>
+<span class="add">+  }</span>
+<span class="add">+  if (finished !== null) {</span>
+<span class="add">+    finishHeldStoreUpdates(finished);</span>
+<span class="add">+  }</span>
+<span class="add">+}</span>
+<span class="add">+</span>
+<span class="add">+function holdStoreUpdateUntilActionIsDone(</span>
+<span class="add">+  store: ReactStore&lt;any, any&gt;,</span>
+<span class="add">+  update: HeldStoreUpdate&lt;any&gt;,</span>
+<span class="add">+): void {</span>
+<span class="add">+  if (heldStoreUpdatesOfAction === null) {</span>
+<span class="add">+    heldStoreUpdatesOfAction = [store, update];</span>
+<span class="add">+    const entangledActionThenable = peekEntangledActionThenable();</span>
+<span class="add">+    if (entangledActionThenable !== null) {</span>
+<span class="add">+      entangledActionThenable.then(</span>
+<span class="add">+        finishHeldStoreUpdatesOfAction,</span>
+<span class="add">+        finishHeldStoreUpdatesOfAction,</span>
+<span class="add">+      );</span>
+<span class="add">+    }</span>
+<span class="add">+  } else {</span>
+<span class="add">+    heldStoreUpdatesOfAction.push(store, update);</span>
+<span class="add">+  }</span>
+<span class="add">+}</span>
+<span class="add">+</span>
+<span class="add">+// Called when the pending async action is done. The same as at the end of an</span>
+<span class="add">+// event: unless a root still has the action&#x27;s lane pending, its held updates</span>
+<span class="add">+// are done.</span>
+<span class="add">+function finishHeldStoreUpdatesOfAction(): void {</span>
+<span class="add">+  const updates = heldStoreUpdatesOfAction;</span>
+<span class="add">+  if (updates === null) {</span>
+     return;
+   }
+<span class="del">-  const entangledActionLane = peekEntangledActionLane();</span>
+<span class="del">-  for (let i = 0; i &lt; updates.length; i++) {</span>
+<span class="del">-    const update = updates[i];</span>
+<span class="del">-    const lane = heldStoreUpdateLanes.get(update);</span>
+<span class="del">-    if (lane !== undefined &amp;&amp; lane !== entangledActionLane) {</span>
+<span class="add">+  heldStoreUpdatesOfAction = null;</span>
+<span class="add">+  const lane = heldStoreUpdateLanes.get(updates[1]);</span>
+<span class="add">+  if (lane === undefined || !isLanePendingOnScheduledRoot(lane)) {</span>
+<span class="add">+    finishHeldStoreUpdates(updates);</span>
+<span class="add">+  }</span>
+<span class="add">+}</span>
+<span class="add">+</span>
+<span class="add">+function finishHeldStoreUpdates(updates: Array&lt;any&gt;): void {</span>
+<span class="add">+  for (let i = 0; i &lt; updates.length; i += 2) {</span>
+<span class="add">+    const update: HeldStoreUpdate&lt;any&gt; = updates[i + 1];</span>
+<span class="add">+    if (heldStoreUpdateLanes.has(update)) {</span>
+       heldStoreUpdateLanes.set(update, NoLane);
+     }
+   }
+<span class="add">+  // Apply the ones that are done now, instead of at the next commit, so an</span>
+<span class="add">+  // urgent update isn&#x27;t held behind them, a reducer error is reported, and</span>
+<span class="add">+  // the store isn&#x27;t kept alive until then.</span>
+<span class="add">+  for (let i = 0; i &lt; updates.length; i += 2) {</span>
+<span class="add">+    settlePendingTransitionUpdates(updates[i], null);</span>
+<span class="add">+  }</span>
+ }
+ 
+ // Applies the held updates whose transitions are done to the latest value of
+ // the store. A transition is done unless it&#x27;s the pending async action, or
+<span class="del">-// it&#x27;s still pending on the given root.</span>
+<span class="add">+// it&#x27;s still pending on the given root. With no root, only the updates whose</span>
+<span class="add">+// transitions are known to be done are applied.</span>
+ function settlePendingTransitionUpdates(
+   store: ReactStore&lt;any, any&gt;,
+   root: FiberRoot | null,
+
+<span class="hunk">@@ -450,8 +533,9 @@ function settlePendingTransitionUpdates(</span>
+     const lane = getHeldStoreUpdateLane(pending[i]);
+     if (
+       lane !== NoLane &amp;&amp;
+<span class="del">-      (lane === entangledActionLane ||</span>
+<span class="del">-        (root !== null &amp;&amp; (root.pendingLanes &amp; lane) !== NoLanes))</span>
+<span class="add">+      (root === null ||</span>
+<span class="add">+        lane === entangledActionLane ||</span>
+<span class="add">+        (root.pendingLanes &amp; lane) !== NoLanes)</span>
+     ) {
+       break;
+     }</code></pre><pre class="code diff"><code><span class="hunk">--- packages/react-reconciler/src/__tests__/ReactUseStore-test.js</span>
+<span class="hunk">@@ -2961,16 +2961,17 @@ describe(&#x27;reducer errors&#x27;, () =&gt; {</span>
+     assertLog([&#x27;Nothing&#x27;]);
+ 
+     // No root reads the store, so the update is held. The transition has
+<span class="del">-    // nothing else to render, so it&#x27;s done.</span>
+<span class="add">+    // nothing else to render, so it&#x27;s done at the end of the event, and the</span>
+<span class="add">+    // held update is applied. The error is reported, not silently dropped.</span>
+     await act(() =&gt; {
+       startTransition(() =&gt; {
+         store.update(&#x27;throw&#x27;);
+       });
+     });
+<span class="del">-    // The held update is applied when the first reader mounts. The error is</span>
+<span class="del">-    // reported, not silently dropped.</span>
+<span class="add">+    assertLog([&#x27;reportError: Oops&#x27;]);</span>
+<span class="add">+</span>
+     await act(() =&gt; root.render(&lt;Reader /&gt;));
+<span class="del">-    assertLog([&#x27;reportError: Oops&#x27;, &#x27;Reader: 0&#x27;]);</span>
+<span class="add">+    assertLog([&#x27;Reader: 0&#x27;]);</span>
+   });
+ 
+   // @gate enableStore
+
+<span class="hunk">@@ -2994,15 +2995,17 @@ describe(&#x27;reducer errors&#x27;, () =&gt; {</span>
+       .spyOn(console, &#x27;error&#x27;)
+       .mockImplementation(() =&gt; {});
+     try {
+<span class="del">-      // No root reads the store, so the update is held.</span>
+<span class="add">+      // No root reads the store, so the update is held. Its transition has</span>
+<span class="add">+      // nothing else to render, so it&#x27;s applied at the end of the event. The</span>
+<span class="add">+      // error is reported, and the update is dropped.</span>
+       await act(() =&gt; {
+         startTransition(() =&gt; {
+           store.update(&#x27;read context&#x27;);
+         });
+       });
+<span class="del">-      // The first reader applies the held update while it renders, with its</span>
+<span class="del">-      // dispatcher installed. The reducer still runs without one. The error</span>
+<span class="del">-      // is reported, and the update is dropped.</span>
+<span class="add">+      assertLog([</span>
+<span class="add">+        &quot;reportError: Cannot read properties of null (reading &#x27;useContext&#x27;)&quot;,</span>
+<span class="add">+      ]);</span>
+       const root = ReactNoop.createRoot();
+       await act(() =&gt; {
+         root.render(
+
+<span class="hunk">@@ -3013,10 +3016,7 @@ describe(&#x27;reducer errors&#x27;, () =&gt; {</span>
+           &lt;/Context&gt;,
+         );
+       });
+<span class="del">-      assertLog([</span>
+<span class="del">-        &quot;reportError: Cannot read properties of null (reading &#x27;useContext&#x27;)&quot;,</span>
+<span class="del">-        &#x27;Reader: 0&#x27;,</span>
+<span class="del">-      ]);</span>
+<span class="add">+      assertLog([&#x27;Reader: 0&#x27;]);</span>
+ 
+       // When the HostRoot processes an update, the reader throws the error.
+       // The reducer never sees the reader&#x27;s context.</code></pre></details>
+<details><summary>Test: <code>a transition with nothing else to render applies its held updates at the end of the event</code> <span class="file">packages/react-reconciler/src/__tests__/ReactUseStoreFuzz-test.internal.js</span></summary><pre class="code js"><code>// @gate enableStore
+it(&#x27;a transition with nothing else to render applies its held updates at the end of the event&#x27;, async () =&gt; {
+  const store = createStore(&#x27;A&#x27;, (state, action) =&gt; {
+    if (action === &#x27;throw&#x27;) {
+      throw new Error(&#x27;Oops&#x27;);
+    }
+    return action;
+  });
+  ReactNoop.createRoot().render(&lt;span prop=&quot;unrelated&quot; /&gt;);
+  await act(() =&gt; {});
+
+  // No root reads the store, and the transition has nothing else to
+  // render, so it&#x27;s done at the end of the event.
+  await act(() =&gt; startTransition(() =&gt; store.update(&#x27;B&#x27;)));
+  expect(store._pendingTransitionUpdates).toBe(null);
+
+  // So an urgent update to the store isn&#x27;t held behind it. It&#x27;s applied
+  // right away, and a reducer error throws (DCP-14).
+  expect(() =&gt; store.update(&#x27;throw&#x27;)).toThrow(&#x27;Oops&#x27;);
+  for (let i = 0; i &lt; 100; i++) {
+    store.update(&#x27;C&#x27; + i);
+  }
+  expect(store._pendingTransitionUpdates).toBe(null);
+});</code></pre></details>
+<details><summary>Test: <code>a store updated in a transition after its readers unmounted is collected without another commit</code> <span class="file">packages/react-reconciler/src/__tests__/ReactUseStoreReviewErrorsLifetime-test.js</span></summary><pre class="code js"><code>// @gate enableStore
+it(&#x27;a store updated in a transition after its readers unmounted is collected without another commit&#x27;, async () =&gt; {
+  let update;
+  async function mount() {
+    const root = ReactNoop.createRoot();
+    let ref;
+    function Owner() {
+      const [store] = useState(() =&gt; createStore(0));
+      ref = ref || new WeakRef(store);
+      update = store.update;
+      return &lt;Text text={&#x27;Value: &#x27; + use(store)} /&gt;;
+    }
+    await act(() =&gt; root.render(&lt;Owner /&gt;));
+    assertLog([&#x27;Value: 0&#x27;]);
+    await act(() =&gt; root.render(null));
+    // A stale handler updates the store in a transition. No root reads it,
+    // so the update is held until the transition is done. The transition
+    // has nothing to render, so it&#x27;s done at the end of the event.
+    await act(() =&gt; startTransition(() =&gt; update(1)));
+    update = null;
+    return {root, ref};
+  }
+  const {ref} = await mount();
+  expect(await isCollected(ref)).toBe(true);
+});</code></pre></details>
+</section>
+<section class="card fixed" id="F5">
+<h3><span class="tag">F5</span> A render that skipped a store re-ran its reducer, giving the value a new identity</h3>
+<p class="by">Found by: Fuzzer (finding 2)</p>
+<p><code>canUseCommittedStoreState</code> returned false whenever the record had unprocessed updates, even when none were in the render's lanes. So a sync render for another store re-ran this store's reducer over its rebased queue and committed a new state object, and effects that depend on the value re-fired. <code>useReducer</code> doesn't run a Hook whose component doesn't render. <code>record.lanes</code> already includes every pending update's lane, so the early return wasn't needed.</p>
+<details open><summary>Fix (diff)</summary><pre class="code diff"><code><span class="hunk">--- packages/react-reconciler/src/ReactFiberStore.js</span>
+<span class="hunk">@@ -511,13 +595,11 @@ function canUseCommittedStoreState(</span>
+   record: StoreRecord&lt;any, any&gt;,
+   renderLanes: Lanes,
+ ): boolean {
+<span class="del">-  if (record.pending !== null) {</span>
+<span class="del">-    return false;</span>
+<span class="del">-  }</span>
+<span class="del">-  if (record.committed.baseQueue === null) {</span>
+<span class="add">+  if (record.pending === null &amp;&amp; record.committed.baseQueue === null) {</span>
+     return true;
+   }
+<span class="del">-  // The record&#x27;s lanes include the lanes of every update in its queue.</span>
+<span class="add">+  // The record&#x27;s lanes include the lanes of every update in its queues,</span>
+<span class="add">+  // including the ones that haven&#x27;t been processed yet.</span>
+   return (
+     !record.hasUnprocessedHeldUpdates &amp;&amp;
+     (record.lanes &amp; renderLanes) === NoLanes</code></pre></details>
+<details><summary>Test: <code>a render that skips every update to a store with a new update in another lane does not run its reducer again</code> <span class="file">packages/react-reconciler/src/__tests__/ReactUseStoreFuzz-test.internal.js</span></summary><pre class="code js"><code>// @gate enableStore
+it(&#x27;a render that skips every update to a store with a new update in another lane does not run its reducer again&#x27;, async () =&gt; {
+  let reducerCalls = 0;
+  const store = createStore({n: 0}, (state, action) =&gt; {
+    reducerCalls++;
+    return {n: state.n + action};
+  });
+  const other = createStore(0);
+  const effects = [];
+
+  function Reader() {
+    const value = use(store);
+    const count = use(other);
+    useEffect(() =&gt; {
+      effects.push(value.n);
+    }, [value]);
+    return &lt;span prop={value.n + &#x27;:&#x27; + count} /&gt;;
+  }
+
+  const root = ReactNoop.createRoot();
+  await act(() =&gt; root.render(&lt;Reader /&gt;));
+  expect(effects).toEqual([0]);
+
+  // A transition update, and a sync update that&#x27;s rebased on top of it.
+  // The sync update commits, and flushes its effects; the transition is
+  // still pending.
+  startTransition(() =&gt; store.update(1));
+  ReactNoop.flushSync(() =&gt; store.update(10));
+  expect(root).toMatchRenderedOutput(&lt;span prop=&quot;10:0&quot; /&gt;);
+  expect(effects).toEqual([0, 10]);
+
+  // Another transition update to the store. It isn&#x27;t rendered yet.
+  startTransition(() =&gt; store.update(100));
+  const callsBefore = reducerCalls;
+
+  // A sync render for another store. It includes no update to `store`,
+  // so, like a useReducer Hook whose component doesn&#x27;t render, the store&#x27;s
+  // reducer doesn&#x27;t run and its value keeps its identity.
+  ReactNoop.flushSync(() =&gt; other.update(1));
+  expect(root).toMatchRenderedOutput(&lt;span prop=&quot;10:1&quot; /&gt;);
+  expect(effects).toEqual([0, 10]);
+  expect(reducerCalls).toBe(callsBefore);
+
+  await act(() =&gt; {});
+  expect(root).toMatchRenderedOutput(&lt;span prop=&quot;111:1&quot; /&gt;);
+});</code></pre></details>
+</section>
+<section class="card fixed" id="F6">
+<h3><span class="tag">F6</span> Legacy: nested updates from a synchronous commit reached later roots before the outer update</h3>
+<p class="by">Found by: Slice 5 (F1). This corrects my earlier claim that the dispatch loop had no reachable failure.</p>
+<p><code>store.update</code> dispatches to each root in turn, and dispatching to a legacy root renders and commits it synchronously. A <code>store.update</code> from that commit (a layout effect, <code>componentDidMount</code>, <code>componentDidUpdate</code>) ran its whole loop before the outer update reached the remaining roots, so they got the updates out of order and ended on different values.</p>
+<p><strong>Fix:</strong> deliver each update to a root only after every earlier update has been delivered to that root. A nested update still reaches the roots that already have the outer one right away (so the render-phase warning still fires), and waits for the rest. A rejected dispatch (an infinite update loop) isn't counted as delivered, so it's still removed from the latest value.</p>
+<details open><summary>Fix (diff)</summary><pre class="code diff"><code><span class="hunk">--- packages/react/src/ReactStore.js</span>
+<span class="hunk">@@ -70,30 +70,84 @@ function updateStore&lt;T, A&gt;(this: ReactStore&lt;T, A&gt;, action: A): void {</span>
+   } else {
+     headQueue.push(action);
+   }
+<span class="del">-  // Dispatching can render synchronously, which can update the store again,</span>
+<span class="del">-  // so remember where this action is.</span>
+<span class="del">-  const headIndex = headQueue.length - 1;</span>
+<span class="del">-  if (records.length === 1) {</span>
+<span class="del">-    try {</span>
+<span class="del">-      records[0].dispatch(records[0], action);</span>
+<span class="del">-    } catch (error) {</span>
+<span class="del">-      // The root rejected the update before queueing it, for example because</span>
+<span class="del">-      // of an infinite update loop. Don&#x27;t apply it to the latest value either.</span>
+<span class="del">-      removeHeadAction(this, headQueue, headIndex);</span>
+<span class="del">-      throw error;</span>
+<span class="del">-    }</span>
+<span class="del">-  } else {</span>
+<span class="add">+  const dispatching = dispatchingStores.get(this);</span>
+<span class="add">+  if (dispatching !== undefined) {</span>
+<span class="add">+    // A root rendered synchronously while this store was dispatching an</span>
+<span class="add">+    // earlier update to its records, and updated the store again. Every</span>
+<span class="add">+    // root has to get the updates in the order they were dispatched, so</span>
+<span class="add">+    // deliver this one to each root after the earlier ones.</span>
+<span class="add">+    dispatching.updates.push({action, delivered: 0});</span>
+<span class="add">+    deliverStoreUpdates(dispatching);</span>
+<span class="add">+    return;</span>
+<span class="add">+  }</span>
+<span class="add">+  const updates = [{action, delivered: 0}];</span>
+<span class="add">+  const dispatch: StoreDispatch&lt;A&gt; = {</span>
+     // A legacy root renders synchronously when it&#x27;s updated, and its commit
+<span class="del">-    // can drop records, so iterate over a copy.</span>
+<span class="del">-    const snapshot = records.slice();</span>
+<span class="del">-    try {</span>
+<span class="del">-      snapshot[0].dispatch(snapshot[0], action);</span>
+<span class="del">-    } catch (error) {</span>
+<span class="del">-      removeHeadAction(this, headQueue, headIndex);</span>
+<span class="del">-      throw error;</span>
+<span class="add">+    // can drop records, so deliver to a copy.</span>
+<span class="add">+    records: this._records.slice(),</span>
+<span class="add">+    updates,</span>
+<span class="add">+  };</span>
+<span class="add">+  dispatchingStores.set(this, dispatch);</span>
+<span class="add">+  try {</span>
+<span class="add">+    deliverStoreUpdates(dispatch);</span>
+<span class="add">+  } catch (error) {</span>
+<span class="add">+    // The root rejected the update before queueing it, for example because</span>
+<span class="add">+    // of an infinite update loop. Don&#x27;t apply the updates that no root</span>
+<span class="add">+    // queued to the latest value either. They&#x27;re the last ones in the head</span>
+<span class="add">+    // queue, so remove them from the end.</span>
+<span class="add">+    for (let i = updates.length - 1; i &gt;= 0; i--) {</span>
+<span class="add">+      const update = updates[i];</span>
+<span class="add">+      if (update.delivered &gt; 0) {</span>
+<span class="add">+        break;</span>
+<span class="add">+      }</span>
+<span class="add">+      const currentHeadQueue = this._headQueue;</span>
+<span class="add">+      if (currentHeadQueue !== null) {</span>
+<span class="add">+        const index = currentHeadQueue.lastIndexOf(update.action);</span>
+<span class="add">+        if (index !== -1) {</span>
+<span class="add">+          removeHeadAction(this, currentHeadQueue, index);</span>
+<span class="add">+        }</span>
+<span class="add">+      }</span>
+     }
+<span class="del">-    for (let i = 1; i &lt; snapshot.length; i++) {</span>
+<span class="del">-      snapshot[i].dispatch(snapshot[i], action);</span>
+<span class="add">+    throw error;</span>
+<span class="add">+  } finally {</span>
+<span class="add">+    dispatchingStores.delete(this);</span>
+<span class="add">+  }</span>
+<span class="add">+}</span>
+<span class="add">+</span>
+<span class="add">+type StoreDispatch&lt;A&gt; = {</span>
+<span class="add">+  records: Array&lt;any&gt;,</span>
+<span class="add">+  // For each update, the number of records it has been delivered to.</span>
+<span class="add">+  updates: Array&lt;{action: A, delivered: number}&gt;,</span>
+<span class="add">+};</span>
+<span class="add">+</span>
+<span class="add">+// The stores that are dispatching updates to their records.</span>
+<span class="add">+const dispatchingStores: Map&lt;</span>
+<span class="add">+  ReactStore&lt;any, any&gt;,</span>
+<span class="add">+  StoreDispatch&lt;any&gt;,</span>
+<span class="add">+&gt; = new Map();</span>
+<span class="add">+</span>
+<span class="add">+// Delivers each update to the records, in order, after every earlier update</span>
+<span class="add">+// has been delivered to the same record. Delivering can render a legacy root</span>
+<span class="add">+// synchronously, and the commit can update the store again, which adds an</span>
+<span class="add">+// update and delivers again before this returns.</span>
+<span class="add">+function deliverStoreUpdates&lt;A&gt;(dispatch: StoreDispatch&lt;A&gt;): void {</span>
+<span class="add">+  const {records, updates} = dispatch;</span>
+<span class="add">+  for (let i = 0; i &lt; updates.length; i++) {</span>
+<span class="add">+    const entry = updates[i];</span>
+<span class="add">+    const limit = i === 0 ? records.length : updates[i - 1].delivered;</span>
+<span class="add">+    while (entry.delivered &lt; limit) {</span>
+<span class="add">+      const record = records[entry.delivered];</span>
+<span class="add">+      // Count it before dispatching, so an update the record&#x27;s commit</span>
+<span class="add">+      // dispatches isn&#x27;t delivered ahead of this one.</span>
+<span class="add">+      entry.delivered++;</span>
+<span class="add">+      try {</span>
+<span class="add">+        record.dispatch(record, entry.action);</span>
+<span class="add">+      } catch (error) {</span>
+<span class="add">+        // The root rejected the update before queueing it, for example</span>
+<span class="add">+        // because of an infinite update loop.</span>
+<span class="add">+        entry.delivered--;</span>
+<span class="add">+        throw error;</span>
+<span class="add">+      }</span>
+     }
+   }
+ }</code></pre></details>
+<details><summary>Test: <code>a concurrent root applies updates in dispatch order when a legacy root dispatches from a layout effect inside store.update</code> <span class="file">packages/react-reconciler/src/__tests__/ReactUseStoreReviewRootsToolingLegacy-test.js</span></summary><pre class="code js"><code>// @gate enableStore &amp;&amp; !disableLegacyMode
+it(&#x27;a concurrent root applies updates in dispatch order when a legacy root dispatches from a layout effect inside store.update&#x27;, async () =&gt; {
+  const store = createStore(&#x27;init&#x27;);
+
+  // The legacy root reads the store first, so it gets the first record and
+  // store.update dispatches to it first.
+  function LegacyReader() {
+    const value = use(store);
+    useLayoutEffect(() =&gt; {
+      if (value === &#x27;a&#x27;) {
+        store.update(&#x27;b&#x27;);
+      }
+    });
+    return &lt;Text text={&#x27;Legacy: &#x27; + value} /&gt;;
+  }
+  ReactNoop.renderLegacySyncRoot(&lt;LegacyReader /&gt;);
+  assertLog([&#x27;Legacy: init&#x27;]);
+
+  function Reader() {
+    return &lt;Text text={&#x27;Concurrent: &#x27; + use(store)} /&gt;;
+  }
+  const root = ReactNoop.createRoot();
+  await act(() =&gt; root.render(&lt;Reader /&gt;));
+  assertLog([&#x27;Concurrent: init&#x27;]);
+
+  // Not batched, so the legacy root renders synchronously before
+  // store.update returns. Its layout effect dispatches &#x27;b&#x27; after &#x27;a&#x27;.
+  global.IS_REACT_ACT_ENVIRONMENT = false;
+  store.update(&#x27;a&#x27;);
+  const syncLog = Scheduler.unstable_clearLog();
+  global.IS_REACT_ACT_ENVIRONMENT = true;
+  await act(() =&gt; {});
+  const concurrentLog = Scheduler.unstable_clearLog();
+  expect(syncLog).toEqual([&#x27;Legacy: a&#x27;, &#x27;Legacy: b&#x27;]);
+  expect(concurrentLog).toEqual([&#x27;Concurrent: b&#x27;]);
+
+  // Dispatch order is &#x27;a&#x27;, then &#x27;b&#x27;. Every root should end on &#x27;b&#x27;.
+  expect(ReactNoop.getChildrenAsJSX()).toEqual(&#x27;Legacy: b&#x27;);
+  expect(root).toMatchRenderedOutput(&#x27;Concurrent: b&#x27;);
+});</code></pre></details>
+<details><summary>Test: <code>two legacy roots apply updates in dispatch order when the first dispatches from componentDidUpdate inside store.update</code> <span class="file">packages/react-reconciler/src/__tests__/ReactUseStoreReviewRootsToolingLegacy-test.js</span></summary><pre class="code js"><code>// @gate enableStore &amp;&amp; !disableLegacyMode
+it(&#x27;two legacy roots apply updates in dispatch order when the first dispatches from componentDidUpdate inside store.update&#x27;, async () =&gt; {
+  const store = createStore(&#x27;init&#x27;);
+
+  class First extends React.Component {
+    componentDidUpdate() {
+      if (this.props.value === &#x27;a&#x27;) {
+        store.update(&#x27;b&#x27;);
+      }
+    }
+    render() {
+      return &lt;Text text={&#x27;First: &#x27; + this.props.value} /&gt;;
+    }
+  }
+  function FirstReader() {
+    return &lt;First value={use(store)} /&gt;;
+  }
+  function SecondReader() {
+    return &lt;Text text={&#x27;Second: &#x27; + use(store)} /&gt;;
+  }
+
+  const first = ReactNoop.createLegacyRoot();
+  const second = ReactNoop.createLegacyRoot();
+  await act(() =&gt; first.render(&lt;FirstReader /&gt;));
+  assertLog([&#x27;First: init&#x27;]);
+  await act(() =&gt; second.render(&lt;SecondReader /&gt;));
+  assertLog([&#x27;Second: init&#x27;]);
+
+  global.IS_REACT_ACT_ENVIRONMENT = false;
+  store.update(&#x27;a&#x27;);
+  global.IS_REACT_ACT_ENVIRONMENT = true;
+  // Today: &#x27;First: a&#x27;, &#x27;Second: b&#x27;, &#x27;First: b&#x27;, &#x27;Second: a&#x27;. The first
+  // root renders &#x27;a&#x27; synchronously, and &#x27;b&#x27; from its componentDidUpdate
+  // reaches the second root before &#x27;a&#x27; does.
+  Scheduler.unstable_clearLog();
+  await act(() =&gt; {});
+  assertLog([]);
+
+  expect(first).toMatchRenderedOutput(&#x27;First: b&#x27;);
+  expect(second).toMatchRenderedOutput(&#x27;Second: b&#x27;);
+});</code></pre></details>
+</section>
+<section class="card fixed" id="F7">
+<h3><span class="tag">F7</span> Legacy: a held action update gave a legacy root a transition lane, and a thenable escaped act</h3>
+<p class="by">Found by: Slice 5 (F2)</p>
+<p>A reader mounting in a legacy root took over a held update with the action's transition lane, and the legacy root rendered that lane concurrently. The action's raw thenable escaped the render. Everywhere else a legacy root only gets <code>SyncLane</code>.</p>
+<p><strong>Fix:</strong> a legacy root takes held updates at <code>SyncLane</code>, like a <code>setState</code> in an action on a legacy root. Which value a legacy root should show during the action is a design question, and this picks legacy <code>useState</code> parity.</p>
+<details open><summary>Fix (diff)</summary><pre class="code diff"><code><span class="hunk">--- packages/react-reconciler/src/ReactFiberStore.js</span>
+<span class="hunk">@@ -271,7 +282,12 @@ export function getStoreRecord&lt;T, A&gt;(</span>
+     for (let i = 0; i &lt; pendingTransitionUpdates.length; i++) {
+       const heldUpdate = pendingTransitionUpdates[i];
+       const action = heldUpdate.action;
+<span class="del">-      const lane = getHeldStoreUpdateLane(heldUpdate);</span>
+<span class="add">+      let lane = getHeldStoreUpdateLane(heldUpdate);</span>
+<span class="add">+      if (lane !== NoLane &amp;&amp; !disableLegacyMode &amp;&amp; root.tag === LegacyRoot) {</span>
+<span class="add">+        // A legacy root renders every update synchronously, including the</span>
+<span class="add">+        // ones in a transition, like a setState in an action on a legacy root.</span>
+<span class="add">+        lane = SyncLane;</span>
+<span class="add">+      }</span>
+       const update: StoreUpdate&lt;A&gt; = {
+         lane,
+         action,</code></pre></details>
+<details><summary>Test: <code>a legacy reader that mounts while an async action holds an update to the store</code> <span class="file">packages/react-reconciler/src/__tests__/ReactUseStoreReviewRootsToolingLegacy-test.js</span></summary><pre class="code js"><code>// @gate enableStore &amp;&amp; !disableLegacyMode
+it(&#x27;a legacy reader that mounts while an async action holds an update to the store&#x27;, async () =&gt; {
+  const store = createStore(1);
+  function Reader() {
+    return &lt;Text text={&#x27;Reader: &#x27; + use(store)} /&gt;;
+  }
+
+  // Nothing reads the store, so the action&#x27;s update is held.
+  let resolve;
+  await act(() =&gt; {
+    React.startTransition(async () =&gt; {
+      store.update(2);
+      await new Promise(r =&gt; (resolve = r));
+    });
+  });
+
+  // Today this throws the action&#x27;s thenable out of act: the legacy root
+  // takes over the held update with its transition lane, renders that lane
+  // with renderRootConcurrent, and the reader suspends on the action.
+  await act(() =&gt; ReactNoop.renderLegacySyncRoot(&lt;Reader /&gt;));
+  // Which value a legacy root should show while the action is pending is a
+  // design question (a concurrent root shows 1; legacy roots render every
+  // update synchronously). Either way it must not throw.
+  const mountLog = Scheduler.unstable_clearLog();
+  expect(
+    mountLog.join() === &#x27;Reader: 1&#x27; || mountLog.join() === &#x27;Reader: 2&#x27;,
+  ).toBe(true);
+
+  await act(() =&gt; resolve());
+  Scheduler.unstable_clearLog();
+  expect(ReactNoop.getChildrenAsJSX()).toEqual(&#x27;Reader: 2&#x27;);
+  expect(store._pendingTransitionUpdates).toBe(null);
+  expect(store._headQueue).toBe(null);
+
+  await act(() =&gt; store.update(3));
+  assertLog([&#x27;Reader: 3&#x27;]);
+});</code></pre></details>
+</section>
+<section class="card fixed" id="F8">
+<h3><span class="tag">F8</span> Legacy: a store update never retried a boundary whose reader suspended on mount (B-18)</h3>
+<p class="by">Found by: Slice 5 (F3)</p>
+<p>In legacy mode, <code>throwException</code> calls <code>resetSuspendedComponent</code>, which puts back the suspended fiber's pre-render update queue, and that erased the reads of a reader that suspended on mount before the boundary collected them. The record was dropped at commit, and the boundary never subscribed.</p>
+<p><strong>Fix:</strong> capture the suspended component's reads before the reset, and pass them to the collection.</p>
+<details open><summary>Fix (diff)</summary><pre class="code diff"><code><span class="hunk">--- packages/react-reconciler/src/ReactFiberThrow.js</span>
+<span class="hunk">@@ -384,6 +384,18 @@ function throwException(</span>
+     if (typeof value.then === &#x27;function&#x27;) {
+       // This is a wakeable. The component suspended.
+       const wakeable: Wakeable = value as any;
+<span class="add">+      let sourceStoreReads = null;</span>
+<span class="add">+      if (enableStore) {</span>
+<span class="add">+        // In legacy mode, resetSuspendedComponent discards the render of the</span>
+<span class="add">+        // component that suspended, including the stores it read.</span>
+<span class="add">+        const sourceUpdateQueue: any = sourceFiber.updateQueue;</span>
+<span class="add">+        if (</span>
+<span class="add">+          sourceUpdateQueue !== null &amp;&amp;</span>
+<span class="add">+          sourceUpdateQueue.storeReads != null</span>
+<span class="add">+        ) {</span>
+<span class="add">+          sourceStoreReads = sourceUpdateQueue.storeReads;</span>
+<span class="add">+        }</span>
+<span class="add">+      }</span>
+       resetSuspendedComponent(sourceFiber, rootRenderLanes);
+ 
+       if (__DEV__) {
+
+<span class="hunk">@@ -470,7 +482,11 @@ function throwException(</span>
+               suspenseBoundary.flags |= ScheduleRetry;
+             } else {
+               if (enableStore &amp;&amp; suspenseBoundary.tag === SuspenseComponent) {
+<span class="del">-                collectStoreReadsOfSuspendedTree(sourceFiber, suspenseBoundary);</span>
+<span class="add">+                collectStoreReadsOfSuspendedTree(</span>
+<span class="add">+                  sourceFiber,</span>
+<span class="add">+                  sourceStoreReads,</span>
+<span class="add">+                  suspenseBoundary,</span>
+<span class="add">+                );</span>
+               }
+               const retryQueue: RetryQueue | null =
+                 suspenseBoundary.updateQueue as any;</code></pre><pre class="code diff"><code><span class="hunk">--- packages/react-reconciler/src/ReactFiberStore.js</span>
+<span class="hunk">@@ -1065,39 +1170,49 @@ export function unsubscribeFromStoresOnDeletion(fiber: Fiber): void {</span>
+ // boundary, like an update to a context they read.
+ export function collectStoreReadsOfSuspendedTree(
+   sourceFiber: Fiber,
+<span class="add">+  // The stores the component that suspended read. In legacy mode its render</span>
+<span class="add">+  // has already been reset, so they&#x27;re read before that.</span>
+<span class="add">+  sourceStoreReads: Array&lt;mixed&gt; | null,</span>
+   boundary: Fiber,
+ ): void {
+   if (!didReadStores) {
+     return;
+   }
+   let records =
+<span class="del">-    suspendedBoundary === boundary ? suspendedBoundaryStoreReads : null;</span>
+<span class="add">+    suspendedBoundaryStoreReads === null</span>
+<span class="add">+      ? null</span>
+<span class="add">+      : suspendedBoundaryStoreReads.get(boundary) || null;</span>
+   let fiber: Fiber | null = sourceFiber;
+   while (fiber !== null &amp;&amp; fiber !== boundary) {
+<span class="del">-    if (</span>
+<span class="add">+    let reads = null;</span>
+<span class="add">+    if (fiber === sourceFiber) {</span>
+<span class="add">+      reads = sourceStoreReads;</span>
+<span class="add">+    } else if (</span>
+       fiber.tag === FunctionComponent ||
+       fiber.tag === ForwardRef ||
+       fiber.tag === SimpleMemoComponent
+     ) {
+       const updateQueue: FunctionComponentUpdateQueue | null =
+         fiber.updateQueue as any;
+<span class="del">-      const reads = updateQueue === null ? null : updateQueue.storeReads;</span>
+<span class="del">-      if (reads != null) {</span>
+<span class="del">-        for (let i = 0; i &lt; reads.length; i += 2) {</span>
+<span class="del">-          const record: StoreRecord&lt;any, any&gt; = reads[i] as any;</span>
+<span class="del">-          if (records === null) {</span>
+<span class="del">-            records = [record];</span>
+<span class="del">-          } else if (records.indexOf(record) === -1) {</span>
+<span class="del">-            records.push(record);</span>
+<span class="del">-          }</span>
+<span class="add">+      reads = updateQueue === null ? null : updateQueue.storeReads;</span>
+<span class="add">+    }</span>
+<span class="add">+    if (reads != null) {</span>
+<span class="add">+      for (let i = 0; i &lt; reads.length; i += 2) {</span>
+<span class="add">+        const record: StoreRecord&lt;any, any&gt; = reads[i] as any;</span>
+<span class="add">+        if (records === null) {</span>
+<span class="add">+          records = [record];</span>
+<span class="add">+        } else if (records.indexOf(record) === -1) {</span>
+<span class="add">+          records.push(record);</span>
+         }
+       }
+     }
+     fiber = fiber.return;
+   }
+   if (records !== null) {
+<span class="del">-    suspendedBoundary = boundary;</span>
+<span class="del">-    suspendedBoundaryStoreReads = records;</span>
+<span class="add">+    if (suspendedBoundaryStoreReads === null) {</span>
+<span class="add">+      suspendedBoundaryStoreReads = new Map();</span>
+<span class="add">+    }</span>
+<span class="add">+    suspendedBoundaryStoreReads.set(boundary, records);</span>
+   }
+ }</code></pre></details>
+<details><summary>Test: <code>a store update retries a legacy boundary whose reader suspended on mount</code> <span class="file">packages/react-reconciler/src/__tests__/ReactUseStoreReviewRootsToolingLegacy-test.js</span></summary><pre class="code js"><code>// @gate enableStore &amp;&amp; !disableLegacyMode
+it(&#x27;a store update retries a legacy boundary whose reader suspended on mount&#x27;, async () =&gt; {
+  const store = createStore(&#x27;A&#x27;);
+  const resolved = new Set([&#x27;B&#x27;]);
+  const never = new Promise(() =&gt; {});
+  function AsyncReader() {
+    const value = use(store);
+    if (!resolved.has(value)) {
+      Scheduler.log(&#x27;Suspend! &#x27; + value);
+      throw never;
+    }
+    return &lt;Text text={&#x27;Reader: &#x27; + value} /&gt;;
+  }
+  await act(() =&gt; {
+    ReactNoop.renderLegacySyncRoot(
+      &lt;React.Suspense fallback={&lt;Text text=&quot;Loading&quot; /&gt;}&gt;
+        &lt;AsyncReader /&gt;
+      &lt;/React.Suspense&gt;,
+    );
+  });
+  assertLog([&#x27;Suspend! A&#x27;, &#x27;Loading&#x27;]);
+  expect(ReactNoop.getChildrenAsJSX()).toEqual(&#x27;Loading&#x27;);
+  // Today the boundary doesn&#x27;t subscribe: in legacy mode the suspended
+  // fiber&#x27;s tag is changed to IncompleteFunctionComponent before its reads
+  // are collected, and the collection skips that tag. The record is dropped.
+  expect(store._records.length).toBe(1);
+
+  await act(() =&gt; store.update(&#x27;B&#x27;));
+  assertLog([&#x27;Reader: B&#x27;]);
+  expect(ReactNoop.getChildrenAsJSX()).toEqual(&#x27;Reader: B&#x27;);
+
+  await act(() =&gt; ReactNoop.renderLegacySyncRoot(null));
+  expect(store._records.length).toBe(0);
+});</code></pre></details>
+</section>
+
+<h2 id="blocked">Blocked</h2>
+<section class="card blocked" id="B1">
+<h3><span class="tag">B1</span> The same-element bailout skips a child consumer&#x27;s context check (stack PR #1)</h3>
+<p class="by">Found by: Fuzzer (finding 3)</p>
+<p>On the normal path, a child that bails out checks its context dependencies (<code>checkScheduledUpdateOrContext</code> → <code>checkIfContextChanged</code>). The same-element path skips the child's <code>beginWork</code>, so it skips that check. In a hidden tree, whose provider has already committed, nothing else catches the change, and the child stays stale after the reveal. It fails only where <code>enableSameElementBailout</code> is on. This makes main's finding M1 reachable with no component in between.</p>
+<p><strong>Proposed fix (not applied; auto mode blocked the edit):</strong></p>
+<details open><summary>Proposed fix (diff)</summary><pre class="code diff"><code><span class="hunk">--- packages/react-reconciler/src/ReactFiberBeginWork.js (proposed)</span>
+<span class="hunk">@@ function isUnchangedOnlyChild(current: Fiber, element: any): boolean {</span>
+   if (__DEV__ &amp;&amp; resolveTypeForHotReloading(child.type) !== child.type) {
+     return false;
+   }
+<span class="add">+  const dependencies = child.dependencies;</span>
+<span class="add">+  if (dependencies !== null &amp;&amp; checkIfContextChanged(dependencies)) {</span>
+<span class="add">+    // A context the child reads changed. Its own bailout would find that out</span>
+<span class="add">+    // and render it. Propagation doesn&#x27;t always mark it, for example in a</span>
+<span class="add">+    // hidden tree whose provider has already committed.</span>
+<span class="add">+    return false;</span>
+<span class="add">+  }</span>
+   switch (child.tag) {</code></pre></details>
+<details><summary>Test: <code>a context consumer in a hidden tree, below a consumer that returns the same element, shows the new value when revealed</code> <span class="file">packages/react-reconciler/src/__tests__/ReactUseStoreFuzz-test.internal.js</span></summary><pre class="code js"><code>it(&#x27;a context consumer in a hidden tree, below a consumer that returns the same element, shows the new value when revealed&#x27;, async () =&gt; {
+  const Context = createContext(&#x27;A&#x27;);
+  let setValue;
+  let setVisible;
+  function Provider({children}) {
+    const [value, _setValue] = useState(&#x27;A&#x27;);
+    setValue = _setValue;
+    return &lt;Context value={value}&gt;{children}&lt;/Context&gt;;
+  }
+  function Gate({children}) {
+    const [visible, _setVisible] = useState(false);
+    setVisible = _setVisible;
+    return (
+      &lt;Activity mode={visible ? &#x27;visible&#x27; : &#x27;hidden&#x27;}&gt;{children}&lt;/Activity&gt;
+    );
+  }
+  function Parent({children}) {
+    use(Context);
+    return children;
+  }
+  function Child() {
+    return &lt;span prop={use(Context)} /&gt;;
+  }
+
+  const root = ReactNoop.createRoot();
+  await act(() =&gt;
+    root.render(
+      &lt;Provider&gt;
+        &lt;Gate&gt;
+          &lt;Parent&gt;
+            &lt;Child /&gt;
+          &lt;/Parent&gt;
+        &lt;/Gate&gt;
+      &lt;/Provider&gt;,
+    ),
+  );
+  await act(() =&gt; setValue(&#x27;B&#x27;));
+  await act(() =&gt; setVisible(true));
+  expect(root).toMatchRenderedOutput(&lt;span prop=&quot;B&quot; /&gt;);
+});</code></pre></details>
+</section>
+
+<h2 id="open">Needs your decision</h2>
+<section class="card open" id="Q1">
+<h3><span class="tag">Q1</span> After a reducer error that throws in only one root, the roots never converge</h3>
+<p class="by">Found by: Slice 4 (F1)</p>
+<p>An urgent update that's valid in dispatch order applies in a root that committed the transition before it, and throws (and is dropped) in a root where the transition is still pending. Once idle, the roots show different values, and <code>_head</code> follows whichever root committed last. Same cause as the pinned reducer-error FIXME (DCP-19): an update that throws isn't kept in the base queue for a rebase. The new part is that across roots it splits the store into two values. Whoever resolves the FIXME should add this test.</p>
+<details><summary>Test: <code>roots converge once idle after an urgent update that only throws in the root where the transition is still pending</code> <span class="file">packages/react-reconciler/src/__tests__/ReactUseStoreReviewErrorsLifetime-test.js</span></summary><pre class="code js"><code>// @gate enableStore
+it(&#x27;roots converge once idle after an urgent update that only throws in the root where the transition is still pending&#x27;, async () =&gt; {
+  const store = createStore(&#x27;initial&#x27;, reducer);
+  function Reader({name}) {
+    return &lt;Text text={name + &#x27;: &#x27; + use(store)} /&gt;;
+  }
+  let resolve;
+  const data = new Promise(r =&gt; {
+    resolve = r;
+  });
+  function Page() {
+    return &lt;Text text={&#x27;Page: &#x27; + use(data)} /&gt;;
+  }
+  const rootA = ReactNoop.createRoot();
+  const rootB = ReactNoop.createRoot();
+  const boundaryA = key =&gt; (
+    &lt;ErrorBoundary key={key}&gt;
+      &lt;Reader name=&quot;A&quot; /&gt;
+    &lt;/ErrorBoundary&gt;
+  );
+  await act(() =&gt; {
+    rootA.render(boundaryA(&#x27;1&#x27;));
+    rootB.render(&lt;Reader name=&quot;B&quot; /&gt;);
+  });
+  assertLog([&#x27;A: initial&#x27;, &#x27;B: initial&#x27;]);
+
+  // Root B commits the transition. Root A&#x27;s part of it waits on data.
+  await act(() =&gt; {
+    startTransition(() =&gt; {
+      store.update(&#x27;ready&#x27;);
+      rootA.render(
+        &lt;&gt;
+          {boundaryA(&#x27;1&#x27;)}
+          &lt;Page /&gt;
+        &lt;/&gt;,
+      );
+    });
+  });
+  assertLog([&#x27;A: ready&#x27;, &#x27;B: ready&#x27;]);
+  expect(rootB).toMatchRenderedOutput(&#x27;B: ready&#x27;);
+  expect(rootA).toMatchRenderedOutput(&#x27;A: initial&#x27;);
+
+  // Valid in dispatch order, and in root B, where &#x27;ready&#x27; committed.
+  await act(() =&gt; store.update(&#x27;next&#x27;));
+  Scheduler.unstable_clearLog();
+  expect(rootB).toMatchRenderedOutput(&#x27;B: next&#x27;);
+
+  await act(() =&gt; resolve(&#x27;loaded&#x27;));
+  Scheduler.unstable_clearLog();
+  assertConsoleErrorDev([], {withoutStack: true});
+
+  // Idle. Every root should show every action applied in dispatch order.
+  await act(() =&gt;
+    rootA.render(
+      &lt;&gt;
+        {boundaryA(&#x27;2&#x27;)}
+        &lt;Page /&gt;
+      &lt;/&gt;,
+    ),
+  );
+  Scheduler.unstable_clearLog();
+  await act(() =&gt; store.update(v =&gt; v + &#x27;!&#x27;));
+  Scheduler.unstable_clearLog();
+  const rootC = ReactNoop.createRoot();
+  await act(() =&gt; rootC.render(&lt;Reader name=&quot;C&quot; /&gt;));
+  Scheduler.unstable_clearLog();
+  expect([
+    rootA.getChildrenAsJSX(),
+    rootB.getChildrenAsJSX(),
+    rootC.getChildrenAsJSX(),
+  ]).toEqual([&#x27;A: next!Page: loaded&#x27;, &#x27;B: next!&#x27;, &#x27;C: next!&#x27;]);
+});</code></pre></details>
+</section>
+<section class="card open" id="Q2">
+<h3><span class="tag">Q2</span> A store drops the update that hits the nested update limit; setState keeps it</h3>
+<p class="by">Found by: Slice 4 (Q1)</p>
+<p><code>dispatchStoreUpdate</code> checks for an infinite loop before changing anything, and <code>store.update</code> removes the action from the latest value. <code>setState</code> enqueues first, then throws. So after "Maximum update depth exceeded", a store is one update behind (52 vs 53). <code>ReactUseStoreLegacyMode-test</code> pins this as deliberate, but DESIGN.md's list of differences from <code>useState</code> doesn't mention it. Document it, or change it?</p>
+<details><summary>Test: <code>a layout effect that updates the store it reads on every commit: same as useReducer</code> <span class="file">packages/react-reconciler/src/__tests__/ReactUseStoreReviewErrorsLifetime-test.js</span></summary><pre class="code js"><code>// @gate enableStore
+it(&#x27;a layout effect that updates the store it reads on every commit: same as useReducer&#x27;, async () =&gt; {
+  await compareWithUseReducer(async (createSource, checkpoint) =&gt; {
+    const source = createSource(0, basicReducer);
+    function Child() {
+      const value = source.read();
+      useLayoutEffect(() =&gt; {
+        source.update(value + 1);
+      });
+      return &lt;Text text={value} /&gt;;
+    }
+    function Reader() {
+      return &lt;Text text={&#x27;Reader: &#x27; + source.read()} /&gt;;
+    }
+    const root = createRootLoggingErrors();
+    await act(() =&gt;
+      root.render(
+        &lt;source.Root&gt;
+          &lt;ErrorBoundary key=&quot;1&quot;&gt;
+            &lt;Child /&gt;
+          &lt;/ErrorBoundary&gt;
+        &lt;/source.Root&gt;,
+      ),
+    );
+    checkpoint(root);
+    if (source.kind === &#x27;store&#x27;) {
+      expectNoPendingUpdates(source.store);
+      expectStoreToHaveRoots(source.store, 0);
+    }
+    // The value the loop left behind.
+    await act(() =&gt;
+      root.render(
+        &lt;source.Root&gt;
+          &lt;ErrorBoundary key=&quot;2&quot;&gt;
+            &lt;Reader /&gt;
+          &lt;/ErrorBoundary&gt;
+        &lt;/source.Root&gt;,
+      ),
+    );
+    checkpoint(root);
+  });
+});</code></pre></details>
+</section>
+<section class="card open" id="Q3">
+<h3><span class="tag">Q3</span> A row that a &quot;forwards&quot; SuspenseList with a hidden tail drops never subscribes</h3>
+<p class="by">Found by: Slice 1 (F3)</p>
+<p>With <code>tail="hidden"</code>, a newly mounted row that suspends is dropped, so its boundary never commits. The list takes the row's retry queue but not its store reads. Context retries it because the Provider re-renders the list. A fix would move the reads to the SuspenseList fiber, like the retry queue. In scope for v1?</p>
+<details><summary>Test: <code>a store update retries a dropped row of a &quot;forwards&quot; list with a hidden tail</code> <span class="file">packages/react-reconciler/src/__tests__/ReactUseStoreReviewSuspenseActivity-test.js</span></summary><pre class="code js"><code>// @gate enableStore &amp;&amp; enableSuspenseList
+it(&#x27;a store update retries a dropped row of a &quot;forwards&quot; list with a hidden tail&#x27;, async () =&gt; {
+  const SuspenseList = React.unstable_SuspenseList;
+  const store = createStore(never);
+  function Row() {
+    return &lt;Text text={&#x27;B: &#x27; + use(use(store))} /&gt;;
+  }
+
+  const root = ReactNoop.createRoot();
+  await act(() =&gt;
+    root.render(
+      &lt;SuspenseList revealOrder=&quot;forwards&quot; tail=&quot;hidden&quot;&gt;
+        &lt;Suspense fallback={&lt;Text text=&quot;Loading A&quot; /&gt;}&gt;
+          &lt;Text text=&quot;A&quot; /&gt;
+        &lt;/Suspense&gt;
+        &lt;Suspense fallback={&lt;Text text=&quot;Loading B&quot; /&gt;}&gt;
+          &lt;Row /&gt;
+        &lt;/Suspense&gt;
+      &lt;/SuspenseList&gt;,
+    ),
+  );
+  assertLog([&#x27;A&#x27;, &#x27;Loading B&#x27;]);
+  expect(root).toMatchRenderedOutput(&#x27;A&#x27;);
+
+  await act(() =&gt; store.update(fulfilled(&#x27;Result&#x27;)));
+  assertLog([&#x27;B: Result&#x27;]);
+  expect(root).toMatchRenderedOutput(&#x27;AB: Result&#x27;);
+});</code></pre></details>
+</section>
+<section class="card open" id="Q4">
+<h3><span class="tag">Q4</span> A transition made before hydration replaces visible server HTML with a fallback</h3>
+<p class="by">Found by: Slice 3 (finding 1)</p>
+<p>Catching up after hydration runs at <code>SyncLane</code> (DCP-12). If the new value suspends, the server HTML is replaced with the boundary's fallback. The same transition made after hydration keeps the HTML. <code>useSyncExternalStore</code> with <code>getServerSnapshot</code> does the same, which is the model DCP-12 chose. One option: catch up in a transition lane when the stale value came only from finished transitions.</p>
+<details><summary>Test: <code>a catch-up after hydration that suspends keeps showing the server content</code> <span class="file">.claude/worktrees/review-server/packages/react-dom/src/__tests__/ReactDOMStoreReview-test.js</span></summary><pre class="code js"><code>// @gate enableStore
+it(&#x27;a catch-up after hydration that suspends keeps showing the server content&#x27;, async () =&gt; {
+  const resolved = Promise.resolve(&#x27;A&#x27;);
+  resolved.status = &#x27;fulfilled&#x27;;
+  resolved.value = &#x27;A&#x27;;
+  let resolveB;
+  const pending = new Promise(r =&gt; (resolveB = r));
+  const store = createStore(resolved);
+
+  function Reader() {
+    const value = use(use(store));
+    return &lt;Text text={&#x27;Reader: &#x27; + value} /&gt;;
+  }
+  function App() {
+    return (
+      &lt;div&gt;
+        &lt;Suspense fallback={&lt;Text text=&quot;Loading&quot; /&gt;}&gt;
+          &lt;Reader /&gt;
+        &lt;/Suspense&gt;
+      &lt;/div&gt;
+    );
+  }
+
+  const container = document.createElement(&#x27;div&#x27;);
+  container.innerHTML = ReactDOMServer.renderToString(&lt;App /&gt;);
+  assertLog([&#x27;Reader: A&#x27;]);
+
+  // A transition moves the store to data that isn&#x27;t loaded yet. Nothing
+  // reads the store, and the transition has nothing else to render, so
+  // it&#x27;s done by the time the client hydrates.
+  startTransition(() =&gt; store.update(pending));
+  let errors;
+  await act(() =&gt; {
+    ({errors} = hydrate(container, &lt;App /&gt;));
+  });
+  expect(errors).toEqual([]);
+  // Today: [&#x27;Reader: A&#x27;, &#x27;Loading&#x27;] and the content is &#x27;Loading&#x27;.
+  assertLog([&#x27;Reader: A&#x27;]);
+  expect(container.textContent).toBe(&#x27;Reader: A&#x27;);
+
+  await act(() =&gt; resolveB(&#x27;B&#x27;));
+  assertLog([&#x27;Reader: B&#x27;]);
+  expect(container.textContent).toBe(&#x27;Reader: B&#x27;);
+});</code></pre></details>
+</section>
+<section class="card open" id="Q5">
+<h3><span class="tag">Q5</span> Stores passed to Server Functions: a DEV stack overflow, and a missing warning</h3>
+<p class="by">Found by: Slice 3 (findings 2 and 3)</p>
+<p>In DEV, <code>encodeReply({store})</code> overflows the stack: <code>describeObjectForErrorMessage</code> (<code>shared/ReactSerializationErrors.js</code>) has no cycle guard, and a store a root reads is cyclic. Context overflows the same way, so it's a bug on main. With temporary references, a store is serialized with all its internals and no DEV warning (Context gets one). The warning would need the describer, so the cycle guard on main comes first.</p>
+<details><summary>Test: <code>passing a store that a root reads to a Server Function rejects with a serialization error</code> <span class="file">.claude/worktrees/review-server/packages/react-server-dom-webpack/src/__tests__/ReactFlightReplyStoreReview-test.js</span></summary><pre class="code js"><code>// @gate enableStore
+it(&#x27;passing a store that a root reads to a Server Function rejects with a serialization error&#x27;, async () =&gt; {
+  const store = await storeWithRecord();
+  await expect(ReactServerDOMClient.encodeReply({store})).rejects.toThrow(
+    &#x27;Symbols cannot be passed to a Server Function without a temporary &#x27; +
+      &#x27;reference set.&#x27;,
+  );
+});</code></pre></details>
+<details><summary>Test: <code>passing a store to a Server Function with a temporary reference set warns in DEV</code> <span class="file">.claude/worktrees/review-server/packages/react-server-dom-webpack/src/__tests__/ReactFlightReplyStoreReview-test.js</span></summary><pre class="code js"><code>// @gate enableStore
+it(&#x27;passing a store to a Server Function with a temporary reference set warns in DEV&#x27;, async () =&gt; {
+  const store = await storeWithRecord();
+  const temporaryReferences =
+    ReactServerDOMClient.createTemporaryReferenceSet();
+  await ReactServerDOMClient.encodeReply({store}, {temporaryReferences});
+  assertConsoleErrorDev([
+    &#x27;Stores cannot be passed to Server Functions from the Client.\n\n&#x27; +
+      &#x27;{store: {$$typeof: ..., _reducer: ..., _head: ..., ...}}\n&#x27; +
+      &#x27;        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^&#x27;,
+  ]);
+});</code></pre></details>
+</section>
+<section class="card open" id="Q6">
+<h3><span class="tag">Q6</span> The HostRoot processes every store before a reader can suspend (design note)</h3>
+<p class="by">Found by: Fuzzer (D1)</p>
+<p>In a render where a reader suspends on a pending action, the HostRoot has already run every pending store's reducer, and runs them again when the render retries. A provider-per-store app stops at the provider that suspends. It's a performance property of DCP-17, not a correctness bug: DCP-6's "the reducer runs as often as useReducer" doesn't hold in renders that are thrown away.</p>
+</section>
+
+<h2 id="main">Bugs on main</h2>
+<p>These aren't caused by the stack. <code>ReactFiberNewContext.js</code> is identical to main, and each test fails on its assertion in a fresh worktree of main (<code>.claude/worktrees/main-check</code>, <code>a703ca64f9</code>). They need upstream issues or separate fixes.</p>
+<section class="card main" id="M1"><h3><span class="tag">M1</span> A context consumer in a hidden Activity misses the update after a consumer above it re-renders</h3><p class="by">Found by: fuzzer. Verified failing on main at <code>a703ca64f9</code> in a fresh worktree, on its assertion.</p><p><code>propagateParentContextChangesToDeferredTree</code> stops at a parent that already propagated lazily (<code>ReactFiberNewContext.js:426</code>), so the deferred tree is never fully marked.</p><details><summary>Test: <code>a context consumer in a hidden tree, below a consumer and a component that bails out, shows the new value when revealed</code></summary><pre class="code js"><code>it(&#x27;a context consumer in a hidden tree, below a consumer and a component that bails out, shows the new value when revealed&#x27;, async () =&gt; {
+  const Context = createContext(&#x27;A&#x27;);
+  let setValue;
+  let setVisible;
+  function Provider({children}) {
+    const [value, _setValue] = useState(&#x27;A&#x27;);
+    setValue = _setValue;
+    return &lt;Context value={value}&gt;{children}&lt;/Context&gt;;
+  }
+  function Gate({children}) {
+    const [visible, _setVisible] = useState(false);
+    setVisible = _setVisible;
+    return (
+      &lt;Activity mode={visible ? &#x27;visible&#x27; : &#x27;hidden&#x27;}&gt;{children}&lt;/Activity&gt;
+    );
+  }
+  function Parent({children}) {
+    use(Context);
+    return children;
+  }
+  function Child() {
+    return &lt;span prop={use(Context)} /&gt;;
+  }
+
+  // The div is the same element when Parent renders again, so it bails
+  // out, and Child is only reached through context propagation.
+  const root = ReactNoop.createRoot();
+  await act(() =&gt;
+    root.render(
+      &lt;Provider&gt;
+        &lt;Gate&gt;
+          &lt;Parent&gt;
+            &lt;div&gt;
+              &lt;Child /&gt;
+            &lt;/div&gt;
+          &lt;/Parent&gt;
+        &lt;/Gate&gt;
+      &lt;/Provider&gt;,
+    ),
+  );
+  await act(() =&gt; setValue(&#x27;B&#x27;));
+  await act(() =&gt; setVisible(true));
+  expect(root).toMatchRenderedOutput(
+    &lt;div&gt;
+      &lt;span prop=&quot;B&quot; /&gt;
+    &lt;/div&gt;,
+  );
+});</code></pre></details></section><section class="card main" id="M2"><h3><span class="tag">M2</span> A consumer in a nested boundary tears when its parent boundary shows its content again (visible tearing)</h3><p class="by">Found by: fuzzer. Verified failing on main at <code>a703ca64f9</code> in a fresh worktree, on its assertion.</p><p>The propagation that finds the boundary in fallback marks it and skips its primary children (<code>ReactFiberNewContext.js:306-345</code>); in the reveal render the nested Suspense bails out and sees no provider change. Output: <code>Outside: B</code> next to <code>Inside: A</code>.</p><details><summary>Test: <code>a context consumer in a nested boundary shows the new value when its parent boundary shows its content again</code></summary><pre class="code js"><code>it(&#x27;a context consumer in a nested boundary shows the new value when its parent boundary shows its content again&#x27;, async () =&gt; {
+  const Context = createContext(&#x27;A&#x27;);
+  let setValue;
+  let setVersion;
+  function Provider({children}) {
+    const [value, _setValue] = useState(&#x27;A&#x27;);
+    setValue = _setValue;
+    return &lt;Context value={value}&gt;{children}&lt;/Context&gt;;
+  }
+  let resolved = 0;
+  const listeners = [];
+  const thenable = {
+    then(resolve) {
+      listeners.push(resolve);
+    },
+  };
+  function Suspends() {
+    const [version, _setVersion] = useState(0);
+    setVersion = _setVersion;
+    if (version &gt; resolved) {
+      throw thenable;
+    }
+    return null;
+  }
+  function Reader({name}) {
+    return &lt;span prop={name + &#x27;: &#x27; + use(Context)} /&gt;;
+  }
+
+  const root = ReactNoop.createRoot();
+  await act(() =&gt;
+    root.render(
+      &lt;Provider&gt;
+        &lt;Reader name=&quot;Outside&quot; /&gt;
+        &lt;React.Suspense fallback={&lt;span prop=&quot;Loading&quot; /&gt;}&gt;
+          &lt;Suspends /&gt;
+          &lt;React.Suspense fallback={null}&gt;
+            &lt;Reader name=&quot;Inside&quot; /&gt;
+          &lt;/React.Suspense&gt;
+        &lt;/React.Suspense&gt;
+      &lt;/Provider&gt;,
+    ),
+  );
+  // The context changes in the same render that the boundary falls back.
+  setValue(&#x27;B&#x27;);
+  ReactNoop.flushSync(() =&gt; setVersion(1));
+  expect(root).toMatchRenderedOutput(
+    &lt;&gt;
+      &lt;span prop=&quot;Outside: B&quot; /&gt;
+      &lt;span hidden={true} prop=&quot;Inside: A&quot; /&gt;
+      &lt;span prop=&quot;Loading&quot; /&gt;
+    &lt;/&gt;,
+  );
+  // The boundary shows its content again.
+  await act(() =&gt; {
+    resolved = 1;
+    listeners.forEach(listener =&gt; listener());
+  });
+  expect(root).toMatchRenderedOutput(
+    &lt;&gt;
+      &lt;span prop=&quot;Outside: B&quot; /&gt;
+      &lt;span prop=&quot;Inside: B&quot; /&gt;
+    &lt;/&gt;,
+  );
+});</code></pre></details></section><section class="card main" id="M3"><h3><span class="tag">M3</span> Resolving data for a component in a deleted hidden Activity crashes</h3><p class="by">Found by: fuzzer. Verified failing on main at <code>a703ca64f9</code> in a fresh worktree, on its assertion.</p><p><code>TypeError: Cannot read properties of null (reading '_retryCache')</code> in <code>resolveRetryWakeable</code>: the retry listener on the hidden Offscreen boundary outlives the fiber, and deletion nulls <code>stateNode</code>.</p><details><summary>Test: <code>resolving the data of a component in a deleted hidden Activity does not crash</code></summary><pre class="code js"><code>it(&#x27;resolving the data of a component in a deleted hidden Activity does not crash&#x27;, async () =&gt; {
+  const thenable = {
+    status: &#x27;pending&#x27;,
+    listeners: [],
+    then(resolve) {
+      thenable.listeners.push(resolve);
+    },
+  };
+  let setOn;
+  function Gate({children}) {
+    const [on, _setOn] = useState(true);
+    setOn = _setOn;
+    return on ? children : null;
+  }
+  function Suspends() {
+    use(thenable);
+    return &lt;span prop=&quot;resolved&quot; /&gt;;
+  }
+
+  const root = ReactNoop.createRoot();
+  await act(() =&gt;
+    root.render(
+      &lt;Gate&gt;
+        &lt;Activity mode=&quot;hidden&quot;&gt;
+          &lt;Suspends /&gt;
+        &lt;/Activity&gt;
+      &lt;/Gate&gt;,
+    ),
+  );
+  await act(() =&gt; setOn(false));
+  await act(() =&gt; {
+    thenable.status = &#x27;fulfilled&#x27;;
+    thenable.value = &#x27;resolved&#x27;;
+    thenable.listeners.forEach(listener =&gt; listener(&#x27;resolved&#x27;));
+  });
+  expect(root).toMatchRenderedOutput(null);
+});</code></pre></details></section><section class="card main" id="M4"><h3><span class="tag">M4</span> A context tear that only happens with enableDefaultTransitionIndicator</h3><p class="by">Found by: fuzzer. Verified failing on main at <code>a703ca64f9</code> in a fresh worktree, on its assertion.</p><p>A commit with <code>Parent: B</code> and <code>Child: A</code>. Cause not confirmed; the flag changes scheduling, which likely exposes M1/M2 through a different render order.</p><details><summary>Test: <code>a context consumer and its parent consumer show the same value in a commit</code></summary><pre class="code js"><code>it(&#x27;a context consumer and its parent consumer show the same value in a commit&#x27;, async () =&gt; {
+  const Context = createContext(&#x27;A&#x27;);
+  let setValue;
+  let setVisible;
+  const never = {then() {}};
+  function Provider({children}) {
+    const [value, _setValue] = useState(&#x27;A&#x27;);
+    setValue = _setValue;
+    return &lt;Context value={value}&gt;{children}&lt;/Context&gt;;
+  }
+  function Gate({children}) {
+    const [visible, _setVisible] = useState(false);
+    setVisible = _setVisible;
+    return (
+      &lt;Activity mode={visible ? &#x27;visible&#x27; : &#x27;hidden&#x27;}&gt;{children}&lt;/Activity&gt;
+    );
+  }
+  function Suspends() {
+    throw never;
+  }
+  function Parent({children}) {
+    return (
+      &lt;&gt;
+        &lt;span prop={&#x27;Parent: &#x27; + use(Context)} /&gt;
+        {children}
+      &lt;/&gt;
+    );
+  }
+  function Child() {
+    return &lt;span prop={&#x27;Child: &#x27; + use(Context)} /&gt;;
+  }
+
+  const torn = [];
+  const root = ReactNoop.createRoot();
+  function onCommit() {
+    const output = JSON.stringify(root.getChildrenAsJSX());
+    const parent = /&quot;Parent: (\w+)&quot;/.exec(output);
+    const child = /&quot;Child: (\w+)&quot;/.exec(output);
+    if (
+      parent !== null &amp;&amp;
+      child !== null &amp;&amp;
+      !output.includes(&#x27;&quot;hidden&quot;:true&#x27;) &amp;&amp;
+      parent[1] !== child[1]
+    ) {
+      torn.push(parent[0] + &#x27;, &#x27; + child[0]);
+    }
+  }
+  await act(() =&gt;
+    root.render(
+      &lt;React.Profiler id=&quot;root&quot; onRender={onCommit}&gt;
+        &lt;Provider&gt;
+          &lt;React.Suspense fallback={&lt;span prop=&quot;Loading&quot; /&gt;}&gt;
+            {[
+              &lt;Gate key=&quot;gate&quot;&gt;{[&lt;Suspends key=&quot;suspends&quot; /&gt;]}&lt;/Gate&gt;,
+              &lt;Parent key=&quot;parent&quot;&gt;{[&lt;Child key=&quot;child&quot; /&gt;]}&lt;/Parent&gt;,
+            ]}
+          &lt;/React.Suspense&gt;
+        &lt;/Provider&gt;
+      &lt;/React.Profiler&gt;,
+    ),
+  );
+  // One event shows content that suspends, so the boundary falls back, and
+  // changes the context. A transition is pending.
+  ReactNoop.unstable_runWithPriority(ContinuousEventPriority, () =&gt; {
+    setVisible(true);
+    setValue(&#x27;B&#x27;);
+  });
+  startTransition(() =&gt; setValue(value =&gt; value + &#x27;C&#x27;));
+  await waitForMicrotasks();
+  // Hiding the content that suspends shows the boundary&#x27;s children again.
+  ReactNoop.discreteUpdates(() =&gt; setVisible(false));
+  await act(() =&gt; {});
+  expect(torn).toEqual([]);
+});</code></pre></details></section>
+
+<h2 id="verify">Verification</h2>
+<p>The store suites plus every reviewer test file, after all fixes. The failures that remain are exactly the open items: on experimental and www variant=true, B1, Q1, Q2 (two tests), Q3 and M1–M4; on the other channels, only the main bugs.</p>
+<table><tr><th>Run</th><th>Result</th></tr><tr><td>experimental</td><td>9 failed, 405 passed, 414 total</td></tr><tr><td>www-modern --variant=true</td><td>9 failed, 405 passed, 414 total</td></tr><tr><td>www-modern --variant=false</td><td>4 failed, 410 passed, 414 total</td></tr><tr><td>stable</td><td>3 failed, 411 passed, 414 total</td></tr><tr><td>xplat --variant=true</td><td>20 passed, 20 total</td></tr><tr><td>flow dom-node</td><td>passed</td></tr><tr><td>flow dom-fb</td><td>passed</td></tr><tr><td>flow fabric</td><td>passed</td></tr><tr><td>eslint (changed files)</td><td>clean</td></tr></table>
+<p>Suites: <code>ReactUseStore*</code> (including all reviewer files), <code>ReactDOMStore-test</code>, <code>ReactDebugHooksStore</code>, <code>ReactSuspenseList</code>, <code>ReactContextPropagation</code>, <code>ReactAsyncActions</code>, <code>ReactSameElementBailout</code>; on xplat, <code>ReactUseStoreLegacyMode</code>, the slice 5 legacy file and <code>ReactUseStoreMultipleRenderers</code>.</p>
+
+<h2 id="files">Files and next steps</h2>
+<pre class="code text"><code>.../react-reconciler/src/ReactFiberBeginWork.js    |   4 +-
+ packages/react-reconciler/src/ReactFiberHooks.js   |  28 ---
+ .../src/ReactFiberRootScheduler.js                 |  24 ++-
+ packages/react-reconciler/src/ReactFiberStore.js   | 223 +++++++++++++++------
+ packages/react-reconciler/src/ReactFiberThrow.js   |  18 +-
+ .../src/__tests__/ReactUseStore-test.js            |  24 +--
+ packages/react/src/ReactStore.js                   |  98 +++++++--
+ 7 files changed, 290 insertions(+), 129 deletions(-)</code></pre>
+<ul>
+<li><strong>Uncommitted:</strong> the source changes above, two updated expectations in <code>ReactUseStore-test.js</code>, and seven reviewer test files copied in as untracked files.</li>
+<li><strong>Reports:</strong> <code>~/.claude/plans/use-store-review/reports/</code>. Reviewer worktrees are under <code>.claude/worktrees/review-*</code>.</li>
+<li><strong>Next, once you've decided the open items:</strong> fold the reviewer tests into the real suites, add DCP entries for the action-suspension rule (F1) and per-root delivery order (F6), commit on <code>rh/use-store</code>, and rebuild the stack.</li>
+</ul>
+</main></body></html>

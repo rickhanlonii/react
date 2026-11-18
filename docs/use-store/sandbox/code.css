@@ -1,0 +1,51 @@
+/* Static code blocks from <!-- gen:code:... --> (code-examples.mjs block()).
+   build-docs.mjs adds this stylesheet to pages that have one. Colors follow
+   the page's --panel2, --text, --muted, --accent, --bad and --warn. */
+pre.code {
+  margin: 12px 0;
+  padding: 10px 0;
+  overflow: auto;
+  border-radius: 8px;
+  border: 1px solid var(--border, #d9d9de);
+  background: var(--panel2, #f4f4f6);
+  color: var(--text, #1c1d21);
+  font: 13px/1.55 ui-monospace, Menlo, monospace;
+}
+pre.code .ln {
+  display: block;
+  padding: 0 14px;
+  white-space: pre;
+  position: relative;
+}
+/* Marked lines carry a bar on the left as well as a tint. */
+pre.code .hl {
+  background: color-mix(in srgb, var(--accent, #0b6bcb) 13%, transparent);
+  box-shadow: inset 3px 0 var(--accent, #0b6bcb);
+}
+pre.code .hlbad {
+  background: color-mix(in srgb, var(--bad, #ce2c31) 10%, transparent);
+  box-shadow: inset 3px 0 var(--bad, #ce2c31);
+}
+pre.code .note {
+  display: block;
+  font: italic 11.5px -apple-system, sans-serif;
+  color: var(--warn, #ad5700);
+  padding: 1px 0 3px;
+}
+pre.code .tk { color: #5a4fcf; }
+pre.code .ts { color: #3d8b40; }
+pre.code .tc { color: var(--muted, #60646c); font-style: italic; }
+pre.code .tt { color: #2f5fc4; }
+pre.code .tn { color: #b35c00; }
+pre.code .th { color: var(--accent, #0b6bcb); font-weight: 600; }
+@media (prefers-color-scheme: dark) {
+  pre.code {
+    border-color: var(--border, #2e333d);
+    background: var(--panel2, #1f2228);
+    color: var(--text, #e6e8ee);
+  }
+  pre.code .tk { color: #c792ea; }
+  pre.code .ts { color: #c3e88d; }
+  pre.code .tt { color: #82aaff; }
+  pre.code .tn { color: #f78c6c; }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "store-bench",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Benchmarks use(store) against context, Redux and Zustand, with and without the React Compiler.",
+  "scripts": {
+    "build": "node build.mjs",
+    "build:counts": "node build.mjs --count",
+    "verify": "node build.mjs --count && node run.mjs --verify",
+    "bench:smoke": "node build.mjs && node run.mjs --smoke",
+    "bench": "node build.mjs && node run.mjs --full",
+    "bench:counts": "node build.mjs --count && node run.mjs --counts",
+    "report": "node report.mjs"
+  },
+  "dependencies": {
+    "@reduxjs/toolkit": "^2.5.0",
+    "react-redux": "^9.2.0",
+    "redux": "^5.0.1",
+    "zustand": "^5.0.3"
+  }
+}

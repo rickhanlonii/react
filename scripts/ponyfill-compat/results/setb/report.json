@@ -1,0 +1,249 @@
+{
+  "dir": "/tmp/usestore-base/scripts/ponyfill-compat/results/setb",
+  "baseSuiteErrors": [],
+  "impls": {
+    "experimental": {
+      "totals": {
+        "na": 3,
+        "pass-both": 9,
+        "fail-ponyfill-only": 1
+      },
+      "gatedTotals": {
+        "na": 3
+      },
+      "buckets": {
+        "hook order (conditional/changing use(store) reads)": 1
+      },
+      "suiteErrors": [],
+      "rows": [
+        {
+          "key": "packages/react-reconciler/src/__tests__/TODOCorrectnessUseStore-test.js :: TODOCorrectnessUseStore noop a transition still commits when its only reader unmounts in a root render before it renders",
+          "file": "packages/react-reconciler/src/__tests__/TODOCorrectnessUseStore-test.js",
+          "name": "TODOCorrectnessUseStore noop a transition still commits when its only reader unmounts in a root render before it renders",
+          "gated": true,
+          "cls": "na",
+          "baseMessage": "",
+          "ponyMessage": ""
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/TODOCorrectnessUseStore-test.js :: TODOCorrectnessUseStore noop a store update with no readers commits even when the root renders an unrelated update first",
+          "file": "packages/react-reconciler/src/__tests__/TODOCorrectnessUseStore-test.js",
+          "name": "TODOCorrectnessUseStore noop a store update with no readers commits even when the root renders an unrelated update first",
+          "gated": true,
+          "cls": "na",
+          "baseMessage": "",
+          "ponyMessage": ""
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/TODOCorrectnessUseStore-test.js :: TODOCorrectnessUseStore noop a reader that mounts urgently does not see a transition update to a store no root read yet",
+          "file": "packages/react-reconciler/src/__tests__/TODOCorrectnessUseStore-test.js",
+          "name": "TODOCorrectnessUseStore noop a reader that mounts urgently does not see a transition update to a store no root read yet",
+          "gated": true,
+          "cls": "na",
+          "baseMessage": "",
+          "ponyMessage": ""
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js :: ReactSameElementBailout still renders a child that has its own pending update",
+          "file": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js",
+          "name": "ReactSameElementBailout still renders a child that has its own pending update",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js :: ReactSameElementBailout still renders the pending update of a child of a forwardRef",
+          "file": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js",
+          "name": "ReactSameElementBailout still renders the pending update of a child of a forwardRef",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js :: ReactSameElementBailout propagates a context change to consumers below the child",
+          "file": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js",
+          "name": "ReactSameElementBailout propagates a context change to consumers below the child",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js :: ReactSameElementBailout keeps the context dependencies of the render that bailed out",
+          "file": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js",
+          "name": "ReactSameElementBailout keeps the context dependencies of the render that bailed out",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js :: ReactSameElementBailout attaches a new ref when the element changes",
+          "file": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js",
+          "name": "ReactSameElementBailout attaches a new ref when the element changes",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js :: ReactSameElementBailout runs the effects of the render that bailed out",
+          "file": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js",
+          "name": "ReactSameElementBailout runs the effects of the render that bailed out",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js :: ReactSameElementBailout takes the normal path when the previous render had more than one child",
+          "file": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js",
+          "name": "ReactSameElementBailout takes the normal path when the previous render had more than one child",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js :: ReactSameElementBailout records the render time of a component that bailed out of its child",
+          "file": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js",
+          "name": "ReactSameElementBailout records the render time of a component that bailed out of its child",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStoreContext-test.js :: ReactSameElementBailout propagates a context change to consumers below the child",
+          "file": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStoreContext-test.js",
+          "name": "ReactSameElementBailout propagates a context change to consumers below the child",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStoreContext-test.js :: ReactSameElementBailout keeps the context dependencies of the render that bailed out",
+          "file": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStoreContext-test.js",
+          "name": "ReactSameElementBailout keeps the context dependencies of the render that bailed out",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "hook order (conditional/changing use(store) reads)",
+          "ponyMessage": "Error: useStoreSelector does not currently support dynamic stores\nError: asserConsoleLogsCleared(expected)\n\nconsole.error was called without assertConsoleErrorDev:\n+ React has detected a change in the order of Hooks called by %s. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://react.dev/link/rules-of-hooks\n+\n+    Previous render            Next render\n+    ------------------------------------------------------\n+ %s   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n+ %s,Parent,1. useState                   useState\n+ 2. useMemo                    useContext\n+ ,\n+     in App (at **)\n\nYou must call one of the assertConsoleDev helpers between each act call."
+        }
+      ]
+    },
+    "stable": {
+      "totals": {
+        "na": 3,
+        "fail-ponyfill-only": 7,
+        "pass-both": 3
+      },
+      "gatedTotals": {
+        "na": 3
+      },
+      "buckets": {
+        "render log mismatch": 6,
+        "hook order (conditional/changing use(store) reads)": 1
+      },
+      "suiteErrors": [],
+      "rows": [
+        {
+          "key": "packages/react-reconciler/src/__tests__/TODOCorrectnessUseStore-test.js :: TODOCorrectnessUseStore noop a transition still commits when its only reader unmounts in a root render before it renders",
+          "file": "packages/react-reconciler/src/__tests__/TODOCorrectnessUseStore-test.js",
+          "name": "TODOCorrectnessUseStore noop a transition still commits when its only reader unmounts in a root render before it renders",
+          "gated": true,
+          "cls": "na",
+          "baseMessage": "",
+          "ponyMessage": ""
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/TODOCorrectnessUseStore-test.js :: TODOCorrectnessUseStore noop a store update with no readers commits even when the root renders an unrelated update first",
+          "file": "packages/react-reconciler/src/__tests__/TODOCorrectnessUseStore-test.js",
+          "name": "TODOCorrectnessUseStore noop a store update with no readers commits even when the root renders an unrelated update first",
+          "gated": true,
+          "cls": "na",
+          "baseMessage": "",
+          "ponyMessage": ""
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/TODOCorrectnessUseStore-test.js :: TODOCorrectnessUseStore noop a reader that mounts urgently does not see a transition update to a store no root read yet",
+          "file": "packages/react-reconciler/src/__tests__/TODOCorrectnessUseStore-test.js",
+          "name": "TODOCorrectnessUseStore noop a reader that mounts urgently does not see a transition update to a store no root read yet",
+          "gated": true,
+          "cls": "na",
+          "baseMessage": "",
+          "ponyMessage": ""
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js :: ReactSameElementBailout still renders a child that has its own pending update",
+          "file": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js",
+          "name": "ReactSameElementBailout still renders a child that has its own pending update",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Parent 0\",\n+   \"Child 0\",\n    \"Parent 1\",\n    \"Child 1\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js :: ReactSameElementBailout still renders the pending update of a child of a forwardRef",
+          "file": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js",
+          "name": "ReactSameElementBailout still renders the pending update of a child of a forwardRef",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Parent 0\",\n+   \"Child 0\",\n    \"Parent 1\",\n    \"Child 1\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js :: ReactSameElementBailout propagates a context change to consumers below the child",
+          "file": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js",
+          "name": "ReactSameElementBailout propagates a context change to consumers below the child",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js :: ReactSameElementBailout keeps the context dependencies of the render that bailed out",
+          "file": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js",
+          "name": "ReactSameElementBailout keeps the context dependencies of the render that bailed out",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Parent null\",\n    \"Parent A\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js :: ReactSameElementBailout attaches a new ref when the element changes",
+          "file": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js",
+          "name": "ReactSameElementBailout attaches a new ref when the element changes",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js :: ReactSameElementBailout runs the effects of the render that bailed out",
+          "file": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js",
+          "name": "ReactSameElementBailout runs the effects of the render that bailed out",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js :: ReactSameElementBailout takes the normal path when the previous render had more than one child",
+          "file": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js",
+          "name": "ReactSameElementBailout takes the normal path when the previous render had more than one child",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   \"Sibling\",\n+ ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js :: ReactSameElementBailout records the render time of a component that bailed out of its child",
+          "file": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStore-test.js",
+          "name": "ReactSameElementBailout records the render time of a component that bailed out of its child",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Parent 0\",\n    \"Parent 1\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStoreContext-test.js :: ReactSameElementBailout propagates a context change to consumers below the child",
+          "file": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStoreContext-test.js",
+          "name": "ReactSameElementBailout propagates a context change to consumers below the child",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"Parent 1\",\n+   \"Consumer 0\",\n    \"Consumer 1\",\n  ]"
+        },
+        {
+          "key": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStoreContext-test.js :: ReactSameElementBailout keeps the context dependencies of the render that bailed out",
+          "file": "packages/react-reconciler/src/__tests__/ReactSameElementBailoutUseStoreContext-test.js",
+          "name": "ReactSameElementBailout keeps the context dependencies of the render that bailed out",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "hook order (conditional/changing use(store) reads)",
+          "ponyMessage": "Error: Should have a queue. You are likely calling Hooks conditionally, which is not allowed. (https://react.dev/link/invalid-hook-call)\nError: asserConsoleLogsCleared(expected)\n\nconsole.error was called without assertConsoleErrorDev:\n+ React has detected a change in the order of Hooks called by %s. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://react.dev/link/rules-of-hooks\n+\n+    Previous render            Next render\n+    ------------------------------------------------------\n+ %s   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n+ %s,Parent,1. useState                   useState\n+ 2. useMemo                    useState\n+ ,\n+     in App (at **)\n\nYou must call one of the assertConsoleDev helpers between each act call."
+        }
+      ]
+    }
+  }
+}

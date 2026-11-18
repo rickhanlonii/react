@@ -1,0 +1,8 @@
+{
+  "builtFrom": "a3d8e745a9089d82f0f928dfeb7e6c00cd171a44",
+  "builtBy": "reviewer session yarn build at the final tree",
+  "bytes": 3782244,
+  "sha256": "c59ecf06d45b47db",
+  "babelTypes": "symlinked to compiler/node_modules/@babel/types (7.26.3) so resolution matches the original dist location",
+  "frozenAt": "2026-11-02T01:05:53.219Z"
+}

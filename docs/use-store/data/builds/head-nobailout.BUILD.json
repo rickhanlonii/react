@@ -1,0 +1,37 @@
+{
+  "name": "head-nobailout",
+  "sha": "a3d8e745a9089d82f0f928dfeb7e6c00cd171a44",
+  "branch": "rh/use-store",
+  "dirty": [
+    "M packages/shared/ReactFeatureFlags.js"
+  ],
+  "dirtyAffectsBuild": true,
+  "flagChange": [
+    "-export const enableSameElementBailout = __EXPERIMENTAL__;",
+    "+export const enableSameElementBailout = false;"
+  ],
+  "dirtyNote": "Same commit as react-builds/head, with only enableSameElementBailout set to false (experimental). Built in a detached worktree with: yarn build -r=experimental --type=NODE_DEV,NODE_PROD react/index react/jsx react-dom/index react-dom/client scheduler use-sync-external-store. Versus head, only react-dom-client.* differs; react, react-dom and scheduler production bundles are byte-identical.",
+  "version": "0.0.0-experimental-a3d8e745-20261101",
+  "channel": "oss-experimental",
+  "frozenAt": "2026-11-02T01:01:32.552Z",
+  "exportsCreateStore": {
+    "dev": true,
+    "prod": true
+  },
+  "hashes": {
+    "react/cjs/react.development.js": "19c624f8050e41a9",
+    "react/cjs/react.production.js": "281151d4b70cc8e2",
+    "react-dom/cjs/react-dom-client.development.js": "ea47f013056be48e",
+    "react-dom/cjs/react-dom-client.production.js": "b5bf01ffa6727a29",
+    "scheduler/cjs/scheduler.production.js": "81891bbcdd78e398"
+  },
+  "copiedFromHead": {
+    "files": [
+      "react/cjs/react-compiler-runtime.development.js",
+      "react/cjs/react-compiler-runtime.production.js"
+    ],
+    "reason": "The partial build skipped react/compiler-runtime, which compiled bundles import. packages/react never references enableSameElementBailout, and react.production.js is byte-identical between head and head-nobailout, so these are the same bytes a rebuild would produce.",
+    "at": "2026-11-02T05:11:34.039Z"
+  },
+  "notBuilt": "Server, react-server, profiling, test-utils and unstable_testing bundles aren't in this build. The benchmarks don't load them."
+}

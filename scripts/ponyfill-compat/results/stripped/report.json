@@ -1,0 +1,1844 @@
+{
+  "dir": "/tmp/usestore-base/scripts/ponyfill-compat/results/stripped",
+  "baseSuiteErrors": [],
+  "impls": {
+    "experimental": {
+      "totals": {
+        "skipped": 1,
+        "pass-both": 70,
+        "fail-ponyfill-only": 36,
+        "fail-use(store)-only": 2,
+        "fail-both": 1
+      },
+      "gatedTotals": {
+        "fail-use(store)-only": 2,
+        "fail-both": 1
+      },
+      "buckets": {
+        "render log mismatch": 21,
+        "store switching (dynamic stores)": 4,
+        "hook order (conditional/changing use(store) reads)": 2,
+        "update during render: warning text differs": 1,
+        "other": 4,
+        "use(store)-specific API errors/warnings": 2,
+        "rendered output mismatch": 2
+      },
+      "suiteErrors": [],
+      "rows": [
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill wdyr react should be monkey patched by WDYR",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill wdyr react should be monkey patched by WDYR",
+          "gated": false,
+          "cls": "skipped"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore should create a store with initial value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore should create a store with initial value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore should create a store with initial value and reducer",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore should create a store with initial value and reducer",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore should create store with primitive initial value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore should create store with primitive initial value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore should create store with string initial value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore should create store with string initial value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore should create store with array initial value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore should create store with array initial value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should return initial store value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should return initial store value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should return initial primitive value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should return initial primitive value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should return initial string value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should return initial string value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should return initial array value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should return initial array value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should throw error for invalid store type",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should throw error for invalid store type",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should update store value with reducer",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should update store value with reducer",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should work with array values",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should work with array values",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should handle complex state updates",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should handle complex state updates",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should work with multiple components using same store",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should work with multiple components using same store",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should change value when updated without reducer",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should change value when updated without reducer",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should change value when updated with setter",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should change value when updated with setter",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should handle an initial value of undefined",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should handle an initial value of undefined",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore(suspense) should suspend while loading",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore(suspense) should suspend while loading",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore(suspense) should skip suspense fallback when in a transition",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore(suspense) should skip suspense fallback when in a transition",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore(suspense) should handle transition interruption and resolve to the final state",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore(suspense) should handle transition interruption and resolve to the final state",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store Does not tear when new component mounts mid transition",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store Does not tear when new component mounts mid transition",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n      \"count\": 1,\n      \"testid\": \"count\",\n    },\n    Object {\n+     \"count\": 2,\n+     \"testid\": \"otherCount\",\n+   },\n+   Object {\n      \"count\": 1,\n      \"testid\": \"otherCount\",\n    },\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store Does not tear when new component mounts in its own transition mid transition",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store Does not tear when new component mounts in its own transition mid transition",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store Does not miss updates triggered in useEffect or useLayoutEffect",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store Does not miss updates triggered in useEffect or useLayoutEffect",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store Does not miss sync updates triggered in useEffect or useLayoutEffect during a long-running transition",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store Does not miss sync updates triggered in useEffect or useLayoutEffect during a long-running transition",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n      \"count\": 4,\n      \"testid\": \"count\",\n    },\n    Object {\n-     \"count\": 5,\n+     \"count\": 3,\n      \"testid\": \"count\",\n    },\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store Sync update interrupting transition correctly tracks committed state",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store Sync update interrupting transition correctly tracks committed state",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n      \"count\": 3,\n      \"testid\": \"count\",\n    },\n    Object {\n+     \"count\": 5,\n+     \"testid\": \"otherCount\",\n+   },\n+   Object {\n      \"count\": 3,\n      \"testid\": \"otherCount\",\n    },\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store Multiple sync updates interrupting transition correctly tracks committed state",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store Multiple sync updates interrupting transition correctly tracks committed state",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n      \"count\": 4,\n      \"testid\": \"count\",\n    },\n    Object {\n+     \"count\": 6,\n+     \"testid\": \"otherCount\",\n+   },\n+   Object {\n      \"count\": 4,\n      \"testid\": \"otherCount\",\n    },\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store flushSync update interrupting transition correctly tracks committed state",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store flushSync update interrupting transition correctly tracks committed state",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n      \"count\": 4,\n      \"testid\": \"count\",\n    },\n    Object {\n+     \"count\": 6,\n+     \"testid\": \"otherCount\",\n+   },\n+   Object {\n      \"count\": 4,\n      \"testid\": \"otherCount\",\n    },\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store correctly handles consecutive sync updates",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store correctly handles consecutive sync updates",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store dynamic stores are not yet supported",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store dynamic stores are not yet supported",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "store switching (dynamic stores)",
+          "ponyMessage": "Error: useStoreSelector does not currently support dynamic stores"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store transition store update causes new store reader to mount",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store transition store update causes new store reader to mount",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store gets stuck in suspense when transition state suspends on mount",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store gets stuck in suspense when transition state suspends on mount",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n      \"action\": \"render\",\n      \"count\": 1,\n      \"testid\": \"count\",\n    },\n    Object {\n-     \"action\": \"render\",\n-     \"count\": 1,\n-     \"testid\": \"otherCount\",\n-   },\n-   Object {\n      \"action\": \"suspend\",\n      \"count\": 2,\n-     \"testid\": \"count\",\n+     \"testid\": \"otherCount\",\n    },\n    Object {\n      \"action\": \"suspend\",\n      \"count\": 2,\n-     \"testid\": \"otherCount\",\n+     \"testid\": \"count\",\n    },\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store can read from multiple different stores updating independently",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store can read from multiple different stores updating independently",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Selectors can be dynamic dynamic selectors are supported",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Selectors can be dynamic dynamic selectors are supported",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Selectors can be dynamic selector changes sync during a transition update to the store",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Selectors can be dynamic selector changes sync during a transition update to the store",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore for Redux Using Redux Toolkit's configureStore",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore for Redux Using Redux Toolkit's configureStore",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n      \"count\": 1,\n      \"testid\": \"count\",\n    },\n    Object {\n+     \"count\": 2,\n+     \"testid\": \"otherCount\",\n+   },\n+   Object {\n      \"count\": 1,\n      \"testid\": \"otherCount\",\n    },\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore for a Relay-like state solution Minimal example of MiniRelay",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore for a Relay-like state solution Minimal example of MiniRelay",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore for a Relay-like state solution Avoids rerendering the component if the fragment value computes the same output",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore for a Relay-like state solution Avoids rerendering the component if the fragment value computes the same output",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore for a Relay-like state solution Implements structural sharing such that substructures remain referential identical even if parent object change",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore for a Relay-like state solution Implements structural sharing such that substructures remain referential identical even if parent object change",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore should read the current value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore should read the current value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore reads updates made before the first render",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore reads updates made before the first render",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore passes actions to the reducer",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore passes actions to the reducer",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore re-renders readers when the store is updated",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore re-renders readers when the store is updated",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore only re-renders the components that read the store",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore only re-renders the components that read the store",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore bails out when the value does not change",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore bails out when the value does not change",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore renders a transition update without blocking",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore renders a transition update without blocking",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a sync update interrupts a transition and is rebased",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a sync update interrupts a transition and is rebased",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a reader that mounts during a transition shows the committed value, then updates with the transition",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader that mounts during a transition shows the committed value, then updates with the transition",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"Stable: 1\",\n+   \"Conditional: 2\",\n    \"Conditional: 1\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a reader that mounts during a non-blocked transition joins it",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader that mounts during a non-blocked transition joins it",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"Stable: 1\",\n+   \"Conditional: 2\",\n    \"Conditional: 1\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a reader that mounts as part of the transition that updates the store reads the new value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader that mounts as part of the transition that updates the store reads the new value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a reader that mounts after a sync interruption shows the rebased value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader that mounts after a sync interruption shows the rebased value",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"Stable: 4\",\n+   \"Conditional: 6\",\n    \"Conditional: 4\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a reader that mounts after a transition commits reads the new value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader that mounts after a transition commits reads the new value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore does not miss updates dispatched in a layout effect before the reader subscribes",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore does not miss updates dispatched in a layout effect before the reader subscribes",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore does not miss updates dispatched in a passive effect before the reader subscribes",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore does not miss updates dispatched in a passive effect before the reader subscribes",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore does not miss updates dispatched while a concurrent render is in progress",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore does not miss updates dispatched while a concurrent render is in progress",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"B: 1\",\n-   \"A: 2\",\n    \"B: 2\",\n+   \"A: 2\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore updates sibling readers whether or not a render is in progress",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore updates sibling readers whether or not a render is in progress",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore never commits readers showing different versions of the store",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore never commits readers showing different versions of the store",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore can be read conditionally",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore can be read conditionally",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "hook order (conditional/changing use(store) reads)",
+          "ponyMessage": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement."
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore can read a list of stores in a loop",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore can read a list of stores in a loop",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore supports stores of stores for granular updates",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore supports stores of stores for granular updates",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore switches stores when a different store is passed",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore switches stores when a different store is passed",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "store switching (dynamic stores)",
+          "ponyMessage": "Error: useStoreSelector does not currently support dynamic stores"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore stops updating unmounted readers and releases the root",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore stops updating unmounted readers and releases the root",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore unsubscribes on unmount after re-rendering with the same stores",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore unsubscribes on unmount after re-rendering with the same stores",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore keeps subscriptions when the same stores are read in a different order",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore keeps subscriptions when the same stores are read in a different order",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "store switching (dynamic stores)",
+          "ponyMessage": "Error: useStoreSelector does not currently support dynamic stores"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore subscribes to an added store and unsubscribes from a dropped one, keeping the rest",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore subscribes to an added store and unsubscribes from a dropped one, keeping the rest",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "store switching (dynamic stores)",
+          "ponyMessage": "Error: useStoreSelector does not currently support dynamic stores"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore drops the records of stores that are no longer read, among many",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore drops the records of stores that are no longer read, among many",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore state survives remounting, unlike component state",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore state survives remounting, unlike component state",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a reader in a suspended tree mounts with the latest value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader in a suspended tree mounts with the latest value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore readers in a hidden Activity update in the background",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore readers in a hidden Activity update in the background",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array [\n-   \"Hidden: B\",\n- ]\n+ Array []"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore works with multiple roots",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore works with multiple roots",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore batches updates to the store with state updates in the same event",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore batches updates to the store with state updates in the same event",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore applies updates inside flushSync synchronously",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore applies updates inside flushSync synchronously",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore async actions batch store updates with updates after await",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore async actions batch store updates with updates after await",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore works with useDeferredValue",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore works with useDeferredValue",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore works in StrictMode",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore works in StrictMode",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a second transition that reverts the first commits the original value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a second transition that reverts the first commits the original value",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   1,\n+ ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a sync update that produces the committed value during a transition still renders the rebased value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a sync update that produces the committed value during a transition still renders the rebased value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore multiple transitions that update the same store are entangled",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore multiple transitions that update the same store are entangled",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a transition does not entangle with a pending urgent update to the same store",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a transition does not entangle with a pending urgent update to the same store",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore runs the reducer as often as useReducer",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore runs the reducer as often as useReducer",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"Reduce 1 + 1\",\n+   \"Reduce 2 + 1\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore warns when a store is updated during render, and renders the update after",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore warns when a store is updated during render, and renders the update after",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "update during render: warning text differs",
+          "ponyMessage": "Error: assertConsoleErrorDev(expected)\n\nUnexpected error(s) recorded.\n\n- Expected errors\n+ Received errors\n\n- Cannot update a store while rendering a component (`App`). Updating a store is a side effect, so it should happen in an event handler or an effect. The update will be rendered after the current render. To locate the bad store.update() call inside `App`, follow the stack trace as described in https://react.dev/link/setstate-in-render     in App (at **)\n+ Cannot update a component (`Unknown`) while rendering a different component (`App`). To locate the bad setState() call inside `App`, follow the stack trace as described in https://react.dev/link/setstate-in-render     in App (at **)"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore throws an invalid hook call error when read outside a function component",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore throws an invalid hook call error when read outside a function component",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore throws a reducer error during render, not when the store is updated",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore throws a reducer error during render, not when the store is updated",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: Oops"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore warns about a second callback argument to store.update",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore warns about a second callback argument to store.update",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "use(store)-specific API errors/warnings",
+          "ponyMessage": "Error: assertConsoleErrorDev(expected)\n\nExpected error was not recorded.\n\n- Expected errors\n+ Received errors\n\n- store.update() doesn't support a second callback argument. To execute a side effect after rendering, declare it in the component body with useEffect()."
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore readers inside a revealed Activity read the same version as the rest of the tree",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore readers inside a revealed Activity read the same version as the rest of the tree",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"Outside: 0\",\n    \"Inside: 0\",\n+   \"Inside: 1\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a reader that mounts after the last reader unmounted does not see a pending transition early",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader that mounts after the last reader unmounted does not see a pending transition early",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"Tab: a 0\",\n    \"Tab: a 1\",\n    \"Tab: a 1\",\n+   \"Reader: 1\",\n    \"Reader: 0\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore drops an update whose reducer throws once an error boundary handles it",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore drops an update whose reducer throws once an error boundary handles it",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: Oops"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore reports a reducer error that no component rendered, and drops the update",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore reports a reducer error that no component rendered, and drops the update",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: Oops"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore throws a reducer error from store.update when nothing reads the store",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore throws a reducer error from store.update when nothing reads the store",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore double invokes reducers in StrictMode even when a reader outside StrictMode reads first",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore double invokes reducers in StrictMode even when a reader outside StrictMode reads first",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"reducer\",\n    \"Loose: 1\",\n-   \"reducer\",\n    \"Strict: 1\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a store update retries a boundary whose reader suspended on mount",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a store update retries a boundary whose reader suspended on mount",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array [\n-   \"Result\",\n- ]\n+ Array []"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a store update retries a boundary whose new reader suspended during an update",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a store update retries a boundary whose new reader suspended during an update",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array [\n-   \"Result\",\n- ]\n+ Array []"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a boundary waiting on a store unsubscribes when it unmounts",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a boundary waiting on a store unsubscribes when it unmounts",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore two stores rebase like one combined store when a sync update interrupts a transition",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore two stores rebase like one combined store when a sync update interrupts a transition",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a transition that updates two stores commits them together, even when they are read in separate subtrees",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a transition that updates two stores commits them together, even when they are read in separate subtrees",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a value derived from several stores outside of render tears with a pending transition",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a value derived from several stores outside of render tears with a pending transition",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a component that starts reading a store stays subscribed when its render bails out",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a component that starts reading a store stays subscribed when its render bails out",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "hook order (conditional/changing use(store) reads)",
+          "ponyMessage": "Error: Rendered more hooks than during the previous render.\nError: asserConsoleLogsCleared(expected)\n\nconsole.error was called without assertConsoleErrorDev:\n+ React has detected a change in the order of Hooks called by %s. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://react.dev/link/rules-of-hooks\n+\n+    Previous render            Next render\n+    ------------------------------------------------------\n+ %s   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n+ %s,Reader,1. useState                   useState\n+ 2. undefined                  useContext\n+ ,\n+     in Reader (at **)\n\nYou must call one of the assertConsoleDev helpers between each act call."
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a store update that throws inside a gesture transition does not change the store",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a store update that throws inside a gesture transition does not change the store",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "use(store)-specific API errors/warnings",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"reportError: Cannot update a store inside a startGestureTransition\",\n+   \"reportError: Cannot setState on regular state inside a startGestureTransition\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/TODOCorrectnessUseStore-test.js :: TODOCorrectnessUseStore noop a transition still commits when its only reader unmounts in a root render before it renders",
+          "file": "scripts/ponyfill-compat/stripped/TODOCorrectnessUseStore-test.js",
+          "name": "TODOCorrectnessUseStore noop a transition still commits when its only reader unmounts in a root render before it renders",
+          "gated": true,
+          "cls": "fail-use(store)-only",
+          "baseMessage": ""
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/TODOCorrectnessUseStore-test.js :: TODOCorrectnessUseStore noop a store update with no readers commits even when the root renders an unrelated update first",
+          "file": "scripts/ponyfill-compat/stripped/TODOCorrectnessUseStore-test.js",
+          "name": "TODOCorrectnessUseStore noop a store update with no readers commits even when the root renders an unrelated update first",
+          "gated": true,
+          "cls": "fail-use(store)-only",
+          "baseMessage": ""
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/TODOCorrectnessUseStore-test.js :: TODOCorrectnessUseStore noop a reader that mounts urgently does not see a transition update to a store no root read yet",
+          "file": "scripts/ponyfill-compat/stripped/TODOCorrectnessUseStore-test.js",
+          "name": "TODOCorrectnessUseStore noop a reader that mounts urgently does not see a transition update to a store no root read yet",
+          "gated": true,
+          "cls": "fail-both",
+          "baseMessage": "",
+          "ponyMessage": ""
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js :: ReactDOMStore a reader inside a newly inserted host component catches up without warnings",
+          "file": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js",
+          "name": "ReactDOMStore a reader inside a newly inserted host component catches up without warnings",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"B: 1\",\n-   \"A: 2\",\n    \"B: 2\",\n+   \"A: 2\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js :: ReactDOMStore hydrates with the initial value of the store",
+          "file": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js",
+          "name": "ReactDOMStore hydrates with the initial value of the store",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"A\",\n+   \"B\",\n    \"B\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js :: ReactDOMStore the server renders the initial value, not updates",
+          "file": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js",
+          "name": "ReactDOMStore the server renders the initial value, not updates",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "rendered output mismatch",
+          "ponyMessage": "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: \"A\"\nReceived: \"B\""
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js :: ReactDOMStore a store update before a dehydrated reader hydrates does not cause a mismatch",
+          "file": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js",
+          "name": "ReactDOMStore a store update before a dehydrated reader hydrates does not cause a mismatch",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "rendered output mismatch",
+          "ponyMessage": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  -  1\n+ Received  + 13\n\n- Array []\n+ Array [\n+   \"Hydration failed because the server rendered text didn't match the client. As a result this tree will be regenerated on the client. This can happen if a SSR-ed Client Component used:\n+\n+ - A server/client branch `if (typeof window !== 'undefined')`.\n+ - Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.\n+ - Date formatting in a user's locale which doesn't match the server.\n+ - External changing data without sending a snapshot of it along with the HTML.\n+ - Invalid HTML tag nesting.\n+\n+ It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.\n+\n+ https://react.dev/link/hydration-mismatch\",\n+ ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js :: ReactDOMStore keeps a controlled input in sync",
+          "file": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js",
+          "name": "ReactDOMStore keeps a controlled input in sync",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js :: ReactDOMStore releases the root when it unmounts, without another store update",
+          "file": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js",
+          "name": "ReactDOMStore releases the root when it unmounts, without another store update",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js :: ReactDOMStore a hydrated reader keeps updating when an unrelated store updated before it hydrated",
+          "file": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js",
+          "name": "ReactDOMStore a hydrated reader keeps updating when an unrelated store updated before it hydrated",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js :: ReactDOMStore a reader that hydrates while a transition is pending joins the transition",
+          "file": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js",
+          "name": "ReactDOMStore a reader that hydrates while a transition is pending joins the transition",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: Hydration failed because the server rendered text didn't match the client. As a result this tree will be regenerated on the client. This can happen if a SSR-ed Client Component used:\n\n- A server/client branch `if (typeof window !== 'undefined')`.\n- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.\n- Date formatting in a user's locale which doesn't match the server.\n- External changing data without sending a snapshot of it along with the HTML.\n- Invalid HTML tag nesting.\n\nIt can also happen if the client has a browser extension installed which messes with the HTML before React loaded.\n\nhttps://react.dev/link/hydration-mismatch\n\n  <StoreProvider>\n    <App>\n      <A>\n      <Suspense fallback=\"Loading\">\n        <B>\n          <span id=\"b\" onClick={function onClick}>\n+           T\n-           A\n        ..."
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactTestRendererUseStoreContext-test.internal.js :: ReactTestRenderer can concurrently render context with a \"primary\" renderer",
+          "file": "scripts/ponyfill-compat/stripped/ReactTestRendererUseStoreContext-test.internal.js",
+          "name": "ReactTestRenderer can concurrently render context with a \"primary\" renderer",
+          "gated": false,
+          "cls": "pass-both"
+        }
+      ]
+    },
+    "stable": {
+      "totals": {
+        "skipped": 1,
+        "pass-both": 22,
+        "fail-ponyfill-only": 84,
+        "fail-use(store)-only": 1,
+        "fail-both": 2
+      },
+      "gatedTotals": {
+        "fail-use(store)-only": 1,
+        "fail-both": 2
+      },
+      "buckets": {
+        "render log mismatch": 66,
+        "rendered output mismatch": 4,
+        "other": 9,
+        "hook order (conditional/changing use(store) reads)": 2,
+        "console mismatch": 1,
+        "use(store)-specific API errors/warnings": 2
+      },
+      "suiteErrors": [],
+      "rows": [
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill wdyr react should be monkey patched by WDYR",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill wdyr react should be monkey patched by WDYR",
+          "gated": false,
+          "cls": "skipped"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore should create a store with initial value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore should create a store with initial value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore should create a store with initial value and reducer",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore should create a store with initial value and reducer",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore should create store with primitive initial value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore should create store with primitive initial value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore should create store with string initial value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore should create store with string initial value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore should create store with array initial value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore should create store with array initial value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should return initial store value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should return initial store value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should return initial primitive value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should return initial primitive value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should return initial string value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should return initial string value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should return initial array value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should return initial array value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should throw error for invalid store type",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should throw error for invalid store type",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should update store value with reducer",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should update store value with reducer",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   0,\n    1,\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should work with array values",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should work with array values",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"1,2,3\",\n    \"1,2,3,4\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should handle complex state updates",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should handle complex state updates",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"render\",\n+   \"render\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should work with multiple components using same store",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should work with multiple components using same store",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"1: 0\",\n+   \"2: 0\",\n    \"1: 1\",\n    \"2: 1\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should change value when updated without reducer",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should change value when updated without reducer",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   0,\n    100,\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should change value when updated with setter",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should change value when updated with setter",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   0,\n    1,\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore should handle an initial value of undefined",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore should handle an initial value of undefined",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"undefined\",\n    42,\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore(suspense) should suspend while loading",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore(suspense) should suspend while loading",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore(suspense) should skip suspense fallback when in a transition",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore(suspense) should skip suspense fallback when in a transition",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill useStore(suspense) should handle transition interruption and resolve to the final state",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill useStore(suspense) should handle transition interruption and resolve to the final state",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "rendered output mismatch",
+          "ponyMessage": "Error: expect(received).not.toBe(expected) // Object.is equality\n\nExpected: not null\nError: Log of yielded values is not empty. Call assertLog first.\n\nReceived:\n+ 0"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store Does not tear when new component mounts mid transition",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store Does not tear when new component mounts mid transition",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   Object {\n+     \"count\": 1,\n+     \"testid\": \"count\",\n+   },\n+ ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store Does not tear when new component mounts in its own transition mid transition",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store Does not tear when new component mounts in its own transition mid transition",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: Log of yielded values is not empty. Call assertLog first.\n\nReceived:\n+ [object Object]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store Does not miss updates triggered in useEffect or useLayoutEffect",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store Does not miss updates triggered in useEffect or useLayoutEffect",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n      \"count\": 1,\n      \"testid\": \"count\",\n    },\n-   Object {\n-     \"count\": 2,\n-     \"testid\": \"count\",\n-   },\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store Does not miss sync updates triggered in useEffect or useLayoutEffect during a long-running transition",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store Does not miss sync updates triggered in useEffect or useLayoutEffect during a long-running transition",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n-     \"count\": 4,\n-     \"testid\": \"count\",\n-   },\n-   Object {\n-     \"count\": 5,\n+     \"count\": 2,\n      \"testid\": \"count\",\n    },\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store Sync update interrupting transition correctly tracks committed state",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store Sync update interrupting transition correctly tracks committed state",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   Object {\n+     \"count\": 2,\n+     \"testid\": \"count\",\n+   },\n+ ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store Multiple sync updates interrupting transition correctly tracks committed state",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store Multiple sync updates interrupting transition correctly tracks committed state",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   Object {\n+     \"count\": 2,\n+     \"testid\": \"count\",\n+   },\n+ ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store flushSync update interrupting transition correctly tracks committed state",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store flushSync update interrupting transition correctly tracks committed state",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   Object {\n+     \"count\": 2,\n+     \"testid\": \"count\",\n+   },\n+ ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store correctly handles consecutive sync updates",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store correctly handles consecutive sync updates",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n+     \"count\": 1,\n+     \"testid\": \"count\",\n+   },\n+   Object {\n      \"count\": 3,\n      \"testid\": \"count\",\n    },\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store dynamic stores are not yet supported",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store dynamic stores are not yet supported",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n-     \"count\": 10,\n+     \"count\": 1,\n      \"testid\": \"count\",\n    },\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store transition store update causes new store reader to mount",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store transition store update causes new store reader to mount",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n      \"action\": \"render\",\n+     \"count\": 1,\n+     \"testid\": \"countIfEven\",\n+   },\n+   Object {\n+     \"action\": \"render\",\n      \"count\": 2,\n      \"testid\": \"countIfEven\",\n    },\n    Object {\n      \"action\": \"render\",\n      \"count\": 2,\n      \"testid\": \"count\",\n    },\n    Object {\n      \"action\": \"mount\",\n      \"count\": 2,\n      \"testid\": \"count\",\n    },\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store gets stuck in suspense when transition state suspends on mount",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store gets stuck in suspense when transition state suspends on mount",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n+     \"action\": \"render\",\n+     \"count\": 1,\n+     \"testid\": \"count\",\n+   },\n+   Object {\n      \"action\": \"suspend\",\n      \"count\": 2,\n      \"testid\": \"count\",\n    },\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Experimental Userland Store can read from multiple different stores updating independently",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Experimental Userland Store can read from multiple different stores updating independently",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    Object {\n+     \"count\": 50,\n+     \"testid\": \"CountB\",\n+     \"type\": \"render\",\n+   },\n+   Object {\n      \"count\": 51,\n      \"testid\": \"CountB\",\n      \"type\": \"render\",\n    },\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Selectors can be dynamic dynamic selectors are supported",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Selectors can be dynamic dynamic selectors are supported",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill Selectors can be dynamic selector changes sync during a transition update to the store",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill Selectors can be dynamic selector changes sync during a transition update to the store",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: Log of yielded values is not empty. Call assertLog first.\n\nReceived:\n+ [object Object]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore for Redux Using Redux Toolkit's configureStore",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore for Redux Using Redux Toolkit's configureStore",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   Object {\n+     \"count\": 1,\n+     \"testid\": \"count\",\n+   },\n+ ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore for a Relay-like state solution Minimal example of MiniRelay",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore for a Relay-like state solution Minimal example of MiniRelay",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: No record found for id: ROOT\nError: Log of yielded values is not empty. Call assertLog first.\n\nReceived:\n+ [object Object]\n+ [object Object]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore for a Relay-like state solution Avoids rerendering the component if the fragment value computes the same output",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore for a Relay-like state solution Avoids rerendering the component if the fragment value computes the same output",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: No record found for id: ROOT\nError: Log of yielded values is not empty. Call assertLog first.\n\nReceived:\n+ [object Object]\n+ [object Object]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js :: ReactUseStorePonyfill createStore for a Relay-like state solution Implements structural sharing such that substructures remain referential identical even if parent object change",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStorePonyfill-test.js",
+          "name": "ReactUseStorePonyfill createStore for a Relay-like state solution Implements structural sharing such that substructures remain referential identical even if parent object change",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: No record found for id: ROOT\nError: Log of yielded values is not empty. Call assertLog first.\n\nReceived:\n+ [object Object]\n+ [object Object]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore should read the current value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore should read the current value",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore reads updates made before the first render",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore reads updates made before the first render",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   3,\n+   1,\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore passes actions to the reducer",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore passes actions to the reducer",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "rendered output mismatch",
+          "ponyMessage": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 1\n\n  <span>\n-   5\n+   0\n  </span>"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore re-renders readers when the store is updated",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore re-renders readers when the store is updated",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"A: 0\",\n+   \"B: 0\",\n    \"A: 1\",\n    \"B: 1\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore only re-renders the components that read the store",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore only re-renders the components that read the store",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Reader: 0\",\n    \"Reader: 1\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore bails out when the value does not change",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore bails out when the value does not change",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   \"Reader: 0\",\n+   \"Reader: 0\",\n+ ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore renders a transition update without blocking",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore renders a transition update without blocking",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"A\",\n    \"B\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a sync update interrupts a transition and is rebased",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a sync update interrupts a transition and is rebased",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   2,\n+ ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a reader that mounts during a transition shows the committed value, then updates with the transition",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader that mounts during a transition shows the committed value, then updates with the transition",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   \"Stable: 1\",\n+ ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a reader that mounts during a non-blocked transition joins it",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader that mounts during a non-blocked transition joins it",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"Stable: 1\",\n-   \"Conditional: 1\",\n+   \"Conditional: 2\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a reader that mounts as part of the transition that updates the store reads the new value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader that mounts as part of the transition that updates the store reads the new value",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"App: 1\",\n    \"App: 2\",\n    \"Conditional: 2\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a reader that mounts after a sync interruption shows the rebased value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader that mounts after a sync interruption shows the rebased value",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: Log of yielded values is not empty. Call assertLog first.\n\nReceived:\n+ Stable: 2"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a reader that mounts after a transition commits reads the new value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader that mounts after a transition commits reads the new value",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Stable: 1\",\n    \"Stable: 2\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore does not miss updates dispatched in a layout effect before the reader subscribes",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore does not miss updates dispatched in a layout effect before the reader subscribes",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"Reader: 1\",\n    \"Layout effect\",\n-   \"Reader: 2\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore does not miss updates dispatched in a passive effect before the reader subscribes",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore does not miss updates dispatched in a passive effect before the reader subscribes",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"Reader: 1\",\n    \"Effect\",\n-   \"Reader: 2\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore does not miss updates dispatched while a concurrent render is in progress",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore does not miss updates dispatched while a concurrent render is in progress",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"B: 1\",\n-   \"A: 2\",\n-   \"B: 2\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore updates sibling readers whether or not a render is in progress",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore updates sibling readers whether or not a render is in progress",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"A0\",\n+   \"B0\",\n+   \"C0\",\n+   \"D0\",\n    \"A1\",\n    \"B1\",\n    \"C1\",\n    \"D1\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore never commits readers showing different versions of the store",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore never commits readers showing different versions of the store",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"A: 2\",\n+   \"A: 1\",\n+   \"B: 1\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore can be read conditionally",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore can be read conditionally",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "hook order (conditional/changing use(store) reads)",
+          "ponyMessage": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement."
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore can read a list of stores in a loop",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore can read a list of stores in a loop",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Sum: 6\",\n    \"Sum: 14\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore supports stores of stores for granular updates",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore supports stores of stores for granular updates",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Two\",\n    \"Two!\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore switches stores when a different store is passed",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore switches stores when a different store is passed",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"B\",\n+   \"A\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore stops updating unmounted readers and releases the root",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore stops updating unmounted readers and releases the root",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore unsubscribes on unmount after re-rendering with the same stores",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore unsubscribes on unmount after re-rendering with the same stores",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Reader: 0a\",\n    \"Reader: 1a\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore keeps subscriptions when the same stores are read in a different order",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore keeps subscriptions when the same stores are read in a different order",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"BA\",\n+   \"AB\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore subscribes to an added store and unsubscribes from a dropped one, keeping the rest",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore subscribes to an added store and unsubscribes from a dropped one, keeping the rest",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"SB\",\n+   \"SA\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore drops the records of stores that are no longer read, among many",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore drops the records of stores that are no longer read, among many",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   0,\n    100,\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore state survives remounting, unlike component state",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore state survives remounting, unlike component state",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Count: 0\",\n    \"Count: 1\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a reader in a suspended tree mounts with the latest value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader in a suspended tree mounts with the latest value",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"Reader: B\",\n+   \"Reader: A\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore readers in a hidden Activity update in the background",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore readers in a hidden Activity update in the background",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Visible: A\",\n    \"Visible: B\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore works with multiple roots",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore works with multiple roots",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"A: 0\",\n+   \"B: 0\",\n    \"A: 1\",\n    \"B: 1\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore batches updates to the store with state updates in the same event",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore batches updates to the store with state updates in the same event",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Total: 0\",\n    \"Total: 2\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore applies updates inside flushSync synchronously",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore applies updates inside flushSync synchronously",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"Count: 1\",\n+   \"Count: 0\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore async actions batch store updates with updates after await",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore async actions batch store updates with updates after await",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   \"Initial A\",\n+ ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore works with useDeferredValue",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore works with useDeferredValue",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"Value: B\",\n+   \"Value: A\",\n    \"Deferred: A\",\n+   \"Value: B\",\n+   \"Deferred: B\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore works in StrictMode",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore works in StrictMode",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Reader: 0\",\n    \"Reader: 1\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a second transition that reverts the first commits the original value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a second transition that reverts the first commits the original value",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   1,\n+   1,\n+ ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a sync update that produces the committed value during a transition still renders the rebased value",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a sync update that produces the committed value during a transition still renders the rebased value",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   1,\n+ ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore multiple transitions that update the same store are entangled",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore multiple transitions that update the same store are entangled",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"B\",\n+   \"A\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a transition does not entangle with a pending urgent update to the same store",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a transition does not entangle with a pending urgent update to the same store",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   1,\n+   0,\n    2,\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore runs the reducer as often as useReducer",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore runs the reducer as often as useReducer",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Value: 0\",\n    \"Value: 1\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore warns when a store is updated during render, and renders the update after",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore warns when a store is updated during render, and renders the update after",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "console mismatch",
+          "ponyMessage": "Error: assertConsoleErrorDev(expected)\n\nUnexpected error(s) recorded.\n\n- Expected errors\n+ Received errors\n\n- Cannot update a store while rendering a component (`App`). Updating a store is a side effect, so it should happen in an event handler or an effect. The update will be rendered after the current render. To locate the bad store.update() call inside `App`, follow the stack trace as described in https://react.dev/link/setstate-in-render     in App (at **)\n+ Cannot call startTransition while rendering.     in App (at **)"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore throws an invalid hook call error when read outside a function component",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore throws an invalid hook call error when read outside a function component",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore throws a reducer error during render, not when the store is updated",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore throws a reducer error during render, not when the store is updated",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: Oops"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore warns about a second callback argument to store.update",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore warns about a second callback argument to store.update",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "use(store)-specific API errors/warnings",
+          "ponyMessage": "Error: assertConsoleErrorDev(expected)\n\nExpected error was not recorded.\n\n- Expected errors\n+ Received errors\n\n- store.update() doesn't support a second callback argument. To execute a side effect after rendering, declare it in the component body with useEffect()."
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore readers inside a revealed Activity read the same version as the rest of the tree",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore readers inside a revealed Activity read the same version as the rest of the tree",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a reader that mounts after the last reader unmounted does not see a pending transition early",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a reader that mounts after the last reader unmounted does not see a pending transition early",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"Tab: a 0\",\n    \"Tab: a 1\",\n    \"Tab: a 1\",\n-   \"Reader: 0\",\n+   \"Reader: 1\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore drops an update whose reducer throws once an error boundary handles it",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore drops an update whose reducer throws once an error boundary handles it",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: Oops"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore reports a reducer error that no component rendered, and drops the update",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore reports a reducer error that no component rendered, and drops the update",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "other",
+          "ponyMessage": "Error: Oops"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore throws a reducer error from store.update when nothing reads the store",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore throws a reducer error from store.update when nothing reads the store",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"Value: 2\",\n+   \"Value: 0\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore double invokes reducers in StrictMode even when a reader outside StrictMode reads first",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore double invokes reducers in StrictMode even when a reader outside StrictMode reads first",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"reducer\",\n+   \"Loose: 0\",\n+   \"Strict: 0\",\n    \"Loose: 1\",\n-   \"reducer\",\n    \"Strict: 1\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a store update retries a boundary whose reader suspended on mount",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a store update retries a boundary whose reader suspended on mount",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array [\n-   \"Result\",\n- ]\n+ Array []"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a store update retries a boundary whose new reader suspended during an update",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a store update retries a boundary whose new reader suspended during an update",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array [\n-   \"Result\",\n- ]\n+ Array []"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a boundary waiting on a store unsubscribes when it unmounts",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a boundary waiting on a store unsubscribes when it unmounts",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore two stores rebase like one combined store when a sync update interrupts a transition",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore two stores rebase like one combined store when a sync update interrupts a transition",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"A:1\",\n+   \"A:0\",\n+   \"B:0\",\n+   \"Both:0,0\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a transition that updates two stores commits them together, even when they are read in separate subtrees",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a transition that updates two stores commits them together, even when they are read in separate subtrees",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"A:1\",\n+   \"A:0\",\n+   \"B:0\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a value derived from several stores outside of render tears with a pending transition",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a value derived from several stores outside of render tears with a pending transition",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "rendered output mismatch",
+          "ponyMessage": "Error: expect(received).toEqual(expected) // deep equality\n\nExpected: \"score:0 total:1000 comments:1\"\nReceived: \"score:0 total:0 comments:0\""
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a component that starts reading a store stays subscribed when its render bails out",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a component that starts reading a store stays subscribed when its render bails out",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "hook order (conditional/changing use(store) reads)",
+          "ponyMessage": "Error: Rendered more hooks than during the previous render.\nError: asserConsoleLogsCleared(expected)\n\nconsole.error was called without assertConsoleErrorDev:\n+ React has detected a change in the order of Hooks called by %s. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://react.dev/link/rules-of-hooks\n+\n+    Previous render            Next render\n+    ------------------------------------------------------\n+ %s   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n+ %s,Reader,1. useState                   useState\n+ 2. undefined                  useState\n+ ,\n+     in Reader (at **)\n\nYou must call one of the assertConsoleDev helpers between each act call."
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js :: ReactUseStore a store update that throws inside a gesture transition does not change the store",
+          "file": "scripts/ponyfill-compat/stripped/ReactUseStore-test.js",
+          "name": "ReactUseStore a store update that throws inside a gesture transition does not change the store",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "use(store)-specific API errors/warnings",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n-   \"reportError: Cannot update a store inside a startGestureTransition\",\n+   \"A: 0\",\n+   \"A: 1\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/TODOCorrectnessUseStore-test.js :: TODOCorrectnessUseStore noop a transition still commits when its only reader unmounts in a root render before it renders",
+          "file": "scripts/ponyfill-compat/stripped/TODOCorrectnessUseStore-test.js",
+          "name": "TODOCorrectnessUseStore noop a transition still commits when its only reader unmounts in a root render before it renders",
+          "gated": true,
+          "cls": "fail-use(store)-only",
+          "baseMessage": ""
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/TODOCorrectnessUseStore-test.js :: TODOCorrectnessUseStore noop a store update with no readers commits even when the root renders an unrelated update first",
+          "file": "scripts/ponyfill-compat/stripped/TODOCorrectnessUseStore-test.js",
+          "name": "TODOCorrectnessUseStore noop a store update with no readers commits even when the root renders an unrelated update first",
+          "gated": true,
+          "cls": "fail-both",
+          "baseMessage": "",
+          "ponyMessage": ""
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/TODOCorrectnessUseStore-test.js :: TODOCorrectnessUseStore noop a reader that mounts urgently does not see a transition update to a store no root read yet",
+          "file": "scripts/ponyfill-compat/stripped/TODOCorrectnessUseStore-test.js",
+          "name": "TODOCorrectnessUseStore noop a reader that mounts urgently does not see a transition update to a store no root read yet",
+          "gated": true,
+          "cls": "fail-both",
+          "baseMessage": "",
+          "ponyMessage": ""
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js :: ReactDOMStore a reader inside a newly inserted host component catches up without warnings",
+          "file": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js",
+          "name": "ReactDOMStore a reader inside a newly inserted host component catches up without warnings",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"B: 1\",\n-   \"A: 2\",\n-   \"B: 2\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js :: ReactDOMStore hydrates with the initial value of the store",
+          "file": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js",
+          "name": "ReactDOMStore hydrates with the initial value of the store",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n    \"A\",\n-   \"B\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js :: ReactDOMStore the server renders the initial value, not updates",
+          "file": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js",
+          "name": "ReactDOMStore the server renders the initial value, not updates",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js :: ReactDOMStore a store update before a dehydrated reader hydrates does not cause a mismatch",
+          "file": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js",
+          "name": "ReactDOMStore a store update before a dehydrated reader hydrates does not cause a mismatch",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "rendered output mismatch",
+          "ponyMessage": "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: \"B\"\nReceived: \"A\""
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js :: ReactDOMStore keeps a controlled input in sync",
+          "file": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js",
+          "name": "ReactDOMStore keeps a controlled input in sync",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js :: ReactDOMStore releases the root when it unmounts, without another store update",
+          "file": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js",
+          "name": "ReactDOMStore releases the root when it unmounts, without another store update",
+          "gated": false,
+          "cls": "pass-both"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js :: ReactDOMStore a hydrated reader keeps updating when an unrelated store updated before it hydrated",
+          "file": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js",
+          "name": "ReactDOMStore a hydrated reader keeps updating when an unrelated store updated before it hydrated",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n  Array [\n+   \"Reader: A\",\n    \"Reader: B\",\n  ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js :: ReactDOMStore a reader that hydrates while a transition is pending joins the transition",
+          "file": "scripts/ponyfill-compat/stripped/ReactDOMStore-test.js",
+          "name": "ReactDOMStore a reader that hydrates while a transition is pending joins the transition",
+          "gated": false,
+          "cls": "fail-ponyfill-only",
+          "bucket": "render log mismatch",
+          "ponyMessage": "Error: \nExpected sequence of events did not occur.\n\n- Expected\n+ Received\n\n- Array []\n+ Array [\n+   \"A: A\",\n+ ]"
+        },
+        {
+          "key": "scripts/ponyfill-compat/stripped/ReactTestRendererUseStoreContext-test.internal.js :: ReactTestRenderer can concurrently render context with a \"primary\" renderer",
+          "file": "scripts/ponyfill-compat/stripped/ReactTestRendererUseStoreContext-test.internal.js",
+          "name": "ReactTestRenderer can concurrently render context with a \"primary\" renderer",
+          "gated": false,
+          "cls": "pass-both"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "head",
+  "sha": "a3d8e745a9089d82f0f928dfeb7e6c00cd171a44",
+  "branch": "rh/use-store",
+  "dirty": [],
+  "dirtyAffectsBuild": false,
+  "dirtyNote": "Built by the reviewer session from a clean tree at this sha (yarn build --type=NODE_DEV,NODE_PROD); ReactVersion.js restored after.",
+  "version": "0.0.0-experimental-a3d8e745-20261101",
+  "channel": "oss-experimental",
+  "builtAt": "2026-11-02T00:53:44.006Z",
+  "frozenAt": "2026-11-02T00:55:02.698Z",
+  "replaces": "head-e31a6640",
+  "exportsCreateStore": {
+    "dev": true,
+    "prod": true
+  },
+  "hashes": {
+    "react/cjs/react.development.js": "19c624f8050e41a9",
+    "react/cjs/react.production.js": "281151d4b70cc8e2",
+    "react-dom/cjs/react-dom-client.development.js": "2558252f548de5f1",
+    "react-dom/cjs/react-dom-client.production.js": "0a2ebf9d294a327f",
+    "scheduler/cjs/scheduler.production.js": "81891bbcdd78e398"
+  }
+}

@@ -1,0 +1,8 @@
+/* Loaded into one demo sandbox frame through data-styles, to show that
+   data-styles works. */
+.demo-note {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px dashed currentColor;
+}

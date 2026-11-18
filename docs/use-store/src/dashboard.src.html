@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>use(store) benchmark results</title>
+<style>
+  :root { color-scheme: light dark; --bg: #f9f9f7; --text: #0b0b0b; --muted: #52514e; --accent: #256abf; --border: #e1e0d9; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #0d0d0d; --text: #f0efec; --muted: #c3c2b7; --accent: #5598e7; --border: #2c2c2a; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  a { color: var(--accent); }
+  main { max-width: 1680px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 30px; line-height: 1.2; margin: 0 0 8px; }
+  h2 { font-size: 21px; margin: 40px 0 6px; padding-top: 12px; border-top: 1px solid var(--border); }
+  p { margin: 0 0 10px; max-width: 760px; }
+  code { font: 0.9em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .build-label { color: var(--muted); font-size: 13px; }
+  nav.toc ul { display: flex; flex-wrap: wrap; gap: 4px 16px; list-style: none; margin: 12px 0 0; padding: 0; font-size: 14px; }
+  .more { font-size: 14px; }
+  footer { margin-top: 40px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--border); padding-top: 12px; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+<!-- gen:charts-assets {"extras": true, "results": true} --><!-- /gen:charts-assets -->
+</head>
+<body>
+<main>
+
+<header>
+<h1><code>use(store)</code> benchmark results</h1>
+<p>Every result for every variant, with and without the React Compiler, one table per suite. The <a href="benchmark-report.html">benchmark report</a> explains what they mean.</p>
+<p class="build-label"><!-- gen:build-label --><!-- /gen:build-label --></p>
+<nav class="toc" aria-label="Suites">
+<ul>
+<li><a href="#main">Main suite</a></li>
+<li><a href="#memory">Memory</a></li>
+<li><a href="#typing">Typing</a></li>
+<li><a href="#typing-suite">Typing with <code>useDeferredValue</code></a></li>
+<li><a href="#nobailout">Without the same-element bailout</a></li>
+<li><a href="#fairness5">Every Redux setup</a></li>
+<li><a href="#derived-selectors">Derived selectors</a></li>
+<li><a href="#spike">More readers of derived data</a></li>
+<li><a href="#sweeps">Sweeps</a></li>
+<li><a href="#rapid-dispatch">Rapid dispatch</a></li>
+<li><a href="#many-components-same-slice">Many components, one counter</a></li>
+<li><a href="#deeptree-nested-hooks">Deep tree</a></li>
+</ul>
+</nav>
+</header>
+
+<h2 id="main">Main suite</h2>
+<p>A list of rows with a selection, a filter, and rows that expand to show details. Each scenario times one kind of update at <span data-n="method.sizes"></span> rows, with no CPU slowdown and with a four times CPU slowdown.</p>
+<p class="more"><a href="benchmark-report.html#main">What this means →</a></p>
+<!-- gen:results-table {"suite": "main"} --><!-- /gen:results-table -->
+
+<h2 id="memory">Memory</h2>
+<p>How much the heap grows when the rows mount, measured after garbage collection and divided by the number of rows.</p>
+<p class="more"><a href="benchmark-report.html#memory">What this means →</a></p>
+<!-- gen:results-table {"suite": "memory"} --><!-- /gen:results-table -->
+
+<h2 id="typing">Typing</h2>
+<p>Types <span data-n="typing.main.keys"></span> keys into the filter while <span data-n="typing.main.rows"></span> expensive rows re-filter. Each key's latency runs from the key press to the next frame.</p>
+<p class="more"><a href="benchmark-report.html#typing">What this means →</a></p>
+<!-- gen:results-table {"suite": "typing"} --><!-- /gen:results-table -->
+
+<h2 id="typing-suite">Typing with <code>useDeferredValue</code></h2>
+<p>The same typing test, with versions of Redux and Zustand that show the list through <code>useDeferredValue</code>.</p>
+<p class="more"><a href="benchmark-report.html#typing">What this means →</a></p>
+<!-- gen:results-table {"suite": "typing-suite"} --><!-- /gen:results-table -->
+
+<h2 id="nobailout">Without the same-element bailout</h2>
+<p>The main suite at <span data-n="nobailout.sizes"></span> rows, on the same build with the same-element bailout turned off. The bailout lets React skip a component that returns the exact element it returned last time.</p>
+<p class="more"><a href="benchmark-report.html#bailout">What this means →</a></p>
+<!-- gen:results-table {"suite": "nobailout"} --><!-- /gen:results-table -->
+
+<h2 id="fairness5">Every Redux setup</h2>
+<p>The main scenarios at <span data-n="method.countsRows"></span> rows, with Redux Toolkit, a hand-written reducer, and Redux Toolkit with Immer's auto-freeze off, timed in one run with <code>use(store)</code> and Zustand.</p>
+<p class="more"><a href="benchmark-report.html#fairness">What this means →</a></p>
+<!-- gen:results-table {"suite": "fairness5"} --><!-- /gen:results-table -->
+
+<h2 id="derived-selectors">Derived selectors</h2>
+<p>From the Redux team's benchmarks. Many components show expensive data derived from the same state. <code>store-memo</code> is <code>use(store)</code> sharing the derivation with <code>weakMemo</code>.</p>
+<p class="more"><a href="benchmark-report.html#derived-results">What this means →</a></p>
+<!-- gen:results-table {"suite": "derived-selectors"} --><!-- /gen:results-table -->
+
+<h2 id="spike">More readers of derived data</h2>
+<p>The derived-selectors test with <span data-n="spike.ks"></span> readers per category, plus several other ways to share the derived data.</p>
+<p class="more"><a href="benchmark-report.html#derived-results">What this means →</a></p>
+<!-- gen:results-table {"suite": "spike"} --><!-- /gen:results-table -->
+
+<h2 id="sweeps">Sweeps</h2>
+<p>Rows that read only their own data and the selection, at <span data-n="sweep.rows"></span> rows. One sweep changes how much of the app the compiler covers, and the other changes how many props each row shows.</p>
+<p class="more"><a href="benchmark-report.html#sweeps">What this means →</a></p>
+<!-- gen:results-table {"suite": "sweeps"} --><!-- /gen:results-table -->
+
+<h2 id="rapid-dispatch">Rapid dispatch</h2>
+<p>From the Redux team's benchmarks. Bursts of updates in each task, including a Redux Toolkit listener that triggers more updates.</p>
+<p class="more"><a href="benchmark-report.html#redux-suites">What this means →</a></p>
+<!-- gen:results-table {"suite": "rapid-dispatch"} --><!-- /gen:results-table -->
+
+<h2 id="many-components-same-slice">Many components, one counter</h2>
+<p>From the Redux team's benchmarks. Many components read the same counter.</p>
+<p class="more"><a href="benchmark-report.html#redux-suites">What this means →</a></p>
+<!-- gen:results-table {"suite": "many-components-same-slice"} --><!-- /gen:results-table -->
+
+<h2 id="deeptree-nested-hooks">Deep tree</h2>
+<p>From the Redux team's benchmarks. A deep tree of nested components with counters at the leaves.</p>
+<p class="more"><a href="benchmark-report.html#redux-suites">What this means →</a></p>
+<!-- gen:results-table {"suite": "deeptree-nested-hooks"} --><!-- /gen:results-table -->
+
+<footer>
+<p>These are synthetic benchmarks, small apps built to isolate one thing each, with no data from a real app yet. <a href="benchmark-report.html#method">How the numbers were measured</a>.</p>
+</footer>
+
+</main>
+</body>
+</html>

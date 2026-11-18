@@ -31,3 +31,6 @@ packages/react-devtools-cdt-mcp/fixtures
 
 # Imported third-party Flow types
 flow-typed/
+
+# use(store) docs: generated vendor bundles
+docs/use-store/vendor
