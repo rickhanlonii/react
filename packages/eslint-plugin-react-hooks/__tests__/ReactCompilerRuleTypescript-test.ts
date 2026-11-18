@@ -75,6 +75,18 @@ const tests: CompilerTestCases = {
         };
       `,
     },
+    {
+      name: 'Reading a store',
+      filename: 'test.tsx',
+      code: normalizeIndent`
+        import {use, unstable_createStore as createStore} from 'react';
+        const countStore = createStore<number>(0);
+        function Counter() {
+          const count = use(countStore);
+          return <button onClick={() => countStore.update(c => c + 1)}>{count}</button>;
+        }
+      `,
+    },
   ],
   invalid: [
     {
@@ -189,6 +201,26 @@ const tests: CompilerTestCases = {
       errors: [
         {
           message: /Modifying component props/,
+        },
+      ],
+    },
+    {
+      name: 'Mutating a value read from a store',
+      filename: 'test.tsx',
+      code: `
+        import { use } from 'react';
+        function Component({store}) {
+          // typescript syntax that hermes-parser doesn't understand yet
+          const x: \`foo\${1}\` = 'foo1';
+          const state = use(store);
+          state.a = 1;
+          return <div>{state.a}</div>;
+        }
+      `,
+      errors: [
+        {
+          message: /This value cannot be modified/,
+          line: 7,
         },
       ],
     },

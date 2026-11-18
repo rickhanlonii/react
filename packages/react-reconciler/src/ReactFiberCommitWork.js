@@ -58,7 +58,13 @@ import {
   enableComponentPerformanceTrack,
   enableViewTransition,
   enableDefaultTransitionIndicator,
+  enableStore,
 } from 'shared/ReactFeatureFlags';
+import {
+  unsubscribeFromStoresOnDeletion,
+  commitSuspenseStoreReads,
+  unsubscribeSuspenseStoreReadsOnDeletion,
+} from './ReactFiberStore';
 import {
   FunctionComponent,
   ForwardRef,
@@ -1672,6 +1678,9 @@ function commitDeletionEffectsOnFiber(
         deletedFiber,
         nearestMountedAncestor,
       );
+      if (enableStore) {
+        unsubscribeFromStoresOnDeletion(deletedFiber);
+      }
       if (!offscreenSubtreeWasHidden) {
         commitHookLayoutUnmountEffects(
           deletedFiber,
@@ -1710,6 +1719,17 @@ function commitDeletionEffectsOnFiber(
         if (!offscreenSubtreeWasHidden) {
           safelyDetachRef(deletedFiber, nearestMountedAncestor);
         }
+      }
+      recursivelyTraverseDeletionEffects(
+        finishedRoot,
+        nearestMountedAncestor,
+        deletedFiber,
+      );
+      break;
+    }
+    case SuspenseComponent: {
+      if (enableStore) {
+        unsubscribeSuspenseStoreReadsOnDeletion(deletedFiber);
       }
       recursivelyTraverseDeletionEffects(
         finishedRoot,
@@ -2456,6 +2476,10 @@ function commitMutationEffectsOnFiber(
     case SuspenseComponent: {
       recursivelyTraverseMutationEffects(root, finishedWork, lanes);
       commitReconciliationEffects(finishedWork, lanes);
+
+      if (enableStore) {
+        commitSuspenseStoreReads(current, finishedWork);
+      }
 
       // TODO: We should mark a flag on the Suspense fiber itself, rather than
       // relying on the Offscreen fiber having a flag also being marked. The

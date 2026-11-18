@@ -55,6 +55,7 @@ export {
   addTransitionType,
   unstable_getCacheForType,
   unstable_useCacheRefresh,
+  unstable_createStore,
   useId,
   useCallback,
   useContext,

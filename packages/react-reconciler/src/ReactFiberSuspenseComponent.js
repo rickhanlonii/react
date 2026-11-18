@@ -13,6 +13,7 @@ import type {SuspenseInstance} from './ReactFiberConfig';
 import type {Lane} from './ReactFiberLane';
 import type {TreeContext} from './ReactFiberTreeContext';
 import type {CapturedValue} from './ReactCapturedValue';
+import type {StoreRecord} from './ReactFiberStore';
 
 import {SuspenseComponent, SuspenseListComponent} from './ReactWorkTags';
 import {NoFlags, DidCapture} from './ReactFiberFlags';
@@ -40,6 +41,10 @@ export type SuspenseState = {
   retryLane: Lane,
   // Stashed Errors that happened while attempting to hydrate this boundary.
   hydrationErrors: Array<CapturedValue<mixed>> | null,
+  // enableStore only: the stores read by the primary children that
+  // suspended, while the fallback is showing. The boundary subscribes to
+  // them, so a store update retries it.
+  storeReads?: Array<StoreRecord<any, any>> | null,
 };
 
 export type SuspenseListRenderState = {

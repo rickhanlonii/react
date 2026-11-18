@@ -131,7 +131,7 @@ import {
 import {
   didFiberRender,
   getContextChanged,
-  getChangedHooksIndices,
+  getChangedHooks,
   getChangedKeys,
 } from './shared/DevToolsFiberChangeDetection';
 import {getInternalReactConstants} from './shared/DevToolsFiberInternalReactConstants';
@@ -370,6 +370,17 @@ function releaseHostResource(
       }
     }
   }
+}
+
+// Reading a store with use() doesn't use a slot in the list of Hooks or add a
+// context dependency, so check the stores the component read separately.
+function readsStore(fiber: Fiber): boolean {
+  const updateQueue: any = fiber.updateQueue;
+  return (
+    updateQueue != null &&
+    updateQueue.storeReads != null &&
+    updateQueue.storeReads.length > 0
+  );
 }
 
 export function attach(
@@ -1322,18 +1333,26 @@ export function attach(
         } else {
           const prevHooks = inspectHooks(prevFiber);
           const nextHooks = inspectHooks(nextFiber);
-          const indices = getChangedHooksIndices(prevHooks, nextHooks);
+          const changedHooks = getChangedHooks(prevHooks, nextHooks);
           const data: ChangeDescription = {
             context: getContextChanged(prevFiber, nextFiber),
-            didHooksChange: indices !== null && indices.length > 0,
+            didHooksChange:
+              changedHooks !== null &&
+              (changedHooks.hooks.length > 0 ||
+                changedHooks.storeReads.length > 0),
             isFirstMount: false,
             props: getChangedKeys(
               prevFiber.memoizedProps,
               nextFiber.memoizedProps,
             ),
             state: null,
-            hooks: indices,
+            hooks: changedHooks === null ? null : changedHooks.hooks,
           };
+          // Only add store reads when one changed, so descriptions of
+          // components that don't read stores keep their shape.
+          if (changedHooks !== null && changedHooks.storeReads.length > 0) {
+            data.storeReads = changedHooks.storeReads;
+          }
           // Only traverse the hooks list once, depending on what info we're returning.
           return data;
         }
@@ -6074,7 +6093,7 @@ export function attach(
       (tag === FunctionComponent ||
         tag === SimpleMemoComponent ||
         tag === ForwardRef) &&
-      (!!memoizedState || !!dependencies);
+      (!!memoizedState || !!dependencies || readsStore(fiber));
 
     // TODO Show custom UI for Cache like we do for Suspense
     // For now, just hide state data entirely since it's not meant to be inspected.

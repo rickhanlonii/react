@@ -50,8 +50,15 @@ export default function WhatChanged({
     return null;
   }
 
-  const {context, didHooksChange, hooks, isFirstMount, props, state} =
-    changeDescription;
+  const {
+    context,
+    didHooksChange,
+    hooks,
+    storeReads,
+    isFirstMount,
+    props,
+    state,
+  } = changeDescription;
 
   if (isFirstMount) {
     return (
@@ -95,6 +102,7 @@ export default function WhatChanged({
         <div key="hooks" className={styles.Item}>
           <HookChangeSummary
             hooks={hooks}
+            storeReads={storeReads}
             fiberID={fiberID}
             state={state}
             displayMode={displayMode}

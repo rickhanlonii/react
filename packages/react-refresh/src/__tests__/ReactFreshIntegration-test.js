@@ -2239,6 +2239,61 @@ describe('ReactFreshIntegration', () => {
         }
       });
     });
+
+    describe('use(store)', () => {
+      // Stores live outside of the edited modules, so that edits don't
+      // re-create them.
+      afterEach(() => {
+        delete global.stores;
+      });
+
+      // The store version of "resets state when renaming a state variable".
+      // use(store) isn't Hook state, so it isn't part of the signature.
+      // @gate enableStore || !__DEV__
+      it('does not remount when renaming a variable read from a store', async () => {
+        if (__DEV__) {
+          global.stores = {foo: React.unstable_createStore(1)};
+          await render(`
+            const {use} = React;
+            const fooStore = global.stores.foo;
+
+            export default function App() {
+              const foo = use(fooStore);
+              return <h1>A{foo}</h1>;
+            }
+          `);
+          const el = container.firstChild;
+          expect(el.textContent).toBe('A1');
+
+          await patch(`
+            const {use} = React;
+            const fooStore = global.stores.foo;
+
+            export default function App() {
+              const foo = use(fooStore);
+              return <h1>B{foo}</h1>;
+            }
+          `);
+          // Same state variable name, so state is preserved.
+          expect(container.firstChild).toBe(el);
+          expect(el.textContent).toBe('B1');
+
+          await patch(`
+            const {use} = React;
+            const fooStore = global.stores.foo;
+
+            export default function App() {
+              const bar = use(fooStore);
+              return <h1>C{bar}</h1>;
+            }
+          `);
+          // Renaming the variable doesn't remount, and the store keeps its
+          // value.
+          expect(container.firstChild).toBe(el);
+          expect(el.textContent).toBe('C1');
+        }
+      });
+    });
   }
 
   function testTypeScript(render, patch) {

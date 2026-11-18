@@ -10945,4 +10945,118 @@ Unfortunately that previous paragraph wasn't quite long enough so I'll continue 
 
     root.unmount();
   });
+
+  describe('use(store)', () => {
+    let createStore;
+
+    beforeEach(() => {
+      createStore = React.unstable_createStore;
+    });
+
+    // @gate enableStore
+    it(
+      'a transition that flows into a dehydrated boundary should not suspend ' +
+        'if the boundary is showing a fallback',
+      async () => {
+        const searchStore = createStore('initial query');
+        const setSearch = searchStore.update;
+        function App() {
+          const search = use(searchStore);
+          return (
+            <div>
+              <div>{search}</div>
+              <div>
+                <Suspense fallback="Loading...">
+                  <AsyncText text="Async" />
+                </Suspense>
+              </div>
+            </div>
+          );
+        }
+
+        // Render the initial HTML, which is showing a fallback.
+        await act(() => {
+          const {pipe} = renderToPipeableStream(<App />);
+          pipe(writable);
+        });
+
+        // Start hydrating.
+        await clientAct(() => {
+          ReactDOMClient.hydrateRoot(container, <App />);
+        });
+        expect(getVisibleChildren(container)).toEqual(
+          <div>
+            <div>initial query</div>
+            <div>Loading...</div>
+          </div>,
+        );
+
+        // Before the HTML has streamed in, update the query. The part outside
+        // the fallback should be allowed to finish.
+        await clientAct(() => {
+          React.startTransition(() => setSearch('updated query'));
+        });
+        expect(getVisibleChildren(container)).toEqual(
+          <div>
+            <div>updated query</div>
+            <div>Loading...</div>
+          </div>,
+        );
+      },
+    );
+
+    // @gate enableStore
+    it('warns once if a store was updated before the server render', async () => {
+      const store = createStore('initial');
+      function Reader() {
+        return use(store);
+      }
+      function App() {
+        return (
+          <div>
+            <span>
+              <Reader />
+            </span>
+            <span>
+              <Reader />
+            </span>
+          </div>
+        );
+      }
+
+      store.update('server data');
+
+      await act(() => {
+        const {pipe} = renderToPipeableStream(<App />);
+        pipe(writable);
+      });
+      assertConsoleErrorDev([
+        'A store was updated before this server render. The server renders ' +
+          "a store's initial value, so the update isn't included. Create the " +
+          'store with the server data, or pass a per-request store through ' +
+          'context.\n' +
+          '    in App (at **)',
+      ]);
+      expect(getVisibleChildren(container)).toEqual(
+        <div>
+          <span>initial</span>
+          <span>initial</span>
+        </div>,
+      );
+    });
+
+    // @gate enableStore
+    it('does not warn if a store was not updated before the server render', async () => {
+      const store = createStore('initial');
+      function App() {
+        return <div>{use(store)}</div>;
+      }
+
+      await act(() => {
+        const {pipe} = renderToPipeableStream(<App />);
+        pipe(writable);
+      });
+      expect(getVisibleChildren(container)).toEqual(<div>initial</div>);
+    });
+  });
 });

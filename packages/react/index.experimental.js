@@ -36,6 +36,7 @@ export {
   unstable_SuspenseList,
   ViewTransition,
   unstable_startGestureTransition,
+  unstable_createStore,
   addTransitionType,
   unstable_useCacheRefresh,
   useId,

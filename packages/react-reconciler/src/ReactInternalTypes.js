@@ -41,6 +41,7 @@ import type {ConcurrentUpdate} from './ReactFiberConcurrentUpdates';
 import type {ComponentStackNode} from 'react-server/src/ReactFizzComponentStack';
 import type {ThenableState} from './ReactFiberThenable';
 import type {ScheduledGesture} from './ReactFiberGestureScheduler';
+import type {StoreRecord} from './ReactFiberStore';
 
 // Unwind Circular: moved from ReactFiberHooks.old
 export type HookType =
@@ -293,6 +294,12 @@ type BaseFiberRootProperties = {
   // enableGestureTransition only
   pendingGestures: null | ScheduledGesture,
   gestureClone: null | Instance,
+
+  // enableStore only
+  // The records of the stores read by this root that have updates that
+  // haven't committed, and the ones that may have no readers.
+  pendingStoreRecords: Array<StoreRecord<any, any>> | null,
+  unsubscribedStoreRecords: Array<StoreRecord<any, any>> | null,
 };
 
 // The following attributes are only used by DevTools and are only present in DEV builds.

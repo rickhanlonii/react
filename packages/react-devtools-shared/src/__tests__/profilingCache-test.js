@@ -865,6 +865,44 @@ describe('ProfilingCache', () => {
   });
 
   // @reactVersion >= 18.0
+  it('should report changed hooks by id when hooks without an id come first', () => {
+    const Context = React.createContext(0);
+
+    let setFirst = null;
+    let setSecond = null;
+    const Component = () => {
+      // Context takes no slot in the list of Hooks, so it has no id.
+      React.useContext(Context);
+      const [first, _setFirst] = React.useState('a');
+      const [second, _setSecond] = React.useState('b');
+      setFirst = _setFirst;
+      setSecond = _setSecond;
+      return first + second;
+    };
+
+    utils.act(() => render(<Component />));
+
+    // Save references before inspectHooks() overwrites them.
+    const realSetFirst = setFirst;
+    const realSetSecond = setSecond;
+
+    utils.act(() => store.profilerStore.startProfiling());
+    utils.act(() => realSetFirst('c'));
+    utils.act(() => realSetSecond('d'));
+    utils.act(() => store.profilerStore.stopProfiling());
+
+    const rootID = store.roots[0];
+    const changedHooks = store.profilerStore
+      .getDataForRoot(rootID)
+      .commitData.map(
+        commitData =>
+          Array.from(commitData.changeDescriptions.values())[0].hooks,
+      );
+    // The ids match the hook numbers in the inspected hooks, which skip Context.
+    expect(changedHooks).toEqual([[0], [1]]);
+  });
+
+  // @reactVersion >= 18.0
   it('should calculate durations based on actual children (not filtered children)', () => {
     store.componentFilters = [utils.createDisplayNameFilter('^Parent$')];
 
@@ -1428,5 +1466,244 @@ describe('ProfilingCache', () => {
     ).updaters;
     expect(updaters.length).toEqual(1);
     expect(updaters[0].displayName).toEqual('App');
+  });
+
+  describe('use(store)', () => {
+    let createStore;
+    let use;
+
+    beforeEach(() => {
+      createStore = React.unstable_createStore;
+      use = React.use;
+    });
+
+    // Store reads are stateful, so a store update is reported as a changed
+    // hook. Store reads have no id, so they're reported by their position among
+    // the store reads, and the ids of the other hooks don't count them. It has a reactVersion pragma rather than a gate pragma, so
+    // DevTools regression runs against older versions of React skip it. A gate
+    // pragma would override the reactVersion one.
+    // @reactVersion >= 19.3
+    it('should properly detect changed hooks', () => {
+      const Context = React.createContext(0);
+
+      function reducer(state, action) {
+        switch (action.type) {
+          case 'invert':
+            return {value: !state.value};
+          default:
+            throw new Error();
+        }
+      }
+
+      let snapshot = 0;
+      function getServerSnapshot() {
+        return snapshot;
+      }
+      function getClientSnapshot() {
+        return snapshot;
+      }
+
+      let syncExternalStoreCallback;
+      function subscribe(callback) {
+        syncExternalStoreCallback = callback;
+      }
+
+      const stateStore = createStore('abc');
+      const reducerStore = createStore({value: true}, reducer);
+
+      const Component = ({count, string}) => {
+        // These hooks may change and initiate re-renders.
+        use(stateStore);
+        use(reducerStore);
+        React.useSyncExternalStore(
+          subscribe,
+          getClientSnapshot,
+          getServerSnapshot,
+        );
+
+        // This hook's return value may change between renders,
+        // but the hook itself isn't stateful.
+        React.useContext(Context);
+
+        // These hooks never change in a way that schedules an update.
+        React.useCallback(() => () => {}, [string]);
+        React.useMemo(() => string, [string]);
+        React.useCallback(() => () => {}, [count]);
+        React.useMemo(() => count, [count]);
+        React.useCallback(() => () => {});
+        React.useMemo(() => string);
+
+        // These hooks never change in a way that schedules an update.
+        React.useEffect(() => {}, [string]);
+        React.useLayoutEffect(() => {}, [string]);
+        React.useEffect(() => {}, [count]);
+        React.useLayoutEffect(() => {}, [count]);
+        React.useEffect(() => {});
+        React.useLayoutEffect(() => {});
+
+        return null;
+      };
+
+      utils.act(() => store.profilerStore.startProfiling());
+      utils.act(() =>
+        render(
+          <Context.Provider value={true}>
+            <Component count={1} />
+          </Context.Provider>,
+        ),
+      );
+
+      // store.update is stable and isn't affected by inspectHooks() re-running
+      // the component with a mock dispatcher.
+      const realDispatch = reducerStore.update;
+      const realSetState = stateStore.update;
+
+      // Second render has no changed hooks, only changed props.
+      utils.act(() =>
+        render(
+          <Context.Provider value={true}>
+            <Component count={2} />
+          </Context.Provider>,
+        ),
+      );
+
+      // Third render has a changed reducer hook.
+      utils.act(() => realDispatch({type: 'invert'}));
+
+      // Fourth render has a changed state hook.
+      utils.act(() => realSetState('def'));
+
+      // Fifth render has a changed context value, but no changed hook.
+      utils.act(() =>
+        render(
+          <Context.Provider value={false}>
+            <Component count={2} />
+          </Context.Provider>,
+        ),
+      );
+
+      // 6th renderer is triggered by a sync external store change.
+      utils.act(() => {
+        snapshot++;
+        syncExternalStoreCallback();
+      });
+
+      utils.act(() => store.profilerStore.stopProfiling());
+
+      const rootID = store.roots[0];
+
+      const changeDescriptions = store.profilerStore
+        .getDataForRoot(rootID)
+        .commitData.map(commitData => commitData.changeDescriptions);
+      expect(changeDescriptions).toHaveLength(6);
+
+      // 1st render: No change
+      expect(changeDescriptions[0]).toMatchInlineSnapshot(`
+        Map {
+          3 => {
+            "context": null,
+            "didHooksChange": false,
+            "isFirstMount": true,
+            "props": null,
+            "state": null,
+          },
+        }
+      `);
+
+      // 2nd render: Changed props
+      expect(changeDescriptions[1]).toMatchInlineSnapshot(`
+        Map {
+          3 => {
+            "context": false,
+            "didHooksChange": false,
+            "hooks": [],
+            "isFirstMount": false,
+            "props": [
+              "count",
+            ],
+            "state": null,
+          },
+        }
+      `);
+
+      // 3rd render: Changed reducer store
+      expect(changeDescriptions[2]).toMatchInlineSnapshot(`
+        Map {
+          3 => {
+            "context": false,
+            "didHooksChange": true,
+            "hooks": [],
+            "isFirstMount": false,
+            "props": [],
+            "state": null,
+            "storeReads": [
+              1,
+            ],
+          },
+        }
+      `);
+
+      // 4th render: Changed state store
+      expect(changeDescriptions[3]).toMatchInlineSnapshot(`
+        Map {
+          3 => {
+            "context": false,
+            "didHooksChange": true,
+            "hooks": [],
+            "isFirstMount": false,
+            "props": [],
+            "state": null,
+            "storeReads": [
+              0,
+            ],
+          },
+        }
+      `);
+
+      // 5th render: Changed context
+      expect(changeDescriptions[4]).toMatchInlineSnapshot(`
+        Map {
+          3 => {
+            "context": true,
+            "didHooksChange": false,
+            "hooks": [],
+            "isFirstMount": false,
+            "props": [],
+            "state": null,
+          },
+        }
+      `);
+
+      // 6th render: Sync external store
+      expect(changeDescriptions[5]).toMatchInlineSnapshot(`
+        Map {
+          3 => {
+            "context": false,
+            "didHooksChange": true,
+            "hooks": [
+              0,
+            ],
+            "isFirstMount": false,
+            "props": [],
+            "state": null,
+          },
+        }
+      `);
+
+      expect(changeDescriptions).toHaveLength(6);
+
+      // Export and re-import profile data and make sure it is retained.
+      utils.exportImportHelper(bridge, store);
+
+      for (let commitIndex = 0; commitIndex < 6; commitIndex++) {
+        const commitData = store.profilerStore.getCommitData(
+          rootID,
+          commitIndex,
+        );
+        expect(commitData.changeDescriptions).toEqual(
+          changeDescriptions[commitIndex],
+        );
+      }
+    });
   });
 });

@@ -835,4 +835,154 @@ describe('ReactDOMFizzShellHydration', () => {
       'Something went wrong: boomreadyresolved',
     );
   });
+
+  describe('use(store)', () => {
+    // A component that suspends during hydration replays with its store reads
+    // intact.
+    let use;
+    let createStore;
+
+    beforeEach(() => {
+      use = React.use;
+      createStore = React.unstable_createStore;
+    });
+
+    // @gate enableStore
+    it(
+      'does not corrupt hooks during hydration when conditional use suspends ' +
+        'after a cascading update (#33580)',
+      async () => {
+        const {ErrorBoundary, Bomb} = createErrorBoundaryAndBomb();
+
+        const stateStore = createStore(false);
+        const promiseStore = createStore(null);
+
+        function Updater({setPromise}) {
+          const state = use(stateStore);
+
+          React.useEffect(() => {
+            stateStore.update(true);
+            startTransition(() => {
+              setPromise(Promise.resolve('resolved'));
+            });
+          }, [state]);
+
+          return null;
+        }
+
+        function Page() {
+          const promise = use(promiseStore);
+          const value = promise ? React.use(promise) : promise;
+
+          React.useMemo(() => {}, []);
+
+          return (
+            <>
+              <Updater setPromise={promiseStore.update} />
+              <React.Suspense fallback="Loading...">
+                <ErrorBoundary>
+                  <Bomb />
+                </ErrorBoundary>
+              </React.Suspense>
+              {value !== null ? value : 'hello world'}
+            </>
+          );
+        }
+
+        function App() {
+          return <Page />;
+        }
+
+        await serverAct(async () => {
+          const {pipe} = ReactDOMFizzServer.renderToPipeableStream(<App />, {
+            onError(error) {
+              Scheduler.log('onError: ' + error.message);
+            },
+          });
+          pipe(writable);
+        });
+        assertLog(['onError: boom']);
+
+        const errors = await hydrateRootAndCollectErrors(<App />);
+        assertLog(['onCaughtError: boom']);
+
+        expect(
+          errors.find(error => error.includes('Rendered more hooks')),
+        ).toBeUndefined();
+        expect(container.textContent).toBe(
+          'Something went wrong: boomresolved',
+        );
+      },
+    );
+
+    // @gate enableStore
+    it('preserves hooks when suspension happens before the first tracked hook', async () => {
+      const {ErrorBoundary, Bomb} = createErrorBoundaryAndBomb();
+      const readyStore = createStore(false);
+      const promiseStore = createStore(null);
+      const setReady = readyStore.update;
+
+      function Updater({setPromise}) {
+        React.useEffect(() => {
+          setReady(true);
+          startTransition(() => {
+            setPromise(Promise.resolve('resolved'));
+          });
+        }, []);
+
+        return null;
+      }
+
+      function Page({promise}) {
+        const value = promise ? React.use(promise) : promise;
+
+        const ready = use(readyStore);
+
+        React.useMemo(() => {}, []);
+
+        return (
+          <>
+            <React.Suspense fallback="Loading...">
+              <ErrorBoundary>
+                <Bomb />
+              </ErrorBoundary>
+            </React.Suspense>
+            <span>{ready ? 'ready' : 'not-ready'}</span>
+            <span>{value !== null ? value : 'hello world'}</span>
+          </>
+        );
+      }
+
+      function App() {
+        const promise = use(promiseStore);
+
+        return (
+          <>
+            <Updater setPromise={promiseStore.update} />
+            <Page promise={promise} />
+          </>
+        );
+      }
+
+      await serverAct(async () => {
+        const {pipe} = ReactDOMFizzServer.renderToPipeableStream(<App />, {
+          onError(error) {
+            Scheduler.log('onError: ' + error.message);
+          },
+        });
+        pipe(writable);
+      });
+      assertLog(['onError: boom']);
+
+      const errors = await hydrateRootAndCollectErrors(<App />);
+      assertLog(['onCaughtError: boom']);
+
+      expect(
+        errors.find(error => error.includes('Rendered more hooks')),
+      ).toBeUndefined();
+      expect(container.textContent).toBe(
+        'Something went wrong: boomreadyresolved',
+      );
+    });
+  });
 });

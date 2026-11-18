@@ -236,5 +236,22 @@ if (!__EXPERIMENTAL__) {
         __DEV__ ? '\n    in Bar (at **)' + '\n    in Foo (at **)' : null,
       );
     });
+
+    describe('use(store)', () => {
+      // @gate enableStore
+      it('should error on use(store)', async () => {
+        const store = React.unstable_createStore('hello');
+        function Component() {
+          const state = React.use(store);
+          return <div>{state}</div>;
+        }
+
+        await expect(async () => {
+          await ReactMarkup.experimental_renderToHTML(<Component />);
+        }).rejects.toThrow(
+          'Cannot use state or effect Hooks in renderToHTML because this component will never be hydrated.',
+        );
+      });
+    });
   });
 }

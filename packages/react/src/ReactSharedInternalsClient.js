@@ -10,9 +10,14 @@
 import type {Dispatcher} from 'react-reconciler/src/ReactInternalTypes';
 import type {AsyncDispatcher} from 'react-reconciler/src/ReactInternalTypes';
 import type {Transition} from './ReactStartTransition';
-import type {GestureProvider, GestureOptions} from 'shared/ReactTypes';
+import type {
+  GestureProvider,
+  GestureOptions,
+  HeldStoreUpdate,
+  ReactStore,
+} from 'shared/ReactTypes';
 
-import {enableGestureTransition} from 'shared/ReactFeatureFlags';
+import {enableGestureTransition, enableStore} from 'shared/ReactFeatureFlags';
 
 type onStartTransitionFinish = (Transition, mixed) => void;
 type onStartGestureTransitionFinish = (
@@ -27,6 +32,15 @@ export type SharedStateClient = {
   T: null | Transition, // ReactCurrentBatchConfig for Transitions
   S: null | onStartTransitionFinish,
   G: null | onStartGestureTransitionFinish,
+  // Dispatches an update to a store that no root reads. Returns whether a
+  // renderer holds on to it, because it's part of a pending transition. Each
+  // renderer chains to the one that was loaded before it.
+  U:
+    | null
+    | ((
+        store: ReactStore<any, any>,
+        update: HeldStoreUpdate<mixed>,
+      ) => boolean),
 
   // DEV-only
 
@@ -65,6 +79,9 @@ const ReactSharedInternals: SharedStateClient = {
 } as any;
 if (enableGestureTransition) {
   ReactSharedInternals.G = null;
+}
+if (enableStore) {
+  ReactSharedInternals.U = null;
 }
 
 if (__DEV__) {

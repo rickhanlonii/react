@@ -14,7 +14,9 @@ import type {ThenableState} from './ReactFlightThenable';
 import {
   REACT_MEMO_CACHE_SENTINEL,
   REACT_CONTEXT_TYPE,
+  REACT_STORE_TYPE,
 } from 'shared/ReactSymbols';
+import {enableStore} from 'shared/ReactFeatureFlags';
 import {createThenableState, trackUsedThenable} from './ReactFlightThenable';
 import {isClientReference} from './ReactFlightServerConfig';
 
@@ -117,6 +119,10 @@ function unsupportedContext(): void {
   throw new Error('Cannot read a Client Context from a Server Component.');
 }
 
+function unsupportedStore(): void {
+  throw new Error('Cannot read a store from a Server Component.');
+}
+
 function useId(): string {
   if (currentRequest === null) {
     throw new Error('useId can only be used while React is rendering');
@@ -147,6 +153,8 @@ function use<T>(usable: Usable<T>): T {
       return trackUsedThenable(thenableState, thenable, index);
     } else if (usable.$$typeof === REACT_CONTEXT_TYPE) {
       unsupportedContext();
+    } else if (enableStore && usable.$$typeof === REACT_STORE_TYPE) {
+      unsupportedStore();
     }
   }
 
@@ -158,6 +166,12 @@ function use<T>(usable: Usable<T>): T {
     ) {
       // Show a more specific message since it's a common mistake.
       throw new Error('Cannot read a Client Context from a Server Component.');
+    } else if (
+      enableStore &&
+      clientReference.value != null &&
+      clientReference.value.$$typeof === REACT_STORE_TYPE
+    ) {
+      throw new Error('Cannot read a store from a Server Component.');
     } else {
       throw new Error('Cannot use() an already resolved Client Reference.');
     }

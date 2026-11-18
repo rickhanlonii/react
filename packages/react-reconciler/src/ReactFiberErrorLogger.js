@@ -15,6 +15,8 @@ import getComponentNameFromFiber from 'react-reconciler/src/getComponentNameFrom
 import {ClassComponent} from './ReactWorkTags';
 
 import reportGlobalError from 'shared/reportGlobalError';
+import {enableStore} from 'shared/ReactFeatureFlags';
+import {markErrorLoggedForStores} from './ReactFiberStore';
 
 import ReactSharedInternals from 'shared/ReactSharedInternals';
 
@@ -139,6 +141,9 @@ export function logUncaughtError(
       errorBoundaryName = null;
     }
     const error = errorInfo.value as any;
+    if (enableStore) {
+      markErrorLoggedForStores(error);
+    }
     if (__DEV__ && ReactSharedInternals.actQueue !== null) {
       // For uncaught errors inside act, we track them on the act and then
       // rethrow them into the test.
@@ -173,6 +178,9 @@ export function logCaughtError(
       errorBoundaryName = getComponentNameFromFiber(boundary);
     }
     const error = errorInfo.value as any;
+    if (enableStore) {
+      markErrorLoggedForStores(error);
+    }
     const onCaughtError = root.onCaughtError;
     onCaughtError(error, {
       componentStack: errorInfo.stack,

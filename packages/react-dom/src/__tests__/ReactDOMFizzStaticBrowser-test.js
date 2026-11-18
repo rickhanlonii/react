@@ -2948,4 +2948,82 @@ describe('ReactDOMFizzStaticBrowser', () => {
       expect(lifetimes).toHaveLength(0);
     });
   });
+
+  describe('use(store)', () => {
+    let use;
+    let createStore;
+
+    beforeEach(() => {
+      use = React.use;
+      createStore = React.unstable_createStore;
+    });
+
+    // @gate enableStore
+    it('discards render-phase updates after an abort', async () => {
+      const controller = new AbortController();
+      let prerendering = true;
+
+      const valueStore = createStore(0);
+      function Abort() {
+        const value = use(valueStore);
+        if (prerendering && value === 0) {
+          // The server renders the value the store was created with and
+          // doesn't re-render for updates, so the abort happens in the same
+          // render as the updates around it.
+          valueStore.update(1);
+          controller.abort('render-phase abort');
+          valueStore.update(2);
+        }
+        return 'After';
+      }
+
+      function App() {
+        return (
+          <div>
+            <Suspense fallback="Loading...">
+              <section>
+                Before
+                <Abort />
+              </section>
+            </Suspense>
+          </div>
+        );
+      }
+
+      let pendingResult;
+      await serverAct(() => {
+        pendingResult = ReactDOMFizzStatic.prerender(<App />, {
+          signal: controller.signal,
+          onError() {},
+        });
+      });
+      const prerendered = await pendingResult;
+      expect(prerendered.postponed).not.toBe(null);
+      await readIntoContainer(prerendered.prelude);
+      expect(getVisibleChildren(container)).toEqual(<div>Loading...</div>);
+
+      prerendering = false;
+      const resumed = await serverAct(() =>
+        ReactDOMFizzServer.resume(
+          <App />,
+          JSON.parse(JSON.stringify(prerendered.postponed)),
+        ),
+      );
+      // The prerender updated the store, so the resumed render warns that it
+      // renders the store's initial value without those updates.
+      assertConsoleErrorDev([
+        'A store was updated before this server render. The server renders ' +
+          "a store's initial value, so the update isn't included. Create the " +
+          'store with the server data, or pass a per-request store through ' +
+          'context.\n' +
+          '    in App (at **)',
+      ]);
+      await readIntoContainer(resumed);
+      expect(getVisibleChildren(container)).toEqual(
+        <div>
+          <section>{['Before', 'After']}</section>
+        </div>,
+      );
+    });
+  });
 });

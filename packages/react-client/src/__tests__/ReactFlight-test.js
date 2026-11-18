@@ -4560,4 +4560,70 @@ describe('ReactFlight', () => {
     );
     expect(await ReactNoopFlightClient.read(chunks)).toBe(text);
   });
+
+  describe('use(store)', () => {
+    // The store versions of the "Cannot read a Client Context from a Server
+    // Component" cases.
+    let createStore;
+
+    beforeEach(() => {
+      createStore = React.unstable_createStore;
+    });
+
+    // @gate enableStore
+    it('should error if a store is passed to use()', () => {
+      const store = createStore();
+      function ServerComponent() {
+        return ReactServer.use(store);
+      }
+      const errors = [];
+      ReactNoopFlightServer.render(<ServerComponent />, {
+        onError(x) {
+          errors.push(x.message);
+        },
+      });
+      expect(errors).toEqual(['Cannot read a store from a Server Component.']);
+    });
+
+    // @gate enableStore
+    it('should error if a client reference to a store is passed to use()', () => {
+      const store = createStore();
+      const ClientStore = clientReference(store);
+      function ServerComponent() {
+        return ReactServer.use(ClientStore);
+      }
+      const errors = [];
+      ReactNoopFlightServer.render(<ServerComponent />, {
+        onError(x) {
+          errors.push(x.message);
+        },
+      });
+      expect(errors).toEqual(['Cannot read a store from a Server Component.']);
+    });
+
+    // @gate enableStore
+    it('should error if a store is passed to a Client Component', () => {
+      const store = createStore();
+      function Client() {
+        return null;
+      }
+      const ClientComponent = clientReference(Client);
+      function ServerComponent() {
+        return <ClientComponent store={store} />;
+      }
+      const errors = [];
+      ReactNoopFlightServer.render(<ServerComponent />, {
+        onError(x) {
+          errors.push(x.message);
+        },
+      });
+      expect(errors).toHaveLength(1);
+      // The message points at the prop that holds the store.
+      expect(errors[0]).toContain(
+        "Stores can't be passed from a Server Component to a Client " +
+          'Component. Create the store in a Client Component module instead.\n' +
+          (__DEV__ ? '  <... store={{$$typeof: ' : '  {store: {$$typeof: '),
+      );
+    });
+  });
 });

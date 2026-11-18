@@ -597,5 +597,9 @@
   "609": "Cannot access %s on the client. You cannot read a Server Reference to an object on the client. You can only pass it back to the server.",
   "610": "Cannot assign to a Server Reference to an object on the client.",
   "611": "Expected a Server Reference to an object to resolve to an object.",
-  "612": "Cannot transport a detached buffer. This usually happens when trying to transport multiple buffer-spanning views on the same underyling buffer. Either reuse the exact same view by identity or copy the underlying buffer manually via `view.slice()`."
+  "612": "Cannot transport a detached buffer. This usually happens when trying to transport multiple buffer-spanning views on the same underyling buffer. Either reuse the exact same view by identity or copy the underlying buffer manually via `view.slice()`.",
+  "613": "Cannot update a store inside a startGestureTransition. Gestures can only update the useOptimistic() hook. There should be no side-effects associated with starting a Gesture until its Action is invoked. Move side-effects to the Action instead.",
+  "614": "use(store) is not supported by this renderer.",
+  "615": "Cannot read a store from a Server Component.",
+  "616": "Stores can't be passed from a Server Component to a Client Component. Create the store in a Client Component module instead.%s"
 }

@@ -21,6 +21,7 @@ import {
   enableYieldingBeforePassive,
   enableGestureTransition,
   enableDefaultTransitionIndicator,
+  enableStore,
 } from 'shared/ReactFeatureFlags';
 import {
   NoLane,
@@ -83,6 +84,7 @@ import {
 } from './ReactProfilerTimer';
 import {peekEntangledActionLane} from './ReactFiberAsyncAction';
 
+import {finishHeldStoreUpdatesOfEvent} from './ReactFiberStore';
 import noop from 'shared/noop';
 import reportGlobalError from 'shared/reportGlobalError';
 
@@ -341,10 +343,30 @@ function processRootScheduleInMicrotask() {
   }
 
   if (currentEventTransitionLane !== NoLane) {
+    if (enableStore) {
+      // Store updates that this event's transition held are done if the
+      // transition has nothing else to render.
+      finishHeldStoreUpdatesOfEvent(
+        isLanePendingOnScheduledRoot(currentEventTransitionLane),
+      );
+    }
     // Reset Event Transition Lane so that we allocate a new one next time.
     currentEventTransitionLane = NoLane;
     startDefaultTransitionIndicatorIfNeeded();
   }
+}
+
+// Whether any root has work pending in the lane. A root with pending work is
+// always scheduled.
+export function isLanePendingOnScheduledRoot(lane: Lane): boolean {
+  let root = firstScheduledRoot;
+  while (root !== null) {
+    if ((root.pendingLanes & lane) !== NoLanes) {
+      return true;
+    }
+    root = root.next;
+  }
+  return false;
 }
 
 function startDefaultTransitionIndicatorIfNeeded() {

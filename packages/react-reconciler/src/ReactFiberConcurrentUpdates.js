@@ -47,11 +47,16 @@ let concurrentQueuesIndex = 0;
 
 let concurrentlyUpdatedLanes: Lanes = NoLanes;
 
+// Incremented every time the queue is drained, so a caller can tell whether
+// something it enqueued is still waiting in it.
+let concurrentQueuesEpoch: number = 0;
+
 export function finishQueueingConcurrentUpdates(): void {
   const endIndex = concurrentQueuesIndex;
   concurrentQueuesIndex = 0;
 
   concurrentlyUpdatedLanes = NoLanes;
+  concurrentQueuesEpoch++;
 
   let i = 0;
   while (i < endIndex) {
@@ -85,6 +90,10 @@ export function finishQueueingConcurrentUpdates(): void {
 
 export function getConcurrentlyUpdatedLanes(): Lanes {
   return concurrentlyUpdatedLanes;
+}
+
+export function getConcurrentQueuesEpoch(): number {
+  return concurrentQueuesEpoch;
 }
 
 function enqueueUpdate(
@@ -150,6 +159,18 @@ export function enqueueConcurrentHookUpdateAndEagerlyBailout<S, A>(
   }
 }
 
+// A store update is scheduled on the HostRoot, which owns the state of the
+// store on its root. Like other updates, it's added to the store's queue when
+// the next render starts.
+export function enqueueConcurrentStoreUpdate(
+  hostRoot: Fiber,
+  queue: ConcurrentQueue,
+  update: ConcurrentUpdate,
+  lane: Lane,
+): void {
+  enqueueUpdate(hostRoot, queue, update, lane);
+}
+
 export function enqueueConcurrentClassUpdate<State>(
   fiber: Fiber,
   queue: ClassQueue<State>,
@@ -168,6 +189,17 @@ export function enqueueConcurrentRenderForLane(
 ): FiberRoot | null {
   enqueueUpdate(fiber, null, null, lane);
   return getRootForUpdatedFiber(fiber);
+}
+
+// Like enqueueConcurrentRenderForLane, for callers that already know the fiber
+// is mounted on a root that has the lane pending. Store updates use this to
+// mark every component that reads the store without walking to the root from
+// each one. The walk happens when the next render starts.
+export function enqueueConcurrentRenderForLaneOnMountedFiber(
+  fiber: Fiber,
+  lane: Lane,
+): void {
+  enqueueUpdate(fiber, null, null, lane);
 }
 
 // Calling this function outside this module should only be done for backwards

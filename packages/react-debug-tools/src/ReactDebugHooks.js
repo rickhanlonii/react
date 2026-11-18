@@ -10,6 +10,7 @@ import type {StackFrame as ParsedStackFrame} from 'error-stack-parser';
 import type {
   Awaited,
   ReactContext,
+  ReactStore,
   StartTransitionOptions,
   Usable,
   Thenable,
@@ -31,11 +32,13 @@ import {
   SimpleMemoComponent,
   ContextProvider,
   ForwardRef,
+  HostRoot,
 } from 'react-reconciler/src/ReactWorkTags';
 import {
   REACT_MEMO_CACHE_SENTINEL,
   REACT_CONTEXT_TYPE,
   REACT_RECOVERABLE_TYPE,
+  REACT_STORE_TYPE,
 } from 'shared/ReactSymbols';
 import hasOwnProperty from 'shared/hasOwnProperty';
 
@@ -50,6 +53,8 @@ type HookLogEntry = {
   value: mixed,
   debugInfo: ReactDebugInfo | null,
   dispatcherHookName: string,
+  // The store that a use(store) entry read.
+  store?: ReactStore<any, any>,
 };
 
 let hookLog: Array<HookLogEntry> = [];
@@ -117,6 +122,16 @@ function getPrimitiveStackCache(): Map<string, Array<any>> {
         };
         Dispatcher.use(recoverable as any);
         Dispatcher.use({
+          $$typeof: REACT_STORE_TYPE,
+          _reducer: (s: mixed, a: mixed) => s,
+          _head: null,
+          _initial: null,
+          _headQueue: null,
+          _pendingTransitionUpdates: null,
+          _records: [],
+          update() {},
+        } as any);
+        Dispatcher.use({
           then() {},
           status: 'fulfilled',
           value: null,
@@ -147,6 +162,40 @@ function getPrimitiveStackCache(): Map<string, Array<any>> {
 }
 
 let currentFiber: null | Fiber = null;
+
+function readStore<T>(store: ReactStore<T>): T {
+  // Show the value the component rendered with, if it read this store.
+  if (currentFiber !== null) {
+    const updateQueue: any = currentFiber.updateQueue;
+    if (updateQueue != null && updateQueue.storeReads != null) {
+      // Pairs of a store record and the value that was read.
+      const storeReads = updateQueue.storeReads;
+      for (let i = 0; i < storeReads.length; i += 2) {
+        if (storeReads[i].store === store) {
+          return storeReads[i + 1];
+        }
+      }
+    }
+    // The component didn't read this store when it rendered. Show the base
+    // state of the root's copy of the store, if it has one. Don't compute the
+    // latest value: that runs the reducer, which is user code, and changes
+    // the store.
+    let fiber: Fiber = currentFiber;
+    while (fiber.return !== null) {
+      fiber = fiber.return;
+    }
+    if (fiber.tag === HostRoot) {
+      const root = fiber.stateNode;
+      const records = store._records;
+      for (let i = 0; i < records.length; i++) {
+        if (records[i].root === root) {
+          return records[i].committed.memoizedState;
+        }
+      }
+    }
+  }
+  return store._head;
+}
 let currentHook: null | Hook = null;
 let currentContextDependency: null | ContextDependency<mixed> = null;
 let currentThenableIndex: number = 0;
@@ -267,6 +316,22 @@ function use<T>(usable: Usable<T>): T {
         value,
         debugInfo: null,
         dispatcherHookName: 'Use',
+      });
+
+      return value;
+    } else if (usable.$$typeof === REACT_STORE_TYPE) {
+      const store: ReactStore<T> = usable as any;
+      const value = readStore(store);
+
+      hookLog.push({
+        // Like use(context), show what was read rather than "Use".
+        displayName: 'Store',
+        primitive: 'Store',
+        stackError: new Error(),
+        value,
+        debugInfo: null,
+        dispatcherHookName: 'Use',
+        store,
       });
 
       return value;
@@ -1009,6 +1074,22 @@ function parseHookName(functionName: void | string): string {
   return functionName.slice(startIndex);
 }
 
+// The store that each Store node read. Reads of a store can be conditional, so
+// DevTools matches Store nodes across renders by store, not by position. The
+// store isn't put on the node itself: nodes are serialized for inspection, and
+// a store references the roots that read it.
+const storesOfHooksNodes: WeakMap<
+  HooksNode,
+  ReactStore<any, any>,
+> = new WeakMap();
+
+// Returns an opaque key that is the same for nodes that read the same store,
+// or null if the node didn't read a store.
+export function getStoreKeyOfHooksNode(node: HooksNode): mixed {
+  const store = storesOfHooksNodes.get(node);
+  return store === undefined ? null : store;
+}
+
 function buildTree(
   rootStack: ParsedStackFrame[],
   readHookLog: Array<HookLogEntry>,
@@ -1097,6 +1178,8 @@ function buildTree(
     const id =
       primitive === 'Context' ||
       primitive === 'Context (use)' ||
+      // Stores don't use a slot in the list of Hooks.
+      primitive === 'Store' ||
       primitive === 'DebugValue' ||
       primitive === 'Promise' ||
       primitive === 'Unresolved' ||
@@ -1136,6 +1219,10 @@ function buildTree(
     }
 
     levelChild.hookSource = hookSource;
+
+    if (hook.store !== undefined) {
+      storesOfHooksNodes.set(levelChild, hook.store);
+    }
 
     levelChildren.push(levelChild);
   }

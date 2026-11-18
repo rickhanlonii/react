@@ -913,6 +913,42 @@ const allTests = {
         }
       `,
     },
+    // use(store). Reading a store follows the rules of use(), which the cases
+    // above cover. createStore and store.update aren't Hooks.
+    {
+      code: normalizeIndent`
+        // Valid because store.update is not a Hook and can be called anywhere.
+        const countStore = createStore(0);
+        function increment() {
+          countStore.update(c => c + 1);
+        }
+        class Button extends React.Component {
+          onClick() {
+            countStore.update(c => c + 1);
+          }
+        }
+      `,
+    },
+    {
+      code: normalizeIndent`
+        // Valid because createStore is not a Hook and can be called at the top
+        // level or in event handlers.
+        const store = createStore({todos: []});
+        function onAdd(text) {
+          const todo = createStore({text});
+          store.update(s => ({todos: [...s.todos, todo]}));
+        }
+      `,
+    },
+    {
+      code: normalizeIndent`
+        // Valid because stores of stores can be unwrapped twice.
+        function Todo({todosStore, index}) {
+          const todo = use(use(todosStore)[index]);
+          return <Text text={todo.text} />;
+        }
+      `,
+    },
   ],
   invalid: [
     {

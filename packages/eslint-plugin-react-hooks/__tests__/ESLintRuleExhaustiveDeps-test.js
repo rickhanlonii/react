@@ -1564,6 +1564,23 @@ const tests = {
         }
       `,
     },
+    {
+      code: normalizeIndent`
+        // A store created outside the component isn't a reactive value, so
+        // calling its update method doesn't need a dependency.
+        const countStore = createStore(0);
+        function Counter() {
+          const count = use(countStore);
+          useEffect(() => {
+            const id = setInterval(() => {
+              countStore.update(c => c + 1);
+            }, 1000);
+            return () => clearInterval(id);
+          }, []);
+          return count;
+        }
+      `,
+    },
   ],
   invalid: [
     {
@@ -7890,6 +7907,40 @@ const tests = {
                   React.useEffect(() => {
                     onStuff();
                   }, []);
+                }
+              `,
+            },
+          ],
+        },
+      ],
+    },
+    {
+      // A store passed as a prop is reactive. Unlike a useState setter,
+      // store.update isn't known to be stable, so the store must be listed.
+      code: normalizeIndent`
+        function Counter({store}) {
+          const count = use(store);
+          const increment = useCallback(() => {
+            store.update(c => c + 1);
+          }, []);
+          return <button onClick={increment}>{count}</button>;
+        }
+      `,
+      errors: [
+        {
+          message:
+            "React Hook useCallback has a missing dependency: 'store'. " +
+            'Either include it or remove the dependency array.',
+          suggestions: [
+            {
+              desc: 'Update the dependencies array to be: [store]',
+              output: normalizeIndent`
+                function Counter({store}) {
+                  const count = use(store);
+                  const increment = useCallback(() => {
+                    store.update(c => c + 1);
+                  }, [store]);
+                  return <button onClick={increment}>{count}</button>;
                 }
               `,
             },

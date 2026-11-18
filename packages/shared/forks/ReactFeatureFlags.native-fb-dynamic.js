@@ -22,3 +22,4 @@ export const enableObjectFiber = __VARIANT__;
 export const passChildrenWhenCloningPersistedNodes = __VARIANT__;
 export const enableViewTransitionForPersistenceMode = __VARIANT__;
 export const enableConditionalUseWarning = __VARIANT__;
+export const enableStore = __VARIANT__;

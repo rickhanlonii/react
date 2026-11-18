@@ -70,6 +70,26 @@ export type ReactContext<T> = {
   displayName?: string,
 };
 
+// An update to a store that no root read when it was dispatched. Every
+// renderer that holds it keeps its own lane for it.
+export type HeldStoreUpdate<A = mixed> = {
+  action: A,
+};
+
+export type ReactStore<T, A = mixed> = {
+  $$typeof: symbol,
+  _reducer: (T, A) => T,
+  _head: T,
+  _initial: T,
+  _headQueue: Array<A> | null,
+  // Transition updates dispatched while no root read the store, in the order
+  // they were dispatched. Shared by every renderer that holds them.
+  _pendingTransitionUpdates: Array<HeldStoreUpdate<A>> | null,
+  // The per-root records of this store, owned by the renderer.
+  _records: Array<any>,
+  update: (action: A) => void,
+};
+
 export type ReactPortal = {
   $$typeof: symbol | number,
   key: ReactKey,
@@ -165,7 +185,11 @@ export type StartTransitionOptions = {
   name?: string,
 };
 
-export type Usable<T> = Thenable<T> | ReactContext<T> | ReactRecoverable;
+export type Usable<T> =
+  | Thenable<T>
+  | ReactContext<T>
+  | ReactRecoverable
+  | ReactStore<T>;
 
 export type ReactCustomFormAction = {
   name?: string,

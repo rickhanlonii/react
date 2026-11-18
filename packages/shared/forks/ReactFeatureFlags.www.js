@@ -33,6 +33,7 @@ export const {
   enableScrollEndPolyfill,
   enableInternalInstanceMap,
   enableViewTransitionParentEnterExit,
+  enableStore,
   enableSameElementBailout,
 } = dynamicFeatureFlags;
 

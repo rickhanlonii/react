@@ -63,7 +63,7 @@ const Hook: component(...props: HookProps) = memo(
             {hookName && <span className={styles.HookName}>({hookName})</span>}
           </span>
           {hook.subHooks?.map((subHook, index) => (
-            <Hook key={hook.id} hook={subHook} hookNames={hookNames} />
+            <Hook key={index} hook={subHook} hookNames={hookNames} />
           ))}
         </li>
       </ul>
@@ -71,51 +71,65 @@ const Hook: component(...props: HookProps) = memo(
   },
 );
 
-const shouldKeepHook = (
-  hook: HooksNode,
-  hooksArray: Array<number>,
-): boolean => {
-  if (hook.id !== null && hooksArray.includes(hook.id)) {
-    return true;
-  }
-  const subHooks = hook.subHooks;
-  if (subHooks == null) {
-    return false;
-  }
+// Store reads take no slot in the list of Hooks, so they have no id. Custom
+// hooks have no id either, but they have sub hooks.
+function isStoreRead(hook: HooksNode): boolean {
+  return (
+    hook.id === null &&
+    hook.name === 'Store' &&
+    (hook.subHooks == null || hook.subHooks.length === 0)
+  );
+}
 
-  return subHooks.some(subHook => shouldKeepHook(subHook, hooksArray));
+type ChangedHooksFilter = {
+  hookIDs: Array<number>,
+  storeReads: Array<number>,
+  storeReadIndex: number,
+  matchCount: number,
 };
 
-const filterHooks = (
-  hook: HooksNode,
-  hooksArray: Array<number>,
-): HooksNode | null => {
-  if (!shouldKeepHook(hook, hooksArray)) {
-    return null;
+// Keeps the hooks that changed, and the custom hooks that contain them. Hooks
+// with a slot are matched by id, and store reads by their position among the
+// store reads.
+function filterHooks(
+  hooks: Array<HooksNode>,
+  filter: ChangedHooksFilter,
+): Array<HooksNode> {
+  const filteredHooks = [];
+  for (let i = 0; i < hooks.length; i++) {
+    const hook = hooks[i];
+    const subHooks = hook.subHooks;
+    if (subHooks != null && subHooks.length > 0) {
+      const filteredSubHooks = filterHooks(subHooks, filter);
+      if (filteredSubHooks.length > 0) {
+        filteredHooks.push({...hook, subHooks: filteredSubHooks});
+      }
+    } else if (hook.id !== null) {
+      if (filter.hookIDs.includes(hook.id)) {
+        filteredHooks.push(hook);
+        filter.matchCount++;
+      }
+    } else if (isStoreRead(hook)) {
+      if (filter.storeReads.includes(filter.storeReadIndex)) {
+        filteredHooks.push(hook);
+        filter.matchCount++;
+      }
+      filter.storeReadIndex++;
+    }
   }
-
-  const subHooks = hook.subHooks;
-  if (subHooks == null) {
-    return hook;
-  }
-
-  const filteredSubHooks = subHooks
-    .map(subHook => filterHooks(subHook, hooksArray))
-    .filter(Boolean);
-  return filteredSubHooks.length > 0
-    ? {...hook, subHooks: filteredSubHooks}
-    : hook;
-};
+  return filteredHooks;
+}
 
 type Props = {|
   fiberID: number,
   hooks: ChangeDescription['hooks'],
+  storeReads?: ChangeDescription['storeReads'],
   state: ChangeDescription['state'],
   displayMode?: 'detailed' | 'compact',
 |};
 
 const HookChangeSummary: component(...props: Props) = memo(
-  ({hooks, fiberID, state, displayMode = 'detailed'}: Props) => {
+  ({hooks, storeReads, fiberID, state, displayMode = 'detailed'}: Props) => {
     const {parseHookNames, toggleParseHookNames, inspectedElement} = useContext(
       InspectedElementContext,
     );
@@ -138,30 +152,52 @@ const HookChangeSummary: component(...props: Props) = memo(
     const hookNames =
       element != null ? getAlreadyLoadedHookNames(element) : null;
 
+    const hookIDs = hooks ?? [];
+    const changedStoreReads = storeReads ?? [];
+    const changeCount = hookIDs.length + changedStoreReads.length;
+
+    // The inspected hooks are from the element's latest render, which might
+    // not have all the hooks that changed in this one. Then there's no list.
     const filteredHooks = useMemo(() => {
-      if (!hooks || !inspectedElement?.hooks) return null;
-      return inspectedElement.hooks
-        .map(hook => filterHooks(hook, hooks))
-        .filter(Boolean);
-    }, [inspectedElement?.hooks, hooks]);
+      if (!inspectedElement?.hooks) return null;
+      const filter: ChangedHooksFilter = {
+        hookIDs: hooks ?? [],
+        storeReads: storeReads ?? [],
+        storeReadIndex: 0,
+        matchCount: 0,
+      };
+      const result = filterHooks(inspectedElement.hooks, filter);
+      return filter.matchCount === changeCount ? result : null;
+    }, [inspectedElement?.hooks, hooks, storeReads, changeCount]);
 
     const hookParsingFailed = parseHookNames && hookNames === null;
 
-    if (!hooks?.length) {
+    if (changeCount === 0) {
       return <span>No hooks changed</span>;
     }
 
     if (
       inspectedElement?.id !== element?.id ||
-      filteredHooks?.length !== hooks.length ||
+      filteredHooks == null ||
       displayMode === 'compact'
     ) {
-      const hookIds = hooks.map(hookId => String(hookId + 1));
-      const hookWord = hookIds.length === 1 ? '• Hook' : '• Hooks';
+      const hookNumbers = hookIDs.map(hookID => String(hookID + 1));
+      const hookWord = hookNumbers.length === 1 ? '• Hook' : '• Hooks';
       return (
-        <span>
-          {hookWord} {hookListFormatter.format(hookIds)} changed
-        </span>
+        <>
+          {hookNumbers.length > 0 && (
+            <div>
+              {hookWord} {hookListFormatter.format(hookNumbers)} changed
+            </div>
+          )}
+          {changedStoreReads.length > 0 && (
+            <div>
+              {changedStoreReads.length === 1
+                ? '• Store changed'
+                : '• Stores changed'}
+            </div>
+          )}
+        </>
       );
     }
 
@@ -174,13 +210,9 @@ const HookChangeSummary: component(...props: Props) = memo(
       toggleTitle = 'Parse hook names (may be slow)';
     }
 
-    if (filteredHooks == null) {
-      return null;
-    }
-
     return (
       <div>
-        {filteredHooks.length > 1 ? '• Hooks changed:' : '• Hook changed:'}
+        {changeCount > 1 ? '• Hooks changed:' : '• Hook changed:'}
         {(!parseHookNames || hookParsingFailed) && (
           <Toggle
             className={
@@ -195,9 +227,9 @@ const HookChangeSummary: component(...props: Props) = memo(
             <ButtonIcon type="parse-hook-names" />
           </Toggle>
         )}
-        {filteredHooks.map(hook => (
+        {filteredHooks.map((hook, index) => (
           <Hook
-            key={`${inspectedElement?.id ?? 'unknown'}-${hook.id}`}
+            key={`${inspectedElement?.id ?? 'unknown'}-${index}`}
             hook={hook}
             hookNames={hookNames}
           />
