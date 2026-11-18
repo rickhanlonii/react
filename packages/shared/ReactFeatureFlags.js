@@ -114,6 +114,11 @@ export const enableDefaultTransitionIndicator = __EXPERIMENTAL__;
 
 export const enableOptimisticKey = __EXPERIMENTAL__;
 
+// When a function component returns the same element its child was rendered
+// with (e.g. from the React Compiler's memo cache), bail out instead of
+// reconciling the child, which would bail out anyway.
+export const enableSameElementBailout = __EXPERIMENTAL__;
+
 /**
  * Switches Fiber creation to a simple object instead of a constructor.
  */
