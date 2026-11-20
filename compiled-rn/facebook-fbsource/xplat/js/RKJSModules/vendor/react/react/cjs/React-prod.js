@@ -7,7 +7,7 @@
  * @noflow
  * @nolint
  * @preventMunge
- * @generated SignedSource<<004d4b9ee36773acce0002de2c660a58>>
+ * @generated SignedSource<<20c487e55627a0df8c759dd7a759f94f>>
  */
 
 "use strict";
@@ -341,7 +341,39 @@ var reportGlobalError =
         }
         console.error(error);
       };
-function addTransitionType() {}
+function startTransition(scope) {
+  var prevTransition = ReactSharedInternals.T,
+    currentTransition = {};
+  currentTransition.types =
+    null !== prevTransition ? prevTransition.types : null;
+  ReactSharedInternals.T = currentTransition;
+  try {
+    var returnValue = scope(),
+      onStartTransitionFinish = ReactSharedInternals.S;
+    null !== onStartTransitionFinish &&
+      onStartTransitionFinish(currentTransition, returnValue);
+    "object" === typeof returnValue &&
+      null !== returnValue &&
+      "function" === typeof returnValue.then &&
+      returnValue.then(noop, reportGlobalError);
+  } catch (error) {
+    reportGlobalError(error);
+  } finally {
+    null !== prevTransition &&
+      null !== currentTransition.types &&
+      (prevTransition.types = currentTransition.types),
+      (ReactSharedInternals.T = prevTransition);
+  }
+}
+function addTransitionType(type) {
+  var transition = ReactSharedInternals.T;
+  if (null !== transition) {
+    var transitionTypes = transition.types;
+    null === transitionTypes
+      ? (transition.types = [type])
+      : -1 === transitionTypes.indexOf(type) && transitionTypes.push(type);
+  } else startTransition(addTransitionType.bind(null, type));
+}
 var ReactCompilerRuntime = { __proto__: null, c: useMemoCache },
   Children = {
     map: mapChildren,
@@ -491,28 +523,7 @@ exports.memo = function (type, compare) {
     compare: void 0 === compare ? null : compare
   };
 };
-exports.startTransition = function (scope) {
-  var prevTransition = ReactSharedInternals.T,
-    currentTransition = {};
-  ReactSharedInternals.T = currentTransition;
-  try {
-    var returnValue = scope(),
-      onStartTransitionFinish = ReactSharedInternals.S;
-    null !== onStartTransitionFinish &&
-      onStartTransitionFinish(currentTransition, returnValue);
-    "object" === typeof returnValue &&
-      null !== returnValue &&
-      "function" === typeof returnValue.then &&
-      returnValue.then(noop, reportGlobalError);
-  } catch (error) {
-    reportGlobalError(error);
-  } finally {
-    null !== prevTransition &&
-      null !== currentTransition.types &&
-      (prevTransition.types = currentTransition.types),
-      (ReactSharedInternals.T = prevTransition);
-  }
-};
+exports.startTransition = startTransition;
 exports.unstable_Activity = REACT_ACTIVITY_TYPE;
 exports.unstable_LegacyHidden = REACT_LEGACY_HIDDEN_TYPE;
 exports.unstable_Scope = REACT_SCOPE_TYPE;
@@ -589,4 +600,4 @@ exports.useSyncExternalStore = function (
 exports.useTransition = function () {
   return ReactSharedInternals.H.useTransition();
 };
-exports.version = "19.3.0-native-fb-d4d099f0-20260128";
+exports.version = "19.3.0-native-fb-e04279e7-20261119";

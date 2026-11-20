@@ -7,7 +7,7 @@
  * @noflow
  * @nolint
  * @preventMunge
- * @generated SignedSource<<0df5b0a7aa95d2e568f9e18c8400b539>>
+ * @generated SignedSource<<035d78fa4c337b4f3418d9d4350bb7d4>>
  */
 
 "use strict";
@@ -33,6 +33,8 @@ __DEV__ &&
           return "SuspenseList";
         case REACT_ACTIVITY_TYPE:
           return "Activity";
+        case REACT_VIEW_TRANSITION_TYPE:
+          return "ViewTransition";
       }
       if ("object" === typeof type)
         switch (
@@ -272,9 +274,9 @@ __DEV__ &&
         : "object" === typeof node &&
           null !== node &&
           node.$$typeof === REACT_LAZY_TYPE &&
-          ("fulfilled" === node._payload.status
-            ? isValidElement(node._payload.value) &&
-              node._payload.value._store &&
+          ("fulfilled" === node._payload.status &&
+          isValidElement(node._payload.value)
+            ? node._payload.value._store &&
               (node._payload.value._store.validated = 1)
             : node._store && (node._store.validated = 1));
     }
@@ -299,6 +301,7 @@ __DEV__ &&
       REACT_MEMO_TYPE = Symbol.for("react.memo"),
       REACT_LAZY_TYPE = Symbol.for("react.lazy"),
       REACT_ACTIVITY_TYPE = Symbol.for("react.activity"),
+      REACT_VIEW_TRANSITION_TYPE = Symbol.for("react.view_transition"),
       REACT_CLIENT_REFERENCE = Symbol.for("react.client.reference"),
       ReactSharedInternals =
         React.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE,

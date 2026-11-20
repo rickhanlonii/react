@@ -7,7 +7,7 @@
  * @noflow
  * @nolint
  * @preventMunge
- * @generated SignedSource<<8fe0ba326c5ab2eee8ae2b79139c0307>>
+ * @generated SignedSource<<b30234f8150194d556fef9edd1599ecc>>
  */
 
 "use strict";
@@ -107,6 +107,8 @@ __DEV__ &&
           return "SuspenseList";
         case REACT_ACTIVITY_TYPE:
           return "Activity";
+        case REACT_VIEW_TRANSITION_TYPE:
+          return "ViewTransition";
       }
       if ("object" === typeof type)
         switch (
@@ -332,9 +334,9 @@ __DEV__ &&
         : "object" === typeof node &&
           null !== node &&
           node.$$typeof === REACT_LAZY_TYPE &&
-          ("fulfilled" === node._payload.status
-            ? isValidElement(node._payload.value) &&
-              node._payload.value._store &&
+          ("fulfilled" === node._payload.status &&
+          isValidElement(node._payload.value)
+            ? node._payload.value._store &&
               (node._payload.value._store.validated = 1)
             : node._store && (node._store.validated = 1));
     }
@@ -532,42 +534,74 @@ __DEV__ &&
     }
     function lazyInitializer(payload) {
       if (-1 === payload._status) {
-        var ctor = payload._result,
-          thenable = ctor();
+        var resolveDebugValue = null,
+          rejectDebugValue = null,
+          ioInfo = payload._ioInfo;
+        null != ioInfo &&
+          ((ioInfo.start = ioInfo.end = performance.now()),
+          (ioInfo.value = new Promise(function (resolve, reject) {
+            resolveDebugValue = resolve;
+            rejectDebugValue = reject;
+          })));
+        ioInfo = payload._result;
+        var thenable = ioInfo();
         thenable.then(
           function (moduleObject) {
-            if (0 === payload._status || -1 === payload._status)
-              (payload._status = 1),
-                (payload._result = moduleObject),
-                void 0 === thenable.status &&
-                  ((thenable.status = "fulfilled"),
-                  (thenable.value = moduleObject));
+            if (0 === payload._status || -1 === payload._status) {
+              payload._status = 1;
+              payload._result = moduleObject;
+              var _ioInfo = payload._ioInfo;
+              if (null != _ioInfo) {
+                _ioInfo.end = performance.now();
+                var debugValue =
+                  null == moduleObject ? void 0 : moduleObject.default;
+                resolveDebugValue(debugValue);
+                _ioInfo.value.status = "fulfilled";
+                _ioInfo.value.value = debugValue;
+              }
+              void 0 === thenable.status &&
+                ((thenable.status = "fulfilled"),
+                (thenable.value = moduleObject));
+            }
           },
           function (error) {
-            if (0 === payload._status || -1 === payload._status)
-              (payload._status = 2),
-                (payload._result = error),
-                void 0 === thenable.status &&
-                  ((thenable.status = "rejected"), (thenable.reason = error));
+            if (0 === payload._status || -1 === payload._status) {
+              payload._status = 2;
+              payload._result = error;
+              var _ioInfo2 = payload._ioInfo;
+              null != _ioInfo2 &&
+                ((_ioInfo2.end = performance.now()),
+                _ioInfo2.value.then(noop, noop),
+                rejectDebugValue(error),
+                (_ioInfo2.value.status = "rejected"),
+                (_ioInfo2.value.reason = error));
+              void 0 === thenable.status &&
+                ((thenable.status = "rejected"), (thenable.reason = error));
+            }
           }
         );
+        ioInfo = payload._ioInfo;
+        if (null != ioInfo) {
+          var displayName = thenable.displayName;
+          "string" === typeof displayName && (ioInfo.name = displayName);
+        }
         -1 === payload._status &&
           ((payload._status = 0), (payload._result = thenable));
       }
       if (1 === payload._status)
         return (
-          (ctor = payload._result),
-          void 0 === ctor &&
+          (ioInfo = payload._result),
+          void 0 === ioInfo &&
             console.error(
               "lazy: Expected the result of a dynamic import() call. Instead received: %s\n\nYour code should look like: \n  const MyComponent = lazy(() => import('./MyComponent'))\n\nDid you accidentally put curly braces around the import?",
-              ctor
+              ioInfo
             ),
-          "default" in ctor ||
+          "default" in ioInfo ||
             console.error(
               "lazy: Expected the result of a dynamic import() call. Instead received: %s\n\nYour code should look like: \n  const MyComponent = lazy(() => import('./MyComponent'))",
-              ctor
+              ioInfo
             ),
-          ctor.default
+          ioInfo.default
         );
       throw payload._result;
     }
@@ -588,7 +622,60 @@ __DEV__ &&
     function releaseAsyncTransition() {
       ReactSharedInternals.asyncTransitions--;
     }
-    function addTransitionType() {}
+    function startTransition(scope) {
+      var prevTransition = ReactSharedInternals.T,
+        currentTransition = {};
+      currentTransition.types =
+        null !== prevTransition ? prevTransition.types : null;
+      currentTransition._updatedFibers = new Set();
+      ReactSharedInternals.T = currentTransition;
+      try {
+        var returnValue = scope(),
+          onStartTransitionFinish = ReactSharedInternals.S;
+        null !== onStartTransitionFinish &&
+          onStartTransitionFinish(currentTransition, returnValue);
+        "object" === typeof returnValue &&
+          null !== returnValue &&
+          "function" === typeof returnValue.then &&
+          (ReactSharedInternals.asyncTransitions++,
+          returnValue.then(releaseAsyncTransition, releaseAsyncTransition),
+          returnValue.then(noop, reportGlobalError));
+      } catch (error) {
+        reportGlobalError(error);
+      } finally {
+        null === prevTransition &&
+          currentTransition._updatedFibers &&
+          ((scope = currentTransition._updatedFibers.size),
+          currentTransition._updatedFibers.clear(),
+          10 < scope &&
+            console.warn(
+              "Detected a large number of updates inside startTransition. If this is due to a subscription please re-write it to use React provided hooks. Otherwise concurrent mode guarantees are off the table."
+            )),
+          null !== prevTransition &&
+            null !== currentTransition.types &&
+            (null !== prevTransition.types &&
+              prevTransition.types !== currentTransition.types &&
+              console.error(
+                "We expected inner Transitions to have transferred the outer types set and that you cannot add to the outer Transition while inside the inner.This is a bug in React."
+              ),
+            (prevTransition.types = currentTransition.types)),
+          (ReactSharedInternals.T = prevTransition);
+      }
+    }
+    function addTransitionType(type) {
+      var transition = ReactSharedInternals.T;
+      if (null !== transition) {
+        var transitionTypes = transition.types;
+        null === transitionTypes
+          ? (transition.types = [type])
+          : -1 === transitionTypes.indexOf(type) && transitionTypes.push(type);
+      } else
+        0 === ReactSharedInternals.asyncTransitions &&
+          console.error(
+            "addTransitionType can only be called inside a `startTransition()` callback. It must be associated with a specific Transition."
+          ),
+          startTransition(addTransitionType.bind(null, type));
+    }
     function enqueueTask(task) {
       if (null === enqueueTaskImpl)
         try {
@@ -603,7 +690,7 @@ __DEV__ &&
               ((didWarnAboutMessageChannel = !0),
               "undefined" === typeof MessageChannel &&
                 console.error(
-                  "This browser does not have a MessageChannel implementation, so enqueuing tasks via await act(async () => ...) will fail. Please file an issue at https://github.com/facebook/react/issues if you encounter this warning."
+                  "This browser does not have a MessageChannel implementation, so enqueuing tasks via await act(async () => ...) will fail. Please file an issue at https://github.com/react/react/issues if you encounter this warning."
                 ));
             var channel = new MessageChannel();
             channel.port1.onmessage = callback;
@@ -734,7 +821,7 @@ __DEV__ &&
       ],
       replaceState: [
         "replaceState",
-        "Refactor your code to use setState instead (see https://github.com/facebook/react/issues/3236)."
+        "Refactor your code to use setState instead (see https://github.com/react/react/issues/3236)."
       ]
     };
     for (fnName in deprecatedAPIs)
@@ -1243,11 +1330,24 @@ __DEV__ &&
       );
     };
     exports.lazy = function (ctor) {
-      return {
-        $$typeof: REACT_LAZY_TYPE,
-        _payload: { _status: -1, _result: ctor },
-        _init: lazyInitializer
-      };
+      ctor = { _status: -1, _result: ctor };
+      var lazyType = {
+          $$typeof: REACT_LAZY_TYPE,
+          _payload: ctor,
+          _init: lazyInitializer
+        },
+        ioInfo = {
+          name: "lazy",
+          start: -1,
+          end: -1,
+          value: null,
+          owner: null,
+          debugStack: Error("react-stack-top-frame"),
+          debugTask: console.createTask ? console.createTask("lazy()") : null
+        };
+      ctor._ioInfo = ioInfo;
+      lazyType._debugInfo = [{ awaited: ioInfo }];
+      return lazyType;
     };
     exports.memo = function (type, compare) {
       null == type &&
@@ -1277,44 +1377,7 @@ __DEV__ &&
       });
       return compare;
     };
-    exports.startTransition = function (scope) {
-      var prevTransition = ReactSharedInternals.T,
-        currentTransition = {};
-      currentTransition._updatedFibers = new Set();
-      ReactSharedInternals.T = currentTransition;
-      try {
-        var returnValue = scope(),
-          onStartTransitionFinish = ReactSharedInternals.S;
-        null !== onStartTransitionFinish &&
-          onStartTransitionFinish(currentTransition, returnValue);
-        "object" === typeof returnValue &&
-          null !== returnValue &&
-          "function" === typeof returnValue.then &&
-          (ReactSharedInternals.asyncTransitions++,
-          returnValue.then(releaseAsyncTransition, releaseAsyncTransition),
-          returnValue.then(noop, reportGlobalError));
-      } catch (error) {
-        reportGlobalError(error);
-      } finally {
-        null === prevTransition &&
-          currentTransition._updatedFibers &&
-          ((scope = currentTransition._updatedFibers.size),
-          currentTransition._updatedFibers.clear(),
-          10 < scope &&
-            console.warn(
-              "Detected a large number of updates inside startTransition. If this is due to a subscription please re-write it to use React provided hooks. Otherwise concurrent mode guarantees are off the table."
-            )),
-          null !== prevTransition &&
-            null !== currentTransition.types &&
-            (null !== prevTransition.types &&
-              prevTransition.types !== currentTransition.types &&
-              console.error(
-                "We expected inner Transitions to have transferred the outer types set and that you cannot add to the outer Transition while inside the inner.This is a bug in React."
-              ),
-            (prevTransition.types = currentTransition.types)),
-          (ReactSharedInternals.T = prevTransition);
-      }
-    };
+    exports.startTransition = startTransition;
     exports.unstable_Activity = REACT_ACTIVITY_TYPE;
     exports.unstable_LegacyHidden = REACT_LEGACY_HIDDEN_TYPE;
     exports.unstable_Scope = REACT_SCOPE_TYPE;
@@ -1416,7 +1479,7 @@ __DEV__ &&
     exports.useTransition = function () {
       return resolveDispatcher().useTransition();
     };
-    exports.version = "19.3.0-native-fb-d4d099f0-20260128";
+    exports.version = "19.3.0-native-fb-e04279e7-20261119";
     "undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ &&
       "function" ===
         typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStop &&
